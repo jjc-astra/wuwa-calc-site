@@ -1,3 +1,21 @@
+// ==========================================================================
+//   GLOBAL MECHANICS CONSTANTS (Single Source of Truth)
+// ==========================================================================
+const MECHANICS_NOTATION = {
+    SANHUA: {
+        CURSOR_PERIOD: 200,      // Total duration of a full up-and-down ping-pong loop (2s)
+        CURSOR_MIDPOINT: 100,    // The peak switch turn frame on the modulo track (1s)
+        FORTE_WIN_CENTER: 65,    // Default center point alignment for Frostbite gauge
+        BASE_WIN_SIZE: 10,       // Base window size with 0 Clarity stacks
+        STACK_SCALING: 20,       // Added window size per 1 stack of Clarity
+        MAX_CURSOR_VAL: 100      // Upper scale limit for tracking the cursor gauge
+    },
+    GAUGES: {
+        DEFAULT_MAX: 100         // Default upper capacity boundary for unmapped metrics
+    }
+};
+
+
 // --- Input Bindings Mapping ---
 const INPUT_BINDINGS = {
     "Basic": "Left Click",
@@ -148,7 +166,6 @@ const PANEL_CONFIG = {
 //   DYNAMIC FACTORY INTERRATION: Hydrate Forte Manifests 1-6 Programmatically
 // ==========================================================================
 for (let i = 1; i <= 6; i++) {
-    // Preserves the structural naming anomaly where Forte 1 omits numerical indices on properties
     const deltaKey = (i === 1) ? "forte_Delta" : `forte${i}_Delta`;
     const staticKey = (i === 1) ? "forte" : `forte${i}`;
     

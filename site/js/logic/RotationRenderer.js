@@ -171,13 +171,14 @@ const RotationRenderer = {
     },
 
     _updateGauges: (row, data) => {
-    const u = data.unit;
-    const dbChar = (typeof CHARACTER_DB !== 'undefined' && u) ? CHARACTER_DB[u] || {} : {};
-    
-    // --- ADDED: 'isGlowing' parameter to toggle visual state ---
-    const updateGauge = (name, val, maxVal, isGlowing = false) => {
-        const el = row.querySelector(`.gauge-dial[data-name="${name}"], .gauge-vertical[data-name="${name}"]`);
-        if (el) {
+        const u = data.unit;
+        // Verify existence of character definitions once at the start
+        const dbChar = (typeof CHARACTER_DB !== 'undefined' && u) ? CHARACTER_DB[u] || {} : {};
+        
+        const updateGauge = (name, val, maxVal, isGlowing = false) => {
+            const el = row.querySelector(`.gauge-dial[data-name="${name}"], .gauge-vertical[data-name="${name}"]`);
+            if (!el) return; // Clean, early exit
+            
             if (el.classList.contains('gauge-vertical')) {
                 if (!el.querySelector('.gauge-vertical-fill')) {
                     el.innerHTML = '<div class="gauge-vertical-fill"></div>';
@@ -188,57 +189,96 @@ const RotationRenderer = {
             
             el.className = el.classList.contains('gauge-vertical') ? 'gauge-vertical' : 'gauge-dial';
             
-            const pct = maxVal > 0 ? Math.min(100, Math.max(0, (val / maxVal) * 100)) : 0;
+            const pct = maxVal > 0 ? Math.min(MECHANICS_NOTATION.GAUGES.DEFAULT_MAX, Math.max(0, (val / maxVal) * MECHANICS_NOTATION.GAUGES.DEFAULT_MAX)) : 0;
             el.style.setProperty('--p', pct + '%');
             el.dataset.value = typeof val === 'number' && !Number.isInteger(val) ? parseFloat(val.toFixed(2)) : val;
             
-            // --- UPDATED: Toggle 'is-full' if the gauge is maxed OR if Sanhua is in the window ---
-            el.classList.toggle('is-full', val >= maxVal || isGlowing);
-        }
-    };
+            el.classList.toggle('is-full', val >= maxVal);
+            el.classList.toggle('is-glowing', isGlowing); 
+        };
 
-    const liveConcerto = (data.concerto && u) ? (data.concerto[u] || 0) : 0;
-    const liveEnergy = (data.energy && u) ? (data.energy[u] || 0) : 0;
-    const liveTune = data.enemyTune !== undefined ? data.enemyTune : (data.trackers?.tune || 0);
-    updateGauge('Concerto', liveConcerto, 100);
-    updateGauge('Energy', liveEnergy, dbChar.maxEnergy || 100);
-    updateGauge('Tune', liveTune, 100);
+        const liveConcerto = data.concerto ? (data.concerto[u] || 0) : 0;
+        const liveEnergy = data.energy ? (data.energy[u] || 0) : 0;
+        const liveTune = data.enemyTune !== undefined ? data.enemyTune : (data.trackers?.tune || 0);
+        
+        updateGauge('Concerto', liveConcerto, MECHANICS_NOTATION.GAUGES.DEFAULT_MAX);
+        updateGauge('Energy', liveEnergy, dbChar.maxEnergy || MECHANICS_NOTATION.GAUGES.DEFAULT_MAX);
+        updateGauge('Tune', liveTune, MECHANICS_NOTATION.GAUGES.DEFAULT_MAX);
 
-    for (let i = 1; i <= 6; i++) {
-        const fKey = `forte${i}`;
-        let fValue = (data[fKey] && u) ? (data[fKey][u] || 0) : 0;
-        const maxKey = `maxForte${i}`;
-        const fMax = dbChar[maxKey] || 100;
-        
-        let isGlowing = false;
-        
-        // --- INJECT FOR SANHUA LIVE CURSOR & GLOW TRACKING ---
-        if (u === "Sanhua" && i === 1 && data.trackers && data.trackers.Hold_Start !== undefined) {
-            const holdStart = data.trackers.Hold_Start;
+        // Capture lookahead constants to optimize loop execution
+        const sanhuaCfg = MECHANICS_NOTATION.SANHUA;
+
+        for (let i = 1; i <= 6; i++) {
+            const fKey = `forte${i}`;
+            let fValue = data[fKey] ? (data[fKey][u] || 0) : 0;
+            const maxKey = `maxForte${i}`;
+            const fMax = dbChar[maxKey] || MECHANICS_NOTATION.GAUGES.DEFAULT_MAX;
             
-            // --- FIX: Switch from pre-action start time to post-action end time ---
-            const rowEndGameTime = data.gameTimeStart + (data.gameTimePassed || 0);
-            const currentHoldDuration = rowEndGameTime - holdStart;
+            let isGlowing = false;
             
-            // Calculate where the cursor lands at the conclusion of this move's animation
-            fValue = (((currentHoldDuration * 100) % 200 > 100) 
-                ? (200 - ((currentHoldDuration * 100) % 200)) 
-                : ((currentHoldDuration * 100) % 200));
-            
-            // Grab the active clarity stacks present at the conclusion of the cast
-            const clarity = data.activeBuffs[`${u}_Clarity`]?.stacks || data.trackers.Clarity || 0;
-            const center = 65;
-            const halfWidth = (10 + (20 * clarity)) / 2;
-            
-            // Verify if the final position rests inside the expanded window
-            isGlowing = Math.abs(fValue - center) <= halfWidth;
-            
-            updateGauge(`Forte ${i}`, fValue, 100, isGlowing);
-        } else {
-            updateGauge(`Forte ${i}`, fValue, fMax, isGlowing);
+            // REDUNDANCY CLEANUP: Check trackers state cleanly once at top level
+            if (u === "Sanhua" && i === 1 && data.trackers?.Hold_Start !== undefined) {
+                const currentHoldDuration = (data.gameTimeStart + (data.gameTimePassed || 0)) - data.trackers.Hold_Start;
+                const loopMod = (currentHoldDuration * sanhuaCfg.MAX_CURSOR_VAL) % sanhuaCfg.CURSOR_PERIOD;
+                
+                // Calculate cursor position using standard ping-pong period constraints
+                fValue = (loopMod > sanhuaCfg.CURSOR_MIDPOINT) 
+                    ? (sanhuaCfg.CURSOR_PERIOD - loopMod) 
+                    : loopMod;
+                
+                const clarity = data.activeBuffs[`${u}_Clarity`]?.stacks || data.trackers.Clarity || 0;
+                const halfWidth = (sanhuaCfg.BASE_WIN_SIZE + (sanhuaCfg.STACK_SCALING * clarity)) / 2;
+                
+                isGlowing = Math.abs(fValue - sanhuaCfg.FORTE_WIN_CENTER) <= halfWidth;
+                
+                updateGauge(`Forte ${i}`, fValue, sanhuaCfg.MAX_CURSOR_VAL, isGlowing);
+            } else {
+                updateGauge(`Forte ${i}`, fValue, fMax, isGlowing);
+            }
         }
-    }
-},
+
+        // ==========================================================================
+        //   STREAMLINED DIAGNOSTIC ENGINE (Zero Redundant Property Validation)
+        // ==========================================================================
+        if (u === "Sanhua" && data.trackers?.Hold_Start !== undefined) {
+            const sanhuaCfg = MECHANICS_NOTATION.SANHUA;
+            const holdStartGame = data.trackers.Hold_Start;
+            const currentGameTime = data.gameTimeStart;
+            
+            const center = data.trackers.Forte_Win_Center || sanhuaCfg.FORTE_WIN_CENTER;
+            const size = data.trackers.Forte_Win_Size || sanhuaCfg.BASE_WIN_SIZE;
+            const halfWidth = size / 2;
+            
+            const minCursor = center - halfWidth;
+            const maxCursor = center + halfWidth;
+            const cycle = Math.floor((currentGameTime - holdStartGame) / 2);
+            
+            const targetStartUp = holdStartGame + (cycle * 2) + (minCursor / sanhuaCfg.MAX_CURSOR_VAL);
+            const targetEndUp = holdStartGame + (cycle * 2) + (maxCursor / sanhuaCfg.MAX_CURSOR_VAL);
+            
+            const targetStartDown = holdStartGame + (cycle * 2) + ((sanhuaCfg.CURSOR_PERIOD - maxCursor) / sanhuaCfg.MAX_CURSOR_VAL);
+            const targetEndDown = holdStartGame + (cycle * 2) + ((sanhuaCfg.CURSOR_PERIOD - minCursor) / sanhuaCfg.MAX_CURSOR_VAL);
+            
+            let winStartGame = targetStartUp;
+            let winEndGame = targetEndUp;
+            if (Math.abs(currentGameTime - ((targetStartDown + targetEndDown) / 2)) < Math.abs(currentGameTime - ((targetStartUp + targetEndUp) / 2))) {
+                winStartGame = targetStartDown;
+                winEndGame = targetEndDown;
+            }
+
+            console.warn(`[DIAGNOSTIC] Row #${data.arrayIndex + 1} (${data.moveName}) Forte Calculus:`);
+            console.table({
+                "Hold Start Game Time (s)": holdStartGame,
+                "Release Execution Game Time (s)": currentGameTime,
+                "Raw Slider Cursor Pos": data.trackers.Cursor_Pos,
+                "Detonate Win Center": center,
+                "Detonate Win Total Size": size,
+                "Target Window Start Game Time (s)": parseFloat(winStartGame.toFixed(3)),
+                "Target Window End Game Time (s)": parseFloat(winEndGame.toFixed(3)),
+                "Is Aligned Inside Window": data.isInForteWindow ? "SUCCESS (TRUE)" : "FAILED (FALSE)"
+            });
+        }
+    },
 
     _updateStatusStrip: (row, data) => {
         const indexCell = row.querySelector('.index-cell');
