@@ -1,0 +1,47 @@
+{
+  "Void Thunder_2-pc Effect": {
+    "name": "2-pc Effect",
+    "category": "2-pc Set Effect",
+    "isPassive": true,
+    "triggerRule": "ALWAYS",
+    "effects": [
+      {
+        "type": "buff",
+        "name": "Void Thunder 2-pc",
+        "stat": "Electro DMG Bonus",
+        "value": "10%",
+        "duration": 9999
+      }
+    ]
+  },
+    "Void Thunder_5-pc Effect Heavy": {
+    "name": "5-pc Effect Heavy",
+    "category": "5-pc Set Effect Heavy",
+    "isPassive": true,
+    "triggerRule": "OnCast[Heavy]",
+    "effects": [
+      {
+        "type": "buff",
+        "name": "Void Thunder 5-pc Heavy",
+        "stat": "Electro DMG Bonus",
+        "value": "15%",
+        "duration": 15
+      }
+    ]
+  },
+    "Void Thunder_5-pc Effect Skill": {
+    "name": "5-pc Effect Skill",
+    "category": "5-pc Set Effect Skill",
+    "isPassive": true,
+    "triggerRule": "OnCast[Skill]",
+    "effects": [
+      {
+        "type": "buff",
+        "name": "Void Thunder 5-pc Skill",
+        "stat": "Electro DMG Bonus",
+        "value": "15%",
+        "duration": 15
+      }
+    ]
+  }
+}

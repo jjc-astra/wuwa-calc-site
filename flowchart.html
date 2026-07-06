@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            background-color: #0d1117; /* GitHub Dark Dimmed */
+            color: #c9d1d9;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            /* Allow scrolling instead of shrinking */
+            overflow: auto; 
+        }
+        /* Ensure the container doesn't force a small width */
+        .mermaid {
+            display: block;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+    <pre class="mermaid">
+    graph TD
+    %% --- INITIALIZATION ---
+    Start(("App Load")) -->|DOMContentLoaded| Init["GUIController.js"]
+
+    subgraph Initialization
+        Init -->|"1. Generate HTML"| Gen["RosterUtils: Build Team/Echoes"]
+        Init -->|"2. Bind Listeners"| Bind["GUIController: Bind Events"]
+        Init -->|"3. Init Tooltips"| Tool["TooltipManager"]
+        Gen --> DOM_Main["DOM: Roster & Builder UI"]
+    end
+
+    %% --- ROSTER SYSTEM ---
+    subgraph Roster_System
+        User_Roster["User Action"] -->|"Change Char/Wep/Set"| GUI_Roster["GUI: Change Listener"]
+        GUI_Roster -->|"Update Logic"| RosterUtils_Logic["RosterUtils: Handle Logic"]
+        RosterUtils_Logic -->|"Update Images/Options"| DOM_Main
+        
+        User_Roster -->|"Adjust Slider"| GUI_Slider["GUI: Input Listener"]
+        GUI_Slider -->|"Calc Stat Value"| RosterUtils_Stat["RosterUtils: updateStatFromSlider"]
+        RosterUtils_Stat -->|"Update Input"| DOM_Main
+        
+        DOM_Main -->|"Trigger Change"| HeaderPreview["GUI: bindHeaderPreview"]
+        HeaderPreview -->|"Update Icons"| DOM_Header["DOM: Header Preview"]
+    end
+
+    %% --- ROTATION BUILDER ---
+    subgraph Rotation_Builder
+        User_Rot["User Action"]
+        
+        %% Selection
+        User_Rot -->|"Click Checkbox"| RotUtils_Sel["RotationUtils: Manual Toggle"]
+        RotUtils_Sel -->|"Update Class"| DOM_Rot["DOM: Rotation Rows"]
+        RotUtils_Sel -->|Callback| GUI_Sel["GUI: Update Button State"]
+
+        %% Editing
+        User_Rot -->|"Edit Value"| GUI_Edit["GUI: Change Listener"]
+        GUI_Edit -->|"Create Cmd"| CMD_Edit["CommandSystem: EditValueCommand"]
+        
+        %% Actions
+        User_Rot -->|"Click Delete"| GUI_Del["GUI: performDelete"]
+        GUI_Del -->|"Create Cmd"| CMD_Del["CommandSystem: DeleteRowsCommand"]
+        
+        User_Rot -->|"Click Copy"| GUI_Copy["GUI: performCopy"]
+        GUI_Copy -->|"Extract Data"| RotUtils_Data["RotationUtils: extractData"]
+        RotUtils_Data -->|Save| Clipboard["State: Clipboard"]
+        
+        User_Rot -->|"Click Paste"| GUI_Paste["GUI: performPaste"]
+        GUI_Paste -->|"Read Clipboard"| RotUtils_Paste["RotationUtils: generatePasteCommands"]
+        RotUtils_Paste -->|"Create Cmd"| CMD_Comp["CommandSystem: CompositeCommand"]
+        
+        %% History
+        User_Rot -->|"Undo/Redo"| GUI_Hist["GUI: History Nav"]
+        GUI_Hist -->|"Call System"| UndoMan["UndoManager"]
+    end
+
+    %% --- COMMAND SYSTEM ---
+    subgraph Command_Execution
+        CMD_Edit -->|Execute| UndoMan
+        CMD_Del -->|Execute| UndoMan
+        CMD_Comp -->|Execute| UndoMan
+        
+        UndoMan -->|"1. Lock Execution"| ExecLock{"isExecuting?"}
+        ExecLock -- Yes --> Stop["Ignore"]
+        ExecLock -- No --> Run["Run .execute / .undo"]
+        
+        Run -->|"2. Modify DOM"| DOM_Rot
+        Run -->|"3. Push Stack"| HistoryStack["History Stack"]
+        Run -->|"4. Notify UI"| GUI_Sel
+    end
+
+    %% --- RECALCULATION LOOP ---
+    subgraph Reactive_Calculation
+        DOM_Rot -->|"Event: row-structure-change"| GUI_Struct["GUI: Structure Listener"]
+        GUI_Struct -->|"Update Indices"| RotUtils_Idx["RotationUtils: updateIndices"]
+        
+        DOM_Rot -->|"Event: change (Input)"| GUI_Calc["GUI: Calc Listener"]
+        GUI_Struct -->|"Event: check-rotation"| GUI_Calc
+        
+        GUI_Calc -->|"Calc Time/Stats"| RotUtils_Calc["RotationUtils: recalculate"]
+        RotUtils_Calc -->|"Update Read-Only Inputs"| DOM_Rot
+    end
+
+    %% --- IMPORT / EXPORT ---
+    subgraph Data_Persistence
+        User_IO["User Action"] -->|"Click Export"| GUI_Exp["GUI: Generate JSON"]
+        GUI_Exp -->|Download| File["JSON File"]
+        
+        User_IO -->|"Click Import"| GUI_Imp["GUI: Parse JSON"]
+        File --> GUI_Imp
+        GUI_Imp -->|"Apply Values"| DOM_Main
+        GUI_Imp -->|"Apply Values"| DOM_Rot
+    end
+    </pre>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ 
+            startOnLoad: true, 
+            theme: 'dark',
+            // THIS LINE FIXES THE SIZE ISSUE:
+            flowchart: { useMaxWidth: false } 
+        });
+    </script>
+</body>
+</html>

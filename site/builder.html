@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WuWa Mechanics Builder</title>
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/builder.css">
+</head>
+<body>
+
+<div id="app-layout">
+    
+    <div class="global-nav-header">
+        <div class="header-left">
+            <h2 class="section-title" style="display: flex; align-items: center; gap: 8px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                Mechanics Builder
+            </h2>
+            <button id="back-to-grid-btn" class="base-btn d-none">← Back to Library</button>
+        </div>
+        
+        <div class="header-right">
+            <a href="index.html" class="base-btn nav-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                <span>WuWa Calculator</span>
+                <svg class="nav-arrow-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+            </a>
+        </div>
+    </div>
+
+    <div id="view-grid" class="builder-view" style="flex-direction: column;">
+        <div style="padding: 20px 20px 0 20px; flex-shrink: 0;">
+            <input type="text" id="grid-search-input" class="form-input" placeholder="Search Characters, Weapons, Echoes..." style="width: 100%; max-width: 400px; padding: 10px 15px; font-size: 0.9rem; background: #1a1a1a; border-radius: 6px;">
+        </div>
+        
+        <div id="character-grid" class="char-grid"></div>
+    </div>
+
+    <div id="view-editor" class="builder-view d-none">
+        
+        <div class="editor-pane scrollable">
+            <div class="panel-header-main" id="editor-char-name">Character Name</div>
+            
+            <div class="base-card" style="flex-direction: row; gap: 20px; align-items: stretch;">
+                
+                <div id="editor-char-icon" class="char-icon" style="width: 130px; height: auto; flex-shrink: 0; margin: 0; align-self: flex-start;">
+                    <img class="char-grid-img opacity-0" src="">
+                    <span class="char-fallback opacity-0"></span>
+                </div>
+
+                <div style="flex: 1;">
+                    <div class="panel-header-tiny">Base Stats (Lvl 90)</div>
+                    <div class="panel-content-grid" id="base-stats-form">
+                        </div>
+                </div>
+            </div>
+
+            <div id="mechanics-accordion" class="flex-col gap-md" style="margin-top: 20px;">
+                </div>
+        </div>
+
+        <div class="output-pane">
+            <div class="panel-header-tiny flex-row" style="justify-content: space-between; align-items: center;">
+                <span>Outputs</span>
+                <div class="flex-row gap-sm">
+                    <!-- --- PERSISTENCE: Added Cache Clear workbench action --- -->
+                    <button id="reset-builder-cache-btn" class="base-btn text-xs btn-danger" disabled>Reset Cache</button>
+                    <button id="copy-char-btn" class="base-btn text-xs" disabled>Copy Character JSON</button>
+                    <button id="copy-mech-btn" class="base-btn text-xs" disabled>Copy Mechanics JSON</button>
+                </div>
+            </div>
+            <pre id="json-output" class="code-editor"></pre>
+        </div>
+
+    </div>
+</div>
+
+<script src="js/db.js"></script> 
+<script src="js/utils/DataLoader.js"></script>
+<script src="js/utils/Common.js"></script>
+<script src="js/utils/UIComponents.js"></script>
+
+<script src="js/logic/BuilderState.js"></script>
+<script src="js/logic/BuilderUtils.js"></script>
+<script src="js/logic/BuilderRenderer.js"></script>
+
+<script src="js/builderGUIController.js"></script>
+</body>
+</html>

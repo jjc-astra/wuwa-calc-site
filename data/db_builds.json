@@ -1,0 +1,473 @@
+{
+  "Luuk": {
+    "Main DPS": {
+      "weapon": "Daybreakers Spine",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Rite of Gilded Revelation",
+      "mainEcho": "Twin Nova - Nebulous Cannon",
+      "mainStats": { "cost4": "CR Rate", "cost3": ["Spectro DMG", "Spectro DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 2, "ER %": 2, "Basic DMG": 2 }
+    }
+  },
+  "Aemeath": {
+    "Main DPS": {
+      "weapon": "Everbright Polestar",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Trailblazing Star",
+      "mainEcho": "Sigilum",
+      "mainStats": { "cost4": "CR Rate", "cost3": ["Fusion DMG", "ATK %"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 2, "ER %": 2, "Lib DMG": 2 }
+    }
+  },
+  "Mornye": {
+    "Main DPS": {
+      "weapon": "Starfield Calibrator",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Halo of Starry Radiance",
+      "mainEcho": "Reactor Husk",
+      "mainStats": { "cost4": "DEF %", "cost3": ["Fusion DMG", "ER %"], "cost1": ["DEF %", "DEF %"] },
+      "subStats": { "CR Rate": 2, "CR DMG": 5, "DEF %": 5, "ER %": 4 }
+    }
+  },
+  "Lynae": {
+    "Main DPS": {
+      "weapon": "Spectrum Blaster",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Pact of Neonlight Leap",
+      "mainEcho": "Hyvatia",
+      "mainStats": { "cost4": "CR DMG", "cost3": ["Spectro DMG", "Spectro DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "Skill DMG": 3, "ER %": 2 }
+    }
+  },
+  "Buling": {
+    "Sub DPS": {
+      "weapon": "Variation",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Rejuvenating Glow",
+      "mainEcho": "Fallacy of No Return",
+      "mainStats": { "cost4": "CR Rate", "cost3": ["Electro DMG", "Electro DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ER %": 2, "ATK %": 2, "ATK": 2 }
+    }
+  },
+  "Chisa": {
+    "Main DPS": {
+      "weapon": "Kumokiri",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Thread of Severed Fate",
+		"subSet": "Sun-sinking Eclipse",
+      "mainEcho": "Threnodian - Leviathan",
+      "mainStats": { "cost4": "CR DMG", "cost3": ["Havoc DMG", "Havoc DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "Skill DMG": 3, "ER %": 2 }
+    }
+  },
+  "Qiuyuan": {
+    "Main DPS": {
+      "weapon": "Emerald of Genesis",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Sierra Gale",
+      "mainEcho": "Feilian Beringal",
+      "mainStats": { "cost4": "CR DMG", "cost3": ["Aero DMG", "Aero DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "ER %": 3, "Skill DMG": 2 }
+    }
+  },
+  "Galbrena": {
+    "Main DPS": {
+      "weapon": "Static Mist",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Molten Rift",
+      "mainEcho": "Inferno Rider",
+      "mainStats": { "cost4": "CR DMG", "cost3": ["Fusion DMG", "Fusion DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "ER %": 3, "Skill DMG": 2 }
+    }
+  },
+  "Iuno": {
+    "Main DPS": {
+      "weapon": "Abyss Surges",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Sierra Gale",
+      "mainEcho": "Feilian Beringal",
+      "mainStats": { "cost4": "CR DMG", "cost3": ["Aero DMG", "Aero DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "ER %": 3, "Skill DMG": 2 }
+    }
+  },
+  "Augusta": {
+    "Main DPS": {
+      "weapon": "Verdant Summit",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Void Thunder",
+      "mainEcho": "Thundering Mephis",
+      "mainStats": { "cost4": "CR DMG", "cost3": ["Electro DMG", "Electro DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "ER %": 3, "Lib DMG": 2 }
+    }
+  },
+  "Phrolova": {
+    "Main DPS": {
+      "weapon": "Stringmaster",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Sun-sinking Eclipse",
+      "mainEcho": "Dreamless",
+      "mainStats": { "cost4": "CR Rate", "cost3": ["Havoc DMG", "Havoc DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "ER %": 3, "Skill DMG": 2 }
+    }
+  },
+  "Lupa": {
+    "Main DPS": {
+      "weapon": "Verdant Summit",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Molten Rift",
+      "mainEcho": "Inferno Rider",
+      "mainStats": { "cost4": "CR DMG", "cost3": ["Fusion DMG", "Fusion DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "ER %": 3, "Skill DMG": 2 }
+    }
+  },
+  "Cartethyia": {
+    "Main DPS": {
+      "weapon": "Emerald of Genesis",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Sierra Gale",
+      "mainEcho": "Feilian Beringal",
+      "mainStats": { "cost4": "CR DMG", "cost3": ["Aero DMG", "Aero DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "ER %": 3, "Skill DMG": 2 }
+    }
+  },
+  "Ciaccona": {
+    "Main DPS": {
+      "weapon": "Static Mist",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Sierra Gale",
+      "mainEcho": "Feilian Beringal",
+      "mainStats": { "cost4": "CR DMG", "cost3": ["Aero DMG", "Aero DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "ER %": 3, "Skill DMG": 2 }
+    }
+  },
+  "Zani": {
+    "Main DPS": {
+      "weapon": "Abyss Surges",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Celestial Light",
+      "mainEcho": "Jue",
+      "mainStats": { "cost4": "CR DMG", "cost3": ["Spectro DMG", "Spectro DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "ER %": 3, "Skill DMG": 2 }
+    }
+  },
+  "Cantarella": {
+    "Main DPS": {
+      "weapon": "Stringmaster",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Sun-sinking Eclipse",
+      "mainEcho": "Dreamless",
+      "mainStats": { "cost4": "CR Rate", "cost3": ["Havoc DMG", "Havoc DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "ER %": 3, "Skill DMG": 2 }
+    }
+  },
+  "Brant": {
+    "Main DPS": {
+      "weapon": "Blazing Brilliance",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Molten Rift",
+      "mainEcho": "Inferno Rider",
+      "mainStats": { "cost4": "CR Rate", "cost3": ["Fusion DMG", "Fusion DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "ER %": 3, "Skill DMG": 2 }
+    }
+  },
+  "Phoebe": {
+    "Main DPS": {
+      "weapon": "Stellar Symphony",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Celestial Light",
+      "mainEcho": "Jue",
+      "mainStats": { "cost4": "CR DMG", "cost3": ["Spectro DMG", "Spectro DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "ER %": 3, "Skill DMG": 2 }
+    }
+  },
+  "Roccia": {
+    "Main DPS": {
+      "weapon": "Abyss Surges",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Sun-sinking Eclipse",
+      "mainEcho": "Dreamless",
+      "mainStats": { "cost4": "CR DMG", "cost3": ["Havoc DMG", "Havoc DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "ER %": 3, "Skill DMG": 2 }
+    }
+  },
+  "Carlotta": {
+    "Main DPS": {
+      "weapon": "Static Mist",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Freezing Frost",
+      "mainEcho": "Lampylumen Myriad",
+      "mainStats": { "cost4": "CR DMG", "cost3": ["Glacio DMG", "Glacio DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "ER %": 3, "Skill DMG": 2 }
+    }
+  },
+  "Lumi": {
+    "Main DPS": {
+      "weapon": "Radiance Cleaver",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Void Thunder",
+      "mainEcho": "NM Thundering Mephis",
+      "mainStats": { "cost4": "CR Rate", "cost3": ["Electro DMG", "Electro DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %":2, "ER %": 2, "Basic DMG": 2 }
+    }
+  },
+  "Youhu": {
+    "Main DPS": {
+      "weapon": "Marcato",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Freezing Frost",
+      "mainEcho": "Lampylumen Myriad",
+      "mainStats": { "cost4": "CR Rate", "cost3": ["Glacio DMG", "Glacio DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "ER %": 3, "Skill DMG": 2 }
+    }
+  },
+  "Camellya": {
+    "Main DPS": {
+      "weapon": "Emerald of Genesis",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Sun-sinking Eclipse",
+      "mainEcho": "Dreamless",
+      "mainStats": { "cost4": "CR DMG", "cost3": ["Havoc DMG", "Havoc DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "ER %": 3, "Skill DMG": 2 }
+    }
+  },
+  "Shorekeeper": {
+    "Support / Healer": {
+      "weapon": "Stellar Symphony",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Rejuvenating Glow",
+      "mainEcho": "Bell-Borne",
+      "mainStats": { "cost4": "Healing Bonus", "cost3": ["ER %", "ER %"], "cost1": ["HP %", "HP %"] },
+      "subStats": { "ER %": 5, "HP %": 5, "HP": 4, "CR Rate": 3, "ATK %": 2 }
+    }
+  },
+  "Xiangli Yao": {
+    "Main DPS": {
+      "weapon": "Abyss Surges",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Void Thunder",
+      "mainEcho": "Tempest Mephis",
+      "mainStats": { "cost4": "CR DMG", "cost3": ["Electro DMG", "Electro DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "Lib DMG": 3, "ER %": 2 }
+    }
+  },
+  "Zhezhi": {
+    "Sub DPS": {
+      "weapon": "Stringmaster",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Freezing Frost",
+      "mainEcho": "Lampylumen Myriad",
+      "mainStats": { "cost4": "CR Rate", "cost3": ["Glacio DMG", "Glacio DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "ER %": 3, "Skill DMG": 2 }
+    }
+  },
+  "Changli": {
+    "Main DPS": {
+      "weapon": "Blazing Brilliance",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Molten Rift",
+      "mainEcho": "Inferno Rider",
+      "mainStats": { "cost4": "CR Rate", "cost3": ["Fusion DMG", "Fusion DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "Skill DMG": 3, "ER %": 2 }
+    }
+  },
+  "Jinhsi": {
+    "Main DPS": {
+      "weapon": "Ages of Harvest",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Celestial Light",
+      "mainEcho": "Jue",
+      "mainStats": { "cost4": "CR Rate", "cost3": ["Spectro DMG", "Spectro DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "Skill DMG": 3, "ER %": 2 }
+    }
+  },
+  "Yinlin": {
+    "Sub DPS": {
+      "weapon": "Stringmaster",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Void Thunder",
+      "mainEcho": "Tempest Mephis",
+      "mainStats": { "cost4": "CR Rate", "cost3": ["Electro DMG", "Electro DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "Skill DMG": 3, "ER %": 2 }
+    }
+  },
+  "Jiyan": {
+    "Main DPS": {
+      "weapon": "Verdant Summit",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Sierra Gale",
+      "mainEcho": "Feilian Beringal",
+      "mainStats": { "cost4": "CR DMG", "cost3": ["Aero DMG", "Aero DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "Heavy DMG": 3, "ER %": 2 }
+    }
+  },
+  "Verina": {
+    "Support / Healer": {
+      "weapon": "Variation",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Rejuvenating Glow",
+      "mainEcho": "Bell-Borne",
+      "mainStats": { "cost4": "Healing Bonus", "cost3": ["ER %", "ER %"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "ER %": 5, "ATK %": 5, "ATK": 4, "HP %": 3, "HP": 2 }
+    }
+  },
+  "Calcharo": {
+    "Main DPS": {
+      "weapon": "Verdant Summit",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Void Thunder",
+      "mainEcho": "Thundering Mephis",
+      "mainStats": { "cost4": "CR DMG", "cost3": ["Electro DMG", "Electro DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "Lib DMG": 3, "ER %": 2 }
+    }
+  },
+  "Encore": {
+    "Main DPS": {
+      "weapon": "Stringmaster",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Molten Rift",
+      "mainEcho": "Inferno Rider",
+      "mainStats": { "cost4": "CR Rate", "cost3": ["Fusion DMG", "Fusion DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "Basic DMG": 3, "ER %": 2 }
+    }
+  },
+  "Jianxin": {
+    "Sub DPS / Support": {
+      "weapon": "Marcato",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Sierra Gale",
+      "mainEcho": "Feilian Beringal",
+      "mainStats": { "cost4": "CR Rate", "cost3": ["Aero DMG", "Aero DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ER %": 4, "ATK %": 3, "Heavy DMG": 2 }
+    }
+  },
+  "Lingyang": {
+    "Main DPS": {
+      "weapon": "Abyss Surges",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Freezing Frost",
+      "mainEcho": "Lampylumen Myriad",
+      "mainStats": { "cost4": "CR DMG", "cost3": ["Glacio DMG", "Glacio DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "Basic DMG": 3, "ER %": 2 }
+    }
+  },
+  "Rover (Spectro)": {
+    "Main DPS": {
+      "weapon": "Emerald of Genesis",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Celestial Light",
+      "mainEcho": "Jue",
+      "mainStats": { "cost4": "CR DMG", "cost3": ["Spectro DMG", "Spectro DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "Skill DMG": 3, "ER %": 2 }
+    }
+  },
+  "Rover (Havoc)": {
+    "Main DPS": {
+      "weapon": "Emerald of Genesis",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Sun-sinking Eclipse",
+      "mainEcho": "Dreamless",
+      "mainStats": { "cost4": "CR DMG", "cost3": ["Havoc DMG", "Havoc DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "Skill DMG": 3, "ER %": 2 }
+    }
+  },
+  "Rover (Aero)": {
+    "Main DPS": {
+      "weapon": "Emerald of Genesis",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Sierra Gale",
+      "mainEcho": "Feilian Beringal",
+      "mainStats": { "cost4": "CR DMG", "cost3": ["Aero DMG", "Aero DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "Skill DMG": 3, "ER %": 2 }
+    }
+  },
+  "Sanhua": {
+    "Sub DPS": {
+      "weapon": "Emerald of Genesis",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Moonlit Clouds",
+      "mainEcho": "Impermanence Heron",
+      "mainStats": { "cost4": "CR Rate", "cost3": ["Glacio DMG", "Glacio DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ER %": 2, "ATK %": 2, "Lib DMG": 2 }
+    }
+  },
+  "Danjin": {
+    "Main DPS": {
+      "weapon": "Emerald of Genesis",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Sun-sinking Eclipse",
+      "mainEcho": "Dreamless",
+      "mainStats": { "cost4": "CR DMG", "cost3": ["Havoc DMG", "Havoc DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "Heavy DMG": 3, "ER %": 2 }
+    }
+  },
+  "Mortefi": {
+    "Sub DPS": {
+      "weapon": "Static Mist",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Moonlit Clouds",
+      "mainEcho": "Impermanence Heron",
+      "mainStats": { "cost4": "CR Rate", "cost3": ["Fusion DMG", "Fusion DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ER %": 4, "ATK %": 3, "Heavy DMG": 2 }
+    }
+  },
+  "Chixia": {
+    "Main DPS": {
+      "weapon": "Static Mist",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Molten Rift",
+      "mainEcho": "Inferno Rider",
+      "mainStats": { "cost4": "CR DMG", "cost3": ["Fusion DMG", "Fusion DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ATK %": 4, "Skill DMG": 3, "ER %": 2 }
+    }
+  },
+  "Yangyang": {
+    "Sub DPS": {
+      "weapon": "Overture",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Moonlit Clouds",
+      "mainEcho": "Impermanence Heron",
+      "mainStats": { "cost4": "CR Rate", "cost3": ["Aero DMG", "Aero DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ER %": 4, "ATK %": 3, "Skill DMG": 2 }
+    }
+  },
+  "Baizhi": {
+    "Support / Healer": {
+      "weapon": "Variation",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Rejuvenating Glow",
+      "mainEcho": "Bell-Borne",
+      "mainStats": { "cost4": "Healing Bonus", "cost3": ["ER %", "ER %"], "cost1": ["HP %", "HP %"] },
+      "subStats": { "ER %": 5, "HP %": 5, "HP": 4, "ATK %": 3, "ATK": 2 }
+    }
+  },
+  "Taoqi": {
+    "Support": {
+      "weapon": "Discord",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Moonlit Clouds",
+      "mainEcho": "Impermanence Heron",
+      "mainStats": { "cost4": "DEF %", "cost3": ["ER %", "DEF %"], "cost1": ["DEF %", "DEF %"] },
+      "subStats": { "ER %": 5, "DEF %": 5, "DEF": 4, "CR Rate": 3, "CR DMG": 2 }
+    }
+  },
+  "Yuanwu": {
+    "Sub DPS": {
+      "weapon": "Marcato",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Moonlit Clouds",
+      "mainEcho": "Impermanence Heron",
+      "mainStats": { "cost4": "DEF %", "cost3": ["Electro DMG", "Electro DMG"], "cost1": ["DEF %", "DEF %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "DEF %": 4, "ER %": 3, "Skill DMG": 2 }
+    }
+  },
+  "Aalto": {
+    "Sub DPS": {
+      "weapon": "Static Mist",
+      "echoLayout": "4 3 3 1 1",
+      "mainSet": "Sierra Gale",
+      "mainEcho": "Feilian Beringal",
+      "mainStats": { "cost4": "CR Rate", "cost3": ["Aero DMG", "Aero DMG"], "cost1": ["ATK %", "ATK %"] },
+      "subStats": { "CR Rate": 5, "CR DMG": 5, "ER %": 4, "ATK %": 3, "Skill DMG": 2 }
+    }
+  }
+}
