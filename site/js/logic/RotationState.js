@@ -316,16 +316,17 @@ const RotationState = {
                 currentData.trackers.Forte_Win_Size = dynamicSize;
 
                 if (currentData.trackers.Hold_Start !== undefined) {
-                    const holdDuration = currentData.timeStart - currentData.trackers.Hold_Start;
-                    const cursor = (((holdDuration * 100) % 200 > 100) ? (200 - ((holdDuration * 100) % 200)) : ((holdDuration * 100) % 200));
+                    // --- FIXED: Changed FROM currentData.timeStart TO currentData.gameTimeStart ---
+                    const holdDuration = currentData.gameTimeStart - currentData.trackers.Hold_Start;
+                    const finalCursor = (((holdDuration * 100) % 200 > 100) ? (200 - ((holdDuration * 100) % 200)) : ((holdDuration * 100) % 200));
                     
-                    currentData.forteCursorPos = cursor;
+                    currentData.forteCursorPos = finalCursor;
                     currentData.forteWinCenter = center;
                     currentData.forteWinSize = dynamicSize;
-                    currentData.isInForteWindow = Math.abs(cursor - center) <= halfWidth;
+                    currentData.isInForteWindow = Math.abs(finalCursor - center) <= halfWidth;
                     
                     // Explicitly inject these tracking values straight back into the live state trackers map
-                    currentData.trackers.Cursor_Pos = cursor;
+                    currentData.trackers.Cursor_Pos = finalCursor;
                 }
             }
 
@@ -789,7 +790,15 @@ const RotationState = {
         const hitModifiers = new Set([...(moveData.dmgTypes || [])]);
         const elements = ["Glacio", "Aero", "Electro", "Fusion", "Spectro", "Havoc", "Physical"];
         const moveElements = (moveData.dmgTypes || []).filter(t => elements.includes(t));
-        const castModifiers = new Set([...(moveData.castTypes || []), ...moveElements]);
+
+        const castModifiers = new Set([
+            ...(moveData.castTypes || []), 
+            ...moveElements,
+            currentData.action,
+            moveData.name,
+            `@${currentData.unit}(${moveData.name})`
+        ].map(m => String(m).toLowerCase()));
+
         this._applyMoveCosts(currentData, moveData);
         this._applyCastResources(currentData, moveData, activeTeam);
         const instantEffects = this._gatherInstantEffects(currentData, moveData, prevData, castModifiers);
@@ -801,6 +810,15 @@ const RotationState = {
         }
         this._executeEffectsStream(instantEffects, currentData, activeTeam, activeRows, currentData.timeStart, unitName);
         RotationState.damageQueue.sort((a, b) => a.executeAt - b.executeAt);
+
+        // ==========================================================================
+        //   FIXED: Update variable reference from dbMove to moveData
+        // ==========================================================================
+        if (moveData.inputType === "Release" && currentData.trackers) {
+            delete currentData.trackers.Hold_Start;
+            currentData.trackers.Cursor_Pos = 0;
+        }
+
         this._decayState(
             currentData, 
             Math.max(0, currentData.duration || 0), 

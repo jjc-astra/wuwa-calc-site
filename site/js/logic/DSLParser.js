@@ -144,7 +144,6 @@ const DSLParser = {
             args = argMatch[1].split(",").map(s => {
                 const val = s.trim();
                 const num = parseFloat(val);
-                // FIXED: Keep 'All' as a string, but convert '3' to a number
                 return isNaN(num) ? val : num; 
             });
         }
@@ -152,7 +151,12 @@ const DSLParser = {
         // 3. Extract Modifiers inside brackets (e.g., [Heavy, Fusion])
         const modMatch = str.match(/\[(.*?)\]/);
         if (modMatch) {
-            modifiers = modMatch[1].split(",").map(s => s.trim());
+            modifiers = modMatch[1].split(",").map(s => {
+                let mStr = s.trim();
+                // --- FIXED: Parse character namespace macro declarations inside brackets ---
+                mStr = mStr.replace(/@([A-Za-z0-9_]+)\(((?:[^)(]+|\([^)(]*\))*)\)/g, (match, p1, p2) => p1 + '_' + p2.trim());
+                return mStr.toLowerCase();
+            });
         }
 
         return { event, modifiers, args };

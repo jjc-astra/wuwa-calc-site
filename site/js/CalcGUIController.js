@@ -268,8 +268,14 @@ function bindRotationBuilder() {
 // Sub-Binder: Initial Setup
 function _initRotationUI(container, headerRow) {
     if (headerRow) headerRow.innerHTML = `<div></div><div>Unit</div><div>Action</div><div>Time</div><div>Timing</div><div>Offset</div><div>DMG</div><div>Fortes</div><div>Concerto</div><div>Energy</div><div>Tune</div>`;
+    
     const generateRow = () => RotationUtils.createRow(RosterUtils.getCurrentTeamOptionsHTML());
-    container.appendChild(generateRow());
+    const initialRow = generateRow();
+    container.appendChild(initialRow);
+    
+    // --- FIXED: Explicitly register the launch row with the State Manager array ---
+    RotationState.insertRow(initialRow);
+
     RotationUtils.updateIndices(container);
     RotationUtils.updateActionButtons(container, null);
     
@@ -547,6 +553,11 @@ function _bindRotationEvents(container, headerRow, state) {
         const data = RotationState.getData(row);
         if (!data || !panel) return;
          
+        // --- FIXED: Disable opening the offset sub-panel if timing is set to Simultaneous ---
+        if (trigger.dataset.trigger === 'offset' && data.timing === 'Simultaneous') {
+            return;
+        }
+
         const isAlreadyActive = trigger.classList.contains('is-active');
         row.querySelectorAll('.sub-panel-trigger').forEach(t => t.classList.remove('is-active'));
         if (isAlreadyActive) {
@@ -587,6 +598,19 @@ function _bindRotationEvents(container, headerRow, state) {
                 history.execute(editCmd); 
             }
             state.captureOldValue = target.value;
+
+            // --- FIXED: Automatically close offset panel if timing changes to Simultaneous ---
+            if (target.classList.contains('timing-select') && target.value === 'Simultaneous') {
+                const activeOffsetTrigger = row.querySelector('.sub-panel-trigger[data-trigger="offset"].is-active');
+                if (activeOffsetTrigger) {
+                    activeOffsetTrigger.classList.remove('is-active');
+                    const panel = row.querySelector('.sub-panel');
+                    if (panel) {
+                        panel.classList.remove('is-open');
+                        setTimeout(() => { if (!panel.classList.contains('is-open')) panel.innerHTML = ''; }, 200);
+                    }
+                }
+            }
         }
     });
 

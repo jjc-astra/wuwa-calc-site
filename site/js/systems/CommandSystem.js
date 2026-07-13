@@ -88,48 +88,49 @@ class UndoManager {
 // 1. ADD ROW COMMAND
 class AddRowCommand {
     constructor(container, rowElement, index = -1) {
-        this.container = container; this.row = rowElement; this.index = index;
-        this.isFirstExecution = true;
-        this.stateObject = null; // Hold the exact reference for redos
+        this.container = container;
+        this.rowElement = rowElement; 
+        this.insertedIndex = index;
     }
+
     execute() {
-        if (this.rowElement) {
-            // Re-inserting an already created row on a 'Redo' step
-            if (this.insertedIndex >= 0 && this.insertedIndex < this.container.children.length) {
-                this.container.insertBefore(this.rowElement, this.container.children[this.insertedIndex]);
-            } else {
-                this.container.appendChild(this.rowElement);
-            }
-            RotationState.insertRowAt(this.insertedIndex, this.rowElement);
+        if (!this.rowElement) return;
+
+        // 1. Physical DOM Insertion
+        if (this.insertedIndex >= 0 && this.insertedIndex < this.container.children.length) {
+            this.container.insertBefore(this.rowElement, this.container.children[this.insertedIndex]);
+            // Sync with memory array at correct target slot
+            RotationState.insertRow(this.rowElement, this.insertedIndex);
         } else {
-            // First time execution
-            this.rowElement = RotationRenderer.createRowElement(this.character, this.action);
             this.container.appendChild(this.rowElement);
+            // Append at the end
+            RotationState.insertRow(this.rowElement);
             this.insertedIndex = this.container.children.length - 1;
-            RotationState.pushRow(this.rowElement);
         }
 
-        RotationUtils.reindexRows(this.container);
-        RotationState.calculateTimeline();
+        // 2. Re-index row indicators (#1, #2, #3...)
+        // --- FIXED: Changed reindexRows to updateIndices ---
+        RotationUtils.updateIndices(this.container);
+        
+        // 3. Recalculate timeline metrics
+        RotationState.recalculateState();
     }
 
     undo() {
         if (!this.rowElement) return;
 
-        // 1. Cleanly pull the row out of the global state array tracking loop
-        const activeIndex = RotationState.getRowIndex(this.rowElement);
-        if (activeIndex !== -1) {
-            RotationState.removeRowAt(activeIndex);
-        }
+        // 1. Cleanly pull the row out of the global state array tracking loops
+        RotationState.removeRow(this.rowElement);
 
         // 2. Remove the physical element safely from the live DOM viewport
         this.rowElement.remove();
 
-        // 3. Force remaining rows to update their visual index columns (e.g., Row 23 -> Row 22)
-        RotationUtils.reindexRows(this.container);
+        // 3. Force remaining rows to update their visual index columns
+        // --- FIXED: Changed reindexRows to updateIndices ---
+        RotationUtils.updateIndices(this.container);
 
         // 4. Force the state engine to run a lookahead calculation sweep
-        RotationState.calculateTimeline();
+        RotationState.recalculateState();
     }
 }
 

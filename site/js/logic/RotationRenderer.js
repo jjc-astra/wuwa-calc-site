@@ -172,9 +172,11 @@ const RotationRenderer = {
 
     _updateGauges: (row, data) => {
         const u = data.unit;
-        // Verify existence of character definitions once at the start
         const dbChar = (typeof CHARACTER_DB !== 'undefined' && u) ? CHARACTER_DB[u] || {} : {};
         
+        // ==========================================================================
+        //   RESTORED: updateGauge hijacks 'is-full' class for DRY visual matching
+        // ==========================================================================
         const updateGauge = (name, val, maxVal, isGlowing = false) => {
             const el = row.querySelector(`.gauge-dial[data-name="${name}"], .gauge-vertical[data-name="${name}"]`);
             if (!el) return; // Clean, early exit
@@ -193,8 +195,8 @@ const RotationRenderer = {
             el.style.setProperty('--p', pct + '%');
             el.dataset.value = typeof val === 'number' && !Number.isInteger(val) ? parseFloat(val.toFixed(2)) : val;
             
-            el.classList.toggle('is-full', val >= maxVal);
-            el.classList.toggle('is-glowing', isGlowing); 
+            // --- RESTORED: Toggle 'is-full' if the gauge is maxed OR if Sanhua is in the window ---
+            el.classList.toggle('is-full', val >= maxVal || isGlowing);
         };
 
         const liveConcerto = data.concerto ? (data.concerto[u] || 0) : 0;
@@ -205,7 +207,6 @@ const RotationRenderer = {
         updateGauge('Energy', liveEnergy, dbChar.maxEnergy || MECHANICS_NOTATION.GAUGES.DEFAULT_MAX);
         updateGauge('Tune', liveTune, MECHANICS_NOTATION.GAUGES.DEFAULT_MAX);
 
-        // Capture lookahead constants to optimize loop execution
         const sanhuaCfg = MECHANICS_NOTATION.SANHUA;
 
         for (let i = 1; i <= 6; i++) {
@@ -216,12 +217,15 @@ const RotationRenderer = {
             
             let isGlowing = false;
             
-            // REDUNDANCY CLEANUP: Check trackers state cleanly once at top level
+            // ==========================================================================
+            //   RESTORED: Sanhua tracking based on post-action animation game clock
+            // ==========================================================================
             if (u === "Sanhua" && i === 1 && data.trackers?.Hold_Start !== undefined) {
-                const currentHoldDuration = (data.gameTimeStart + (data.gameTimePassed || 0)) - data.trackers.Hold_Start;
-                const loopMod = (currentHoldDuration * sanhuaCfg.MAX_CURSOR_VAL) % sanhuaCfg.CURSOR_PERIOD;
+                const holdStart = data.trackers.Hold_Start;
+                const rowEndGameTime = data.gameTimeStart + (data.gameTimePassed || 0);
+                const currentHoldDuration = rowEndGameTime - holdStart;
                 
-                // Calculate cursor position using standard ping-pong period constraints
+                const loopMod = (currentHoldDuration * sanhuaCfg.MAX_CURSOR_VAL) % sanhuaCfg.CURSOR_PERIOD;
                 fValue = (loopMod > sanhuaCfg.CURSOR_MIDPOINT) 
                     ? (sanhuaCfg.CURSOR_PERIOD - loopMod) 
                     : loopMod;
@@ -231,9 +235,9 @@ const RotationRenderer = {
                 
                 isGlowing = Math.abs(fValue - sanhuaCfg.FORTE_WIN_CENTER) <= halfWidth;
                 
-                updateGauge(`Forte ${i}`, fValue, sanhuaCfg.MAX_CURSOR_VAL, isGlowing);
+                updateGauge('Forte ' + i, fValue, sanhuaCfg.MAX_CURSOR_VAL, isGlowing);
             } else {
-                updateGauge(`Forte ${i}`, fValue, fMax, isGlowing);
+                updateGauge('Forte ' + i, fValue, fMax, isGlowing);
             }
         }
 

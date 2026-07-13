@@ -322,8 +322,8 @@ const RotationUtils = {
         row.className = 'rotation-row';
         row.draggable = true;
 
-        // Inject straight into the correct memory index!
-        RotationState.insertRow(row, targetIndex);
+        // --- DELETED TO PREVENT DOUBLE INITIALIZATION BUG ---
+        // RotationState.insertRow(row, targetIndex);
 
         const gridLayer = document.createElement('div');
         gridLayer.className = 'row-grid-layer';
@@ -339,7 +339,6 @@ const RotationUtils = {
         row.appendChild(subPanel);
 
         RotationUtils._bindRowEvents(row, gridLayer);
-        
         RotationUtils.updateForteVisibility(row, "");
         
         return row;
@@ -394,18 +393,24 @@ const RotationUtils = {
 
         dataArray.forEach((item, i) => {
             const newRow = rowFactory(i); 
+            
+            // ==========================================================================
+            //   FIX: Register the newly instantiated imported row with RotationState
+            // ==========================================================================
+            RotationState.insertRow(newRow);
+            
             const data = RotationState.getData(newRow);
             
             data.unit = item.unit || ""; 
             data.timing = item.timing || "Auto";
-            data.action = item.action || ""; // --- FIXED: Assign action directly to data early ---
+            data.action = item.action || ""; 
             
             // Explicitly force the action into the dropdown
             RotationUtils.updateActionOptions(newRow, data.unit, data.action);
 
             const setVal = (sel, val) => { const el = newRow.querySelector(sel); if(el) el.value = val; };
             setVal('.unit-select', data.unit); 
-            setVal('.move-select', data.action); // Now safe to set!
+            setVal('.move-select', data.action); 
             setVal('.timing-select', data.timing);
 
             newRow.querySelectorAll('.base-select').forEach(sel => { if(typeof CommonUtils !== 'undefined') CommonUtils.updatePlaceholderStyle(sel); });
@@ -413,7 +418,13 @@ const RotationUtils = {
             container.appendChild(newRow);
         });
         
-        container.appendChild(rowFactory(dataArray.length)); 
+        // ==========================================================================
+        //   FIX: Register the trailing empty placeholder row with RotationState too
+        // ==========================================================================
+        const emptyRow = rowFactory(dataArray.length);
+        RotationState.insertRow(emptyRow);
+        
+        container.appendChild(emptyRow); 
         container.dispatchEvent(new CustomEvent('row-structure-change'));
     },
 

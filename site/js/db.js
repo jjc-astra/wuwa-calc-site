@@ -123,7 +123,25 @@ const PANEL_CONFIG = {
     "dmg": {
         title: "Detailed Damage Breakdown",
         type: "complex_dmg", 
-        // ... keep structural layout arrays the same ...
+        tags: [
+            { label: "Cast Type", key: "castTypes" },
+            { label: "Damage Type", key: "dmgTypes" },
+            { label: "Base Multiplier", key: "baseMult", highlight: "text-gold" }
+        ],
+        stats: [
+            { label: "Scalar", key: "scalar", suffix: "%" },
+            { label: "Crit Rate", key: "critRate", suffix: "%" },
+            { label: "Crit DMG", key: "critDmg", suffix: "%" },
+            { label: "DMG Bonus", key: "dmgBonus", suffix: "%" },
+            { label: "Multiplicative Mult", key: "multiplicativeMult", suffix: "%" },
+            { label: "Additive Mult", key: "additiveMult", suffix: "%" },
+            { label: "DMG Amp", key: "dmgAmp", suffix: "%" },
+            { label: "DMG Taken Inc", key: "dmgTaken", suffix: "%" },
+            { label: "RES Shred", key: "reduceRes", suffix: "%" },
+            { label: "RES Ignore", key: "ignoreRes", suffix: "%" },
+            { label: "DEF Shred", key: "reduceDef", suffix: "%" },
+            { label: "DEF Ignore", key: "ignoreDef", suffix: "%" }
+        ]
     },
     "concerto": {
         title: "Concerto Energy Breakdown",
@@ -139,9 +157,6 @@ const PANEL_CONFIG = {
             { label: "Current", key: "energy", default: "0.0" }
         ]
     },
-    
-    // --- FORTE POOLS 1-6 REMOVED FROM MANIFEST LAYER ---
-    
     "tune": {
         title: "Tune Break Build Breakdown",
         fields: [
@@ -152,7 +167,32 @@ const PANEL_CONFIG = {
     "time": {
         title: "Advanced Timeline Breakdown",
         type: "complex_time",
-        groups: [ /* ... keep configuration unchanged ... */ ]
+        groups: [
+            {
+                title: "Execution Timings",
+                fields: [
+                    { label: "Real Time Start", key: "timeStart", default: 0, suffix: "s" },
+                    { label: "Game Time Start", key: "gameTimeStart", default: 0, suffix: "s" },
+                    { label: "Wait Time (CD/Busy)", key: "waitTime", default: 0, suffix: "s" }
+                ]
+            },
+            {
+                title: "Action Duration Details",
+                fields: [
+                    { label: "Base Duration", key: "baseDuration", default: 0, suffix: "s" },
+                    { label: "Actual Duration", key: "duration", default: 0, suffix: "s" },
+                    { label: "Game Time Passed", key: "gameTimePassed", default: 0, suffix: "s" },
+                    { label: "Time Stop / Freeze", key: "freezeTime", default: 0, suffix: "s" }
+                ]
+            },
+            {
+                title: "Accumulated Timeline Cost",
+                fields: [
+                    { label: "Total Real Time Cost", key: "totalRealTimeCost", default: 0, suffix: "s" },
+                    { label: "Total Game Time Cost", key: "totalGameTimeCost", default: 0, suffix: "s" }
+                ]
+            }
+        ]
     },
     "offset": {
         title: "Action Alignment Breakdown",
