@@ -195,7 +195,6 @@ const RotationRenderer = {
             el.style.setProperty('--p', pct + '%');
             el.dataset.value = typeof val === 'number' && !Number.isInteger(val) ? parseFloat(val.toFixed(2)) : val;
             
-            // --- RESTORED: Toggle 'is-full' if the gauge is maxed OR if Sanhua is in the window ---
             el.classList.toggle('is-full', val >= maxVal || isGlowing);
         };
 
@@ -207,8 +206,6 @@ const RotationRenderer = {
         updateGauge('Energy', liveEnergy, dbChar.maxEnergy || MECHANICS_NOTATION.GAUGES.DEFAULT_MAX);
         updateGauge('Tune', liveTune, MECHANICS_NOTATION.GAUGES.DEFAULT_MAX);
 
-        const sanhuaCfg = MECHANICS_NOTATION.SANHUA;
-
         for (let i = 1; i <= 6; i++) {
             const fKey = `forte${i}`;
             let fValue = data[fKey] ? (data[fKey][u] || 0) : 0;
@@ -218,69 +215,39 @@ const RotationRenderer = {
             let isGlowing = false;
             
             // ==========================================================================
-            //   RESTORED: Sanhua tracking based on post-action animation game clock
-            // ==========================================================================
-            if (u === "Sanhua" && i === 1 && data.trackers?.Hold_Start !== undefined) {
-                const holdStart = data.trackers.Hold_Start;
-                const rowEndGameTime = data.gameTimeStart + (data.gameTimePassed || 0);
-                const currentHoldDuration = rowEndGameTime - holdStart;
-                
-                const loopMod = (currentHoldDuration * sanhuaCfg.MAX_CURSOR_VAL) % sanhuaCfg.CURSOR_PERIOD;
-                fValue = (loopMod > sanhuaCfg.CURSOR_MIDPOINT) 
-                    ? (sanhuaCfg.CURSOR_PERIOD - loopMod) 
-                    : loopMod;
-                
-                const clarity = data.activeBuffs[`${u}_Clarity`]?.stacks || data.trackers.Clarity || 0;
-                const halfWidth = (sanhuaCfg.BASE_WIN_SIZE + (sanhuaCfg.STACK_SCALING * clarity)) / 2;
-                
-                isGlowing = Math.abs(fValue - sanhuaCfg.FORTE_WIN_CENTER) <= halfWidth;
-                
-                updateGauge('Forte ' + i, fValue, sanhuaCfg.MAX_CURSOR_VAL, isGlowing);
-            } else {
-                updateGauge('Forte ' + i, fValue, fMax, isGlowing);
-            }
-        }
-
-        // ==========================================================================
-        //   STREAMLINED DIAGNOSTIC ENGINE (Zero Redundant Property Validation)
-        // ==========================================================================
-        if (u === "Sanhua" && data.trackers?.Hold_Start !== undefined) {
-            const sanhuaCfg = MECHANICS_NOTATION.SANHUA;
-            const holdStartGame = data.trackers.Hold_Start;
-            const currentGameTime = data.gameTimeStart;
-            
-            const center = data.trackers.Forte_Win_Center || sanhuaCfg.FORTE_WIN_CENTER;
-            const size = data.trackers.Forte_Win_Size || sanhuaCfg.BASE_WIN_SIZE;
-            const halfWidth = size / 2;
-            
-            const minCursor = center - halfWidth;
-            const maxCursor = center + halfWidth;
-            const cycle = Math.floor((currentGameTime - holdStartGame) / 2);
-            
-            const targetStartUp = holdStartGame + (cycle * 2) + (minCursor / sanhuaCfg.MAX_CURSOR_VAL);
-            const targetEndUp = holdStartGame + (cycle * 2) + (maxCursor / sanhuaCfg.MAX_CURSOR_VAL);
-            
-            const targetStartDown = holdStartGame + (cycle * 2) + ((sanhuaCfg.CURSOR_PERIOD - maxCursor) / sanhuaCfg.MAX_CURSOR_VAL);
-            const targetEndDown = holdStartGame + (cycle * 2) + ((sanhuaCfg.CURSOR_PERIOD - minCursor) / sanhuaCfg.MAX_CURSOR_VAL);
-            
-            let winStartGame = targetStartUp;
-            let winEndGame = targetEndUp;
-            if (Math.abs(currentGameTime - ((targetStartDown + targetEndDown) / 2)) < Math.abs(currentGameTime - ((targetStartUp + targetEndUp) / 2))) {
-                winStartGame = targetStartDown;
-                winEndGame = targetEndDown;
-            }
-
-            console.warn(`[DIAGNOSTIC] Row #${data.arrayIndex + 1} (${data.moveName}) Forte Calculus:`);
-            console.table({
-                "Hold Start Game Time (s)": holdStartGame,
-                "Release Execution Game Time (s)": currentGameTime,
-                "Raw Slider Cursor Pos": data.trackers.Cursor_Pos,
-                "Detonate Win Center": center,
-                "Detonate Win Total Size": size,
-                "Target Window Start Game Time (s)": parseFloat(winStartGame.toFixed(3)),
-                "Target Window End Game Time (s)": parseFloat(winEndGame.toFixed(3)),
-                "Is Aligned Inside Window": data.isInForteWindow ? "SUCCESS (TRUE)" : "FAILED (FALSE)"
-            });
+                //   GENERIC HOLD TRACKING (Visualized on Forte 1 by default)
+                // ==========================================================================
+                if (i === 1 && data.trackers && data.trackers.Hold_Start !== undefined) {
+                    const holdStart = data.trackers.Hold_Start;
+                    const rowEndGameTime = data.gameTimeStart + (data.gameTimePassed || 0);
+                    const currentHoldDuration = rowEndGameTime - holdStart;
+                    
+                    const speed = typeof MECHANICS_NOTATION !== 'undefined' && MECHANICS_NOTATION.HOLD_DEFAULTS ? MECHANICS_NOTATION.HOLD_DEFAULTS.CURSOR_SPEED : 100;
+                    const maxVal = typeof MECHANICS_NOTATION !== 'undefined' && MECHANICS_NOTATION.HOLD_DEFAULTS ? MECHANICS_NOTATION.HOLD_DEFAULTS.MAX_CURSOR_VAL : 100;
+                    const mode = typeof MECHANICS_NOTATION !== 'undefined' && MECHANICS_NOTATION.HOLD_DEFAULTS ? MECHANICS_NOTATION.HOLD_DEFAULTS.CURSOR_MODE : "pingpong";
+                    
+                    const accumulated = data.trackers.Cursor_Accumulated || 0;
+                    const progress = accumulated + (currentHoldDuration * speed);
+                    
+                    if (mode === "clamp") {
+                        fValue = Math.min(progress, maxVal);
+                    } else if (mode === "loop") {
+                        fValue = progress % maxVal;
+                    } else { // pingpong
+                        const doubleMax = maxVal * 2;
+                        fValue = (progress % doubleMax > maxVal) ? (doubleMax - (progress % doubleMax)) : (progress % doubleMax);
+                    }
+                    
+                    // Retrieve dynamic math variables if they were stamped into the trackers by the Engine
+                    const center = data.trackers.Forte_Win_Center || (typeof MECHANICS_NOTATION !== 'undefined' && MECHANICS_NOTATION.HOLD_DEFAULTS ? parseFloat(MECHANICS_NOTATION.HOLD_DEFAULTS.WINDOW_CENTER) : 65);
+                    const size = data.trackers.Forte_Win_Size || (typeof MECHANICS_NOTATION !== 'undefined' && MECHANICS_NOTATION.HOLD_DEFAULTS ? parseFloat(MECHANICS_NOTATION.HOLD_DEFAULTS.WINDOW_SIZE) : 10);
+                    
+                    isGlowing = Math.abs(fValue - center) <= (size / 2);
+                    
+                    updateGauge('Forte ' + i, fValue, maxVal, isGlowing);
+                } else {
+                    updateGauge('Forte ' + i, fValue, fMax, isGlowing);
+                }
         }
     },
 

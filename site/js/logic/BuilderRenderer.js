@@ -747,6 +747,7 @@ const BuilderRenderer = {
 
         // --- FIXED: Add this missing variable so the HTML template doesn't crash! ---
         const castResObj = data.castResources || {};
+        const holdCfg = data.holdConfig || {};
 
         const node = document.createElement('div');
         node.className = 'mechanic-card collapsed'; 
@@ -860,6 +861,28 @@ const BuilderRenderer = {
                         <div class="form-group"><label class="form-label">Stance Result</label><select class="base-select mech-stance-res"><option value="Retain" ${(!data.stanceResult || data.stanceResult === 'Retain') ? 'selected' : ''}>Retain</option><option value="Grounded" ${data.stanceResult === 'Grounded' ? 'selected' : ''}>Grounded</option><option value="Midair" ${data.stanceResult === 'Midair' ? 'selected' : ''}>Midair</option></select></div>
                         <div class="form-group relative"><label class="form-label">Transition Time</label><input type="text" class="form-input dsl-input mech-stance-time w-100" value="${data.stanceTime ?? ""}" placeholder="0.0"></div>
                     </div>
+                </div>
+            </div>
+
+            <!-- --- NEW: Hold Physics Configuration Block --- -->
+            <div class="form-row hold-config-row mt-sm" style="display: none; background: rgba(212,175,55,0.05); padding: 8px; border: 1px solid rgba(212,175,55,0.2); border-radius: 4px; flex-direction: column; gap: 8px;">
+                <div class="w-100 text-gold text-bold" style="font-size: 0.8rem;">Hold Physics Configuration</div>
+                <div class="flex-row gap-sm w-100 flex-wrap">
+                    <div class="form-group flex-1">
+                        <label class="form-label">Cursor Mode</label>
+                        <select class="base-select mech-hold-mode">
+                            <option value="pingpong" ${holdCfg.cursorMode === 'pingpong' ? 'selected' : ''}>Ping-Pong</option>
+                            <option value="clamp" ${holdCfg.cursorMode === 'clamp' ? 'selected' : ''}>Clamp</option>
+                            <option value="loop" ${holdCfg.cursorMode === 'loop' ? 'selected' : ''}>Loop</option>
+                        </select>
+                    </div>
+                    <div class="form-group flex-1"><label class="form-label">Speed</label><input type="number" class="form-input mech-hold-speed" value="${holdCfg.cursorSpeed ?? 100}"></div>
+                    <div class="form-group flex-1"><label class="form-label">Max Value</label><input type="number" class="form-input mech-hold-max" value="${holdCfg.maxCursorVal ?? 100}"></div>
+                    <label class="checkbox-label align-self-end" style="height: 32px; display: flex; align-items: center;"><input type="checkbox" class="mech-hold-retain" ${holdCfg.retainCursor ? 'checked' : ''}><span>Retain Cursor</span></label>
+                </div>
+                <div class="flex-row gap-sm w-100">
+                    <div class="form-group relative flex-1"><label class="form-label">Window Center (DSL)</label><input type="text" class="form-input dsl-input mech-hold-center w-100" value="${holdCfg.windowCenter ?? '65'}" placeholder="e.g. 65"></div>
+                    <div class="form-group relative flex-1"><label class="form-label">Window Size (DSL)</label><input type="text" class="form-input dsl-input mech-hold-size w-100" value="${holdCfg.windowSize ?? '10'}" placeholder="e.g. 10"></div>
                 </div>
             </div>
 
@@ -1046,6 +1069,32 @@ const BuilderRenderer = {
             extractStr('.mech-stance-req', 'stanceReq', 'Any');
             extractStr('.mech-stance-res', 'stanceResult', 'Retain');
 
+            // --- NEW: Extract Hold Configuration if input is Release ---
+            if (obj.inputType === 'Release') {
+                const holdCfg = {};
+                
+                const mode = card.querySelector('.mech-hold-mode')?.value;
+                if (mode && mode !== 'pingpong') holdCfg.cursorMode = mode;
+                
+                const speed = parseFloat(card.querySelector('.mech-hold-speed')?.value);
+                if (!isNaN(speed) && speed !== 100) holdCfg.cursorSpeed = speed;
+                
+                const maxVal = parseFloat(card.querySelector('.mech-hold-max')?.value);
+                if (!isNaN(maxVal) && maxVal !== 100) holdCfg.maxCursorVal = maxVal;
+                
+                if (card.querySelector('.mech-hold-retain')?.checked) holdCfg.retainCursor = true;
+                
+                const wCenter = card.querySelector('.mech-hold-center')?.value?.trim();
+                if (wCenter && wCenter !== '65') holdCfg.windowCenter = wCenter;
+                
+                const wSize = card.querySelector('.mech-hold-size')?.value?.trim();
+                if (wSize && wSize !== '10') holdCfg.windowSize = wSize;
+                
+                if (Object.keys(holdCfg).length > 0) {
+                    obj.holdConfig = holdCfg;
+                }
+            }
+            
             const prio = parseInt(card.querySelector('.mech-priority').value, 10);
             if (!isNaN(prio) && prio !== 0) obj.priority = prio;
 
@@ -1100,6 +1149,35 @@ const BuilderRenderer = {
         });
         updateStanceTimeState();
         
+        // --- NEW: Hold Physics Section Toggle Logic ---
+        const inputTypeSel = node.querySelector('.mech-input-type');
+        const holdConfigRow = node.querySelector('.hold-config-row');
+        
+        const updateHoldVisibility = () => {
+            if (holdConfigRow && inputTypeSel) {
+                if (inputTypeSel.value === 'Release') {
+                    holdConfigRow.style.display = 'flex';
+                } else {
+                    holdConfigRow.style.display = 'none';
+                }
+            }
+        };
+        
+        if (inputTypeSel) {
+            inputTypeSel.addEventListener('change', () => {
+                updateHoldVisibility();
+                BuilderGUIController.refreshOutput();
+            });
+        }
+        
+        // Trigger live output updates for all the new hold inputs
+        node.querySelectorAll('.mech-hold-mode, .mech-hold-speed, .mech-hold-max, .mech-hold-retain, .mech-hold-center, .mech-hold-size').forEach(el => {
+            el.addEventListener('input', () => { BuilderGUIController.refreshOutput(); });
+            el.addEventListener('change', () => { BuilderGUIController.refreshOutput(); });
+        });
+
+        // Run once on load to set initial state correctly
+        updateHoldVisibility();
 
         // --- FIXED: Is Passive Section Toggle Logic ---
         const isPassiveCheck = node.querySelector('.mech-is-passive');

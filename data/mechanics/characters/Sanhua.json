@@ -227,11 +227,13 @@
     "input": "Basic",
     "inputType": "Release",
     "priority": 70,
-    "forteWindow": {
-      "center": 65,
-      "baseSize": 10,
-      "stackScaling": 20,
-      "stackBuff": "Clarity"
+    "holdConfig": {
+      "cursorSpeed": 100,
+      "cursorMode": "pingpong",
+      "retainCursor": false,
+      "maxCursorVal": 100,
+      "windowCenter": "65",
+      "windowSize": "10 + (20 * @Self.BuffStacks(Clarity))"
     },
     "effects": [
       {
@@ -240,12 +242,6 @@
         "target": "@Self",
         "action": "remove",
         "value": "ALL"
-      },
-      {
-        "type": "tracker",
-        "name": "Cursor_Pos",
-        "action": "set",
-        "value": "MATH((((@Move.GameTimeStart - @Self.Tracker(Hold_Start)) * 100) % 200 > 100) ? (200 - (((@Move.GameTimeStart - @Self.Tracker(Hold_Start)) * 100) % 200)) : (((@Move.GameTimeStart - @Self.Tracker(Hold_Start)) * 100) % 200))"
       }
     ]
   },
@@ -254,7 +250,7 @@
     "category": "Forte Circuit",
     "isPassive": true,
     "provider": "Sanhua",
-    "triggerRule": "OnCast[@Sanhua(Forte Hold Release)] IF (MATH(ABS(@Self.Tracker(Cursor_Pos) - 65) <= ((10 + (20 * @Self.BuffStacks(Clarity))) / 2)))",
+    "triggerRule": "OnCast[@Sanhua(Forte Hold Release)] IF (@Move.IsInHoldWindow == true)",
     "hitMults": ["186.29%", "186.29%"],
     "scalar": "ATK",
     "dmgTypes": ["Glacio", "Heavy"],
@@ -278,7 +274,7 @@
     "category": "Forte Circuit",
     "isPassive": true,
     "provider": "Sanhua",
-    "triggerRule": "OnCast[@Sanhua(Forte Hold Release)] IF (MATH(ABS(@Self.Tracker(Cursor_Pos) - 65) <= ((10 + (20 * @Self.BuffStacks(Clarity))) / 2) AND @Self.HasBuff(Ice_Thorn)))",
+    "triggerRule": "OnCast[@Sanhua(Forte Hold Release)] IF (@Move.IsInHoldWindow == true AND @Self.HasBuff(Ice_Thorn))",
     "hitMults": ["59.65%"],
     "scalar": "ATK",
     "dmgTypes": ["Glacio", "Heavy"],
@@ -297,7 +293,7 @@
     "category": "Forte Circuit",
     "isPassive": true,
     "provider": "Sanhua",
-    "triggerRule": "OnCast[@Sanhua(Forte Hold Release)] IF (MATH(ABS(@Self.Tracker(Cursor_Pos) - 65) <= ((10 + (20 * @Self.BuffStacks(Clarity))) / 2) AND @Self.HasBuff(Ice_Prism)))",
+    "triggerRule": "OnCast[@Sanhua(Forte Hold Release)] IF (@Move.IsInHoldWindow == true AND @Self.HasBuff(Ice_Prism))",
     "hitMults": ["79.53%"],
     "scalar": "ATK",
     "dmgTypes": ["Glacio", "Heavy"],
@@ -321,7 +317,7 @@
     "category": "Forte Circuit",
     "isPassive": true,
     "provider": "Sanhua",
-    "triggerRule": "OnCast[@Sanhua(Forte Hold Release)] IF (MATH(ABS(@Self.Tracker(Cursor_Pos) - 65) <= ((10 + (20 * @Self.BuffStacks(Clarity))) / 2) AND @Self.HasBuff(Glacier)))",
+    "triggerRule": "OnCast[@Sanhua(Forte Hold Release)] IF (@Move.IsInHoldWindow == true AND @Self.HasBuff(Glacier))",
     "hitMults": ["139.17%"],
     "scalar": "ATK",
     "dmgTypes": ["Glacio", "Heavy"],

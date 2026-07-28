@@ -2,18 +2,19 @@
 //   GLOBAL MECHANICS CONSTANTS (Single Source of Truth)
 // ==========================================================================
 const MECHANICS_NOTATION = {
-    SANHUA: {
-        CURSOR_PERIOD: 200,      // Total duration of a full up-and-down ping-pong loop (2s)
-        CURSOR_MIDPOINT: 100,    // The peak switch turn frame on the modulo track (1s)
-        FORTE_WIN_CENTER: 65,    // Default center point alignment for Frostbite gauge
-        BASE_WIN_SIZE: 10,       // Base window size with 0 Clarity stacks
-        STACK_SCALING: 20,       // Added window size per 1 stack of Clarity
-        MAX_CURSOR_VAL: 100      // Upper scale limit for tracking the cursor gauge
+    HOLD_DEFAULTS: {
+        CURSOR_SPEED: 100,       // Total units the cursor moves per second
+        CURSOR_MODE: "pingpong", // Available modes: "pingpong", "clamp", "loop"
+        RETAIN_CURSOR: false,    // If true, doesn't reset cursor tracker on release
+        MAX_CURSOR_VAL: 100,     // The mathematical ceiling of the gauge
+        WINDOW_CENTER: "65",     // Base string, can be evaluated as DSL math
+        WINDOW_SIZE: "10"        // Base string, can be evaluated as DSL math
     },
     GAUGES: {
-        DEFAULT_MAX: 100         // Default upper capacity boundary for unmapped metrics
+        DEFAULT_MAX: 100
+        // Default upper capacity boundary for unmapped metrics
     }
-};
+}
 
 
 // --- Input Bindings Mapping ---

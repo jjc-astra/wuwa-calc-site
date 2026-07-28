@@ -299,6 +299,7 @@ const DSLParser = {
             '@Move\\.SwapTime': 'ctx.move.swapTiming',
             '@Move\\.BaseMult': 'ctx.move.baseMult',
             '@Move\\.HitMults': 'ctx.move.hitMults',
+            '@Move\\.IsInHoldWindow': 'ctx.move.isInHoldWindow',
 
             // Base Objects
             '@Self': 'ctx.self',

@@ -192,9 +192,19 @@ const RotationState = {
             // --- FIXED: Automated Hold-Release Window Lookahead Delay System ---
             if (dbMove.inputType === "Release" && currentData.trackers && currentData.trackers.Hold_Start !== undefined) {
                 const holdStart = currentData.trackers.Hold_Start;
-                const clarity = currentData.activeBuffs[`${currentData.unit}_Clarity`]?.stacks || currentData.trackers.Clarity || 0;
-                const center = 65;
-                const halfWidth = 5 + (10 * clarity);
+                
+                // --- NEW: Read Generic Hold Config ---
+                const config = dbMove.holdConfig || {};
+                const speed = config.cursorSpeed ?? (typeof MECHANICS_NOTATION !== 'undefined' && MECHANICS_NOTATION.HOLD_DEFAULTS ? MECHANICS_NOTATION.HOLD_DEFAULTS.CURSOR_SPEED : 100);
+                const maxVal = config.maxCursorVal ?? (typeof MECHANICS_NOTATION !== 'undefined' && MECHANICS_NOTATION.HOLD_DEFAULTS ? MECHANICS_NOTATION.HOLD_DEFAULTS.MAX_CURSOR_VAL : 100);
+                const mode = config.cursorMode || (typeof MECHANICS_NOTATION !== 'undefined' && MECHANICS_NOTATION.HOLD_DEFAULTS ? MECHANICS_NOTATION.HOLD_DEFAULTS.CURSOR_MODE : "pingpong");
+                
+                const centerExpr = config.windowCenter ?? (typeof MECHANICS_NOTATION !== 'undefined' && MECHANICS_NOTATION.HOLD_DEFAULTS ? MECHANICS_NOTATION.HOLD_DEFAULTS.WINDOW_CENTER : "65");
+                const sizeExpr = config.windowSize ?? (typeof MECHANICS_NOTATION !== 'undefined' && MECHANICS_NOTATION.HOLD_DEFAULTS ? MECHANICS_NOTATION.HOLD_DEFAULTS.WINDOW_SIZE : "10");
+                
+                const center = parseFloat(this._resolveDynamicMath(centerExpr, currentData, currentData.unit));
+                const size = parseFloat(this._resolveDynamicMath(sizeExpr, currentData, currentData.unit));
+                const halfWidth = size / 2;
                 
                 // --- CHANGE FROM REAL TIME TO GAME TIME ---
                 let currentBaseStart = accumulatedGameTime + finalWaitTime; // Use game time, not accumulatedTime
@@ -202,12 +212,25 @@ const RotationState = {
                     const userDelay = currentData.manualOffset !== undefined ? currentData.manualOffset : 0;
                     currentBaseStart = prevData.gameTimeStart + prevData.gameTimePassed + finalWaitTime + userDelay; // Switch to gameTimeStart
                 }
-
+                
+                const accumulated = currentData.trackers.Cursor_Accumulated || 0;
                 let holdReleaseDelay = 0;
+                
                 for (let delay = 0; delay <= 5.0; delay += 0.01) {
                     const checkTime = currentBaseStart + delay;
                     const holdDuration = checkTime - holdStart; // holdStart must now record gameTimeStart
-                    const cursor = (((holdDuration * 100) % 200 > 100) ? (200 - ((holdDuration * 100) % 200)) : ((holdDuration * 100) % 200));
+                    const progress = accumulated + (holdDuration * speed);
+                    
+                    let cursor = 0;
+                    if (mode === "clamp") {
+                        cursor = Math.min(progress, maxVal);
+                    } else if (mode === "loop") {
+                        cursor = progress % maxVal;
+                    } else { // pingpong
+                        const doubleMax = maxVal * 2;
+                        cursor = (progress % doubleMax > maxVal) ? (doubleMax - (progress % doubleMax)) : (progress % doubleMax);
+                    }
+                    
                     if (Math.abs(cursor - center) <= halfWidth) {
                         holdReleaseDelay = delay;
                         break;
@@ -298,33 +321,54 @@ const RotationState = {
             currentData.offsetReasons = reasons;
 
             // --- FIXED: Resolve the Detonation Window metrics from the move definition schema before snapshotting ---
-            if (dbMove.forteWindow) {
-                const winConfig = dbMove.forteWindow;
-                const center = winConfig.center || 65;
-                const baseSize = winConfig.baseSize !== undefined ? winConfig.baseSize : 10;
-                const scaling = winConfig.stackScaling !== undefined ? winConfig.stackScaling : 20;
+            const isRelease = dbMove.inputType === "Release" || dbMove.holdConfig;
+            const isHolding = currentData.trackers && currentData.trackers.Hold_Start !== undefined;
+            
+            if (isRelease || isHolding) {
+                // If we are on an intermediate row during a hold, fetch the config from the character's Release move
+                let config = dbMove.holdConfig;
+                if (!config && typeof MECHANICS_DB !== 'undefined') {
+                     const releaseKey = Object.keys(MECHANICS_DB).find(k => k.startsWith(currentData.unit + "_") && MECHANICS_DB[k].inputType === "Release" && MECHANICS_DB[k].holdConfig);
+                     if (releaseKey) config = MECHANICS_DB[releaseKey].holdConfig;
+                }
+                config = config || {};
                 
-                // Get active stacks present on the timeline row before execution
-                const stackKey = winConfig.stackBuff || "Clarity";
-                const activeStacks = currentData.activeBuffs[`${currentData.unit}_${stackKey}`]?.stacks || currentData.trackers[stackKey] || 0;
+                const centerExpr = config.windowCenter ?? (typeof MECHANICS_NOTATION !== 'undefined' && MECHANICS_NOTATION.HOLD_DEFAULTS ? MECHANICS_NOTATION.HOLD_DEFAULTS.WINDOW_CENTER : "65");
+                const sizeExpr = config.windowSize ?? (typeof MECHANICS_NOTATION !== 'undefined' && MECHANICS_NOTATION.HOLD_DEFAULTS ? MECHANICS_NOTATION.HOLD_DEFAULTS.WINDOW_SIZE : "10");
                 
-                const dynamicSize = baseSize + (scaling * activeStacks);
-                const halfWidth = dynamicSize / 2;
-
+                const center = parseFloat(this._resolveDynamicMath(centerExpr, currentData, currentData.unit));
+                const size = parseFloat(this._resolveDynamicMath(sizeExpr, currentData, currentData.unit));
+                const halfWidth = size / 2;
+                
                 // Sync window specifications directly into the row tracking state
+                if (!currentData.trackers) currentData.trackers = {};
                 currentData.trackers.Forte_Win_Center = center;
-                currentData.trackers.Forte_Win_Size = dynamicSize;
-
-                if (currentData.trackers.Hold_Start !== undefined) {
-                    // --- FIXED: Changed FROM currentData.timeStart TO currentData.gameTimeStart ---
-                    const holdDuration = currentData.gameTimeStart - currentData.trackers.Hold_Start;
-                    const finalCursor = (((holdDuration * 100) % 200 > 100) ? (200 - ((holdDuration * 100) % 200)) : ((holdDuration * 100) % 200));
+                currentData.trackers.Forte_Win_Size = size;
+                
+                if (isHolding) {
+                    const speed = config.cursorSpeed ?? (typeof MECHANICS_NOTATION !== 'undefined' && MECHANICS_NOTATION.HOLD_DEFAULTS ? MECHANICS_NOTATION.HOLD_DEFAULTS.CURSOR_SPEED : 100);
+                    const maxVal = config.maxCursorVal ?? (typeof MECHANICS_NOTATION !== 'undefined' && MECHANICS_NOTATION.HOLD_DEFAULTS ? MECHANICS_NOTATION.HOLD_DEFAULTS.MAX_CURSOR_VAL : 100);
+                    const mode = config.cursorMode || (typeof MECHANICS_NOTATION !== 'undefined' && MECHANICS_NOTATION.HOLD_DEFAULTS ? MECHANICS_NOTATION.HOLD_DEFAULTS.CURSOR_MODE : "pingpong");
                     
+                    const holdDuration = currentData.gameTimeStart - currentData.trackers.Hold_Start;
+                    const accumulated = currentData.trackers.Cursor_Accumulated || 0;
+                    const progress = accumulated + (holdDuration * speed);
+                    
+                    let finalCursor = 0;
+                    if (mode === "clamp") {
+                        finalCursor = Math.min(progress, maxVal);
+                    } else if (mode === "loop") {
+                        finalCursor = progress % maxVal;
+                    } else { // pingpong
+                        const doubleMax = maxVal * 2;
+                        finalCursor = (progress % doubleMax > maxVal) ? (doubleMax - (progress % doubleMax)) : (progress % doubleMax);
+                    }
+                                         
                     currentData.forteCursorPos = finalCursor;
                     currentData.forteWinCenter = center;
-                    currentData.forteWinSize = dynamicSize;
+                    currentData.forteWinSize = size;
                     currentData.isInForteWindow = Math.abs(finalCursor - center) <= halfWidth;
-                    
+                                         
                     // Explicitly inject these tracking values straight back into the live state trackers map
                     currentData.trackers.Cursor_Pos = finalCursor;
                 }
@@ -812,11 +856,22 @@ const RotationState = {
         RotationState.damageQueue.sort((a, b) => a.executeAt - b.executeAt);
 
         // ==========================================================================
-        //   FIXED: Update variable reference from dbMove to moveData
+        //   FIXED: Handle Cursor Retention & Cleanup
         // ==========================================================================
         if (moveData.inputType === "Release" && currentData.trackers) {
+            const config = moveData.holdConfig || {};
+            const retain = config.retainCursor ?? (typeof MECHANICS_NOTATION !== 'undefined' && MECHANICS_NOTATION.HOLD_DEFAULTS ? MECHANICS_NOTATION.HOLD_DEFAULTS.RETAIN_CURSOR : false);
+            
+            if (retain && currentData.trackers.Hold_Start !== undefined) {
+                // Save the final cursor position for the next hold
+                currentData.trackers.Cursor_Accumulated = currentData.trackers.Cursor_Pos || 0;
+            } else {
+                delete currentData.trackers.Cursor_Accumulated;
+                currentData.trackers.Cursor_Pos = 0;
+            }
+            
+            // Always delete Hold_Start on release so we don't bleed states
             delete currentData.trackers.Hold_Start;
-            currentData.trackers.Cursor_Pos = 0;
         }
 
         this._decayState(

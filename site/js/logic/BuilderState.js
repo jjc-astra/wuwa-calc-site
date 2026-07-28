@@ -81,6 +81,25 @@ const BuilderState = {
             inputType: "Hold",
             stanceReq: "Grounded"
         },
+        "Forte Release": {
+            name: "Forte Hold Release",
+            castTypes: ["Heavy"],
+            dmgTypes: ["Glacio", "Heavy"],
+            hitMults: ["200%"],
+            actionDuration: 0.5,
+            triggerRule: "IF (@Self.HasBuff(Forte_Holding))",
+            input: "Basic",
+            inputType: "Release",
+            stanceReq: "Grounded",
+            holdConfig: {
+                cursorSpeed: 100,
+                cursorMode: "pingpong",
+                retainCursor: false,
+                maxCursorVal: 100,
+                windowCenter: "50",
+                windowSize: "20"
+            }
+        },
         "Intro Skill": {
             name: "Intro Skill",
             isSwapInDefault: true,

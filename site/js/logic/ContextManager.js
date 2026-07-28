@@ -128,7 +128,8 @@ const ContextManager = {
                     damageTimeframe: stateData.damageTimeframe,
                     swapTiming: stateData.swapTiming || 0,
                     baseMult: stateData.baseMult || 0,
-                    hitMults: stateData.hitMults || []
+                    hitMults: stateData.hitMults || [],
+                    isInHoldWindow: stateData.isInForteWindow || false // <--- ADD THIS
                 },
 
                 enemy: {
