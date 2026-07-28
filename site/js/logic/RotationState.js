@@ -99,26 +99,32 @@ const RotationState = {
 
     _primeCombatStart: function(firstRowData) {
         if (typeof EventManager === 'undefined' || typeof RosterState === 'undefined') return;
-
         const teamMembers = RosterState.team ? RosterState.team.map(t => t.character).filter(Boolean) : [firstRowData.unit];
-
-        teamMembers.forEach(charName => {
-            const startCtx = typeof ContextManager !== 'undefined' ? ContextManager.buildContext(firstRowData.domRef, charName) : null;
-            if (!startCtx) return;
-
-            const passives = [
-                ...EventManager.emit('OnStart', new Set(), firstRowData.domRef, charName),
-                ...EventManager.emit('ALWAYS', new Set(), firstRowData.domRef, charName)
-            ];
-
-            passives.forEach(eff => {
-                const targetUnit = eff.target && eff.target !== '@Self' ? eff.target : charName;
-                if (eff.type === 'buff' || !eff.type) {
-                    this._updateActiveBuffs(eff, firstRowData, [targetUnit]);
-                } else if (eff.type === 'tracker') {
-                    firstRowData.trackers[`${targetUnit}_${eff.name}`] = eff.value;
-                }
-            });
+        
+        // Emit startup passives once globally across the party
+        const passives = [
+            ...EventManager.emit('OnStart', new Set(), firstRowData.domRef, firstRowData.unit),
+            ...EventManager.emit('ALWAYS', new Set(), firstRowData.domRef, firstRowData.unit)
+        ];
+        
+        passives.forEach(eff => {
+            // Respect the provider who owns the passive instead of the loop iteration character!
+            const owner = eff.provider || eff.source || firstRowData.unit;
+            let targetUnits = [owner];
+            
+            if (eff.target === '@Team') {
+                targetUnits = teamMembers;
+            } else if (eff.target && eff.target !== '@Self' && eff.target !== '@Equipper') {
+                targetUnits = [eff.target];
+            }
+            
+            if (eff.type === 'buff' || !eff.type) {
+                this._updateActiveBuffs(eff, firstRowData, targetUnits);
+            } else if (eff.type === 'tracker') {
+                targetUnits.forEach(t => {
+                    firstRowData.trackers[`${t}_${eff.name}`] = eff.value;
+                });
+            }
         });
     },
 
@@ -659,20 +665,25 @@ const RotationState = {
             const b = prevData.activeBuffs[key];
             currentData.activeBuffs[key] = { ...b, durations: b.durations ? [...b.durations] : undefined };
         }
+
+        // --- NEW: Instantiate pending @Next buffs directly on the incoming unit ---
+        if (prevData.pendingNextBuffs && prevData.pendingNextBuffs.length > 0 && currentData.unit) {
+            const activeTeam = (typeof RosterState !== 'undefined' && RosterState.team) ? RosterState.team.map(t => t.character).filter(Boolean) : [];
+            const activeRows = this.getActiveRows();
+            
+            prevData.pendingNextBuffs.forEach(eff => {
+                const nextEff = { ...eff, target: currentData.unit };
+                this._processEffect(nextEff, currentData, eff.provider || prevData.unit, activeTeam, activeRows, currentData.arrayIndex);
+            });
+        }
+
         currentData.timeScales = structuredClone(prevData.timeScales || {});
-        if (prevData.unit && currentData.unit !== prevData.unit) {
+        
+        if (prevData.unit && currentData.unit && currentData.unit !== prevData.unit) {
             const isIntro = currentData.castTypes && currentData.castTypes.includes("Intro");
             const myCombo = prevData.unitCombos[currentData.unit];
             const isDuringCombo = myCombo && currentTime <= myCombo.expiration;
             currentData.stance = (isIntro || isDuringCombo) ? "Grounded" : (prevData.stance || "Grounded");
-            for (const key in currentData.activeBuffs) {
-                const buff = currentData.activeBuffs[key];
-                if (buff.target === "Next" || buff.target === "@Next") {
-                    buff.target = currentData.unit;
-                    currentData.activeBuffs[`${currentData.unit}_${buff.name}`] = buff;
-                    delete currentData.activeBuffs[key];
-                }
-            }
         } else {
             currentData.stance = prevData.stance || "Grounded";
         }
@@ -1232,15 +1243,20 @@ const RotationState = {
         const resolvedEffect = { ...effect };
         const resolve = (val) => (typeof val === 'string' && (val.includes('@') || /[+\-*/%]/.test(val))) ? this._resolveDynamicMath(val, currentData, unitName) : val;
         
-        // --- NEW: Leave buff math intact so it scales dynamically per-hit! ---
         const isBuff = resolvedEffect.type === "buff" || !resolvedEffect.type;
         if (!isBuff) resolvedEffect.value = resolve(resolvedEffect.value);
         
         resolvedEffect.duration = resolve(resolvedEffect.duration);
-
         const originalProvider = resolvedEffect.provider;
         if (!resolvedEffect.source) resolvedEffect.source = (originalProvider && originalProvider !== "System" && originalProvider !== "@Equipper") ? originalProvider : currentData.moveName;
         if (!originalProvider || originalProvider === "System" || originalProvider === "@Equipper" || originalProvider === resolvedEffect.source) resolvedEffect.provider = unitName;
+
+        // --- NEW: Queue @Next target effects to be created directly on the next unit ---
+        if (resolvedEffect.target === "@Next" || resolvedEffect.target === "Next") {
+            if (!currentData.pendingNextBuffs) currentData.pendingNextBuffs = [];
+            currentData.pendingNextBuffs.push(resolvedEffect);
+            return; // Exit early so this buff is NOT added to currentData.activeBuffs
+        }
 
         let targetUnits = this._resolveTargets(resolvedEffect.target, unitName, activeTeam, activeRows, currentIndex);
         
@@ -1392,31 +1408,28 @@ const RotationState = {
                 }
             }
         }
-
+        
         targetUnits.forEach(targetName => {
             const key = `${targetName}_${buffDef.name}`;
             const existingBuff = currentData.activeBuffs[key];
-            
             const addedStacks = buffDef.stacks !== undefined ? parseInt(buffDef.stacks) : 1;
-            let actuallyAddedStacks = 0; // NEW: Track real stack changes to prevent recursion
-            
+            let actuallyAddedStacks = 0;
+
             if (existingBuff) {
                 if (buffDef.label) existingBuff.label = buffDef.label;
                 if (buffDef.stat) existingBuff.stat = buffDef.stat;
                 if (buffDef.value !== undefined) existingBuff.value = buffDef.value;
-
-                // Calculate how many stacks we *actually* gained before hitting the cap
+                
                 const oldStacks = existingBuff.stacks;
                 existingBuff.stacks = Math.min(existingBuff.stacks + addedStacks, buffDef.maxStacks || 1);
-                actuallyAddedStacks = existingBuff.stacks - oldStacks; 
-
+                actuallyAddedStacks = existingBuff.stacks - oldStacks;
+                
                 if (buffDef.stackBehavior === "separate") {
                     for(let i=0; i < addedStacks; i++) existingBuff.durations.push(buffDef.duration);
                     existingBuff.durations = existingBuff.durations.sort((a, b) => b - a).slice(0, buffDef.maxStacks || 1);
                 } else {
                     existingBuff.duration = buffDef.duration; 
                 }
-                
             } else {
                 currentData.activeBuffs[key] = {
                     ...buffDef, 
@@ -1426,10 +1439,15 @@ const RotationState = {
                     duration: buffDef.stackBehavior === "separate" ? undefined : buffDef.duration,
                     durations: buffDef.stackBehavior === "separate" ? [buffDef.duration] : undefined
                 };
-                actuallyAddedStacks = addedStacks; // New buff gains full stacks
+                actuallyAddedStacks = addedStacks;
             }
 
-            // --- FIXED: ONLY emit OnBuffAdd if a stack was actually gained! ---
+            // ONLY LOG WHEN A BUFF IS NEWLY CREATED OR GAINS A STACK
+            if (actuallyAddedStacks > 0) {
+                const rowIndex = (currentData.arrayIndex !== undefined ? currentData.arrayIndex + 1 : "?");
+                console.log(`[BUFF GAINED] Row #${rowIndex} (${currentData.unit}) | "${buffDef.name}" -> [${targetName}] (Stacks: ${currentData.activeBuffs[key].stacks})`);
+            }
+
             if (actuallyAddedStacks > 0 && typeof EventManager !== 'undefined') {
                 const provider = buffDef.provider || currentData.unit;
                 const payloads = EventManager.emit("OnBuffAdd", new Set([buffDef.name]), currentData.domRef, provider);
@@ -1448,11 +1466,16 @@ const RotationState = {
             reduceRes: 0, ignoreRes: 0, reduceDef: 0, ignoreDef: 0, multiplicativeMult: 0, additiveMult: 0
         };
         const appliedBuffs = {};
-
+        
         Object.entries(stateContext.activeBuffs).forEach(([bKey, buff]) => {
             const isEnemy = buff.target === "Enemy" || buff.target === "@Target";
             const isSelf = buff.target === executingUnit || buff.target === "Active" || buff.target === "@Team";
-            if (!isSelf && !isEnemy) return;
+            
+            if (!isSelf && !isEnemy) {
+                // UNCOMMENT THIS TO DEBUG MISMATCHES:
+                console.log(`[AGGREGATE SKIP] Buff "${buff.name}" target is "${buff.target}", but executing unit is "${executingUnit}"`);
+                return;
+            }
 
             // --- NEW: Custom Move Tag Filtering ---
             if (buff.applyTo && Array.isArray(buff.applyTo) && buff.applyTo.length > 0) {
@@ -1494,8 +1517,8 @@ const RotationState = {
                     else if (clean === "def" || clean === "percentdef" || clean === "flatdef") { if (isPct) buffTotals.percentDef += val; else buffTotals.flatDef += val; }
                     else if (clean.includes("critrate") || clean.includes("crrate")) buffTotals.critRate += val;
                     else if (clean.includes("critdamage") || clean.includes("crdmg")) buffTotals.critDamage += val;
+                    else if (clean.includes("amp") || clean.includes("deepen")) buffTotals.dmgAmp += val;
                     else if (clean.includes("dmgbonus") || clean.includes("dmg")) buffTotals.dmgBonus += val;
-                    else if (clean.includes("dmgamp") || clean.includes("amp")) buffTotals.dmgAmp += val;
                     else if (clean.includes("ignoreres") || clean.includes("respen")) buffTotals.ignoreRes += val;
                     else if (clean.includes("ignoredef")) buffTotals.ignoreDef += val;
                     else if (clean.includes("multiplicativemult")) buffTotals.multiplicativeMult += val;

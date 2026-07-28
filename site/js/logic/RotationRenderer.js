@@ -168,6 +168,7 @@ const RotationRenderer = {
                 offsetBoxInput.style.cursor = 'pointer';
             }
         }
+        
     },
 
     _updateGauges: (row, data) => {
@@ -368,9 +369,10 @@ const RotationRenderer = {
     },
 
     _renderComplexDmgPanel: (config, data) => {
-        let instances = data.damageInstances.length > 0 
-            ? data.damageInstances 
-            : [{ title: "Active", total: data.dmg || "0", isOpen: true, data: data }, { title: "Procced", total: "0", isOpen: false, data: { activeBuffs: {} } }];
+        if (!data || !data.damageInstances || data.damageInstances.length === 0) {
+            return `<div class="empty-buff-state" style="padding: 20px; text-align: center; color: var(--text-dim);">No damage instances dealth by this action.</div>`;
+        }
+        let instances = data.damageInstances;
         
         const sectionsHTML = instances.map(inst => {
             // Guarantee the fallback object shape so later Object.values() doesn't fail

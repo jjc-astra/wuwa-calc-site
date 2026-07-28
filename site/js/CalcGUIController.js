@@ -553,8 +553,11 @@ function _bindRotationEvents(container, headerRow, state) {
         const data = RotationState.getData(row);
         if (!data || !panel) return;
          
-        // --- FIXED: Disable opening the offset sub-panel if timing is set to Simultaneous ---
+        // --- FIXED: Disable opening offset panel if Simultaneous, or DMG panel if no damage instances exist ---
         if (trigger.dataset.trigger === 'offset' && data.timing === 'Simultaneous') {
+            return;
+        }
+        if (trigger.dataset.trigger === 'dmg' && (!data.damageInstances || data.damageInstances.length === 0)) {
             return;
         }
 

@@ -417,7 +417,7 @@
   "Sanhua_Outro": {
     "name": "Outro",
     "category": "Outro",
-    "triggerRule": "IF (@Self.Concerto >= 100)",
+    "triggerRule": "OnCast[Outro] IF (@Self.Concerto >= 100)",
     "castTypes": ["Outro"],
     "castResources": {
       "concerto": -100
@@ -428,8 +428,8 @@
         "target": "@Next",
         "name": "Sanhua_Outro_Buff",
         "label": "Sanhua Outro: Silversnow",
-        "stat": "basicDmg",
-        "value": 38,
+        "stat": "Basic DMG Amp",
+        "value": "38%",
         "duration": 14,
         "removeOnSwap": true
       }
