@@ -90,7 +90,18 @@ const RotationState = {
     getOrderedRows: () => RotationState.data,
 
     _getModifiedMoveData: function(actionId, currentData) {
-        const rawMove = (typeof MECHANICS_DB !== 'undefined') ? MECHANICS_DB[actionId] || {} : {};
+        if (!actionId) return {};
+        let rawMove = (typeof MECHANICS_DB !== 'undefined') ? MECHANICS_DB[actionId] : null;
+        
+        // --- FALLBACK: Match Echo base names to their active skill node ---
+        if (!rawMove && typeof MECHANICS_DB !== 'undefined') {
+            const matchKey = Object.keys(MECHANICS_DB).find(k => 
+                k.startsWith(actionId + "_") && !MECHANICS_DB[k].isPassive
+            );
+            if (matchKey) rawMove = MECHANICS_DB[matchKey];
+        }
+        
+        rawMove = rawMove || {};
         const { _compiledRule, ...safeData } = rawMove;
         const patchedMove = structuredClone(safeData);
         if (_compiledRule) patchedMove._compiledRule = _compiledRule;

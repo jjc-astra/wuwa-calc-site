@@ -1,6 +1,6 @@
 {
   "Impermanence Heron_Attack": {
-    "name": "Impermanence Heron_Attack",
+    "name": "Impermanence Heron",
     "category": "Echo Skill",
     "castTypes": ["Echo"],
     "dmgTypes": ["Havoc","Echo"],

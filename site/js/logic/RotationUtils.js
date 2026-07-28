@@ -75,30 +75,31 @@ const RotationUtils = {
             const unitMoves = MECHANICS_INDEX[unitName] || [];
             const systemMoves = MECHANICS_INDEX['System'] || [];
             
-            // --- Identify the Echo Key Early for Categorization ---
-            let echoKey = null;
+            // --- UPDATED: Retrieve ALL sub-node keys for the equipped Echo ---
+            let echoKeys = [];
             let echoName = null;
             if (typeof RosterState !== 'undefined') {
                 const slot = RosterState.team.find(t => t.character === unitName);
                 if (slot && slot.mainEcho) {
                     echoName = slot.mainEcho;
-                    const sanitizedEcho = slot.mainEcho.replace(/\s+/g, '_');
-                    echoKey = slot.mainEcho; 
-                    if (MECHANICS_DB[sanitizedEcho]) echoKey = sanitizedEcho;
-                    else if (MECHANICS_DB[`System_${sanitizedEcho}`]) echoKey = `System_${sanitizedEcho}`;
-                    else {
-                        const found = Object.keys(MECHANICS_DB).find(k => MECHANICS_DB[k].name === slot.mainEcho);
-                        if (found) echoKey = found;
+                    
+                    // 1. Check MECHANICS_INDEX for keys under this echo name (e.g., ["Impermanence Heron_Attack", ...])
+                    if (typeof MECHANICS_INDEX !== 'undefined' && MECHANICS_INDEX[echoName]) {
+                        echoKeys = [...MECHANICS_INDEX[echoName]];
+                    }
+                    
+                    // 2. Fallback: Search MECHANICS_DB directly if INDEX isn't populated
+                    if (echoKeys.length === 0) {
+                        const sanitizedEcho = echoName.replace(/\s+/g, '_');
+                        echoKeys = Object.keys(MECHANICS_DB).filter(k => 
+                            k === echoName || k === sanitizedEcho || k.startsWith(echoName + "_") || k.startsWith(sanitizedEcho + "_")
+                        );
                     }
                 }
             }
 
-            const availableKeys = [...unitMoves, ...systemMoves];
-            
-            // Inject the Echo into the evaluation pool!
-            if (echoKey && !availableKeys.includes(echoKey)) {
-                availableKeys.push(echoKey); 
-            }
+            // Combine character moves, echo sub-node keys, and system moves
+            const availableKeys = [...unitMoves, ...echoKeys, ...systemMoves];
 
             const ctx = (typeof ContextManager !== 'undefined') ? ContextManager.buildContext(row, unitName) : null;
 
@@ -127,6 +128,10 @@ const RotationUtils = {
                     const isCurrent = (key === currentAction);
 
                     if (isAvailable || isCurrent) {
+                        const isEcho = echoKeys.includes(key);
+                        const isUnit = unitMoves.includes(key);
+                        const sourceType = isEcho ? "Echo" : (isUnit ? "Character" : "System");
+
                         const opt = {
                             key: key,
                             name: moveData.name || key,
@@ -134,8 +139,8 @@ const RotationUtils = {
                             inputType: moveData.inputType || "Press",
                             stance: moveData.stanceReq || "Any", 
                             priority: moveData.priority || 0,
-                            category: moveData.category || (key === echoKey ? "Echo Skill" : "Uncategorized"),
-                            sourceType: (key === echoKey) ? "Echo" : (unitMoves.includes(key) ? "Character" : "System")
+                            category: moveData.category || (isEcho ? "Echo Skill" : "Uncategorized"),
+                            sourceType: sourceType
                         };
 
                         if (isCurrent && !isAvailable) {
@@ -159,12 +164,11 @@ const RotationUtils = {
             // --- OPTIMIZED: Deduplicate and merge directly via Map constructor ---
             const finalMoves = new Map([...resolvedGroups.values(), ...forcedOptions.values()].map(opt => [opt.key, opt]));
             
-            // --- NEW: Failsafe for Echo if it lacked a DB entry ---
-            if (echoKey && !finalMoves.has(echoKey)) {
-                const moveData = MECHANICS_DB[echoKey] || {};
-                finalMoves.set(echoKey, {
-                    key: echoKey,
-                    name: moveData.name || echoName || echoKey,
+            // --- UPDATED: Failsafe for Echo if no DB entries were found ---
+            if (echoName && echoKeys.length === 0 && !finalMoves.has(echoName)) {
+                finalMoves.set(echoName, {
+                    key: echoName,
+                    name: echoName,
                     category: "Echo Skill",
                     sourceType: "Echo"
                 });

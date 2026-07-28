@@ -66,7 +66,7 @@ const EventManager = {
         for (const listener of bucket) {
             
             // --- FIXED: The [Self] Fast-Filter ---
-            if (listener.requiredModifiers && listener.requiredModifiers.includes("Self")) {
+            if (listener.requiredModifiers && listener.requiredModifiers.includes("self")) {
                 if (activeUnitName !== listener.equipper) continue;
             }
 
@@ -74,7 +74,7 @@ const EventManager = {
             if (listener.requiredModifiers && listener.requiredModifiers.length > 0) {
                 let hasAll = true;
                 for (const mod of listener.requiredModifiers) {
-                    if (mod === "Self") continue; 
+                    if (mod === "self") continue; 
                     if (!actionModifiers || !actionModifiers.has(mod)) {
                         hasAll = false;
                         break;

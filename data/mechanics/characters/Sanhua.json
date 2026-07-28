@@ -417,7 +417,7 @@
   "Sanhua_Outro": {
     "name": "Outro",
     "category": "Outro",
-    "triggerRule": "OnCast[Outro] IF (@Self.Concerto >= 100)",
+    "triggerRule": "OnCast[Outro, Self] IF (@Self.Concerto >= 100)",
     "castTypes": ["Outro"],
     "castResources": {
       "concerto": -100

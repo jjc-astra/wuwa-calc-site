@@ -1,6 +1,6 @@
 {
   "NM Thundering Mephis_Attack": {
-    "name": "NM Thundering Mephis_Attack",
+    "name": "NM Thundering Mephis",
     "category": "Echo Skill",
     "castTypes": ["Echo"],
     "dmgTypes": ["Electro","Echo"],
