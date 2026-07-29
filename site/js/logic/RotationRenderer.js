@@ -480,15 +480,16 @@ const RotationRenderer = {
     _renderOffsetPanel: (data) => {
         const reasonsHTML = (data.offsetReasons && data.offsetReasons.length > 0)
             ? data.offsetReasons.map(r => `
-                <div class="buff-effect-row" style="margin-bottom: 6px;">
-                    <svg class="buff-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 10 20 15 15 20"></polyline><path d="M4 4v7a4 4 0 0 0 4 4h12"></path></svg>
-                    <span class="buff-effect-label">${r.label}</span>
-                    <span class="buff-val-box">${r.value}</span>
+                <div class="buff-effect-row" style="margin-bottom: 6px; display: flex; justify-content: space-between; padding-right: 8px;">
+                    <div style="display:flex; align-items:center;">
+                        <svg class="buff-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 10 20 15 15 20"></polyline><path d="M4 4v7a4 4 0 0 0 4 4h12"></path></svg>
+                        <span class="buff-effect-label">${r.label}</span>
+                    </div>
+                    <span class="buff-val-box text-bold ${r.isNegative ? 'text-gold' : (r.value === '0.00s' ? 'text-dim' : 'text-main')}">${r.value}</span>
                 </div>`).join('')
             : `<div class="empty-buff-state" style="padding: 12px; margin-top: 8px;">Standard Execution (No Offset)</div>`;
-        
-        const offsetStr = (data.offset > 0 ? "+" : "") + data.offset.toFixed(2) + "s";
-        const offsetClass = data.offset > 0 ? "text-gold" : (data.offset < 0 ? "text-main" : "text-dim");
+            
+        const offsetStr = (data.offset > 0 ? "+" : "") + data.offset.toFixed(2) + "s";const offsetClass = data.offset > 0 ? "text-gold" : (data.offset < 0 ? "text-main" : "text-dim");
 
         return `
             <div class="panel-header-main">Offset Breakdown</div>

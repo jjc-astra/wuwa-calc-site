@@ -163,6 +163,7 @@ const RotationState = {
         let accumulatedTime = 0;
         let accumulatedGameTime = 0;
         const unitBusyUntil = {};
+        let globalSwapCdExpiresAt = 0;
 
         for (let i = 0; i < activeRows.length; i++) {
             const currentData = activeRows[i];
@@ -191,20 +192,28 @@ const RotationState = {
                 this._primeCombatStart(currentData);
             }
 
-            let waitTime = 0;
+            // 1. Check if a character swap occurred coming into this row
+            if (i > 0 && prevData.unit !== currentData.unit) {
+                // Swap cooldown (1.0s) begins at the frame the previous character actually left the field
+                globalSwapCdExpiresAt = Math.max(globalSwapCdExpiresAt, accumulatedTime + 1.0);
+            }
+
+            // 2. Pre-Cast Delays
             const cdKey = `${currentData.unit}_${currentData.moveName}`;
             const actualCdRemaining = currentData.cooldowns[cdKey] || 0;
-            if (actualCdRemaining > 0) waitTime = Math.max(waitTime, actualCdRemaining);
+            const wCD = Math.max(0, actualCdRemaining);
 
-            const busyWait = (unitBusyUntil[currentData.unit] && unitBusyUntil[currentData.unit] > accumulatedTime) 
-                ? unitBusyUntil[currentData.unit] - accumulatedTime 
-                : 0;
-            if (busyWait > 0) waitTime = Math.max(waitTime, busyWait);
+            let wBusy = 0;
+            const busyUntil = unitBusyUntil[currentData.unit] || 0;
+            const isOutroCast = dbMove.castTypes && dbMove.castTypes.includes("Outro");
+            if (busyUntil > accumulatedTime && !isOutroCast) {
+                wBusy = busyUntil - accumulatedTime;
+            }
 
-            const baseWaitTime = waitTime;
-            currentData.waitTime = waitTime;
-            this._applyDecay(currentData, prevData, waitTime, i > 0, activeTeam, activeRows);
-            let finalWaitTime = currentData.waitTime;
+            const finalWaitTime = Math.max(wCD, wBusy);
+            currentData.waitTime = finalWaitTime;
+
+            this._applyDecay(currentData, prevData, finalWaitTime, i > 0, activeTeam, activeRows);
 
             // --- FIXED: Automated Hold-Release Window Lookahead Delay System ---
             if (dbMove.inputType === "Release" && currentData.trackers && currentData.trackers.Hold_Start !== undefined) {
@@ -262,10 +271,29 @@ const RotationState = {
             }
 
             const timings = this._resolveTimings(currentData, dbMove);
+            let duration = timings.duration;
+            let animationCommitment = timings.animationCommitment;
+
+            // Check if this row wants to swap out and is blocked by the 1s Swap Cooldown
+            const nextRow = currentData.nextRow;
+            const isSwappingOut = (currentData.timing === "Swap") || 
+                                  (currentData.timing === "Auto" && currentData._autoTimingChoice === "Swap") ||
+                                  (nextRow && nextRow.unit !== currentData.unit && nextRow.unit !== "");
+
+            let swapCdDelay = 0;
+            if (isSwappingOut) {
+                const desiredSwapOutTime = (accumulatedTime + finalWaitTime) + duration;
+                if (desiredSwapOutTime < globalSwapCdExpiresAt) {
+                    swapCdDelay = globalSwapCdExpiresAt - desiredSwapOutTime;
+                    duration += swapCdDelay;
+                    animationCommitment += swapCdDelay;
+                }
+            }
+
             currentData.baseDuration = timings.baseDuration;
-            currentData.duration = timings.duration;
-            currentData.animationCommitment = timings.animationCommitment;
-            currentData.gameTimePassed = timings.gameTimePassed;
+            currentData.duration = duration;
+            currentData.animationCommitment = animationCommitment;
+            currentData.gameTimePassed = Math.max(0, duration - timings.freezeTime);
             currentData.freezeTime = timings.freezeTime;
             currentData.damageTimeframe = timings.damageTimeframe;
             currentData.allowedHits = timings.allowedHits;
@@ -277,64 +305,85 @@ const RotationState = {
                 if (currentData.duration >= transitionTime) currentData.stance = dbMove.stanceResult;
             }
 
-            // --- FIXED: Parallel execution track routing rules (Anchored to End Time with Start Time Clamping) ---
+            // Parallel execution track routing rules
             if (currentData.timing === "Simultaneous" && i > 0) {
                 if (currentData.manualOffset === undefined || currentData.manualOffset === null) {
                     const X = typeof dbMove.actionDuration === 'number' ? dbMove.actionDuration : (parseFloat(dbMove.actionDuration) || 0);
                     currentData.manualOffset = -X; 
                 }
-
-                // Reference anchor: 0 offset is the END time of the previous move
                 let baseTimeStart = prevData.timeStart + prevData.duration + finalWaitTime;
                 let baseGameTimeStart = prevData.gameTimeStart + prevData.gameTimePassed + finalWaitTime;
-
-                // Enforce boundary clamp: timeStart cannot be before the previous move's start time
                 if (baseTimeStart + currentData.manualOffset < prevData.timeStart) {
                     currentData.manualOffset = prevData.timeStart - baseTimeStart;
                 }
-
                 currentData.timeStart = baseTimeStart + currentData.manualOffset;
                 currentData.gameTimeStart = baseGameTimeStart + currentData.manualOffset;
-
                 currentData.totalRealTimeCost = currentData.duration;
                 currentData.totalGameTimeCost = currentData.gameTimePassed;
-                
-                // Main chain clock accumulation remains anchored sequentially to prevent drift
             } else {
                 currentData.timeStart = accumulatedTime + finalWaitTime;
                 currentData.gameTimeStart = accumulatedGameTime + finalWaitTime;
-
                 currentData.totalRealTimeCost = finalWaitTime + currentData.duration;
                 currentData.totalGameTimeCost = finalWaitTime + currentData.gameTimePassed;
-
                 accumulatedTime = currentData.timeStart + currentData.duration;
                 accumulatedGameTime = currentData.gameTimeStart + currentData.gameTimePassed;
             }
-
             unitBusyUntil[currentData.unit] = currentData.timeStart + currentData.animationCommitment;
 
-            const baseDuration = dbMove.actionDuration || 1.0;
+            // --- TIME LEDGER ASSEMBLY ---
+            const baseActDur = (dbMove.actionDuration !== undefined && dbMove.actionDuration !== null) ? parseFloat(dbMove.actionDuration) : 0;
+            let reasons = [];
+
+            // 1. Pre-Cast Delays
+            if (wCD > 0.005) {
+                reasons.push({ label: "Waiting for Skill CD", value: `+${wCD.toFixed(2)}s` });
+            }
+            if (wBusy > 0.005) {
+                reasons.push({ label: "Off-Field Animation Lock", value: `+${wBusy.toFixed(2)}s` });
+            }
+
+            // 2. Base Cost
+            if (baseActDur > 0) {
+                reasons.push({ label: "Base Action Duration", value: `+${baseActDur.toFixed(2)}s` });
+            } else {
+                reasons.push({ label: "Instant Cast", value: `0.00s` });
+            }
+
+            // 3. Execution Savings & Delays
             if (currentData.timing === "Simultaneous" && i > 0) {
                 currentData.offset = currentData.manualOffset;
+                reasons.push({ 
+                    label: "Parallel Execution Start", 
+                    value: `${currentData.offset > 0 ? '+' : ''}${currentData.offset.toFixed(2)}s`, 
+                    isNegative: currentData.offset < 0 
+                });
             } else {
-                const rawOffset = (finalWaitTime + currentData.duration) - baseDuration;
+                const unadjustedDur = duration - swapCdDelay;
+                const timingDiff = unadjustedDur - baseActDur;
+                const netTimingChange = timingDiff + swapCdDelay;
+                
+                let timingLabel = currentData.timing === "Auto" 
+                    ? (currentData._autoTimingChoice ? `Auto (${currentData._autoTimingChoice})` : "Auto")
+                    : currentData.timing.replace('_', ' ');
+
+                if (swapCdDelay > 0.005) {
+                    if (netTimingChange > 0.005) {
+                        reasons.push({ label: "Swap Cooldown Delay", value: `+${netTimingChange.toFixed(2)}s` });
+                    } else if (netTimingChange < -0.005) {
+                        reasons.push({ label: `${timingLabel} Time Saved`, value: `${netTimingChange.toFixed(2)}s`, isNegative: true });
+                    }
+                } else {
+                    if (timingDiff < -0.005) {
+                        reasons.push({ label: `${timingLabel} Time Saved`, value: `${timingDiff.toFixed(2)}s`, isNegative: true });
+                    } else if (timingDiff > 0.005) {
+                        reasons.push({ label: `${timingLabel} Penalty`, value: `+${timingDiff.toFixed(2)}s` });
+                    }
+                }
+
+                const rawOffset = finalWaitTime + netTimingChange;
                 currentData.offset = Math.abs(rawOffset) < 0.005 ? 0 : parseFloat(rawOffset.toFixed(2));
             }
 
-            let reasons = [];
-            if (actualCdRemaining > 0 && actualCdRemaining >= busyWait) {
-                reasons.push({ label: "Skill Cooldown", value: `+${actualCdRemaining.toFixed(2)}s` });
-            } else if (busyWait > 0 && busyWait > actualCdRemaining) {
-                reasons.push({ label: "Swapback Wait", value: `+${busyWait.toFixed(2)}s` });
-            }
-            if (finalWaitTime > baseWaitTime) {
-                reasons.push({ label: "Swap Cooldown", value: `+${(finalWaitTime - baseWaitTime).toFixed(2)}s` });
-            }
-            const timingDiff = currentData.duration - baseDuration;
-            if (Math.abs(timingDiff) > 0.005) {
-                const timingLabel = currentData.timing.replace('_', ' ');
-                reasons.push({ label: `${timingLabel} Timing`, value: `${timingDiff > 0 ? '+' : ''}${timingDiff.toFixed(2)}s` });
-            }
             currentData.offsetReasons = reasons;
 
             // --- FIXED: Resolve the Detonation Window metrics from the move definition schema before snapshotting ---
@@ -612,8 +661,33 @@ const RotationState = {
         let animationCommitment = actionDuration;
         let finalHits = hitCount;
 
+        // ==================== REPLACE START ====================
         if (timingType === "Auto") {
-            duration = autoCancelTime; animationCommitment = autoCancelTime; finalHits = autoAllowedHits;
+            const nextRow = currentData.nextRow;
+            const nextMoveData = (nextRow && nextRow.action && typeof MECHANICS_DB !== 'undefined') ? MECHANICS_DB[nextRow.action] : null;
+            const isNextOutro = nextMoveData && nextMoveData.castTypes && nextMoveData.castTypes.includes("Outro");
+            const isNextSwap = nextRow && nextRow.unit !== currentData.unit && nextRow.unit !== "";
+
+            if (isNextOutro && capConcertoHitIdx !== -1) {
+                // Concerto isn't full yet: Must stay on field for the exact hit that caps it
+                const targetTime = getHitTimeOffset(capConcertoHitIdx);
+                duration = targetTime;
+                animationCommitment = targetTime;
+                finalHits = capConcertoHitIdx + 1;
+                currentData._autoTimingChoice = "Concerto";
+            } else if ((isNextOutro || isNextSwap) && swapTiming !== undefined) {
+                // Concerto is full (or not an outro): Instant Swap
+                duration = Math.max(swapTiming, typeof GAME_DEFAULTS !== 'undefined' ? GAME_DEFAULTS.swapTime : 0.15);
+                animationCommitment = cancelTimeForAnimation;
+                finalHits = hitCount;
+                currentData._autoTimingChoice = "Swap";
+            } else {
+                // Standard optimal cancel execution
+                duration = autoCancelTime;
+                animationCommitment = autoCancelTime;
+                finalHits = autoAllowedHits;
+                currentData._autoTimingChoice = "Cancel";
+            }
         } else if (timingType === "Full") {
             duration = actionDuration; animationCommitment = actionDuration; finalHits = hitCount;
         } else if (timingType === "Swap" && swapTiming !== undefined) {
@@ -702,29 +776,9 @@ const RotationState = {
 
     _applyDecay: function(currentData, prevData, waitTime, isSubsequentRow, activeTeam, activeRows) {
         if (!isSubsequentRow) return;
-
         let finalWaitTime = waitTime || 0;
-
-        if (prevData && prevData.unit !== currentData.unit) {
-            this.lastSwapOutTime = this.lastSwapOutTime || {};
-            this.lastSwapOutTime[prevData.unit] = this.currentGlobalRealTime;
-
-            const currentMove = (typeof MECHANICS_DB !== 'undefined') ? this._getModifiedMoveData(currentData.action, currentData) || {} : {};
-            const isOutro = currentMove.castTypes && currentMove.castTypes.includes("Intro");
-            // Check if the previous move was an Outro skill
-            const prevWasOutro = prevData.castTypes && prevData.castTypes.includes("Outro");
-
-            const lastTimeOut = this.lastSwapOutTime[currentData.unit];
-            
-            // Bypass the 1-second cooldown if the current move is an Intro OR the previous move was an Outro
-            if (lastTimeOut !== undefined && !(isOutro || prevWasOutro)) {
-                const timeSinceOut = this.currentGlobalRealTime - lastTimeOut;
-                if (timeSinceOut < 1.0) finalWaitTime = Math.max(finalWaitTime, 1.0 - timeSinceOut); 
-            }
-        }
-
         if (finalWaitTime > 0) {
-            currentData.waitTime = finalWaitTime; 
+            currentData.waitTime = finalWaitTime;
             this._decayState(currentData, finalWaitTime, finalWaitTime, activeTeam, activeRows);
         }
     },
