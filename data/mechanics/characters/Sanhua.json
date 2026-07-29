@@ -17,7 +17,8 @@
     "comboWindow": "@Default.ComboWindow",
     "input": "Basic",
     "inputType": "Press",
-    "stanceReq": "Grounded"
+    "stanceReq": "Grounded",
+    "priority": "@Default.BasicPriority"
   },
   "Sanhua_Basic Attack 2": {
     "name": "Basic Attack 2",
@@ -39,7 +40,7 @@
     "input": "Basic",
     "inputType": "Press",
     "stanceReq": "Grounded",
-    "priority": 1
+    "priority": "@Default.BasicPriority + 1"
   },
   "Sanhua_Basic Attack 3": {
     "name": "Basic Attack 3",
@@ -61,7 +62,7 @@
     "input": "Basic",
     "inputType": "Press",
     "stanceReq": "Grounded",
-    "priority": 2
+    "priority": "@Default.BasicPriority + 2"
   },
   "Sanhua_Basic Attack 4": {
     "name": "Basic Attack 4",
@@ -83,7 +84,7 @@
     "input": "Basic",
     "inputType": "Press",
     "stanceReq": "Grounded",
-    "priority": 3
+    "priority": "@Default.BasicPriority + 3"
   },
   "Sanhua_Basic Attack 5": {
     "name": "Basic Attack 5",
@@ -105,7 +106,7 @@
     "input": "Basic",
     "inputType": "Press",
     "stanceReq": "Grounded",
-    "priority": 4
+    "priority": "@Default.BasicPriority + 4"
   },
   "Sanhua_Heavy Attack": {
     "name": "Heavy Attack",
@@ -126,7 +127,7 @@
     "input": "Basic",
     "inputType": "Hold",
     "stanceReq": "Grounded",
-    "priority": 50
+    "priority": "@Default.HeavyPriority"
   },
   "Sanhua_Mid-air Attack": {
     "name": "Mid-air Attack",
@@ -147,7 +148,8 @@
     "input": "Basic",
     "inputType": "Press",
     "stanceReq": "Midair",
-    "stanceResult": "Grounded"
+    "stanceResult": "Grounded",
+    "priority": "@Default.BasicPriority"
   },
   "Sanhua_Resonance Skill": {
     "name": "Resonance Skill",
@@ -168,7 +170,7 @@
     "comboWindow": "@Default.ComboWindow",
     "input": "Skill",
     "stanceReq": "Grounded",
-    "priority": 100,
+    "priority": "@Default.SkillPriority",
     "effects": [
       {
         "type": "buff",
@@ -198,7 +200,7 @@
     "triggerRule": "IF (NOT(@Self.HasBuff(Forte_Holding)))",
     "input": "Basic",
     "inputType": "Hold",
-    "priority": 60,
+    "priority": "@Default.HeavyPriority + 10",
     "effects": [
       {
         "type": "buff",
@@ -226,7 +228,7 @@
     "triggerRule": "IF (@Self.HasBuff(Forte_Holding))",
     "input": "Basic",
     "inputType": "Release",
-    "priority": 70,
+    "priority": "@Default.HeavyPriority + 20",
     "holdConfig": {
       "cursorSpeed": 100,
       "cursorMode": "pingpong",
@@ -394,7 +396,7 @@
     "swapTiming": 1,
     "comboWindow": "@Default.ComboWindow",
     "stanceResult": "Grounded",
-    "priority": 1000,
+    "priority": "@Default.IntroPriority",
     "effects": [
       {
         "type": "buff",
@@ -434,6 +436,7 @@
         "removeOnSwap": true
       }
     ],
-    "actionDuration": 0
+    "actionDuration": 0,
+    "priority": "@Default.OutroPriority"
   }
 }

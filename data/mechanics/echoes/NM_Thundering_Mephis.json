@@ -15,6 +15,7 @@
     "stanceTime": 0.25,
     "input": "Echo",
     "stanceResult": "Midair",
+    "priority": "@Default.OutroPriority",
     "damageTimeframe": {
       "start": 1.5
     }

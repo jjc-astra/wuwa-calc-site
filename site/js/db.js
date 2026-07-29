@@ -83,7 +83,16 @@ const SIM_CONSTANTS = { DEFAULT_ROW_DURATION: 1.5, MAX_SEQUENCE: 6, MAX_WEAPON_R
 const GAME_DEFAULTS = {
     swapTime: 0.15,
     comboWindow: 0.5,
-    echoSummonTime: .17
+    echoSummonTime: .17,
+    basicPriority: 0,
+    heavyPriority: 50,
+    skillPriority: 100,
+    echoPriority: 200,
+    dodgePriority: 500,
+    jumpPriority: 500,
+    libPriority: 1000,
+    introPriority: 2000,
+    outroPriority: 3000,
 };
 
 // =========================================
@@ -116,7 +125,11 @@ const DSL_SCHEMA = {
         "Prev": ["Action", "CastTypes", "Unit"],
         "Next": ["Name", "Action", "CastTypes", "Priority"],
         "Active": ["Name"],
-        "Default": ["SwapTime", "ComboWindow", "EchoSummonTime"]
+        "Default": [
+            "SwapTime", "ComboWindow", "EchoSummonTime",
+            "BasicPriority", "HeavyPriority", "SkillPriority", 
+            "EchoPriority", "DodgePriority", "JumpPriority", "LibPriority", "IntroPriority", "OutroPriority",
+        ]
     }
 };
 

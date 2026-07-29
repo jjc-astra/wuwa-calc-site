@@ -7,7 +7,8 @@
     ],
     "baseMult": 0,
     "actionDuration": 0.4,
-    "swapTiming": 0.15
+    "swapTiming": 0.15,
+    "priority": "@Default.DodgePriority"
   },
   "System_Jump": {
     "name": "Jump",
@@ -16,7 +17,9 @@
       "Jump"
     ],
     "baseMult": 0,
-    "actionDuration": 0.15
+    "actionDuration": 0.15,
+    "stanceResult": "Midair",
+    "priority": "@Default.DodgePriority"
   },
   "System_Tune Break": {
     "name": "Tune Break",
@@ -31,6 +34,7 @@
     "baseMult": 0,
     "actionDuration": 2,
     "freezeTime": 2,
+    "priority": "@Default.IntroPriority - 10",
     "effects": [
       {
         "type": "tracker",

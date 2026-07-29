@@ -16,7 +16,8 @@
     "swapTiming": "@Default.SwapTime",
     "comboWindow": "@Default.ComboWindow",
     "input": "Basic",
-    "stanceReq": "Grounded"
+    "stanceReq": "Grounded",
+    "priority": "@Default.BasicPriority"
   },
   "Lumi_Yellow Light: Glitter": {
     "name": "Yellow Light: Glitter",
@@ -35,7 +36,8 @@
     "swapTiming": "@Default.SwapTime",
     "comboWindow": "@Default.ComboWindow",
     "input": "Dodge",
-    "stanceReq": "Grounded"
+    "stanceReq": "Grounded",
+    "priority": "@Default.BasicPriority + 10"
   },
   "Lumi_Yellow Light: Plunging Attack": {
     "name": "Yellow Light: Plunging Attack",
@@ -54,7 +56,8 @@
     "swapTiming": "@Default.SwapTime",
     "comboWindow": "@Default.ComboWindow",
     "input": "Basic",
-    "stanceReq": "Midair"
+    "stanceReq": "Midair",
+    "priority": "@Default.HeavyPriority + 1"
   },
   "Lumi_Red Light: Basic Attack 1": {
     "name": "Red Light: Basic Attack 1",
@@ -73,7 +76,8 @@
     "swapTiming": "@Default.SwapTime",
     "comboWindow": "@Default.ComboWindow",
     "input": "Basic",
-    "stanceReq": "Grounded"
+    "stanceReq": "Grounded",
+    "priority": "@Default.BasicPriority"
   },
   "Lumi_Red Light: Basic Attack 2": {
     "name": "Red Light: Basic Attack 2",
@@ -93,7 +97,7 @@
     "comboWindow": "@Default.ComboWindow",
     "input": "Basic",
     "stanceReq": "Grounded",
-    "priority": 1
+    "priority": "@Default.BasicPriority + 1"
   },
   "Lumi_Red Light: Basic Attack 3": {
     "name": "Red Light: Basic Attack 3",
@@ -113,7 +117,7 @@
     "comboWindow": "@Default.ComboWindow",
     "input": "Basic",
     "stanceReq": "Grounded",
-    "priority": 2
+    "priority": "@Default.BasicPriority + 2"
   },
   "Lumi_Red Light: Heavy Attack": {
     "name": "Red Light: Heavy Attack",
@@ -133,7 +137,7 @@
     "comboWindow": "@Default.ComboWindow",
     "inputType": "Hold",
     "stanceReq": "Grounded",
-    "priority": 50
+    "priority": "@Default.HeavyPriority"
   },
   "Lumi_Red Light: Plunging Attack": {
     "name": "Red Light: Plunging Attack",
@@ -172,7 +176,7 @@
     "comboWindow": "@Default.ComboWindow",
     "input": "Skill",
     "stanceReq": "Grounded",
-    "priority": 100
+    "priority": "@Default.SkillPriority"
   },
   "Lumi_Rebound": {
     "name": "Rebound",
@@ -191,7 +195,7 @@
     "comboWindow": "@Default.ComboWindow",
     "input": "Skill",
     "stanceReq": "Grounded",
-    "priority": 100
+    "priority": "@Default.SkillPriority"
   },
   "Lumi_Squeakie Express": {
     "name": "Squeakie Express",
@@ -213,7 +217,7 @@
     "comboWindow": "@Default.ComboWindow",
     "input": "Liberation",
     "stanceReq": "Grounded",
-    "priority": 1000
+    "priority": "@Default.LibPriority"
   },
   "Lumi_Yellow Spotlight: Glare": {
     "name": "Yellow Spotlight: Glare",
@@ -240,7 +244,7 @@
     "comboWindow": "@Default.ComboWindow",
     "input": "Dodge",
     "stanceReq": "Grounded",
-    "priority": 1
+    "priority": "@Default.BasicPriority"
   },
   "Lumi_Red Spotlight: Basic Attack 1": {
     "name": "Red Spotlight: Basic Attack 1",
@@ -267,7 +271,7 @@
     "comboWindow": "@Default.ComboWindow",
     "input": "Basic",
     "stanceReq": "Grounded",
-    "priority": 10
+    "priority": "@Default.BasicPriority + 10"
   },
   "Lumi_Red Spotlight: Basic Attack 2": {
     "name": "Red Spotlight: Basic Attack 2",
@@ -294,7 +298,7 @@
     "comboWindow": "@Default.ComboWindow",
     "input": "Basic",
     "stanceReq": "Grounded",
-    "priority": 11
+    "priority": "@Default.BasicPriority + 11"
   },
   "Lumi_Red Spotlight: Basic Attack 3": {
     "name": "Red Spotlight: Basic Attack 3",
@@ -321,7 +325,7 @@
     "comboWindow": "@Default.ComboWindow",
     "input": "Basic",
     "stanceReq": "Grounded",
-    "priority": 12
+    "priority": "@Default.BasicPriority + 12"
   },
   "Lumi_Red Spotlight: Heavy Attack": {
     "name": "Red Spotlight: Heavy Attack",
@@ -347,7 +351,7 @@
     "swapTiming": "@Default.SwapTime",
     "comboWindow": "@Default.ComboWindow",
     "stanceReq": "Grounded",
-    "priority": 60
+    "priority": "@Default.HeavyPriority + 10"
   },
   "Lumi_Energized Pounce": {
     "name": "Energized Pounce",
@@ -389,7 +393,7 @@
     "comboWindow": "@Default.ComboWindow",
     "input": "Skill",
     "stanceReq": "Grounded",
-    "priority": 101
+    "priority": "@Default.SkillPriority + 10"
   },
   "Lumi_Energized Rebound": {
     "name": "Energized Rebound",
@@ -431,7 +435,7 @@
     "comboWindow": "@Default.ComboWindow",
     "input": "Skill",
     "stanceReq": "Grounded",
-    "priority": 101
+    "priority": "@Default.SkillPriority + 10"
   },
   "Lumi_Intro": {
     "name": "Intro",
@@ -460,7 +464,7 @@
     "comboWindow": "@Default.ComboWindow",
     "stanceReq": "Any",
     "stanceResult": "Grounded",
-    "priority": 1000
+    "priority": "@Default.IntroPriority"
   },
   "Lumi_Outro": {
     "name": "Outro",
@@ -485,13 +489,12 @@
     ],
     "actionDuration": "@Default.SwapTime",
     "swapTiming": "@Default.SwapTime",
-    "priority": 1000
+    "priority": "@Default.OutroPriority"
   },
   "Lumi_Laser Beam (Yellow Form)": {
     "name": "Laser Beam (Yellow Form)",
     "category": "Inherent Skill",
     "isPassive": true,
-    "priority": 0,
     "triggerRule": "OnCast[Outro] IF (@Self.HasBuff(@Lumi(Yellow Light Form)) && @Self.Forte1 >= 25)",
     "dmgTypes": ["Electro", "Basic"],
     "effects": [
@@ -512,7 +515,6 @@
     "name": "Laser Beam (Red Form)",
     "category": "Inherent Skill",
     "isPassive": true,
-    "priority": 0,
     "triggerRule": "OnCast[Outro] IF (@Self.HasBuff(@Lumi(Red Light Form)) && @Self.Forte2 >= 25)",
     "dmgTypes": ["Electro", "Basic"],
     "effects": [
@@ -627,7 +629,6 @@
     "name": "Sequence 5: Parcel Collected On Time",
     "category": "Resonance Chain",
     "isPassive": true,
-    "priority": 100,
     "triggerRule": "OnCast[Outro] IF (@Self.Sequence >= 5 && (@Self.Forte1 >= 100 || @Self.Forte2 >= 100) && (@Self.HasBuff(@Lumi(Yellow Light Form)) || @Self.HasBuff(@Lumi(Red Light Form))))",
     "effects": [
       {

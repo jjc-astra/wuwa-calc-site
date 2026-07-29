@@ -853,7 +853,7 @@ const BuilderRenderer = {
                             </select>
                         </div>
                         <div class="form-group"><label class="form-label">Input Type</label><select class="base-select mech-input-type"><option value="Press" ${(!data.inputType || data.inputType === 'Press') ? 'selected' : ''}>Press</option><option value="Hold" ${data.inputType === 'Hold' ? 'selected' : ''}>Hold</option><option value="Release" ${data.inputType === 'Release' ? 'selected' : ''}>Release</option></select></div>
-                        <div class="form-group"><label class="form-label">Priority</label><input type="number" step="1" class="form-input mech-priority" value="${data.priority ?? 0}"></div>
+                        <div class="form-group"><label class="form-label">Priority</label><input type="text" class="form-input dsl-input mech-priority w-100" value="${data.priority ?? 0}" placeholder="@Default.basicPriority"></div>
                         <div class="form-group relative"><label class="form-label">Combo Window</label><input type="text" class="form-input dsl-input mech-combo-win w-100" value="${data.comboWindow ?? ""}" placeholder="@Default.ComboWindow"></div>
                     </div>
                     <div class="form-row">
@@ -1095,7 +1095,7 @@ const BuilderRenderer = {
                 }
             }
             
-            const prio = parseInt(card.querySelector('.mech-priority').value, 10);
+            const prio = extractMixed('.mech-priority', 'priority');
             if (!isNaN(prio) && prio !== 0) obj.priority = prio;
 
             // Damage Timeframe
