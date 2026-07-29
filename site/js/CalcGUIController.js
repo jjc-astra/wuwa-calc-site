@@ -61,11 +61,23 @@ function bindGlobalListeners() {
         if (target.classList.contains('base-slider')) RosterUtils.updateStatFromSlider(target.closest('.stat-row'), target.value);
         if (target.matches('.seq-input')) {
             CommonUtils.enforceLimit(target, 0, 6);
-            RosterState.updateField(RosterState.domMap.get(target.closest('.char-row')).index, 'sequence', target.value);
+            const slotObj = RosterState.domMap.get(target.closest('.char-row'));
+            if (slotObj) {
+                RosterState.updateField(slotObj.index, 'sequence', parseInt(target.value) || 0);
+                if (typeof RosterRenderer !== 'undefined' && RosterRenderer.renderIdleStats) {
+                    RosterRenderer.renderIdleStats();
+                }
+            }
         }
         if (target.matches('.rank-input')) {
             CommonUtils.enforceLimit(target, 1, 5);
-            RosterState.updateField(RosterState.domMap.get(target.closest('.char-row')).index, 'rank', target.value);
+            const slotObj = RosterState.domMap.get(target.closest('.char-row'));
+            if (slotObj) {
+                RosterState.updateField(slotObj.index, 'rank', parseInt(target.value) || 1);
+                if (typeof RosterRenderer !== 'undefined' && RosterRenderer.renderIdleStats) {
+                    RosterRenderer.renderIdleStats();
+                }
+            }
         }
     });
 

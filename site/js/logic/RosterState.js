@@ -201,7 +201,14 @@ const StatCalculator = {
                     else if (sLower.includes("physical") && sLower.includes("dmg")) baseStatKey = "physicalDmgBonus";
                 }
 
-                const valStr = String(buff.value || "0");
+                // Parse rank slashes if present (e.g., "12%/15%/18%/21%/24%")
+                let rawVal = buff.value;
+                if (typeof rawVal === 'string' && rawVal.includes('/')) {
+                    const rank = slot ? (parseInt(slot.rank) || 1) : 1;
+                    rawVal = CommonUtils.parseRankValue(rawVal, rank);
+                }
+
+                const valStr = String(rawVal || "0");
                 const isPct = valStr.includes('%');
                 const numVal = parseFloat(valStr) || 0;
 

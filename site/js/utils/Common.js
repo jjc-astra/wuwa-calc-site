@@ -124,6 +124,17 @@ const CommonUtils = {
 
     getData: (path) => {
         return `../data/${path}`;
+    },
+    
+    parseRankValue: (val, rank = 1) => {
+        if (typeof val === 'string' && val.includes('/')) {
+            const rIdx = Math.max(0, (parseInt(rank) || 1) - 1);
+            const parts = val.split('/');
+            let res = parts[Math.min(rIdx, parts.length - 1)].trim();
+            if (val.includes('%') && !res.includes('%')) res += '%';
+            return res;
+        }
+        return val;
     }
 };
 

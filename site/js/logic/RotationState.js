@@ -1422,6 +1422,17 @@ const RotationState = {
         
         targetUnits.forEach(targetName => {
             const key = `${targetName}_${buffDef.name}`;
+            
+            const providerUnit = buffDef.provider || currentData.unit;
+            const providerSlot = (typeof RosterState !== 'undefined' && RosterState.team) 
+                ? RosterState.team.find(t => t.character === providerUnit) 
+                : null;
+            const weaponRank = providerSlot ? providerSlot.rank : 1;
+            
+            if (buffDef.value && typeof buffDef.value === 'string' && buffDef.value.includes('/')) {
+                buffDef.value = parseRankValue(buffDef.value, weaponRank);
+            }
+
             const existingBuff = currentData.activeBuffs[key];
             const addedStacks = buffDef.stacks !== undefined ? parseInt(buffDef.stacks) : 1;
             let actuallyAddedStacks = 0;
@@ -1510,6 +1521,14 @@ const RotationState = {
 
                 // --- NEW: Evaluate the buff's value at the exact moment of the hit! ---
                 let rawVal = buff.value;
+                if (typeof rawVal === 'string' && rawVal.includes('/')) {
+                    const providerSlot = (typeof RosterState !== 'undefined' && RosterState.team) 
+                        ? RosterState.team.find(t => t.character === (buff.provider || executingUnit)) 
+                        : null;
+                    const weaponRank = providerSlot ? providerSlot.rank : 1;
+                    rawVal = parseRankValue(rawVal, weaponRank);
+                }
+
                 let evaluatedVal = (typeof rawVal === 'string' && (rawVal.includes('@') || /[+\-*/%]/.test(rawVal))) 
                     ? this._resolveDynamicMath(rawVal, stateContext, buff.provider || executingUnit) 
                     : rawVal;
