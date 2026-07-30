@@ -34,7 +34,7 @@ const CombatCalculator = {
         let talentAtkPct = 0;
         const injectPassiveStat = (type, val) => {
             if (!type || !val) return;
-            const statKey = STAT_NAME_MAP[type];
+            const statKey = (typeof STAT_NAME_MAP !== 'undefined') ? STAT_NAME_MAP[type] : null;
             if (statKey && stats[statKey] !== undefined) {
                 const parsedVal = parseFloat(val) || 0;
                 stats[statKey] += parsedVal;
@@ -67,8 +67,7 @@ const CombatCalculator = {
                 
                 let rawVal = buff.value;
                 if (typeof rawVal === 'string' && rawVal.includes('/')) {
-                    const rank = slot ? (parseInt(slot.rank) || 1) : 1;
-                    rawVal = CommonUtils.parseRankValue(rawVal, rank);
+                    rawVal = CommonUtils.parseRankValue(rawVal, slot.rank);
                 }
                 const valStr = String(rawVal || "0");
                 const isPct = valStr.includes('%');
@@ -91,77 +90,57 @@ const CombatCalculator = {
         
         return {
             ...stats,
-            baseAtk: baseAtk, baseHP: baseHP, baseDef: baseDef,
-            atk: (Math.floor(baseAtk) * (1 + (stats.percentAtk - talentAtkPct) / 100)) +
-                  Math.floor(baseAtk * talentAtkPct / 100) +
-                  stats.flatAtk,
+            baseAtk, baseHP, baseDef,
+            atk: (Math.floor(baseAtk) * (1 + (stats.percentAtk - talentAtkPct) / 100)) + Math.floor(baseAtk * talentAtkPct / 100) + stats.flatAtk,
             hp: Math.floor(baseHP * (1 + stats.percentHP / 100) + stats.flatHP),
             def: Math.floor(baseDef * (1 + stats.percentDef / 100) + stats.flatDef),
-            talentAtkPct: talentAtkPct
+            talentAtkPct
         };
     },
 
     /**
-     * Aggregates active buff totals for a specific hit context.
+     * Aggregates active buff totals for a specific hit context (Single-pass iteration).
      */
-    aggregateBuffTotals: (stateContext, executingUnit, hitModifiers) => {
+    aggregateBuffTotals: (stateData, executingUnit, hitModifiers) => {
         const buffTotals = {
-            percentAtk: 0, flatAtk: 0,
-            percentHP: 0, flatHP: 0,
-            percentDef: 0, flatDef: 0,
-            critRate: 0, critDamage: 0,
-            dmgBonus: 0, dmgAmp: 0, dmgTaken: 0,
-            multiplicativeMult: 0, additiveMult: 0,
-            reduceRes: 0, ignoreRes: 0,
-            reduceDef: 0, ignoreDef: 0
+            percentAtk: 0, flatAtk: 0, percentHP: 0, flatHP: 0, percentDef: 0, flatDef: 0,
+            critRate: 0, critDamage: 0, dmgBonus: 0, dmgAmp: 0, dmgTaken: 0,
+            multiplicativeMult: 0, additiveMult: 0, reduceRes: 0, ignoreRes: 0, reduceDef: 0, ignoreDef: 0
         };
 
         const appliedBuffs = {};
-        const activeBuffs = stateContext.activeBuffs || {};
-
+        const activeBuffs = stateData.activeBuffs || {};
         const modsSet = new Set((hitModifiers || []).map(m => String(m).toLowerCase().trim()));
 
         const tagSpecs = [
-            { key: "basic", tags: ["basic"] },
-            { key: "heavy", tags: ["heavy"] },
-            { key: "skill", tags: ["skill"] },
-            { key: "liberation", tags: ["liberation", "lib"] },
-            { key: "lib ", tags: ["liberation", "lib"] },
-            { key: "intro", tags: ["intro"] },
-            { key: "outro", tags: ["outro"] },
-            { key: "coordinated", tags: ["coordinated"] },
-            { key: "glacio", tags: ["glacio"] },
-            { key: "fusion", tags: ["fusion"] },
-            { key: "electro", tags: ["electro"] },
-            { key: "aero", tags: ["aero"] },
-            { key: "spectro", tags: ["spectro"] },
-            { key: "havoc", tags: ["havoc"] },
+            { key: "basic", tags: ["basic"] }, { key: "heavy", tags: ["heavy"] },
+            { key: "skill", tags: ["skill"] }, { key: "liberation", tags: ["liberation", "lib"] },
+            { key: "lib ", tags: ["liberation", "lib"] }, { key: "intro", tags: ["intro"] },
+            { key: "outro", tags: ["outro"] }, { key: "coordinated", tags: ["coordinated"] },
+            { key: "glacio", tags: ["glacio"] }, { key: "fusion", tags: ["fusion"] },
+            { key: "electro", tags: ["electro"] }, { key: "aero", tags: ["aero"] },
+            { key: "spectro", tags: ["spectro"] }, { key: "havoc", tags: ["havoc"] },
             { key: "physical", tags: ["physical"] }
         ];
 
-        Object.keys(activeBuffs).forEach(key => {
-            const buff = activeBuffs[key];
-            if (!buff || (buff.duration <= 0 && buff.stacks <= 0)) return;
+        for (const [key, buff] of Object.entries(activeBuffs)) {
+            if (!buff || (buff.duration <= 0 && buff.stacks <= 0) || !buff.stat) continue;
 
             const targetUnit = buff.target || "@Self";
             const appliesToSelf = (targetUnit === "@Self" || targetUnit === "@Equipper" || targetUnit === executingUnit) && (buff.provider === executingUnit || buff.provider === "System" || buff.target === executingUnit);
             const appliesToTeam = targetUnit === "@Team" || targetUnit === "Team";
-            const appliesToActive = targetUnit === "Active" && stateContext.unit === executingUnit;
+            const appliesToActive = targetUnit === "Active" && stateData.unit === executingUnit;
 
-            if (!(appliesToSelf || appliesToTeam || appliesToActive)) return;
+            if (!(appliesToSelf || appliesToTeam || appliesToActive)) continue;
 
             if (buff.applyTo && Array.isArray(buff.applyTo) && buff.applyTo.length > 0) {
-                const matchesTag = buff.applyTo.some(reqTag => modsSet.has(String(reqTag).toLowerCase().trim()));
-                if (!matchesTag) return;
+                if (!buff.applyTo.some(reqTag => modsSet.has(String(reqTag).toLowerCase().trim()))) continue;
             }
 
-            if (!buff.stat) return;
-            const statKey = buff.stat;
-            const sLower = statKey.toLowerCase().trim();
+            const sLower = buff.stat.toLowerCase().trim();
 
             let requiredTagFound = false;
             let tagMatched = true;
-
             for (const spec of tagSpecs) {
                 if (sLower.includes(spec.key)) {
                     requiredTagFound = true;
@@ -173,19 +152,13 @@ const CombatCalculator = {
                     }
                 }
             }
-
-            if (requiredTagFound && !tagMatched) {
-                return;
-            }
+            if (requiredTagFound && !tagMatched) continue;
 
             appliedBuffs[key] = buff;
 
-            // Retrieve actual provider weapon rank from team state
             const providerUnit = buff.provider || executingUnit;
-            const providerSlot = (typeof RosterState !== 'undefined' && RosterState.team) 
-                ? RosterState.team.find(t => t.character === providerUnit) 
-                : null;
-            const rank = providerSlot ? (parseInt(providerSlot.rank) || 1) : 1;
+            const providerSlot = (typeof RosterState !== 'undefined' && RosterState.team) ? RosterState.team.find(t => t.character === providerUnit) : null;
+            const rank = providerSlot ? providerSlot.rank : 1;
 
             let rawVal = buff.value;
             if (typeof rawVal === 'string' && rawVal.includes('/')) {
@@ -196,10 +169,8 @@ const CombatCalculator = {
             let numVal = parseFloat(valStr) || 0;
             if (isPct) numVal /= 100;
 
-            const stacks = buff.stacks || 1;
-            const totalVal = numVal * stacks;
+            const totalVal = numVal * (buff.stacks || 1);
 
-            // Prioritize specific multiplier keywords over generic "dmg"
             if (sLower.includes("amp") || sLower.includes("deepen")) buffTotals.dmgAmp += totalVal;
             else if (sLower.includes("taken")) buffTotals.dmgTaken += totalVal;
             else if (sLower.includes("multiplicative")) buffTotals.multiplicativeMult += totalVal;
@@ -217,7 +188,7 @@ const CombatCalculator = {
             else if (sLower.includes("def") && isPct) buffTotals.percentDef += totalVal;
             else if (sLower.includes("def") && !isPct) buffTotals.flatDef += totalVal;
             else if (sLower.includes("dmg bonus") || sLower.includes("dmg%") || sLower.includes("damage bonus") || sLower.includes("dmg")) buffTotals.dmgBonus += totalVal;
-        });
+        }
 
         return { buffTotals, appliedBuffs };
     },
@@ -225,35 +196,29 @@ const CombatCalculator = {
     /**
      * Calculates damage for a specific hit configuration and state context snapshot.
      */
-    calculateDamageInstance: (hitConfig, stateContext) => {
+    calculateDamageInstance: (hitConfig, stateData) => {
         let pctMult = 0; let flatMult = 0;
         const strVal = String(hitConfig.hitMult || "0").trim();
         const num = parseFloat(strVal) || 0;
         if (strVal.includes('%')) pctMult += (num / 100); else flatMult += num;
 
-        const executingUnit = hitConfig.provider || stateContext.unit;
+        const executingUnit = hitConfig.provider || stateData.unit;
         const dmgTypes = hitConfig.dmgTypes || [];
         const castTypes = hitConfig.castTypes || [];
         const titleStr = hitConfig.title || "Active Hit";
-        
         const actionId = hitConfig.actionId || "";
         const moveName = hitConfig.moveName || "";
         const formattedPointer = `@${executingUnit}(${moveName})`;
-        
-        const hitModifiers = Array.from(new Set([
-            ...dmgTypes, 
-            ...castTypes, 
-            actionId, 
-            moveName, 
-            formattedPointer
-        ].map(m => String(m).toLowerCase())));
-        
-        const scalarType = (hitConfig.scalar || "ATK").toLowerCase();
 
+        const hitModifiers = Array.from(new Set([
+            ...dmgTypes, ...castTypes, actionId, moveName, formattedPointer
+        ].map(m => String(m).toLowerCase())));
+
+        const scalarType = (hitConfig.scalar || "ATK").toLowerCase();
         const baseStats = CombatCalculator.calculateFinalStats(executingUnit, []);
         const getBaseStat = (key) => baseStats[key] || 0;
 
-        const { buffTotals, appliedBuffs } = CombatCalculator.aggregateBuffTotals(stateContext, executingUnit, hitModifiers);
+        const { buffTotals, appliedBuffs } = CombatCalculator.aggregateBuffTotals(stateData, executingUnit, hitModifiers);
 
         let baseDmgBonus = 0;
         hitModifiers.forEach(type => {
@@ -264,7 +229,7 @@ const CombatCalculator = {
         const rawBaseAtk = getBaseStat('baseAtk');
         const talentPctDecimal = (getBaseStat('talentAtkPct') || 0) / 100;
         const basePercentAtkDecimal = (getBaseStat('percentAtk') || 0) / 100;
-        const generalAtkPctDecimal = (basePercentAtkDecimal - talentPctDecimal) + buffTotals.percentAtk; 
+        const generalAtkPctDecimal = (basePercentAtkDecimal - talentPctDecimal) + buffTotals.percentAtk;
 
         const totalAtk = Math.floor((Math.floor(rawBaseAtk) * (1 + generalAtkPctDecimal)) + Math.floor(Math.floor(rawBaseAtk) * talentPctDecimal) + getBaseStat('flatAtk'));
         const totalHP = getBaseStat('baseHP') * (1 + (getBaseStat('percentHP') / 100) + buffTotals.percentHP) + getBaseStat('flatHP') + buffTotals.flatHP;
@@ -281,32 +246,27 @@ const CombatCalculator = {
         const unitLvl = 90;
         const enemyLvl = typeof RosterState !== 'undefined' && RosterState.enemy ? RosterState.enemy.level : 100;
         const baseRes = typeof RosterState !== 'undefined' && RosterState.enemy ? RosterState.enemy.res / 100 : 0.1;
-        
+
         const defMult = RotationUtils.calcDefense(unitLvl, enemyLvl, buffTotals.ignoreDef, buffTotals.reduceDef);
         const resMultiplier = RotationUtils.calcResistance(baseRes, buffTotals.ignoreRes, buffTotals.reduceRes);
-        const baseDmg = ((pctMult + buffTotals.additiveMult) * scalingStatVal) + flatMult; 
+        const baseDmg = ((pctMult + buffTotals.additiveMult) * scalingStatVal) + flatMult;
 
-        let calculatedTotal = 0;
-        let nonCritDmg = 0;
-        let critDmg = 0;
+        let calculatedTotal = 0; let nonCritDmg = 0; let critDmg = 0;
         let formulaUsed = "Standard";
         const titleLower = titleStr.toLowerCase();
-        
+
         if (hitConfig.isNegativeStatus) {
             formulaUsed = "NegativeStatus";
             const statusBaseDmg = 3674 * (flatMult / 10000);
             calculatedTotal = RotationUtils.calcNegativeStatusDmg(statusBaseDmg, buffTotals.dmgAmp, buffTotals.dmgTaken, buffTotals.multiplicativeMult, resMultiplier, defMult);
-            nonCritDmg = calculatedTotal;
-            critDmg = calculatedTotal;
+            nonCritDmg = calculatedTotal; critDmg = calculatedTotal;
         } else if (castTypes.some(c => c.toLowerCase().includes("tune")) || titleLower.includes("tune")) {
             formulaUsed = "Tune";
             calculatedTotal = RotationUtils.calcTuneDmg(baseDmg, buffTotals.dmgAmp, buffTotals.dmgTaken, buffTotals.multiplicativeMult);
-            nonCritDmg = calculatedTotal;
-            critDmg = calculatedTotal;
+            nonCritDmg = calculatedTotal; critDmg = calculatedTotal;
         } else {
             const cr = Math.min(1.0, Math.max(0.0, finalCritRate));
             calculatedTotal = RotationUtils.calcStandardDmg(baseDmg, (1 - cr) * 1 + cr * finalCritDamage, 1 + baseDmgBonus + buffTotals.dmgBonus, buffTotals.dmgAmp, buffTotals.dmgTaken, buffTotals.multiplicativeMult, resMultiplier, defMult);
-            
             nonCritDmg = RotationUtils.calcStandardDmg(baseDmg, 1.0, 1 + baseDmgBonus + buffTotals.dmgBonus, buffTotals.dmgAmp, buffTotals.dmgTaken, buffTotals.multiplicativeMult, resMultiplier, defMult);
             critDmg = RotationUtils.calcStandardDmg(baseDmg, finalCritDamage, 1 + baseDmgBonus + buffTotals.dmgBonus, buffTotals.dmgAmp, buffTotals.dmgTaken, buffTotals.multiplicativeMult, resMultiplier, defMult);
         }
@@ -321,21 +281,18 @@ const CombatCalculator = {
         }
 
         const { displayMult, calcBreakdown } = RotationRenderer.formatDamageBreakdown(calculatedTotal, formulaUsed, pctMult, flatMult, scalingStatVal, finalCritRate, finalCritDamage, baseDmgBonus, buffTotals, resMultiplier, defMult, statBreakdown);
-        
-        stateContext.enemyHp = Math.max(0, stateContext.enemyHp - calculatedTotal);
-        
+
+        stateData.enemyHp = Math.max(0, stateData.enemyHp - calculatedTotal);
+
         return {
             title: titleStr,
-            total: Math.floor(calculatedTotal),
-            avg: Math.floor(calculatedTotal),
-            nonCrit: Math.floor(nonCritDmg),
-            crit: Math.floor(critDmg),
+            total: Math.floor(calculatedTotal), avg: Math.floor(calculatedTotal),
+            nonCrit: Math.floor(nonCritDmg), crit: Math.floor(critDmg),
             isOpen: hitConfig.isOpen !== undefined ? hitConfig.isOpen : false,
             data: {
-                ...stateContext, 
-                activeBuffs: appliedBuffs, 
-                baseMult: displayMult, 
-                calcBreakdown: calcBreakdown,
+                ...stateData,
+                activeBuffs: appliedBuffs,
+                baseMult: displayMult, calcBreakdown,
                 castTypes: castTypes.length > 0 ? castTypes.join(', ') : "-",
                 dmgTypes: dmgTypes.length > 0 ? dmgTypes.join(', ') : "-",
                 scalarLabel: (hitConfig.scalar || "ATK").toUpperCase(),

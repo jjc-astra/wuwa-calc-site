@@ -1047,30 +1047,22 @@ const TimelineEngine = {
             RosterState.team.forEach(slot => {
                 if (!slot.character || typeof MECHANICS_DB === 'undefined') return;
 
-                const registerAll = (itemName) => {
+                const registerAll = (itemName, equipperUnit = slot.character) => {
                     if (!itemName) return;
                     if (typeof MECHANICS_INDEX !== 'undefined' && MECHANICS_INDEX[itemName]) {
-                        MECHANICS_INDEX[itemName].forEach(k => { if (MECHANICS_DB[k]) EventManager.registerMechanic(MECHANICS_DB[k], slot.character); });
+                        MECHANICS_INDEX[itemName].forEach(k => { if (MECHANICS_DB[k]) EventManager.registerMechanic(MECHANICS_DB[k], equipperUnit); });
                     } else {
                         const mech = MECHANICS_DB[itemName] || MECHANICS_DB[`System_${itemName}`];
-                        if (mech) EventManager.registerMechanic(mech, slot.character);
+                        if (mech) EventManager.registerMechanic(mech, equipperUnit);
                     }
                 }; 
 
                 const registerWeapon = (weaponName, rank) => {
                     if (!weaponName) return;
                     const rIdx = Math.max(0, (rank || 1) - 1);
-                    const parseRank = (val) => {
-                        if (typeof val === 'string' && val.includes('/')) {
-                            const p = val.split('/'); let res = p[Math.min(rIdx, p.length - 1)].trim();
-                            if (val.includes('%') && !res.includes('%')) res += '%';
-                            return res;
-                        }
-                        return val;
-                    };
                     const applyRank = (mech) => {
                         const m = { ...mech };
-                        if (m.effects) m.effects = m.effects.map(e => ({ ...e, value: parseRank(e.value) }));
+                        if (m.effects) m.effects = m.effects.map(e => ({ ...e, value: CommonUtils.parseRankValue(e.value, rank) }));
                         return m;
                     };
 
@@ -1082,7 +1074,9 @@ const TimelineEngine = {
                     }
                 };
 
-                registerAll(slot.mainSet); registerAll(slot.subSet); registerWeapon(slot.weapon, slot.rank); registerAll(slot.mainEcho); 
+                // Single consolidated registration pass for set/echo/weapon items
+                [slot.mainSet, slot.subSet, slot.mainEcho].filter(Boolean).forEach(item => registerAll(item, slot.character));
+                registerWeapon(slot.weapon, slot.rank);
 
                 if (typeof MECHANICS_INDEX !== 'undefined' && MECHANICS_INDEX[slot.character]) {
                     MECHANICS_INDEX[slot.character].forEach(key => {

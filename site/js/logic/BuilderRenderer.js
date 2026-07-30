@@ -286,7 +286,7 @@ const BuilderRenderer = {
             }
 
             const extractStr = (selector, key, ignore = null) => { const v = card.querySelector(selector)?.value?.trim(); if (v && v !== ignore) obj[key] = v; };
-            const extractMixed = (selector, key) => { const v = BuilderUtils.parseMixed(card.querySelector(selector)?.value); if (v !== undefined) obj[key] = v; };
+            const extractMixed = (selector, key) => { const v = CommonUtils.parseMixed(card.querySelector(selector)?.value); if (v !== undefined) obj[key] = v; };
             const extractArr = (selector, key) => { const arr = Array.from(card.querySelectorAll(selector)).map(el => el.dataset.val); if (arr.length > 0) obj[key] = arr; };
 
             extractStr('.mech-provider', 'provider', BuilderState.activeChar);
@@ -314,7 +314,7 @@ const BuilderRenderer = {
             if (effectTags.length > 0) obj.effects = effectTags.map(el => JSON.parse(el.dataset.val.replace(/&apos;/g, "'")));
 
             const rawMult = card.querySelector('.mech-mult').value;
-            const parsedMult = BuilderUtils.parseMultiplierString(rawMult);
+            const parsedMult = CommonUtils.parseMultiplierString(rawMult);
             if (Array.isArray(parsedMult)) {
                 obj.hitMults = parsedMult;
             } else if (parsedMult !== undefined) {
@@ -355,8 +355,8 @@ const BuilderRenderer = {
             const prio = extractMixed('.mech-priority', 'priority');
             if (!isNaN(prio) && prio !== 0) obj.priority = prio;
 
-            const dmgStart = BuilderUtils.parseMixed(card.querySelector('.mech-dmgstart').value);
-            const dmgEnd = BuilderUtils.parseMixed(card.querySelector('.mech-dmgend').value);
+            const dmgStart = CommonUtils.parseMixed(card.querySelector('.mech-dmgstart').value);
+            const dmgEnd = CommonUtils.parseMixed(card.querySelector('.mech-dmgend').value);
             if (dmgStart !== undefined || dmgEnd !== undefined) {
                 obj.damageTimeframe = {};
                 if (dmgStart !== undefined) obj.damageTimeframe.start = dmgStart;
@@ -543,7 +543,7 @@ const BuilderRenderer = {
             const typeSel = node.querySelector('.add-res-type'), type = typeSel.value, label = typeSel.options[typeSel.selectedIndex].text;
             const amtStr = node.querySelector('.add-res-amt').value; if (!amtStr) return;
 
-            const parsedMult = BuilderUtils.parseMultiplierString(node.querySelector('.mech-mult').value);
+            const parsedMult = CommonUtils.parseMultiplierString(node.querySelector('.mech-mult').value);
             const hitCount = Array.isArray(parsedMult) ? parsedMult.length : 1;
             const parts = amtStr.split(',').map(s => parseFloat(s.trim()) || 0);
 

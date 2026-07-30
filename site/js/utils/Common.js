@@ -126,15 +126,49 @@ const CommonUtils = {
         return `../data/${path}`;
     },
     
+    /**
+     * Parses mixed inputs (numbers, DSL strings, numbers in strings) into clean types.
+     */
+    parseMixed: (val) => {
+        if (val === undefined || val === null || val === "") return undefined;
+        if (typeof val === 'number') return isNaN(val) ? undefined : val;
+        const trimmed = String(val).trim();
+        if (trimmed === "") return undefined;
+        if (!isNaN(trimmed)) return parseFloat(trimmed);
+        return trimmed;
+    },
+
+    /**
+     * Parses a weapon/rank slash-delimited string (e.g. "12/15/18/21/24%") for a given rank (1-5).
+     */
     parseRankValue: (val, rank = 1) => {
-        if (typeof val === 'string' && val.includes('/')) {
-            const rIdx = Math.max(0, (parseInt(rank) || 1) - 1);
-            const parts = val.split('/');
-            let res = parts[Math.min(rIdx, parts.length - 1)].trim();
-            if (val.includes('%') && !res.includes('%')) res += '%';
-            return res;
+        if (typeof val !== 'string' || !val.includes('/')) return val;
+        const rankIdx = Math.max(0, Math.min(4, (parseInt(rank) || 1) - 1));
+        const parts = val.split('/');
+        let resolved = parts[Math.min(rankIdx, parts.length - 1)].trim();
+        if (val.includes('%') && !resolved.includes('%')) resolved += '%';
+        return resolved;
+    },
+
+    /**
+     * Parses multiplier strings ("150%", "[50%, 100%]", "120") into an array of numeric multipliers.
+     */
+    parseMultiplierString: (raw) => {
+        if (raw === undefined || raw === null || raw === "") return undefined;
+        let str = String(raw).trim();
+        if (str.startsWith('[') && str.endsWith(']')) {
+            try {
+                const arr = JSON.parse(str.replace(/'/g, '"'));
+                if (Array.isArray(arr)) {
+                    return arr.map(v => typeof v === 'number' ? v : (parseFloat(String(v).replace('%', '')) || 0));
+                }
+            } catch (e) {}
         }
-        return val;
+        if (str.includes(',')) {
+            return str.split(',').map(s => parseFloat(s.trim().replace('%', '')) || 0);
+        }
+        const num = parseFloat(str.replace('%', ''));
+        return isNaN(num) ? undefined : [num];
     }
 };
 
