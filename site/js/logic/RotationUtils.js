@@ -260,7 +260,7 @@ const RotationUtils = {
 
             if (row._pendingHits && row._pendingHits.length > 0) {
                 row._pendingHits.forEach(item => {
-                    const inst = RotationState._calculateDamageInstance(item.config, item.context);
+                    const inst = CombatCalculator.calculateDamageInstance(item.config, item.context);
                     if (inst) {
                         row.damageInstances.push(inst);
                         rowDmgSum += (inst.total || 0);
