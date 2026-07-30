@@ -173,6 +173,7 @@ const RotationState = {
 
             const prevData = i > 0 ? activeRows[i - 1] : this._getDefaultData();
             currentData.damageInstances = [];
+            currentData._pendingHits = [];
 
             const dbMove = (typeof MECHANICS_DB !== 'undefined') ? this._getModifiedMoveData(currentData.action, currentData) || {} : {};
             currentData.moveName = dbMove.name || currentData.action;
@@ -1013,17 +1014,30 @@ const RotationState = {
                 delete currentData.activeProcSource;
             }
             const hitName = nextHit.originMoveData.name + (nextHit.totalHits > 1 ? ` (Hit ${nextHit.hitIndex + 1})` : '');
-            const hitInstance = this._calculateDamageInstance({
-                hitMult: nextHit.hitMult, provider: nextHit.provider, dmgTypes: nextHit.originMoveData.dmgTypes,
-                castTypes: nextHit.originMoveData.castTypes, scalar: nextHit.originMoveData.scalar,
-                title: nextHit.isProc ? `[Proc] ${hitName}` : (nextHit.totalHits > 1 ? `Hit ${nextHit.hitIndex + 1}` : "Active Hit"),
-                isOpen: true,
-                isNegativeStatus: nextHit.originMoveData.isNegativeStatus,
-                actionId: nextHit.originActionId,
-                moveName: nextHit.originMoveData.name 
-            }, currentData);
-            
-            if (hitInstance) nextHit.originRow.damageInstances.push(hitInstance);
+
+            // Destructure DOM elements and circular references before cloning
+            const { domRef, prevRow, nextRow, dropdownState, _pendingHits, ...cleanData } = currentData;
+            const contextSnapshot = {
+                ...structuredClone(cleanData),
+                domRef,
+                prevRow,
+                nextRow
+            };
+
+            // Queue the hit and snapshot context instead of calculating damage immediately
+            if (!nextHit.originRow._pendingHits) nextHit.originRow._pendingHits = [];
+            nextHit.originRow._pendingHits.push({
+                config: {
+                    hitMult: nextHit.hitMult, provider: nextHit.provider, dmgTypes: nextHit.originMoveData.dmgTypes,
+                    castTypes: nextHit.originMoveData.castTypes, scalar: nextHit.originMoveData.scalar,
+                    title: nextHit.isProc ? `[Proc] ${hitName}` : (nextHit.totalHits > 1 ? `Hit ${nextHit.hitIndex + 1}` : "Active Hit"),
+                    isOpen: true,
+                    isNegativeStatus: nextHit.originMoveData.isNegativeStatus,
+                    actionId: nextHit.originActionId,
+                    moveName: nextHit.originMoveData.name
+                },
+                context: contextSnapshot
+            });
             
             if (typeof EventManager !== 'undefined') {
                 const afterHitEffects = EventManager.emit("AfterHit", nextHit.hitModifiers, currentData.domRef, nextHit.provider, { hitIndex: nextHit.hitIndex + 1, totalHits: nextHit.totalHits });
@@ -1630,12 +1644,12 @@ const RotationState = {
         const castTypes = hitConfig.castTypes || [];
         const titleStr = hitConfig.title || "Active Hit";
         
-        // --- NEW: Grab the specific move identities ---
+        // --- Grab the specific move identities ---
         const actionId = hitConfig.actionId || ""; // e.g., "Lumi_Laser Beam (Yellow Form)"
         const moveName = hitConfig.moveName || ""; // e.g., "Laser Beam (Yellow Form)"
         const formattedPointer = `@${executingUnit}(${moveName})`; // e.g., "@Lumi(Laser Beam (Yellow Form))"
         
-        // --- UPDATED: Merge tags AND specific move names into the modifiers array ---
+        // --- Merge tags AND specific move names into the modifiers array ---
         const hitModifiers = Array.from(new Set([
             ...dmgTypes, 
             ...castTypes, 
@@ -1651,7 +1665,6 @@ const RotationState = {
 
         const { buffTotals, appliedBuffs } = this._aggregateBuffTotals(stateContext, executingUnit, hitModifiers);
 
-        // --- ADD THIS DEBUG BLOCK ---
         if (titleStr.includes("Laser Beam")) {
             console.log(`[DEBUG 2: LASER] Firing Laser! Hit Modifiers (Tags):`, hitModifiers);
             console.log(`[DEBUG 2: LASER] Is S5 Buff Active on ${executingUnit}?`, !!stateContext.activeBuffs[`${executingUnit}_Lumi_Laser Boost`]);
@@ -1681,7 +1694,7 @@ const RotationState = {
         const finalCritRate = (getBaseStat('critRate') / 100) + buffTotals.critRate;
         const finalCritDamage = (getBaseStat('critDamage') / 100) + buffTotals.critDamage;
 
-        // --- 6. EXECUTE EXTERNAL PHYSICS HELPERS (Utils) ---
+        // --- EXECUTE EXTERNAL PHYSICS HELPERS (Utils) ---
         const unitLvl = 90;
         const enemyLvl = typeof RosterState !== 'undefined' && RosterState.enemy ? RosterState.enemy.level : 100;
         const baseRes = typeof RosterState !== 'undefined' && RosterState.enemy ? RosterState.enemy.res / 100 : 0.1;
@@ -1690,32 +1703,40 @@ const RotationState = {
         const resMultiplier = RotationUtils.calcResistance(baseRes, buffTotals.ignoreRes, buffTotals.reduceRes);
         const baseDmg = ((pctMult + buffTotals.additiveMult) * scalingStatVal) + flatMult; 
 
-        // --- 7. ROUTE EXTERNAL DAMAGE FORMULAS (Utils) ---
+        // --- ROUTE EXTERNAL DAMAGE FORMULAS (Utils) ---
         let calculatedTotal = 0;
+        let nonCritDmg = 0;
+        let critDmg = 0;
         let formulaUsed = "Standard";
         const titleLower = titleStr.toLowerCase();
         
         // --- GENERIC NEGATIVE STATUS OVERRIDE ---
         if (hitConfig.isNegativeStatus) {
             formulaUsed = "NegativeStatus";
-            // Because the MATH() evaluator solved the mult into a flat number (e.g. 69863), it is sitting in flatMult.
-            // We override the baseDmg with the unique 3674 formula here:
             const statusBaseDmg = 3674 * (flatMult / 10000);
             calculatedTotal = RotationUtils.calcNegativeStatusDmg(statusBaseDmg, buffTotals.dmgAmp, buffTotals.dmgTaken, buffTotals.multiplicativeMult, resMultiplier, defMult);
+            nonCritDmg = calculatedTotal;
+            critDmg = calculatedTotal;
             
         // --- TUNE OVERRIDE ---
         } else if (castTypes.some(c => c.toLowerCase().includes("tune")) || titleLower.includes("tune")) {
             formulaUsed = "Tune";
             calculatedTotal = RotationUtils.calcTuneDmg(baseDmg, buffTotals.dmgAmp, buffTotals.dmgTaken, buffTotals.multiplicativeMult);
+            nonCritDmg = calculatedTotal;
+            critDmg = calculatedTotal;
             
         // --- STANDARD DAMAGE ---
         } else {
             const cr = Math.min(1.0, Math.max(0.0, finalCritRate));
             calculatedTotal = RotationUtils.calcStandardDmg(baseDmg, (1 - cr) * 1 + cr * finalCritDamage, 1 + baseDmgBonus + buffTotals.dmgBonus, buffTotals.dmgAmp, buffTotals.dmgTaken, buffTotals.multiplicativeMult, resMultiplier, defMult);
+            
+            // Calculate Non-Crit (multiplier = 1.0) and Crit (multiplier = finalCritDamage)
+            nonCritDmg = RotationUtils.calcStandardDmg(baseDmg, 1.0, 1 + baseDmgBonus + buffTotals.dmgBonus, buffTotals.dmgAmp, buffTotals.dmgTaken, buffTotals.multiplicativeMult, resMultiplier, defMult);
+            critDmg = RotationUtils.calcStandardDmg(baseDmg, finalCritDamage, 1 + baseDmgBonus + buffTotals.dmgBonus, buffTotals.dmgAmp, buffTotals.dmgTaken, buffTotals.multiplicativeMult, resMultiplier, defMult);
         }
 
-        // --- 8. FETCH EXTERNAL UI STRING FORMATTER (Renderer) ---
-        let statBreakdown = { label: scalarType.toUpperCase() }; // Add the label here
+        // --- FETCH EXTERNAL UI STRING FORMATTER (Renderer) ---
+        let statBreakdown = { label: scalarType.toUpperCase() };
         if (scalarType === "atk") {
              statBreakdown = { ...statBreakdown, base: rawBaseAtk, pct: generalAtkPctDecimal + talentPctDecimal, flat: getBaseStat('flatAtk') + buffTotals.flatAtk };
         } else if (scalarType === "hp") {
@@ -1731,6 +1752,9 @@ const RotationState = {
         return {
             title: titleStr,
             total: Math.floor(calculatedTotal),
+            avg: Math.floor(calculatedTotal),
+            nonCrit: Math.floor(nonCritDmg),
+            crit: Math.floor(critDmg),
             isOpen: hitConfig.isOpen !== undefined ? hitConfig.isOpen : true, 
             data: {
                 ...stateContext, 

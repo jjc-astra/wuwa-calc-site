@@ -393,6 +393,33 @@ const RotationRenderer = {
         
         const sectionsHTML = instances.map(inst => {
             const instData = inst.data || { activeBuffs: {} };
+
+            // --- 1. EXTRACT OR DERIVE NON-CRIT, CRIT, AND AVG DAMAGE ---
+            let avgVal = typeof inst.avg === 'number' ? inst.avg : (typeof inst.total === 'number' ? inst.total : parseFloat(String(inst.total || 0).replace(/,/g, '')) || 0);
+            let nonCritVal = inst.nonCrit;
+            let critVal = inst.crit;
+
+            if (nonCritVal === undefined || critVal === undefined) {
+                let cr = instData.critRate !== undefined ? instData.critRate : 0;
+                let cd = instData.critDmg !== undefined ? instData.critDmg : 150;
+                
+                if (typeof cr === 'string') cr = parseFloat(cr) || 0;
+                if (cr > 1) cr = cr / 100;
+                cr = Math.min(1.0, Math.max(0.0, cr));
+
+                if (typeof cd === 'string') cd = parseFloat(cd) || 150;
+                if (cd > 10) cd = cd / 100;
+
+                const critMult = (1 - cr) + (cr * cd);
+                if (critMult > 0) {
+                    nonCritVal = avgVal / critMult;
+                    critVal = nonCritVal * cd;
+                } else {
+                    nonCritVal = avgVal;
+                    critVal = avgVal;
+                }
+            }
+
             const tagsHTML = config.tags.map(t => {
                 const rawVals = Array.isArray(t.keys) ? t.keys.map(k => instData[k]).filter(Boolean) : [instData[t.key]].filter(Boolean);
                 const cleanVals = rawVals.map(v => (typeof v === 'number' && !Number.isInteger(v)) ? parseFloat(v.toFixed(3)) : v);
@@ -435,7 +462,6 @@ const RotationRenderer = {
 
                     const lowerSource = sourceMech.toLowerCase();
 
-                    // 1. BUNDLE WEAPON EFFECTS UNDER WEAPON NAME
                     if (wepName && lowerSource.includes(wepName.toLowerCase())) {
                         cardHeader = wepName;
                     } else if (typeof WEAPON_DB !== 'undefined') {
@@ -443,7 +469,6 @@ const RotationRenderer = {
                         if (matchedWep) cardHeader = matchedWep;
                     }
 
-                    // 2. BUNDLE ECHO SET (2-pc, 3-pc, 5-pc) & MAIN SLOT ECHO EFFECTS
                     const isSetEffect = lowerSource.includes("2-pc") || lowerSource.includes("3-pc") || lowerSource.includes("5-pc") || 
                                         lowerSource.includes("2 pc") || lowerSource.includes("3 pc") || lowerSource.includes("5 pc");
                     
@@ -484,7 +509,6 @@ const RotationRenderer = {
                         displayVal = +(b.value * 100).toFixed(2) + "%";
                     }
 
-                    // 3. WORD TOKENIZER (WITH SEQUENCE NORMALIZATION)
                     const tokenize = (str) => (str || "")
                         .toLowerCase()
                         .replace(/_/g, ' ')
@@ -537,7 +561,6 @@ const RotationRenderer = {
 
                     const isRedundant = uniqueTokens.length === 0 || !displayEffName;
 
-                    // 4. BUILD FINAL ROW LABEL
                     let rowLabel = "";
                     if (isRedundant) {
                         rowLabel = b.stat || cleanEffName || rawEffName || "Effect";
@@ -545,7 +568,6 @@ const RotationRenderer = {
                         rowLabel = b.stat ? `${displayEffName} (${b.stat})` : displayEffName;
                     }
 
-                    // Push effect with its specific individual stack count
                     groupedBuffs[cardHeader].effects.push({
                         label: rowLabel,
                         value: displayVal,
@@ -562,12 +584,29 @@ const RotationRenderer = {
             }).join('');
 
             const formulaHTML = RotationRenderer._createFormulaRow(instData.calcBreakdown);
+
+            // --- 2. UPDATED HEADER WITH NON-CRIT, CRIT, AND AVG VALUES ---
             return `
             <div class="dmg-accordion-section ${inst.isOpen ? 'is-open' : ''}">
-                <div class="dmg-accordion-header">
-                    <svg class="dmg-accordion-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg>
-                    <span class="dmg-accordion-title">${inst.title}</span>
-                    <span class="dmg-accordion-total">${inst.total || '0'}</span>
+                <div class="dmg-accordion-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <div class="flex-row align-center gap-sm">
+                        <svg class="dmg-accordion-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg>
+                        <span class="dmg-accordion-title">${inst.title}</span>
+                    </div>
+                    <div class="dmg-accordion-breakdown-values flex-row align-center" style="gap: 12px; margin-left: auto;">
+                        <div class="flex-row align-center" style="padding-right: 12px; border-right: 1px solid rgba(255, 255, 255, 0.15); gap: 6px;">
+                            <span class="text-dim" style="font-size: 0.7rem; font-weight: 600; letter-spacing: 0.5px;">NON-CRIT</span>
+                            <span style="color: #ccc; font-size: 0.85rem; font-weight: 700;">${Math.floor(nonCritVal).toLocaleString()}</span>
+                        </div>
+                        <div class="flex-row align-center" style="padding-right: 12px; border-right: 1px solid rgba(255, 255, 255, 0.15); gap: 6px;">
+                            <span class="text-dim" style="font-size: 0.7rem; font-weight: 600; letter-spacing: 0.5px;">CRIT</span>
+                            <span style="color: #e2c044; font-size: 0.85rem; font-weight: 700;">${Math.floor(critVal).toLocaleString()}</span>
+                        </div>
+                        <div class="flex-row align-center" style="gap: 6px;">
+                            <span class="text-dim" style="font-size: 0.7rem; font-weight: 600; letter-spacing: 0.5px;">AVG</span>
+                            <span style="color: #ffaa00; font-size: 0.85rem; font-weight: 700;">${Math.floor(avgVal).toLocaleString()}</span>
+                        </div>
+                    </div>
                 </div>
                 <div class="dmg-accordion-body">
                     <div class="panel-content-grid dmg-panel-top-row">${tagsHTML}</div>
@@ -615,6 +654,24 @@ const RotationRenderer = {
                 ${reasonsHTML}
             </div>
         `;
+    },
+
+    refreshOpenSubpanels: (container) => {
+        const builder = container || document.getElementById('rotation-builder');
+        if (!builder) return;
+        
+        builder.querySelectorAll('.rotation-row').forEach(row => {
+            const activeTrigger = row.querySelector('.sub-panel-trigger.is-active');
+            const panel = row.querySelector('.sub-panel');
+            
+            if (activeTrigger && panel && panel.classList.contains('is-open')) {
+                const data = RotationState.getData(row);
+                if (data) {
+                    const type = activeTrigger.dataset.trigger;
+                    panel.innerHTML = RotationRenderer.generatePanelContent(type, data.unit, data.action, row);
+                }
+            }
+        });
     },
 
     generatePanelContent: (type, unit, action, row) => {

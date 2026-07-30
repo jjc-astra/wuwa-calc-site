@@ -240,23 +240,10 @@ const RotationUtils = {
     },
 
     runSimulation: () => {
-        RotationUtils.setCalcWarning('rotation');
-        const activeRows = RotationState.recalculateState();
-        RotationRenderer.renderAll(activeRows);
-        
-        RotationState.data.forEach(data => {
-            const row = data.domRef;
-            const moveSelect = row.querySelector('.move-select');
-            
-            if (moveSelect) {
-                // --- FIXED: Always rebuild the dropdown to clear illegal "ghost" options! ---
-                RotationUtils.updateActionOptions(row, data.unit, data.action);
-            }
-        });
-            // --- PERSISTENCE: Save state dynamically after recalculation repaints ---
-        if (typeof LocalCacheManager !== 'undefined') {
-            LocalCacheManager.saveCurrentSession();
-        }
+        RotationState.recalculateState();
+        RotationRenderer.renderAll(RotationState.data);
+        RotationRenderer.setDamageState(true); // Dims damage values to signal uncalculated/stale math
+        RotationRenderer.refreshOpenSubpanels(); // Refreshes open Concerto/Energy/Time panels live
     },
 
     // =========================================
@@ -264,20 +251,33 @@ const RotationUtils = {
     // =========================================
 
     calculateDamage: () => {
-        RotationUtils.setCalcWarning(null); 
         const activeRows = RotationState.getActiveRows();
-        activeRows.forEach(data => {
-            
-            let rowTotal = 0;
-            if (data.damageInstances) {
-                data.damageInstances.forEach(inst => {
-                    rowTotal += inst.total || 0; // Directly add the number!
+        let totalDmg = 0;
+
+        activeRows.forEach(row => {
+            row.damageInstances = [];
+            let rowDmgSum = 0;
+
+            if (row._pendingHits && row._pendingHits.length > 0) {
+                row._pendingHits.forEach(item => {
+                    const inst = RotationState._calculateDamageInstance(item.config, item.context);
+                    if (inst) {
+                        row.damageInstances.push(inst);
+                        rowDmgSum += (inst.total || 0);
+                    }
                 });
             }
-            
-            data.dmg = Math.floor(rowTotal);
-            RotationRenderer.updateDamageValue(data.domRef, data.dmg);
+
+            row.dmg = rowDmgSum;
+            totalDmg += rowDmgSum;
+
+            if (row.domRef) {
+                RotationRenderer.updateDamageValue(row.domRef, rowDmgSum);
+            }
         });
+
+        RotationRenderer.setDamageState(false); // Restores full opacity to damage numbers
+        RotationRenderer.refreshOpenSubpanels(); // Updates open damage breakdown panels with full calculations
     },
 
     calcDefense: function(unitLvl, enemyLvl, ignoreDef, reduceDef) {
