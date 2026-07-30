@@ -292,10 +292,27 @@ const RotationRenderer = {
 
     _createPanelItem: (label, value, extraClass = "") => `<div class="panel-info-item"><span class="panel-info-label">${label}</span><div class="panel-info-value ${extraClass}">${value}</div></div>`,
     _createStatTableRow: (label, value) => `<tr><td class="stat-table-label">${label}</td><td class="stat-table-value">${value}</td></tr>`,
-    _createBuffCard: (source, stacks, effects) => `
+    _createBuffCard: (source, effects) => `
         <div class="buff-card">
-            <div class="buff-card-header"><span class="buff-source">${source}</span><span class="buff-stacks">×${stacks}</span></div>
-            <div class="buff-card-body">${effects.map(e => `<div class="buff-effect-row"><svg class="buff-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 10 20 15 15 20"></polyline><path d="M4 4v7a4 4 0 0 0 4 4h12"></path></svg><span class="buff-effect-label">${e.label}:</span><span class="buff-val-box">${e.value}</span></div>`).join('')}</div>
+            <div class="buff-card-header">
+                <span class="buff-source">${source}</span>
+            </div>
+            <div class="buff-card-body">
+                ${effects.map(e => `
+                    <div class="buff-effect-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;">
+                        <div class="buff-label-wrap" style="display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1 1 auto; overflow: hidden;">
+                            <svg class="buff-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0; width: 14px; height: 14px;">
+                                <polyline points="15 10 20 15 15 20"></polyline>
+                                <path d="M4 4v7a4 4 0 0 0 4 4h12"></path>
+                            </svg>
+                            <span class="buff-effect-label" style="flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${e.label}">${e.label}:</span>
+                        </div>
+                        <div class="buff-value-wrap" style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                            <span class="buff-val-box">${e.value}</span>
+                            <span class="buff-stacks">x${e.stacks || 1}</span>
+                        </div>
+                    </div>`).join('')}
+            </div>
         </div>`,
     _createFormulaRow: (formulaStr) => {
         if (!formulaStr) return "";
@@ -370,19 +387,15 @@ const RotationRenderer = {
 
     _renderComplexDmgPanel: (config, data) => {
         if (!data || !data.damageInstances || data.damageInstances.length === 0) {
-            return `<div class="empty-buff-state" style="padding: 20px; text-align: center; color: var(--text-dim);">No damage instances dealth by this action.</div>`;
+            return `<div class="empty-buff-state" style="padding: 20px; text-align: center; color: var(--text-dim);">No damage instances dealt by this action.</div>`;
         }
         let instances = data.damageInstances;
         
         const sectionsHTML = instances.map(inst => {
-            // Guarantee the fallback object shape so later Object.values() doesn't fail
             const instData = inst.data || { activeBuffs: {} };
             const tagsHTML = config.tags.map(t => {
                 const rawVals = Array.isArray(t.keys) ? t.keys.map(k => instData[k]).filter(Boolean) : [instData[t.key]].filter(Boolean);
-                
-                // NEW: Also clean up floating point variables in the complex tags (like Base Mults)
                 const cleanVals = rawVals.map(v => (typeof v === 'number' && !Number.isInteger(v)) ? parseFloat(v.toFixed(3)) : v);
-                
                 let displayVal = cleanVals.length > 0 ? cleanVals.join(', ') : (t.default || '-');
                 return RotationRenderer._createPanelItem(t.label, displayVal !== '-' && t.suffix ? displayVal + t.suffix : displayVal, t.highlight || "");
             }).join('');
@@ -390,20 +403,14 @@ const RotationRenderer = {
             const statsHTML = config.stats.map(s => {
                 let actualLabel = s.label;
                 let actualKey = s.key;
-
-                // --- FIXED: Dynamically inject the Scalar Name and Value ---
                 if (s.label === "Scalar" || s.key === "scalar") {
                     actualLabel = instData.scalarLabel || "ATK";
                     actualKey = "scalarValue"; 
                 }
-
                 let val = instData[actualKey] !== undefined ? instData[actualKey] : "0";
-                
-                // Format table stat values if they are messy floats
                 if (typeof val === 'number' && !Number.isInteger(val)) {
                     val = parseFloat(val.toFixed(3));
                 }
-                
                 val += (s.suffix && val !== "0" && val !== 0) ? s.suffix : "";
                 return RotationRenderer._createStatTableRow(actualLabel, (val === "0" || val === "0%") ? `<span class="text-dim">${val}</span>` : val);
             }).join('');
@@ -414,43 +421,147 @@ const RotationRenderer = {
             const providerColumnsHTML = teamSlots.map((slot, i) => {
                 const unitName = slot.character || `Slot ${i + 1}`;
                 const unitBuffs = activeBuffs.filter(b => b.provider === unitName || (b.source && b.source.includes(unitName)));
-                
-                // --- FIXED: Group the buffs by their mechanic source! ---
+
+                const wepName = slot.weapon ? slot.weapon.trim() : "";
+                const mainSet = slot.mainSet ? slot.mainSet.trim() : "";
+                const subSet = slot.subSet ? slot.subSet.trim() : "";
+                const mainEcho = slot.mainEcho ? slot.mainEcho.trim() : "";
+
                 const groupedBuffs = {};
+
                 unitBuffs.forEach(b => {
-                    const sourceMech = b.source || "System";
-                    
-                    // --- NEW: Initialize the object if it doesn't exist yet ---
-                    if (!groupedBuffs[sourceMech]) {
-                        groupedBuffs[sourceMech] = { stacks: b.stacks || 1, effects: [] };
-                    } else {
-                        // If one mechanic somehow has overlapping distinct stacks, take the highest
-                        groupedBuffs[sourceMech].stacks = Math.max(groupedBuffs[sourceMech].stacks, b.stacks || 1);
+                    let sourceMech = (b.source || "System").replace(/_/g, ' ').trim();
+                    let cardHeader = sourceMech;
+
+                    const lowerSource = sourceMech.toLowerCase();
+
+                    // 1. BUNDLE WEAPON EFFECTS UNDER WEAPON NAME
+                    if (wepName && lowerSource.includes(wepName.toLowerCase())) {
+                        cardHeader = wepName;
+                    } else if (typeof WEAPON_DB !== 'undefined') {
+                        const matchedWep = Object.keys(WEAPON_DB).find(w => lowerSource.startsWith(w.toLowerCase()));
+                        if (matchedWep) cardHeader = matchedWep;
                     }
+
+                    // 2. BUNDLE ECHO SET (2-pc, 3-pc, 5-pc) & MAIN SLOT ECHO EFFECTS
+                    const isSetEffect = lowerSource.includes("2-pc") || lowerSource.includes("3-pc") || lowerSource.includes("5-pc") || 
+                                        lowerSource.includes("2 pc") || lowerSource.includes("3 pc") || lowerSource.includes("5 pc");
                     
-                    // Automatically add a % sign to raw decimals under 1.0 (like 0.10) for UI display
+                    const isMainEcho = mainEcho && (
+                        lowerSource.includes(mainEcho.toLowerCase()) || 
+                        (b.name && b.name.toLowerCase().includes(mainEcho.toLowerCase()))
+                    );
+
+                    if (isSetEffect) {
+                        const lowerEffName = (b.name || "").toLowerCase();
+
+                        if (subSet && (lowerSource.includes(subSet.toLowerCase()) || lowerEffName.includes(subSet.toLowerCase()))) {
+                            cardHeader = subSet;
+                        } else if (mainSet && (lowerSource.includes(mainSet.toLowerCase()) || lowerEffName.includes(mainSet.toLowerCase()))) {
+                            cardHeader = mainSet;
+                        } else {
+                            const is3Pc = lowerSource.includes("3-pc") || lowerSource.includes("3 pc") || lowerEffName.includes("3-pc");
+                            const is2Pc = lowerSource.includes("2-pc") || lowerSource.includes("2 pc") || lowerEffName.includes("2-pc");
+
+                            if (is3Pc) {
+                                cardHeader = mainSet || "3-pc Set";
+                            } else if (is2Pc && subSet) {
+                                cardHeader = subSet;
+                            } else if (mainSet) {
+                                cardHeader = mainSet;
+                            }
+                        }
+                    } else if (isMainEcho) {
+                        cardHeader = mainSet || mainEcho;
+                    }
+
+                    if (!groupedBuffs[cardHeader]) {
+                        groupedBuffs[cardHeader] = { effects: [] };
+                    }
+
                     let displayVal = b.value !== undefined ? b.value : "-";
-                    if (typeof b.value === 'number' && b.value > 0 && b.value < 1) displayVal = +(b.value * 100).toFixed(2) + "%"; 
-                    
-                    groupedBuffs[sourceMech].effects.push({
-                        label: b.label || b.stat || b.name || "Effect",
-                        value: displayVal
+                    if (typeof b.value === 'number' && b.value > 0 && b.value < 1) {
+                        displayVal = +(b.value * 100).toFixed(2) + "%";
+                    }
+
+                    // 3. WORD TOKENIZER (WITH SEQUENCE NORMALIZATION)
+                    const tokenize = (str) => (str || "")
+                        .toLowerCase()
+                        .replace(/_/g, ' ')
+                        .replace(/\bs([1-6])\b/g, 'sequence $1')
+                        .replace(/\bseq\b/g, 'sequence')
+                        .replace(/[^a-z0-9\s]/g, ' ')
+                        .split(/\s+/)
+                        .filter(Boolean);
+
+                    const noiseWords = new Set([
+                        "buff", "effect", "slot", "main", "stat", "bonus", "amp", "tier",
+                        "team", "self", "next", "active", "enemy", "others", "all", "group"
+                    ]);
+
+                    const knownWords = new Set([
+                        ...tokenize(cardHeader),
+                        ...tokenize(unitName),
+                        ...tokenize(b.stat),
+                        ...noiseWords
+                    ]);
+
+                    let rawEffName = (b.name || sourceMech).replace(/_/g, ' ').trim();
+
+                    if (unitName) {
+                        const unitRegex = new RegExp(`^${unitName.replace(/[^a-zA-Z0-9]/g, '\\$&')}\\s*[-:_]?\\s*`, 'i');
+                        rawEffName = rawEffName.replace(unitRegex, '').trim();
+                    }
+
+                    let cleanEffName = rawEffName;
+                    if (cardHeader && cardHeader.toLowerCase() !== rawEffName.toLowerCase()) {
+                        const headerRegex = new RegExp(`\\b${cardHeader.replace(/[^a-zA-Z0-9]/g, '\\$&')}\\b`, 'gi');
+                        cleanEffName = cleanEffName.replace(headerRegex, '').trim();
+                    }
+                    cleanEffName = cleanEffName.replace(/^[-:_:=]+\s*/, '').replace(/\s*[-:_:=]+$/, '').trim();
+
+                    let displayEffName = cleanEffName;
+                    if (b.stat) {
+                        const statTokens = tokenize(b.stat);
+                        statTokens.forEach(st => {
+                            if (st.length > 1) {
+                                const stRegex = new RegExp(`\\b${st.replace(/[^a-zA-Z0-9]/g, '\\$&')}\\b`, 'gi');
+                                displayEffName = displayEffName.replace(stRegex, '').trim();
+                            }
+                        });
+                    }
+                    displayEffName = displayEffName.replace(/^[-:_:=]+\s*/, '').replace(/\s*[-:_:=]+$/, '').trim();
+
+                    const effTokens = tokenize(cleanEffName);
+                    const uniqueTokens = effTokens.filter(w => !knownWords.has(w));
+
+                    const isRedundant = uniqueTokens.length === 0 || !displayEffName;
+
+                    // 4. BUILD FINAL ROW LABEL
+                    let rowLabel = "";
+                    if (isRedundant) {
+                        rowLabel = b.stat || cleanEffName || rawEffName || "Effect";
+                    } else {
+                        rowLabel = b.stat ? `${displayEffName} (${b.stat})` : displayEffName;
+                    }
+
+                    // Push effect with its specific individual stack count
+                    groupedBuffs[cardHeader].effects.push({
+                        label: rowLabel,
+                        value: displayVal,
+                        stacks: b.stacks || 1
                     });
                 });
 
                 const cardsHTML = Object.keys(groupedBuffs).length > 0 ? Object.keys(groupedBuffs).map(source => {
                     const group = groupedBuffs[source];
-                    // Clean up DB names (e.g., "Radiance Cleaver_Edge Breaker" -> "Radiance Cleaver Edge Breaker")
-                    const cleanName = source.replace(/_/g, ' '); 
-                    
-                    return RotationRenderer._createBuffCard(cleanName, group.stacks, group.effects);
+                    return RotationRenderer._createBuffCard(source, group.effects);
                 }).join('') : `<div class="empty-buff-state">No buffs</div>`;
-                
+
                 return `<div class="buff-provider-col"><div class="buff-provider-header">${unitName}</div><div class="buff-list-container">${cardsHTML}</div></div>`;
             }).join('');
-// --- Call the helper method to render the row HTML ---
-            const formulaHTML = RotationRenderer._createFormulaRow(instData.calcBreakdown);
 
+            const formulaHTML = RotationRenderer._createFormulaRow(instData.calcBreakdown);
             return `
             <div class="dmg-accordion-section ${inst.isOpen ? 'is-open' : ''}">
                 <div class="dmg-accordion-header">
@@ -460,7 +571,8 @@ const RotationRenderer = {
                 </div>
                 <div class="dmg-accordion-body">
                     <div class="panel-content-grid dmg-panel-top-row">${tagsHTML}</div>
-                    ${formulaHTML} <div class="dmg-panel-main-grid">
+                    ${formulaHTML}
+                    <div class="dmg-panel-main-grid">
                         <div class="dmg-panel-stats-col">
                             <div class="panel-header-tiny">Buff Totals</div>
                             <div class="table-wrapper"><table class="dmg-stat-table"><tbody>${statsHTML}</tbody></table></div>
@@ -473,7 +585,6 @@ const RotationRenderer = {
                 </div>
             </div>`;
         }).join('');
-
         return `<div class="dmg-accordion-container">${sectionsHTML}</div>`;
     },
 

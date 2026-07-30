@@ -478,8 +478,7 @@
     "effects": [
       {
         "type": "buff",
-        "name": "Lumi_Outro Skill Amp",
-        "label": "Skill DMG Amp",
+        "name": "Lumi_Outro Skill DMG Amp",
         "target": "Next",
         "duration": 10,
         "removeOnSwap": true,
@@ -540,7 +539,6 @@
       {
         "type": "buff",
         "name": "Lumi_Red Light Form",
-        "label": "Red Light Form",
         "duration": 9999
       }
     ]
@@ -554,7 +552,6 @@
       {
         "type": "buff",
         "name": "Lumi_Red Light Form",
-        "label": "Red Light Form",
         "duration": 9999,
         "stat": "Electro DMG Bonus",
         "value": "10%"
@@ -570,7 +567,6 @@
       {
         "type": "buff",
         "name": "Lumi_Expediting",
-        "label": "Expediting (ATK%)",
         "duration": 5,
         "stat": "ATK %",
         "value": "10%"
@@ -586,7 +582,6 @@
       {
         "type": "buff",
         "name": "Lumi_S2 DEF Ignore",
-        "label": "DEF Ignore",
         "duration": 9999,
         "stat": "Ignore DEF",
         "value": "20%"
@@ -602,7 +597,6 @@
       {
         "type": "buff",
         "name": "Lumi_S3 Liberation DMG",
-        "label": "Liberation DMG Bonus",
         "duration": 9999,
         "stat": "Liberation DMG Bonus",
         "value": "30%"
@@ -618,7 +612,6 @@
       {
         "type": "buff",
         "name": "Lumi_S4 Basic DMG",
-        "label": "Basic DMG Bonus",
         "duration": 9999,
         "stat": "Basic DMG Bonus",
         "value": "30%"
@@ -633,8 +626,7 @@
     "effects": [
       {
         "type": "buff",
-        "name": "Lumi_Laser Boost",
-        "label": "Laser Multiplier Boost",
+        "name": "Lumi_Laser Mult Boost",
         "applyTo": [
           "@Lumi(Laser Beam (Yellow Form))",
           "@Lumi(Laser Beam (Red Form))"
@@ -654,7 +646,6 @@
       {
         "type": "buff",
         "name": "Lumi_S6 Team ATK",
-        "label": "Team ATK Bonus",
         "target": "@Team",
         "duration": 20,
         "stat": "ATK %",

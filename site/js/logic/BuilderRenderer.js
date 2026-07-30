@@ -637,7 +637,6 @@ const BuilderRenderer = {
         if (type === 'buff') html = `
             <div class="flex-row w-100 gap-sm m-0">
                 ${makeInput('eff-name dsl-input', 'Effect ID', 'e.g. Fusion Burst')}
-                ${makeInput('eff-label', 'Display Name', 'Optional')}
                 ${makeInput('eff-target dsl-input', 'Target Entity', '', '@Self')}
                 ${makeInput('eff-apply-to dsl-input', 'Limit to Tags', 'e.g. Skill, Heavy')}
             </div>
@@ -1292,7 +1291,6 @@ const BuilderRenderer = {
                         // Default target logic based on type
                         setVal('.eff-target', effData.target || '@Self');
                         setVal('.eff-apply-to', Array.isArray(effData.applyTo) ? effData.applyTo.join(', ') : effData.applyTo);
-                        setVal('.eff-label', effData.label);
                         setVal('.eff-stat', effData.stat);
                         setVal('.eff-val', effData.value);
                         setVal('.eff-stacks', effData.stacks || 1);
@@ -1381,7 +1379,7 @@ const BuilderRenderer = {
 
             if (type === 'buff') {
                 const tgt = getVal('.eff-target'); if (tgt && tgt !== '@Self') obj.target = tgt;
-                obj.name = getVal('.eff-name'); const lbl = getVal('.eff-label'); if (lbl) obj.label = lbl;
+                obj.name = getVal('.eff-name'); if (lbl) obj.label = lbl;
                 
                 // --- NEW EXTRACTOR ---
                 const applyTo = getVal('.eff-apply-to'); 
