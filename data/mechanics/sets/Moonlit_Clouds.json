@@ -10,7 +10,7 @@
         "name": "Moonlit Clouds 2-pc",
         "stat": "ER %",
         "value": "10%",
-        "duration": 9999
+        "duration": "@Default.PermanentDuration"
       }
     ]
   },

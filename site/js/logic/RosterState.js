@@ -27,7 +27,11 @@ const RosterState = {
     team: [],
     domMap: new WeakMap(),
     
-    enemy: { level: 100, res: 20, hp: 3000000 },
+    enemy: { 
+        level: ENEMY_DEFAULTS.level, 
+        res: ENEMY_DEFAULTS.res, 
+        hp: ENEMY_DEFAULTS.hp 
+    },
 
     init: () => {
         RosterState.team = [ RosterState.createEmptySlot(0), RosterState.createEmptySlot(1), RosterState.createEmptySlot(2) ];

@@ -350,6 +350,7 @@ const DSLParser = {
             '\\.SwapTime': '.swapTime',
             '\\.ComboWindow': '.comboWindow',
             '\\.EchoSummonTime': '.echoSummonTime',
+            '\\.PermanentDuration': '.permanentDuration',
             '\\.BasicPriority': '.basicPriority',
             '\\.HeavyPriority': '.heavyPriority',
             '\\.SkillPriority': '.skillPriority',

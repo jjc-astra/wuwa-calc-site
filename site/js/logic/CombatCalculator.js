@@ -6,9 +6,9 @@ const CombatCalculator = {
      * Calculates final aggregated stats for a character slot given active buffs.
      */
     calculateFinalStats: (unitName, activeBuffs = []) => {
-        const slot = (typeof RosterState !== 'undefined') ? RosterState.team.find(t => t.character === unitName) || {} : {};
-        const dbUnit = (typeof CHARACTER_DB !== 'undefined') ? CHARACTER_DB[unitName] || {} : {};
-        const dbWeapon = (typeof WEAPON_DB !== 'undefined' && slot.weapon) ? WEAPON_DB[slot.weapon] || {} : {};
+        const slot = RosterState.team.find(t => t.character === unitName) || {};
+        const dbUnit = CHARACTER_DB[unitName] || {};
+        const dbWeapon = WEAPON_DB[slot.weapon] || {};
         
         const echoStats = slot.echoStats || { ...DEFAULT_ECHO_STATS };
         
@@ -20,10 +20,11 @@ const CombatCalculator = {
             percentAtk: echoStats.percentAtk, percentHP: echoStats.percentHP, percentDef: echoStats.percentDef,
             flatAtk: echoStats.flatAtk, flatHP: echoStats.flatHP, flatDef: echoStats.flatDef,
             
-            critRate: (parseFloat(dbUnit.baseCritRate) || 5) + echoStats.critRate,
-            critDamage: (parseFloat(dbUnit.baseCritDmg) || 150) + echoStats.critDamage,
+            critRate: (parseFloat(dbUnit.baseCritRate) || CHARACTER_DEFAULTS.baseCritRate) + echoStats.critRate,
+            critDamage: (parseFloat(dbUnit.baseCritDmg) || CHARACTER_DEFAULTS.baseCritDmg) + echoStats.critDamage,
             
-            energyRegen: 100 + echoStats.energyRegen, healingBonus: echoStats.healingBonus,
+            energyRegen: CHARACTER_DEFAULTS.energyRegen + echoStats.energyRegen, 
+            healingBonus: echoStats.healingBonus,
             skillDmgBonus: echoStats.skillDmgBonus, basicDmgBonus: echoStats.basicDmgBonus,
             heavyDmgBonus: echoStats.heavyDmgBonus, libDmgBonus: echoStats.libDmgBonus,
             glacioDmgBonus: echoStats.glacioDmgBonus, fusionDmgBonus: echoStats.fusionDmgBonus,
@@ -243,9 +244,9 @@ const CombatCalculator = {
         const finalCritRate = (getBaseStat('critRate') / 100) + buffTotals.critRate;
         const finalCritDamage = (getBaseStat('critDamage') / 100) + buffTotals.critDamage;
 
-        const unitLvl = 90;
-        const enemyLvl = typeof RosterState !== 'undefined' && RosterState.enemy ? RosterState.enemy.level : 100;
-        const baseRes = typeof RosterState !== 'undefined' && RosterState.enemy ? RosterState.enemy.res / 100 : 0.1;
+        const unitLvl = SIM_CONSTANTS.LEVEL_CAP;
+        const enemyLvl = RosterState.enemy ? RosterState.enemy.level : ENEMY_DEFAULTS.level;
+        const baseRes = RosterState.enemy ? (RosterState.enemy.res / 100) : (ENEMY_DEFAULTS.res / 100);
 
         const defMult = RotationUtils.calcDefense(unitLvl, enemyLvl, buffTotals.ignoreDef, buffTotals.reduceDef);
         const resMultiplier = RotationUtils.calcResistance(baseRes, buffTotals.ignoreRes, buffTotals.reduceRes);
@@ -257,7 +258,7 @@ const CombatCalculator = {
 
         if (hitConfig.isNegativeStatus) {
             formulaUsed = "NegativeStatus";
-            const statusBaseDmg = 3674 * (flatMult / 10000);
+            const statusBaseDmg = ENEMY_DEFAULTS.statusBaseDmg * (flatMult / 10000);
             calculatedTotal = RotationUtils.calcNegativeStatusDmg(statusBaseDmg, buffTotals.dmgAmp, buffTotals.dmgTaken, buffTotals.multiplicativeMult, resMultiplier, defMult);
             nonCritDmg = calculatedTotal; critDmg = calculatedTotal;
         } else if (castTypes.some(c => c.toLowerCase().includes("tune")) || titleLower.includes("tune")) {

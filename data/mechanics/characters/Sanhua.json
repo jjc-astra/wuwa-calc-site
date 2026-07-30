@@ -207,7 +207,7 @@
         "name": "Forte_Holding",
         "label": "Forte Aiming",
         "target": "@Self",
-        "duration": 999,
+        "duration": "@Default.PermanentDuration",
         "maxStacks": 1
       },
       {

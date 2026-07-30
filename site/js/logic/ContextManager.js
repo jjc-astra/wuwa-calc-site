@@ -45,12 +45,12 @@ const ContextManager = {
                 currentSequence = 6; 
             }
 
-            const dbChar = (typeof CHARACTER_DB !== 'undefined' && CHARACTER_DB[activeUnitName]) ? CHARACTER_DB[activeUnitName] : {};
-            const fCount = dbChar.forteCount || 1;
+            const dbChar = CHARACTER_DB[activeUnitName] || {};
+            const fCount = dbChar.forteCount || CHARACTER_DEFAULTS.forteCount;
             
             // Compute current flat calculations based on StatCalculator totals
             const maxHp = finalStats.hp || 10000;
-            const hpPct = stateData.hp[activeUnitName] !== undefined ? stateData.hp[activeUnitName] : 1.0;
+            const hpPct = stateData.hp[activeUnitName] ?? 1.0;
 
             const selfContext = {
                 name: activeUnitName,
@@ -58,12 +58,12 @@ const ContextManager = {
                 sequence: currentSequence,
                 
                 // Unified Energy Context
-                energy: stateData.energy[activeUnitName] || 0, 
-                maxEnergy: dbChar.maxEnergy !== undefined ? parseFloat(dbChar.maxEnergy) : 100,
+                energy: stateData.energy[activeUnitName] || 0,
+                maxEnergy: dbChar.maxEnergy ? parseFloat(dbChar.maxEnergy) : CHARACTER_DEFAULTS.maxEnergy,
 
                 // Unified Concerto Context
                 concerto: stateData.concerto[activeUnitName] || 0,
-                maxConcerto: 100,
+                maxConcerto: CHARACTER_DEFAULTS.maxConcerto,
 
                 // Unified Symmetric HP Context
                 hp: hpPct * maxHp,
@@ -74,7 +74,6 @@ const ContextManager = {
                 tune: 0,
                 maxTune: 0,
                 
-                // --- FIXED: Restored functional logic replacing the empty /* ... */ placeholders ---
                 getBuffStacks: (buffName) => {
                     const activeBuff = stateData.activeBuffs[`${activeUnitName}_${buffName}`];
                     const teamBuff = stateData.activeBuffs[`@Team_${buffName}`];
@@ -92,8 +91,6 @@ const ContextManager = {
                     const check = (b) => b && (b.duration > 0 || b.stacks > 0);
                     return (check(activeBuff) || check(teamBuff) || check(auraBuff)) ? 1 : 0;
                 },
-                // --------------------------------------------------------------------------------
-                
                 getTracker: (trackerName) => stateData.trackers[trackerName] || 0,
                 getCooldown: (actionName) => stateData.cooldowns[`${activeUnitName}_${actionName}`] || 0,
                 getStat: (statKey) => finalStats[statKey] || 0
@@ -108,8 +105,8 @@ const ContextManager = {
             }
 
             // Resolve Enemy Parameters
-            const enemyMaxHp = stateData.enemyMaxHp !== null && stateData.enemyMaxHp !== undefined ? stateData.enemyMaxHp : 3000000;
-            const enemyHp = stateData.enemyHp !== null && stateData.enemyHp !== undefined ? stateData.enemyHp : enemyMaxHp;
+            const enemyMaxHp = stateData.enemyMaxHp ?? RosterState.enemy.hp ?? ENEMY_DEFAULTS.hp;
+            const enemyHp = stateData.enemyHp ?? enemyMaxHp;
 
             return {
                 self: selfContext,
@@ -136,9 +133,8 @@ const ContextManager = {
                     hp: enemyHp,
                     maxHp: enemyMaxHp,
                     hpPct: enemyMaxHp > 0 ? (enemyHp / enemyMaxHp) : 1.0,
-                    
                     tune: stateData.enemyTune,
-                    maxTune: stateData.enemyMaxTune,
+                    maxTune: stateData.enemyMaxTune ?? ENEMY_DEFAULTS.maxTune,
                     getBuffStacks: (debuffName) => {
                         const debuff = stateData.activeBuffs[`Enemy_${debuffName}`];
                         return debuff ? debuff.stacks : 0;
@@ -154,8 +150,8 @@ const ContextManager = {
                 },
                 
                 team: teamData,
-                teamOthers: teamData.filter(c => c !== activeUnitName), 
-                default: typeof GAME_DEFAULTS !== 'undefined' ? GAME_DEFAULTS : {},
+                teamOthers: teamData.filter(c => c !== activeUnitName),
+                default: GAME_DEFAULTS,
 
                 next: (() => {
                     const nextRow = stateData.nextRow;

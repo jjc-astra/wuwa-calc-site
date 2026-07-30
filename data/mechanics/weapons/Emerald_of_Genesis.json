@@ -10,7 +10,7 @@
         "label": "ER",
         "stat": "ER",
         "value": "12%/15%/18%/21%/24%",
-        "duration": 999,
+        "duration": "@Default.PermanentDuration",
         "maxStacks": 1
       }
     ]

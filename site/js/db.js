@@ -75,15 +75,23 @@ const DEFAULT_SUBSTATS = ['CR Rate', 'CR DMG', 'ATK %', 'ER %', 'ATK'];
 const CHARS_WITH_MODES = ["Lynae","Aemeath"];
 const COST_DISTRIBUTION = { "4 3 3 1 1": [4, 3, 3, 1, 1], "4 4 1 1 1": [4, 4, 1, 1, 1] };
 
-const SIM_CONSTANTS = { DEFAULT_ROW_DURATION: 1.5, MAX_SEQUENCE: 6, MAX_WEAPON_RANK: 5, LEVEL_CAP: 90 };
 
 // =========================================
 //   GLOBAL GAME DEFAULTS
 // =========================================
+const SIM_CONSTANTS = { 
+    DEFAULT_ROW_DURATION: 1.5, 
+    MAX_SEQUENCE: 6, 
+    MAX_WEAPON_RANK: 5, 
+    LEVEL_CAP: 90,};
 const GAME_DEFAULTS = {
     swapTime: 0.15,
+    swapCooldown: 1.0,
     comboWindow: 0.5,
     echoSummonTime: .17,
+    permanentDuration: 9999,
+    holdLookaheadMax: 5.0,     // Max hold-release scan lookahead window (seconds)
+    holdLookaheadStep: 0.01,   // Tick resolution for hold release scan
     basicPriority: 0,
     heavyPriority: 50,
     skillPriority: 100,
@@ -93,6 +101,28 @@ const GAME_DEFAULTS = {
     libPriority: 1000,
     introPriority: 2000,
     outroPriority: 3000,
+};
+
+const CHARACTER_DEFAULTS = {
+    baseCritRate: 5,
+    baseCritDmg: 150,
+    energyRegen: 100,
+    maxEnergy: 100,
+    maxConcerto: 100,
+    maxTune: 100,
+    rarity: 5,
+    sequence: 0,
+    rank: 1,
+    forteCount: 1,
+    defaultStance: "Grounded"
+};
+
+const ENEMY_DEFAULTS = {
+    level: 100,
+    res:20,
+    hp: 3000000,
+    maxTune: 40,
+    statusBaseDmg: 3674
 };
 
 // =========================================
@@ -126,7 +156,7 @@ const DSL_SCHEMA = {
         "Next": ["Name", "Action", "CastTypes", "Priority"],
         "Active": ["Name"],
         "Default": [
-            "SwapTime", "ComboWindow", "EchoSummonTime",
+            "SwapTime", "ComboWindow", "EchoSummonTime", "PermanentDuration",
             "BasicPriority", "HeavyPriority", "SkillPriority", 
             "EchoPriority", "DodgePriority", "JumpPriority", "LibPriority", "IntroPriority", "OutroPriority",
         ]

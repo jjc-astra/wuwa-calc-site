@@ -10,7 +10,7 @@
         "name": "Void Thunder 2-pc",
         "stat": "Electro DMG Bonus",
         "value": "10%",
-        "duration": 9999
+        "duration": "@Default.PermanentDuration"
       }
     ]
   },

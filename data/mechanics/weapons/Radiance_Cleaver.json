@@ -9,7 +9,7 @@
         "name": "Edge Breaker ATK",
         "stat": "ATK %",
         "value": "12%/15%/18%/21%/24%",
-        "duration": 999,
+        "duration": "@Default.PermanentDuration",
         "maxStacks": 1
       }
     ]

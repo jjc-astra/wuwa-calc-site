@@ -65,8 +65,8 @@ const TimelineEngine = {
 
             // 1. Check if a character swap occurred coming into this row
             if (i > 0 && prevData.unit !== currentData.unit) {
-                // Swap cooldown (1.0s) begins at the frame the previous character actually left the field
-                globalSwapCdExpiresAt = Math.max(globalSwapCdExpiresAt, accumulatedTime + 1.0);
+                // Swap cooldown begins at the frame the previous character actually left the field
+                globalSwapCdExpiresAt = Math.max(globalSwapCdExpiresAt, accumulatedTime + GAME_DEFAULTS.swapCooldown);
             }
 
             // 2. Pre-Cast Delays
@@ -89,14 +89,13 @@ const TimelineEngine = {
             // --- Automated Hold-Release Window Lookahead Delay System ---
             if (dbMove.inputType === "Release" && currentData.trackers && currentData.trackers.Hold_Start !== undefined) {
                 const holdStart = currentData.trackers.Hold_Start;
-
                 const config = dbMove.holdConfig || {};
-                const speed = config.cursorSpeed ?? (typeof MECHANICS_NOTATION !== 'undefined' && MECHANICS_NOTATION.HOLD_DEFAULTS ? MECHANICS_NOTATION.HOLD_DEFAULTS.CURSOR_SPEED : 100);
-                const maxVal = config.maxCursorVal ?? (typeof MECHANICS_NOTATION !== 'undefined' && MECHANICS_NOTATION.HOLD_DEFAULTS ? MECHANICS_NOTATION.HOLD_DEFAULTS.MAX_CURSOR_VAL : 100);
-                const mode = config.cursorMode || (typeof MECHANICS_NOTATION !== 'undefined' && MECHANICS_NOTATION.HOLD_DEFAULTS ? MECHANICS_NOTATION.HOLD_DEFAULTS.CURSOR_MODE : "pingpong");
 
-                const centerExpr = config.windowCenter ?? (typeof MECHANICS_NOTATION !== 'undefined' && MECHANICS_NOTATION.HOLD_DEFAULTS ? MECHANICS_NOTATION.HOLD_DEFAULTS.WINDOW_CENTER : "65");
-                const sizeExpr = config.windowSize ?? (typeof MECHANICS_NOTATION !== 'undefined' && MECHANICS_NOTATION.HOLD_DEFAULTS ? MECHANICS_NOTATION.HOLD_DEFAULTS.WINDOW_SIZE : "10");
+                const speed = config.cursorSpeed ?? MECHANICS_NOTATION.HOLD_DEFAULTS.CURSOR_SPEED;
+                const maxVal = config.maxCursorVal ?? MECHANICS_NOTATION.HOLD_DEFAULTS.MAX_CURSOR_VAL;
+                const mode = config.cursorMode || MECHANICS_NOTATION.HOLD_DEFAULTS.CURSOR_MODE;
+                const centerExpr = config.windowCenter ?? MECHANICS_NOTATION.HOLD_DEFAULTS.WINDOW_CENTER;
+                const sizeExpr = config.windowSize ?? MECHANICS_NOTATION.HOLD_DEFAULTS.WINDOW_SIZE;
 
                 const center = parseFloat(this._resolveDynamicMath(centerExpr, currentData, currentData.unit));
                 const size = parseFloat(this._resolveDynamicMath(sizeExpr, currentData, currentData.unit));
@@ -111,7 +110,8 @@ const TimelineEngine = {
                 const accumulated = currentData.trackers.Cursor_Accumulated || 0;
                 let holdReleaseDelay = 0;
 
-                for (let delay = 0; delay <= 5.0; delay += 0.01) {
+                // Centralized lookahead scanning bounds
+                for (let delay = 0; delay <= GAME_DEFAULTS.holdLookaheadMax; delay += GAME_DEFAULTS.holdLookaheadStep) {
                     const checkTime = currentBaseStart + delay;
                     const holdDuration = checkTime - holdStart;
                     const progress = accumulated + (holdDuration * speed);
@@ -131,6 +131,7 @@ const TimelineEngine = {
                         break;
                     }
                 }
+
                 if (holdReleaseDelay > 0) {
                     finalWaitTime += holdReleaseDelay;
                     currentData.waitTime = finalWaitTime;
@@ -397,21 +398,21 @@ const TimelineEngine = {
     _resolveComboWindows: function(currentData, dbMove, prevData) {
         const resolveTime = (val) => {
             if (val === undefined) return null;
-            return (typeof val === 'string' && (val.includes('@') || /[+\-*/]/.test(val))) ? this._resolveDynamicMath(val, currentData, currentData.unit) : parseFloat(val);
+            return (typeof val === 'string' && (val.includes('@') || /[+\-*/]/.test(val))) 
+                ? this._resolveDynamicMath(val, currentData, currentData.unit) 
+                : parseFloat(val);
         };
 
-        const isUtility = currentData.castTypes.includes("Dodge") || 
-                          currentData.castTypes.includes("Echo") || 
+        const isUtility = currentData.castTypes.includes("Dodge") ||
+                          currentData.castTypes.includes("Echo") ||
                           currentData.castTypes.includes("Utility");
 
         if (!currentData.action) {
             // Preserve state
         } else if (!isUtility) {
-            let defaultComboWindow = typeof GAME_DEFAULTS !== 'undefined' ? GAME_DEFAULTS.comboWindow : 0.5;
-            let customWindow = dbMove.comboWindow !== undefined ? resolveTime(dbMove.comboWindow) : null;
-            let postMoveWindow = customWindow !== null ? customWindow : defaultComboWindow;
-
-            const animTime = currentData.animationCommitment !== undefined ? currentData.animationCommitment : currentData.duration;
+            const customWindow = dbMove.comboWindow !== undefined ? resolveTime(dbMove.comboWindow) : null;
+            const postMoveWindow = customWindow !== null ? customWindow : GAME_DEFAULTS.comboWindow;
+            const animTime = currentData.animationCommitment;
 
             currentData.unitCombos[currentData.unit] = {
                 action: currentData.action,
@@ -618,25 +619,24 @@ const TimelineEngine = {
         currentData.unitCombos = {};
         for (const u in prevData.unitCombos) currentData.unitCombos[u] = { ...prevData.unitCombos[u] };
 
-        const defaultBossHp = (typeof RosterState !== 'undefined' && RosterState.enemy && RosterState.enemy.hp > 0) ? RosterState.enemy.hp : 3000000;
-        currentData.enemyMaxHp = prevData.enemyMaxHp !== null && prevData.enemyMaxHp !== undefined ? prevData.enemyMaxHp : defaultBossHp;
-        currentData.enemyHp = prevData.enemyHp !== null && prevData.enemyHp !== undefined ? prevData.enemyHp : currentData.enemyMaxHp;
-        const defaultBossTune = (typeof RosterState !== 'undefined' && RosterState.enemy && RosterState.enemy.maxTune > 0) ? RosterState.enemy.maxTune : 40;
-        currentData.enemyMaxTune = prevData.enemyMaxTune !== null && prevData.enemyMaxTune !== undefined ? prevData.enemyMaxTune : defaultBossTune;
-        currentData.enemyTune = prevData.enemyTune !== null && prevData.enemyTune !== undefined ? prevData.enemyTune : 0;
+        const defaultBossHp = RosterState.enemy.hp > 0 ? RosterState.enemy.hp : ENEMY_DEFAULTS.hp;
+        currentData.enemyMaxHp = prevData.enemyMaxHp ?? defaultBossHp;
+        currentData.enemyHp = prevData.enemyHp ?? currentData.enemyMaxHp;
 
-        currentData.hp = { ...prevData.hp }; 
+        const defaultBossTune = RosterState.enemy.maxTune > 0 ? RosterState.enemy.maxTune : ENEMY_DEFAULTS.maxTune;
+        currentData.enemyMaxTune = prevData.enemyMaxTune ?? defaultBossTune;
+        currentData.enemyTune = prevData.enemyTune ?? 0;
+
+        currentData.hp = { ...prevData.hp };
         currentData.energy = { ...prevData.energy };
         currentData.concerto = { ...prevData.concerto };
+
         Object.keys(currentData).forEach(key => { if (key.startsWith("forte")) delete currentData[key]; });
         Object.keys(prevData).forEach(key => { if (key.startsWith("forte")) currentData[key] = { ...prevData[key] }; });
 
         currentData.trackers = structuredClone(prevData.trackers);
-
         for (const key in currentData.trackers) {
-            if (key.endsWith("_Delta")) {
-                delete currentData.trackers[key];
-            }
+            if (key.endsWith("_Delta")) delete currentData.trackers[key];
         }
 
         currentData.cooldowns = structuredClone(prevData.cooldowns);
@@ -647,7 +647,7 @@ const TimelineEngine = {
         }
 
         if (prevData.pendingNextBuffs && prevData.pendingNextBuffs.length > 0 && currentData.unit) {
-            const activeTeam = (typeof RosterState !== 'undefined' && RosterState.team) ? RosterState.team.map(t => t.character).filter(Boolean) : [];
+            const activeTeam = RosterState.team.map(t => t.character).filter(Boolean);
             const activeRows = RotationState.getActiveRows();
 
             prevData.pendingNextBuffs.forEach(eff => {
@@ -662,9 +662,9 @@ const TimelineEngine = {
             const isIntro = currentData.castTypes && currentData.castTypes.includes("Intro");
             const myCombo = prevData.unitCombos[currentData.unit];
             const isDuringCombo = myCombo && currentTime <= myCombo.expiration;
-            currentData.stance = (isIntro || isDuringCombo) ? "Grounded" : (prevData.stance || "Grounded");
+            currentData.stance = (isIntro || isDuringCombo) ? CHARACTER_DEFAULTS.defaultStance : (prevData.stance || CHARACTER_DEFAULTS.defaultStance);
         } else {
-            currentData.stance = prevData.stance || "Grounded";
+            currentData.stance = prevData.stance || CHARACTER_DEFAULTS.defaultStance;
         }
     },
 
@@ -678,19 +678,17 @@ const TimelineEngine = {
     },
 
     _getMaxCap: function(charName, resKey) {
-        if (resKey === "concerto") return 100;
-        if (resKey === "maxConcerto") return 100;
-
+        if (resKey === "concerto" || resKey === "maxConcerto") return CHARACTER_DEFAULTS.maxConcerto;
         if (resKey === "tune" || resKey === "maxTune") {
-            return (typeof RosterState !== 'undefined' && RosterState.enemy && RosterState.enemy.maxTune > 0) 
-                ? RosterState.enemy.maxTune 
-                : 100;
+            return RosterState.enemy.maxTune > 0 ? RosterState.enemy.maxTune : ENEMY_DEFAULTS.maxTune;
         }
 
-        const dbChar = (typeof CHARACTER_DB !== 'undefined') ? CHARACTER_DB[charName] || {} : {};
-        if (resKey === "energy" || resKey === "maxEnergy") return dbChar.maxEnergy || 100; 
-        if (resKey.startsWith("forte")) return dbChar["maxForte" + resKey.replace("forte", "")] || 100; 
-        if (resKey.startsWith("maxForte")) return dbChar["maxForte" + resKey.replace("maxForte", "")] || 100;
+        const dbChar = CHARACTER_DB[charName] || {};
+        if (resKey === "energy" || resKey === "maxEnergy") return dbChar.maxEnergy || CHARACTER_DEFAULTS.maxEnergy;
+        if (resKey.startsWith("forte") || resKey.startsWith("maxForte")) {
+            const fNum = resKey.replace("maxForte", "").replace("forte", "");
+            return dbChar[`maxForte${fNum}`] || CHARACTER_DEFAULTS.maxConcerto;
+        }
 
         return Infinity;
     },
@@ -1337,14 +1335,15 @@ const TimelineEngine = {
             const key = `${targetName}_${buffDef.name}`;
 
             const providerUnit = buffDef.provider || currentData.unit;
-            const providerSlot = (typeof RosterState !== 'undefined' && RosterState.team) 
-                ? RosterState.team.find(t => t.character === providerUnit) 
-                : null;
-            const weaponRank = providerSlot ? providerSlot.rank : 1;
+            const providerSlot = RosterState.team ? RosterState.team.find(t => t.character === providerUnit) : null;
+            // CHANGED: Use CHARACTER_DEFAULTS.rank instead of hardcoded 1
+            const weaponRank = providerSlot ? providerSlot.rank : CHARACTER_DEFAULTS.rank;
 
             if (buffDef.value && typeof buffDef.value === 'string' && buffDef.value.includes('/')) {
                 buffDef.value = CommonUtils.parseRankValue(buffDef.value, weaponRank);
             }
+
+            const effDuration = buffDef.duration !== undefined ? parseFloat(buffDef.duration) : GAME_DEFAULTS.PERMANENT_DURATION;
 
             const existingBuff = currentData.activeBuffs[key];
             const addedStacks = buffDef.stacks !== undefined ? parseInt(buffDef.stacks) : 1;
@@ -1360,19 +1359,19 @@ const TimelineEngine = {
                 actuallyAddedStacks = existingBuff.stacks - oldStacks;
 
                 if (buffDef.stackBehavior === "separate") {
-                    for(let i=0; i < addedStacks; i++) existingBuff.durations.push(buffDef.duration);
+                    for(let i=0; i < addedStacks; i++) existingBuff.durations.push(effDuration);
                     existingBuff.durations = existingBuff.durations.sort((a, b) => b - a).slice(0, buffDef.maxStacks || 1);
                 } else {
-                    existingBuff.duration = buffDef.duration; 
+                    existingBuff.duration = effDuration; 
                 }
             } else {
                 currentData.activeBuffs[key] = {
                     ...buffDef, 
                     target: targetName, 
                     stacks: addedStacks,
-                    maxDuration: buffDef.duration, 
-                    duration: buffDef.stackBehavior === "separate" ? undefined : buffDef.duration,
-                    durations: buffDef.stackBehavior === "separate" ? [buffDef.duration] : undefined
+                    maxDuration: effDuration, 
+                    duration: buffDef.stackBehavior === "separate" ? undefined : effDuration,
+                    durations: buffDef.stackBehavior === "separate" ? [effDuration] : undefined
                 };
                 actuallyAddedStacks = addedStacks;
             }

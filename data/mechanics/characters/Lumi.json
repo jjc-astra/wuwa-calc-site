@@ -212,7 +212,6 @@
     "hitMults": ["954.29%"],
     "actionDuration": 2,
     "cooldown": 20,
-    "swapTiming": "@Default.SwapTime",
     "freezeTime": 2,
     "comboWindow": "@Default.ComboWindow",
     "input": "Liberation",
@@ -539,7 +538,7 @@
       {
         "type": "buff",
         "name": "Lumi_Red Light Form",
-        "duration": 9999
+        "duration": "@Default.PermanentDuration"
       }
     ]
   },
@@ -552,7 +551,7 @@
       {
         "type": "buff",
         "name": "Lumi_Red Light Form",
-        "duration": 9999,
+        "duration": "@Default.PermanentDuration",
         "stat": "Electro DMG Bonus",
         "value": "10%"
       }
@@ -582,7 +581,7 @@
       {
         "type": "buff",
         "name": "Lumi_S2 DEF Ignore",
-        "duration": 9999,
+        "duration": "@Default.PermanentDuration",
         "stat": "Ignore DEF",
         "value": "20%"
       }
@@ -597,7 +596,7 @@
       {
         "type": "buff",
         "name": "Lumi_S3 Liberation DMG",
-        "duration": 9999,
+        "duration": "@Default.PermanentDuration",
         "stat": "Liberation DMG Bonus",
         "value": "30%"
       }
@@ -612,7 +611,7 @@
       {
         "type": "buff",
         "name": "Lumi_S4 Basic DMG",
-        "duration": 9999,
+        "duration": "@Default.PermanentDuration",
         "stat": "Basic DMG Bonus",
         "value": "30%"
       }
