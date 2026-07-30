@@ -240,10 +240,10 @@ const RotationUtils = {
     },
 
     runSimulation: () => {
-        RotationState.recalculateState();
+        TimelineEngine.recalculateState();
         RotationRenderer.renderAll(RotationState.data);
-        RotationRenderer.setDamageState(true); // Dims damage values to signal uncalculated/stale math
-        RotationRenderer.refreshOpenSubpanels(); // Refreshes open Concerto/Energy/Time panels live
+        RotationRenderer.setDamageState(true);
+        RotationRenderer.refreshOpenSubpanels();
     },
 
     // =========================================
