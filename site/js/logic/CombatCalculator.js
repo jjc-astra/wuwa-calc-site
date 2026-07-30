@@ -330,7 +330,7 @@ const CombatCalculator = {
             avg: Math.floor(calculatedTotal),
             nonCrit: Math.floor(nonCritDmg),
             crit: Math.floor(critDmg),
-            isOpen: hitConfig.isOpen !== undefined ? hitConfig.isOpen : true, 
+            isOpen: hitConfig.isOpen !== undefined ? hitConfig.isOpen : false,
             data: {
                 ...stateContext, 
                 activeBuffs: appliedBuffs, 

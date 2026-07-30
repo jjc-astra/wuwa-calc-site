@@ -205,7 +205,7 @@ const Templates = {
             return `
             <div class="dmg-formula-container">
                 <div class="panel-header-tiny">Calculation Breakdown</div>
-                <div class="dmg-formula-box text-dim">${formulaStr}</div>
+                <div class="dmg-formula-box text-dim" style="user-select: text; -webkit-user-select: text; cursor: text;">${formulaStr}</div>
             </div>`;
         },
 

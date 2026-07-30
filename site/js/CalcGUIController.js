@@ -497,6 +497,24 @@ function _bindRotationEvents(container, headerRow, state) {
         RotationUtils.runSimulation();
     });
 
+    // Disable row dragging on mousedown inside sub-panels so native text selection works
+    container.addEventListener('mousedown', (e) => {
+        if (e.target.closest('.sub-panel')) {
+            const row = e.target.closest('.rotation-row');
+            if (row) row.draggable = false;
+        }
+    });
+
+    // Re-enable row dragging when mouse is released or leaves the row
+    const restoreRowDraggable = (e) => {
+        const row = e.target.closest('.rotation-row');
+        if (row && row !== container.lastElementChild) {
+            row.draggable = true;
+        }
+    };
+    container.addEventListener('mouseup', restoreRowDraggable);
+    container.addEventListener('mouseleave', restoreRowDraggable, true);
+
     container.addEventListener('click', (e) => {
         const accordionHeader = e.target.closest('.dmg-accordion-header');
         if (accordionHeader) { accordionHeader.closest('.dmg-accordion-section').classList.toggle('is-open'); return; }
@@ -571,10 +589,16 @@ function _bindRotationEvents(container, headerRow, state) {
     let draggedRows = [];
     container.addEventListener('dragstart', (e) => {
         const row = e.target.closest('.rotation-row');
-        if (!row || row === container.lastElementChild) { e.preventDefault(); return; }
+        if (!row || row === container.lastElementChild || e.target.closest('.sub-panel')) {
+            e.preventDefault();
+            return;
+        }
+
+        // Drag ALL selected rows if the target is part of a multi-selection
         draggedRows = row.classList.contains('selected')
             ? Array.from(container.querySelectorAll('.rotation-row.selected')).filter(r => r !== container.lastElementChild)
             : [row];
+            
         draggedRows.forEach(r => r.classList.add('is-dragging'));
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', '');

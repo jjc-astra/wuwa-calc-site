@@ -906,7 +906,7 @@ const TimelineEngine = {
                     hitMult: nextHit.hitMult, provider: nextHit.provider, dmgTypes: nextHit.originMoveData.dmgTypes,
                     castTypes: nextHit.originMoveData.castTypes, scalar: nextHit.originMoveData.scalar,
                     title: nextHit.isProc ? `[Proc] ${hitName}` : (nextHit.totalHits > 1 ? `Hit ${nextHit.hitIndex + 1}` : "Active Hit"),
-                    isOpen: true,
+                    isOpen: false,
                     isNegativeStatus: nextHit.originMoveData.isNegativeStatus,
                     actionId: nextHit.originActionId,
                     moveName: nextHit.originMoveData.name
