@@ -1,93 +1,43 @@
 // =========================================
 //   ROTATION RENDERER (View Layer)
 // =========================================
-
 const RotationRenderer = {
-    
-    generateRowGridHTML: (optionsHTML) => {
-        const wrap = (type, content) => `<div class="sub-panel-trigger" data-trigger="${type}">${content}</div>`;
-        const iconError = `<svg class="status-icon icon-error" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>`;
-        const iconWarn = `<svg class="status-icon icon-warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
-        
-        return `
-            <div class="index-cell">
-                <span class="row-index">#</span> ${iconError} ${iconWarn}
-                <label class="check-wrap"><input type="checkbox" class="row-select-check"><span class="check-visual"></span></label>
-            </div>
-            <select class="base-select unit-select text-bold">${optionsHTML}</select>
-            
-            <select class="base-select move-select"><option value="" disabled hidden selected>Select Unit</option></select>
-            
-            <div class="col-time center-content sub-panel-trigger" data-trigger="time">
-                <div class="base-num-box" style="width:100%; padding: 2px 5px;"><input type="text" class="num-input text-xs" placeholder="0.0s" readonly></div>
-            </div>
-            <select class="base-select timing-select text-xs"><option value="Auto">Auto</option></select>
-            
-            <!-- --- FIXED: Added the 'offset-input' class to the element below --- -->
-            ${wrap('offset', `<div class="base-num-box" style="width:100%; padding: 2px 5px;"><input type="text" class="num-input text-xs offset-input" value="0.00" readonly></div>`)}
-            
-            ${wrap('dmg', `<div class="base-num-box" style="width:100%; padding: 2px 5px;"><input type="text" class="num-input text-xs" placeholder="0" readonly></div>`)}
-            
-            <div class="gauge-cell" style="width:100%">
-                <div class="multi-gauge-wrap">
-                    ${wrap('forte1', `<div class="gauge-dial" data-name="Forte 1" style="--p:0%"></div>`)}
-                    ${wrap('forte2', `<div class="gauge-dial" data-name="Forte 2" style="--p:0%"></div>`)}
-                    ${wrap('forte3', `<div class="gauge-dial" data-name="Forte 3" style="--p:0%"></div>`)}
-                    ${wrap('forte4', `<div class="gauge-dial" data-name="Forte 4" style="--p:0%"></div>`)}
-                    ${wrap('forte5', `<div class="gauge-dial" data-name="Forte 5" style="--p:0%"></div>`)}
-                    ${wrap('forte6', `<div class="gauge-dial" data-name="Forte 6" style="--p:0%"></div>`)}
-                </div>
-            </div>
-            
-            ${wrap('concerto', `<div class="gauge-cell" style="width:100%"><div class="gauge-dial" data-name="Concerto" style="--p:0%"></div></div>`)}
-            ${wrap('energy', `<div class="gauge-cell" style="width:100%"><div class="gauge-vertical" data-name="Energy"><div class="gauge-vertical-fill"></div></div></div>`)}
-            ${wrap('tune', `<div class="gauge-cell" style="width:100%"><div class="gauge-dial" data-name="Tune" style="--p:0%"></div></div>`)}
-        `;
-    },
+    generateRowGridHTML: (optionsHTML) => Templates.Rotation.generateRowGridHTML(optionsHTML),
 
-    formatDamageBreakdown: function(calculatedTotal, formulaUsed, pctMult, flatMult, scalingStatVal, finalCritRate, finalCritDamage, baseDmgBonus, buffTotals, resMultiplier, defMult, statBreakdown = null) {
+    formatDamageBreakdown: (calculatedTotal, formulaUsed, pctMult, flatMult, scalingStatVal, finalCritRate, finalCritDamage, baseDmgBonus, buffTotals, resMultiplier, defMult, statBreakdown = null) => {
         let displayMult = "";
         const totalPctMult = pctMult + buffTotals.additiveMult;
-        
         if (totalPctMult > 0) displayMult += +(totalPctMult * 100).toFixed(6) + "%";
         if (totalPctMult > 0 && flatMult > 0) displayMult += " + ";
-        if (flatMult > 0) displayMult += +(flatMult).toFixed(6); 
+        if (flatMult > 0) displayMult += +(flatMult).toFixed(6);
         if (displayMult === "") displayMult = "0";
 
         let statStr = `${Math.floor(scalingStatVal)}`;
-        
         if (statBreakdown && statBreakdown.base) {
-            const label = statBreakdown.label ? `(${statBreakdown.label}) ` : ""; // Format: (ATK)
+            const label = statBreakdown.label ? `(${statBreakdown.label}) ` : "";
             const pctStr = statBreakdown.pct !== 0 ? ` * ${(1 + statBreakdown.pct).toFixed(3)}` : ` * 1.000`;
             const flatStr = statBreakdown.flat > 0 ? ` + ${Math.floor(statBreakdown.flat)}` : ``;
-            // Updated output: (ATK) [Base * Mult + Flat]
             statStr = `[${Math.floor(statBreakdown.base)}${pctStr}${flatStr}] ${label}`;
         }
+        const baseDmgStr = (totalPctMult > 0 && flatMult > 0) ? `(${+(totalPctMult * 100).toFixed(4)}% * ${statStr} + ${Math.floor(flatMult)})`
+                          : (totalPctMult > 0) ? `${+(totalPctMult * 100).toFixed(4)}% * ${statStr}`
+                          : `${Math.floor(flatMult)}`;
 
-        const baseDmgStr = (totalPctMult > 0 && flatMult > 0) ? `(${+(totalPctMult * 100).toFixed(4)}% * ${statStr} + ${Math.floor(flatMult)})` 
-                         : (totalPctMult > 0) ? `${+(totalPctMult * 100).toFixed(4)}% * ${statStr}`
-                         : `${Math.floor(flatMult)}`;
-                         
         const breakdownParts = [baseDmgStr];
-        
         if (formulaUsed === "Standard") {
             const cr = Math.min(1.0, Math.max(0.0, finalCritRate));
             const critMult = (1 - cr) * 1 + cr * finalCritDamage;
             const dmgBonusTotal = 1 + baseDmgBonus + buffTotals.dmgBonus;
-            
             if (dmgBonusTotal !== 1) breakdownParts.push(`${dmgBonusTotal.toFixed(3)} (DMG%)`);
             if (critMult !== 1) breakdownParts.push(`${critMult.toFixed(3)} (Crit)`);
         }
-        
         if (buffTotals.dmgAmp !== 0) breakdownParts.push(`${(1+buffTotals.dmgAmp).toFixed(3)} (Amp)`);
         if (buffTotals.dmgTaken !== 0) breakdownParts.push(`${(1+buffTotals.dmgTaken).toFixed(3)} (Taken)`);
         if (buffTotals.multiplicativeMult !== 0) breakdownParts.push(`${(1+buffTotals.multiplicativeMult).toFixed(3)} (Multi)`);
-        
         if (formulaUsed !== "Tune") {
             if (resMultiplier !== 1) breakdownParts.push(`${resMultiplier.toFixed(3)} (RES)`);
             if (defMult !== 1) breakdownParts.push(`${defMult.toFixed(3)} (DEF)`);
         }
-        
         const suffix = formulaUsed !== "Standard" ? ` [${formulaUsed}]` : "";
         return { displayMult, calcBreakdown: `${Math.floor(calculatedTotal)} = ${breakdownParts.join(' * ')}${suffix}` };
     },
@@ -103,14 +53,11 @@ const RotationRenderer = {
     _syncInputs: (row, data) => {
         const u = data.unit;
         const dbChar = (typeof CHARACTER_DB !== 'undefined' && u) ? CHARACTER_DB[u] || {} : {};
-        
-        // --- INJECT CHARACTER THEME ACCENT COLOR ---
         if (dbChar.themeColor) {
             row.style.setProperty('--char-theme-raw', dbChar.themeColor);
         } else {
             row.style.removeProperty('--char-theme-raw');
         }
-
         const setVal = (sel, val) => {
             const el = row.querySelector(sel);
             if (el && el.value !== val) {
@@ -121,42 +68,35 @@ const RotationRenderer = {
         setVal('.unit-select', data.unit);
         setVal('.move-select', data.action);
 
-        // --- NEW: Dynamic Timing Dropdown ---
         const timingSelect = row.querySelector('.timing-select');
         if (timingSelect && data.availableTimings) {
             const currentOptionsHTML = data.availableTimings.map(t => `<option value="${t.val}" title="${t.title}">${t.label}</option>`).join('');
-            
             if (timingSelect.innerHTML !== currentOptionsHTML) {
                 timingSelect.innerHTML = currentOptionsHTML;
             }
-            
             if (Array.from(timingSelect.options).some(opt => opt.value === data.timing)) {
                 setVal('.timing-select', data.timing);
             } else {
                 setVal('.timing-select', "Auto");
-                data.timing = "Auto"; // Fallback to avoid invalid selections
+                data.timing = "Auto";
             }
         } else {
             setVal('.timing-select', data.timing);
         }
-        
+
         if (typeof RotationUtils !== 'undefined') RotationUtils.updateForteVisibility(row, data.unit);
-
         const timeInput = row.querySelector('.sub-panel-trigger[data-trigger="time"] .num-input');
-        // Point the visual UI column to the Tower Clock instead of the Stopwatch!
         if (timeInput) timeInput.value = (data.gameTimeStart || 0).toFixed(2) + "s";
-
         const offsetInput = row.querySelector('.sub-panel-trigger[data-trigger="offset"] .num-input');
         if (offsetInput) {
             const val = data.offset || 0;
             const box = offsetInput.closest('.base-num-box');
             box.classList.remove('offset-pos', 'offset-neg');
-            if (val > 0) { box.classList.add('offset-pos'); offsetInput.value = "+ " + Math.abs(val).toFixed(2); } 
-            else if (val < 0) { box.classList.add('offset-neg'); offsetInput.value = "- " + Math.abs(val).toFixed(2); } 
+            if (val > 0) { box.classList.add('offset-pos'); offsetInput.value = "+ " + Math.abs(val).toFixed(2); }
+            else if (val < 0) { box.classList.add('offset-neg'); offsetInput.value = "- " + Math.abs(val).toFixed(2); }
             else { offsetInput.value = "0.00"; }
         }
 
-        // --- FIXED: Dynamically unlock offset input for simultaneous/parallel timing setups ---
         const offsetBoxInput = row.querySelector('.sub-panel-trigger[data-trigger="offset"] .num-input');
         if (offsetBoxInput) {
             if (data.timing === "Simultaneous") {
@@ -168,20 +108,14 @@ const RotationRenderer = {
                 offsetBoxInput.style.cursor = 'pointer';
             }
         }
-        
     },
 
     _updateGauges: (row, data) => {
         const u = data.unit;
         const dbChar = (typeof CHARACTER_DB !== 'undefined' && u) ? CHARACTER_DB[u] || {} : {};
-        
-        // ==========================================================================
-        //   RESTORED: updateGauge hijacks 'is-full' class for DRY visual matching
-        // ==========================================================================
         const updateGauge = (name, val, maxVal, isGlowing = false) => {
             const el = row.querySelector(`.gauge-dial[data-name="${name}"], .gauge-vertical[data-name="${name}"]`);
-            if (!el) return; // Clean, early exit
-            
+            if (!el) return;
             if (el.classList.contains('gauge-vertical')) {
                 if (!el.querySelector('.gauge-vertical-fill')) {
                     el.innerHTML = '<div class="gauge-vertical-fill"></div>';
@@ -189,20 +123,17 @@ const RotationRenderer = {
             } else if (el.innerHTML !== '') {
                 el.innerHTML = '';
             }
-            
             el.className = el.classList.contains('gauge-vertical') ? 'gauge-vertical' : 'gauge-dial';
-            
             const pct = maxVal > 0 ? Math.min(MECHANICS_NOTATION.GAUGES.DEFAULT_MAX, Math.max(0, (val / maxVal) * MECHANICS_NOTATION.GAUGES.DEFAULT_MAX)) : 0;
             el.style.setProperty('--p', pct + '%');
             el.dataset.value = typeof val === 'number' && !Number.isInteger(val) ? parseFloat(val.toFixed(2)) : val;
-            
             el.classList.toggle('is-full', val >= maxVal || isGlowing);
         };
 
         const liveConcerto = data.concerto ? (data.concerto[u] || 0) : 0;
         const liveEnergy = data.energy ? (data.energy[u] || 0) : 0;
         const liveTune = data.enemyTune !== undefined ? data.enemyTune : (data.trackers?.tune || 0);
-        
+
         updateGauge('Concerto', liveConcerto, MECHANICS_NOTATION.GAUGES.DEFAULT_MAX);
         updateGauge('Energy', liveEnergy, dbChar.maxEnergy || MECHANICS_NOTATION.GAUGES.DEFAULT_MAX);
         updateGauge('Tune', liveTune, MECHANICS_NOTATION.GAUGES.DEFAULT_MAX);
@@ -212,55 +143,45 @@ const RotationRenderer = {
             let fValue = data[fKey] ? (data[fKey][u] || 0) : 0;
             const maxKey = `maxForte${i}`;
             const fMax = dbChar[maxKey] || MECHANICS_NOTATION.GAUGES.DEFAULT_MAX;
-            
             let isGlowing = false;
-            
-            // ==========================================================================
-                //   GENERIC HOLD TRACKING (Visualized on Forte 1 by default)
-                // ==========================================================================
-                if (i === 1 && data.trackers && data.trackers.Hold_Start !== undefined) {
-                    const holdStart = data.trackers.Hold_Start;
-                    const rowEndGameTime = data.gameTimeStart + (data.gameTimePassed || 0);
-                    const currentHoldDuration = rowEndGameTime - holdStart;
-                    
-                    const speed = typeof MECHANICS_NOTATION !== 'undefined' && MECHANICS_NOTATION.HOLD_DEFAULTS ? MECHANICS_NOTATION.HOLD_DEFAULTS.CURSOR_SPEED : 100;
-                    const maxVal = typeof MECHANICS_NOTATION !== 'undefined' && MECHANICS_NOTATION.HOLD_DEFAULTS ? MECHANICS_NOTATION.HOLD_DEFAULTS.MAX_CURSOR_VAL : 100;
-                    const mode = typeof MECHANICS_NOTATION !== 'undefined' && MECHANICS_NOTATION.HOLD_DEFAULTS ? MECHANICS_NOTATION.HOLD_DEFAULTS.CURSOR_MODE : "pingpong";
-                    
-                    const accumulated = data.trackers.Cursor_Accumulated || 0;
-                    const progress = accumulated + (currentHoldDuration * speed);
-                    
-                    if (mode === "clamp") {
-                        fValue = Math.min(progress, maxVal);
-                    } else if (mode === "loop") {
-                        fValue = progress % maxVal;
-                    } else { // pingpong
-                        const doubleMax = maxVal * 2;
-                        fValue = (progress % doubleMax > maxVal) ? (doubleMax - (progress % doubleMax)) : (progress % doubleMax);
-                    }
-                    
-                    // Retrieve dynamic math variables if they were stamped into the trackers by the Engine
-                    const center = data.trackers.Forte_Win_Center || (typeof MECHANICS_NOTATION !== 'undefined' && MECHANICS_NOTATION.HOLD_DEFAULTS ? parseFloat(MECHANICS_NOTATION.HOLD_DEFAULTS.WINDOW_CENTER) : 65);
-                    const size = data.trackers.Forte_Win_Size || (typeof MECHANICS_NOTATION !== 'undefined' && MECHANICS_NOTATION.HOLD_DEFAULTS ? parseFloat(MECHANICS_NOTATION.HOLD_DEFAULTS.WINDOW_SIZE) : 10);
-                    
-                    isGlowing = Math.abs(fValue - center) <= (size / 2);
-                    
-                    updateGauge('Forte ' + i, fValue, maxVal, isGlowing);
+
+            if (i === 1 && data.trackers && data.trackers.Hold_Start !== undefined) {
+                const holdStart = data.trackers.Hold_Start;
+                const rowEndGameTime = data.gameTimeStart + (data.gameTimePassed || 0);
+                const currentHoldDuration = rowEndGameTime - holdStart;
+                const speed = typeof MECHANICS_NOTATION !== 'undefined' && MECHANICS_NOTATION.HOLD_DEFAULTS ? MECHANICS_NOTATION.HOLD_DEFAULTS.CURSOR_SPEED : 100;
+                const maxVal = typeof MECHANICS_NOTATION !== 'undefined' && MECHANICS_NOTATION.HOLD_DEFAULTS ? MECHANICS_NOTATION.HOLD_DEFAULTS.MAX_CURSOR_VAL : 100;
+                const mode = typeof MECHANICS_NOTATION !== 'undefined' && MECHANICS_NOTATION.HOLD_DEFAULTS ? MECHANICS_NOTATION.HOLD_DEFAULTS.CURSOR_MODE : "pingpong";
+                const accumulated = data.trackers.Cursor_Accumulated || 0;
+                const progress = accumulated + (currentHoldDuration * speed);
+
+                if (mode === "clamp") {
+                    fValue = Math.min(progress, maxVal);
+                } else if (mode === "loop") {
+                    fValue = progress % maxVal;
                 } else {
-                    updateGauge('Forte ' + i, fValue, fMax, isGlowing);
+                    const doubleMax = maxVal * 2;
+                    fValue = (progress % doubleMax > maxVal) ? (doubleMax - (progress % doubleMax)) : (progress % doubleMax);
                 }
+
+                const center = data.trackers.Forte_Win_Center || (typeof MECHANICS_NOTATION !== 'undefined' && MECHANICS_NOTATION.HOLD_DEFAULTS ? parseFloat(MECHANICS_NOTATION.HOLD_DEFAULTS.WINDOW_CENTER) : 65);
+                const size = data.trackers.Forte_Win_Size || (typeof MECHANICS_NOTATION !== 'undefined' && MECHANICS_NOTATION.HOLD_DEFAULTS ? parseFloat(MECHANICS_NOTATION.HOLD_DEFAULTS.WINDOW_SIZE) : 10);
+                isGlowing = Math.abs(fValue - center) <= (size / 2);
+
+                updateGauge('Forte ' + i, fValue, maxVal, isGlowing);
+            } else {
+                updateGauge('Forte ' + i, fValue, fMax, isGlowing);
+            }
         }
     },
 
     _updateStatusStrip: (row, data) => {
         const indexCell = row.querySelector('.index-cell');
         const statusStrip = row.querySelector('.status-msg-strip');
-        
         indexCell.classList.remove('is-error', 'is-warning');
         indexCell.dataset.tooltipMsg = "";
         statusStrip.style.display = 'none';
         statusStrip.className = 'status-msg-strip';
-
         if (data.errorMsg) {
             indexCell.classList.add('is-error'); indexCell.dataset.tooltipMsg = data.errorMsg;
             statusStrip.classList.add('is-error-strip'); statusStrip.textContent = "ERROR: " + data.errorMsg; statusStrip.style.display = 'block';
@@ -274,10 +195,10 @@ const RotationRenderer = {
         activeDataList.forEach(data => RotationRenderer.updateRowVisuals(data));
         const lastRow = document.getElementById('rotation-builder').lastElementChild;
         if(lastRow) {
-             const idx = lastRow.querySelector('.index-cell');
-             if(idx) { idx.className = 'index-cell'; idx.dataset.tooltipMsg = ""; }
-             const strip = lastRow.querySelector('.status-msg-strip');
-             if(strip) strip.style.display = 'none';
+            const idx = lastRow.querySelector('.index-cell');
+            if(idx) { idx.className = 'index-cell'; idx.dataset.tooltipMsg = ""; }
+            const strip = lastRow.querySelector('.status-msg-strip');
+            if(strip) strip.style.display = 'none';
         }
     },
 
@@ -285,385 +206,20 @@ const RotationRenderer = {
         const container = document.getElementById('rotation-builder');
         if(container) container.querySelectorAll('.sub-panel-trigger[data-trigger="dmg"] .num-input').forEach(el => el.classList.toggle('dmg-dimmed', isStale));
     },
+
     updateDamageValue: (domRow, value) => {
         const input = domRow.querySelector('.sub-panel-trigger[data-trigger="dmg"] .num-input');
         if (input) { input.value = value.toLocaleString(); input.classList.remove('dmg-dimmed'); }
     },
 
-    _createPanelItem: (label, value, extraClass = "") => `<div class="panel-info-item"><span class="panel-info-label">${label}</span><div class="panel-info-value ${extraClass}">${value}</div></div>`,
-    _createStatTableRow: (label, value) => `<tr><td class="stat-table-label">${label}</td><td class="stat-table-value">${value}</td></tr>`,
-    _createBuffCard: (source, effects) => `
-        <div class="buff-card">
-            <div class="buff-card-header">
-                <span class="buff-source">${source}</span>
-            </div>
-            <div class="buff-card-body">
-                ${effects.map(e => `
-                    <div class="buff-effect-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;">
-                        <div class="buff-label-wrap" style="display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1 1 auto; overflow: hidden;">
-                            <svg class="buff-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0; width: 14px; height: 14px;">
-                                <polyline points="15 10 20 15 15 20"></polyline>
-                                <path d="M4 4v7a4 4 0 0 0 4 4h12"></path>
-                            </svg>
-                            <span class="buff-effect-label" style="flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${e.label}">${e.label}:</span>
-                        </div>
-                        <div class="buff-value-wrap" style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
-                            <span class="buff-val-box">${e.value}</span>
-                            <span class="buff-stacks">x${e.stacks || 1}</span>
-                        </div>
-                    </div>`).join('')}
-            </div>
-        </div>`,
-    _createFormulaRow: (formulaStr) => {
-        if (!formulaStr) return "";
-        return `
-        <div class="dmg-formula-container">
-            <div class="panel-header-tiny">Calculation Breakdown</div>
-            <div class="dmg-formula-box text-dim">${formulaStr}</div>
-        </div>`;
-    },
-
-    _renderStandardPanel: (config, data) => {
-        return `<div class="panel-content-grid">${config.fields.map(f => {
-            const u = data.unit;
-            let displayVal = undefined;
-
-            // 1. Process standard current state numbers
-            let stateVal = data[f.key];
-            if (f.key === "tune" && data.enemyTune !== undefined) stateVal = data.enemyTune; // Tune routing patch
-            if (stateVal && typeof stateVal === 'object' && !Array.isArray(stateVal)) {
-                stateVal = stateVal[u];
-            }
-
-            // 2. Process Delta Generation metrics out of trackers/memory streams
-            let deltaVal = undefined;
-            const lookupKeys = [`${u}_${f.key}`, f.key];
-            const dataContainers = [data.trackers, data.memory, data.dropdownState?.trackers].filter(Boolean);
-
-            for (const container of dataContainers) {
-                for (const key of lookupKeys) {
-                    if (container[key] !== undefined) {
-                        deltaVal = container[key];
-                        break;
-                    }
-                }
-                if (deltaVal !== undefined) break;
-            }
-
-            let rawVal = stateVal !== undefined ? stateVal : (deltaVal !== undefined ? deltaVal : f.default);
-
-            if (typeof rawVal === 'number') {
-                displayVal = Number.isInteger(rawVal) ? rawVal : parseFloat(rawVal.toFixed(3));
-                // Add explicit indicator symbol if a positive delta mutation occurred
-                if (String(f.key).toLowerCase().includes('delta') && rawVal > 0) {
-                    displayVal = "+" + displayVal;
-                }
-            } else {
-                displayVal = rawVal;
-            }
-
-            return RotationRenderer._createPanelItem(f.label, displayVal + (f.suffix || ""), f.highlight);
-        }).join('')}</div>`;
-    },
-
-    _renderComplexTimePanel: (config, data) => {
-        const groupsHTML = config.groups.map(group => {
-            const fieldsHTML = group.fields.map(f => {
-                let rawVal = data[f.key] !== undefined ? data[f.key] : f.default;
-                let displayVal = typeof rawVal === 'number' && !Number.isInteger(rawVal) ? parseFloat(rawVal.toFixed(3)) : rawVal;
-                return RotationRenderer._createPanelItem(f.label, displayVal + (f.suffix || ""), f.highlight);
-            }).join('');
-            
-            
-            return `
-                <div class="time-panel-group" style="margin-bottom: 12px;">
-                    <div class="panel-header-tiny" style="margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.1); color: #aaa;">${group.title}</div>
-                    <div class="panel-content-grid">${fieldsHTML}</div>
-                </div>
-            `;
-        }).join('');
-        return `<div class="complex-time-container">${groupsHTML}</div>`;
-    },
-
-    _renderComplexDmgPanel: (config, data) => {
-        if (!data || !data.damageInstances || data.damageInstances.length === 0) {
-            return `<div class="empty-buff-state" style="padding: 20px; text-align: center; color: var(--text-dim);">No damage instances dealt by this action.</div>`;
-        }
-        let instances = data.damageInstances;
-        
-        const sectionsHTML = instances.map(inst => {
-            const instData = inst.data || { activeBuffs: {} };
-
-            // --- 1. EXTRACT OR DERIVE NON-CRIT, CRIT, AND AVG DAMAGE ---
-            let avgVal = typeof inst.avg === 'number' ? inst.avg : (typeof inst.total === 'number' ? inst.total : parseFloat(String(inst.total || 0).replace(/,/g, '')) || 0);
-            let nonCritVal = inst.nonCrit;
-            let critVal = inst.crit;
-
-            if (nonCritVal === undefined || critVal === undefined) {
-                let cr = instData.critRate !== undefined ? instData.critRate : 0;
-                let cd = instData.critDmg !== undefined ? instData.critDmg : 150;
-                
-                if (typeof cr === 'string') cr = parseFloat(cr) || 0;
-                if (cr > 1) cr = cr / 100;
-                cr = Math.min(1.0, Math.max(0.0, cr));
-
-                if (typeof cd === 'string') cd = parseFloat(cd) || 150;
-                if (cd > 10) cd = cd / 100;
-
-                const critMult = (1 - cr) + (cr * cd);
-                if (critMult > 0) {
-                    nonCritVal = avgVal / critMult;
-                    critVal = nonCritVal * cd;
-                } else {
-                    nonCritVal = avgVal;
-                    critVal = avgVal;
-                }
-            }
-
-            const tagsHTML = config.tags.map(t => {
-                const rawVals = Array.isArray(t.keys) ? t.keys.map(k => instData[k]).filter(Boolean) : [instData[t.key]].filter(Boolean);
-                const cleanVals = rawVals.map(v => (typeof v === 'number' && !Number.isInteger(v)) ? parseFloat(v.toFixed(3)) : v);
-                let displayVal = cleanVals.length > 0 ? cleanVals.join(', ') : (t.default || '-');
-                return RotationRenderer._createPanelItem(t.label, displayVal !== '-' && t.suffix ? displayVal + t.suffix : displayVal, t.highlight || "");
-            }).join('');
-
-            const statsHTML = config.stats.map(s => {
-                let actualLabel = s.label;
-                let actualKey = s.key;
-                if (s.label === "Scalar" || s.key === "scalar") {
-                    actualLabel = instData.scalarLabel || "ATK";
-                    actualKey = "scalarValue"; 
-                }
-                let val = instData[actualKey] !== undefined ? instData[actualKey] : "0";
-                if (typeof val === 'number' && !Number.isInteger(val)) {
-                    val = parseFloat(val.toFixed(3));
-                }
-                val += (s.suffix && val !== "0" && val !== 0) ? s.suffix : "";
-                return RotationRenderer._createStatTableRow(actualLabel, (val === "0" || val === "0%") ? `<span class="text-dim">${val}</span>` : val);
-            }).join('');
-
-            const activeBuffs = Object.values(instData.activeBuffs);
-            const teamSlots = typeof RosterState !== 'undefined' && RosterState.team ? RosterState.team : [{}, {}, {}];
-            
-            const providerColumnsHTML = teamSlots.map((slot, i) => {
-                const unitName = slot.character || `Slot ${i + 1}`;
-                const unitBuffs = activeBuffs.filter(b => b.provider === unitName || (b.source && b.source.includes(unitName)));
-
-                const wepName = slot.weapon ? slot.weapon.trim() : "";
-                const mainSet = slot.mainSet ? slot.mainSet.trim() : "";
-                const subSet = slot.subSet ? slot.subSet.trim() : "";
-                const mainEcho = slot.mainEcho ? slot.mainEcho.trim() : "";
-
-                const groupedBuffs = {};
-
-                unitBuffs.forEach(b => {
-                    let sourceMech = (b.source || "System").replace(/_/g, ' ').trim();
-                    let cardHeader = sourceMech;
-
-                    const lowerSource = sourceMech.toLowerCase();
-
-                    if (wepName && lowerSource.includes(wepName.toLowerCase())) {
-                        cardHeader = wepName;
-                    } else if (typeof WEAPON_DB !== 'undefined') {
-                        const matchedWep = Object.keys(WEAPON_DB).find(w => lowerSource.startsWith(w.toLowerCase()));
-                        if (matchedWep) cardHeader = matchedWep;
-                    }
-
-                    const isSetEffect = lowerSource.includes("2-pc") || lowerSource.includes("3-pc") || lowerSource.includes("5-pc") || 
-                                        lowerSource.includes("2 pc") || lowerSource.includes("3 pc") || lowerSource.includes("5 pc");
-                    
-                    const isMainEcho = mainEcho && (
-                        lowerSource.includes(mainEcho.toLowerCase()) || 
-                        (b.name && b.name.toLowerCase().includes(mainEcho.toLowerCase()))
-                    );
-
-                    if (isSetEffect) {
-                        const lowerEffName = (b.name || "").toLowerCase();
-
-                        if (subSet && (lowerSource.includes(subSet.toLowerCase()) || lowerEffName.includes(subSet.toLowerCase()))) {
-                            cardHeader = subSet;
-                        } else if (mainSet && (lowerSource.includes(mainSet.toLowerCase()) || lowerEffName.includes(mainSet.toLowerCase()))) {
-                            cardHeader = mainSet;
-                        } else {
-                            const is3Pc = lowerSource.includes("3-pc") || lowerSource.includes("3 pc") || lowerEffName.includes("3-pc");
-                            const is2Pc = lowerSource.includes("2-pc") || lowerSource.includes("2 pc") || lowerEffName.includes("2-pc");
-
-                            if (is3Pc) {
-                                cardHeader = mainSet || "3-pc Set";
-                            } else if (is2Pc && subSet) {
-                                cardHeader = subSet;
-                            } else if (mainSet) {
-                                cardHeader = mainSet;
-                            }
-                        }
-                    } else if (isMainEcho) {
-                        cardHeader = mainSet || mainEcho;
-                    }
-
-                    if (!groupedBuffs[cardHeader]) {
-                        groupedBuffs[cardHeader] = { effects: [] };
-                    }
-
-                    let displayVal = b.value !== undefined ? b.value : "-";
-                    if (typeof b.value === 'number' && b.value > 0 && b.value < 1) {
-                        displayVal = +(b.value * 100).toFixed(2) + "%";
-                    }
-
-                    const tokenize = (str) => (str || "")
-                        .toLowerCase()
-                        .replace(/_/g, ' ')
-                        .replace(/\bs([1-6])\b/g, 'sequence $1')
-                        .replace(/\bseq\b/g, 'sequence')
-                        .replace(/[^a-z0-9\s]/g, ' ')
-                        .split(/\s+/)
-                        .filter(Boolean);
-
-                    const noiseWords = new Set([
-                        "buff", "effect", "slot", "main", "stat", "bonus", "amp", "tier",
-                        "team", "self", "next", "active", "enemy", "others", "all", "group"
-                    ]);
-
-                    const knownWords = new Set([
-                        ...tokenize(cardHeader),
-                        ...tokenize(unitName),
-                        ...tokenize(b.stat),
-                        ...noiseWords
-                    ]);
-
-                    let rawEffName = (b.name || sourceMech).replace(/_/g, ' ').trim();
-
-                    if (unitName) {
-                        const unitRegex = new RegExp(`^${unitName.replace(/[^a-zA-Z0-9]/g, '\\$&')}\\s*[-:_]?\\s*`, 'i');
-                        rawEffName = rawEffName.replace(unitRegex, '').trim();
-                    }
-
-                    let cleanEffName = rawEffName;
-                    if (cardHeader && cardHeader.toLowerCase() !== rawEffName.toLowerCase()) {
-                        const headerRegex = new RegExp(`\\b${cardHeader.replace(/[^a-zA-Z0-9]/g, '\\$&')}\\b`, 'gi');
-                        cleanEffName = cleanEffName.replace(headerRegex, '').trim();
-                    }
-                    cleanEffName = cleanEffName.replace(/^[-:_:=]+\s*/, '').replace(/\s*[-:_:=]+$/, '').trim();
-
-                    let displayEffName = cleanEffName;
-                    if (b.stat) {
-                        const statTokens = tokenize(b.stat);
-                        statTokens.forEach(st => {
-                            if (st.length > 1) {
-                                const stRegex = new RegExp(`\\b${st.replace(/[^a-zA-Z0-9]/g, '\\$&')}\\b`, 'gi');
-                                displayEffName = displayEffName.replace(stRegex, '').trim();
-                            }
-                        });
-                    }
-                    displayEffName = displayEffName.replace(/^[-:_:=]+\s*/, '').replace(/\s*[-:_:=]+$/, '').trim();
-
-                    const effTokens = tokenize(cleanEffName);
-                    const uniqueTokens = effTokens.filter(w => !knownWords.has(w));
-
-                    const isRedundant = uniqueTokens.length === 0 || !displayEffName;
-
-                    let rowLabel = "";
-                    if (isRedundant) {
-                        rowLabel = b.stat || cleanEffName || rawEffName || "Effect";
-                    } else {
-                        rowLabel = b.stat ? `${displayEffName} (${b.stat})` : displayEffName;
-                    }
-
-                    groupedBuffs[cardHeader].effects.push({
-                        label: rowLabel,
-                        value: displayVal,
-                        stacks: b.stacks || 1
-                    });
-                });
-
-                const cardsHTML = Object.keys(groupedBuffs).length > 0 ? Object.keys(groupedBuffs).map(source => {
-                    const group = groupedBuffs[source];
-                    return RotationRenderer._createBuffCard(source, group.effects);
-                }).join('') : `<div class="empty-buff-state">No buffs</div>`;
-
-                return `<div class="buff-provider-col"><div class="buff-provider-header">${unitName}</div><div class="buff-list-container">${cardsHTML}</div></div>`;
-            }).join('');
-
-            const formulaHTML = RotationRenderer._createFormulaRow(instData.calcBreakdown);
-
-            // --- 2. UPDATED HEADER WITH NON-CRIT, CRIT, AND AVG VALUES ---
-            return `
-            <div class="dmg-accordion-section ${inst.isOpen ? 'is-open' : ''}">
-                <div class="dmg-accordion-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                    <div class="flex-row align-center gap-sm">
-                        <svg class="dmg-accordion-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg>
-                        <span class="dmg-accordion-title">${inst.title}</span>
-                    </div>
-                    <div class="dmg-accordion-breakdown-values flex-row align-center" style="gap: 12px; margin-left: auto;">
-                        <div class="flex-row align-center" style="padding-right: 12px; border-right: 1px solid rgba(255, 255, 255, 0.15); gap: 6px;">
-                            <span class="text-dim" style="font-size: 0.7rem; font-weight: 600; letter-spacing: 0.5px;">NON-CRIT</span>
-                            <span style="color: #ccc; font-size: 0.85rem; font-weight: 700;">${Math.floor(nonCritVal).toLocaleString()}</span>
-                        </div>
-                        <div class="flex-row align-center" style="padding-right: 12px; border-right: 1px solid rgba(255, 255, 255, 0.15); gap: 6px;">
-                            <span class="text-dim" style="font-size: 0.7rem; font-weight: 600; letter-spacing: 0.5px;">CRIT</span>
-                            <span style="color: #e2c044; font-size: 0.85rem; font-weight: 700;">${Math.floor(critVal).toLocaleString()}</span>
-                        </div>
-                        <div class="flex-row align-center" style="gap: 6px;">
-                            <span class="text-dim" style="font-size: 0.7rem; font-weight: 600; letter-spacing: 0.5px;">AVG</span>
-                            <span style="color: #ffaa00; font-size: 0.85rem; font-weight: 700;">${Math.floor(avgVal).toLocaleString()}</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="dmg-accordion-body">
-                    <div class="panel-content-grid dmg-panel-top-row">${tagsHTML}</div>
-                    ${formulaHTML}
-                    <div class="dmg-panel-main-grid">
-                        <div class="dmg-panel-stats-col">
-                            <div class="panel-header-tiny">Buff Totals</div>
-                            <div class="table-wrapper"><table class="dmg-stat-table"><tbody>${statsHTML}</tbody></table></div>
-                        </div>
-                        <div class="dmg-panel-buffs-col">
-                            <div class="panel-header-tiny">Active Buffs by Provider</div>
-                            <div class="buff-provider-grid">${providerColumnsHTML}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>`;
-        }).join('');
-        return `<div class="dmg-accordion-container">${sectionsHTML}</div>`;
-    },
-
-    _renderOffsetPanel: (data) => {
-        const reasonsHTML = (data.offsetReasons && data.offsetReasons.length > 0)
-            ? data.offsetReasons.map(r => `
-                <div class="buff-effect-row" style="margin-bottom: 6px; display: flex; justify-content: space-between; padding-right: 8px;">
-                    <div style="display:flex; align-items:center;">
-                        <svg class="buff-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 10 20 15 15 20"></polyline><path d="M4 4v7a4 4 0 0 0 4 4h12"></path></svg>
-                        <span class="buff-effect-label">${r.label}</span>
-                    </div>
-                    <span class="buff-val-box text-bold ${r.isNegative ? 'text-gold' : (r.value === '0.00s' ? 'text-dim' : 'text-main')}">${r.value}</span>
-                </div>`).join('')
-            : `<div class="empty-buff-state" style="padding: 12px; margin-top: 8px;">Standard Execution (No Offset)</div>`;
-            
-        const offsetStr = (data.offset > 0 ? "+" : "") + data.offset.toFixed(2) + "s";const offsetClass = data.offset > 0 ? "text-gold" : (data.offset < 0 ? "text-main" : "text-dim");
-
-        return `
-            <div class="panel-header-main">Offset Breakdown</div>
-            <div class="panel-content-grid" style="grid-template-columns: 1fr;">
-                <div class="panel-info-item" style="display:flex; justify-content:space-between; align-items:center;">
-                    <span class="panel-info-label" style="margin-bottom:0;">Total Offset</span>
-                    <span class="panel-info-value ${offsetClass}">${offsetStr}</span>
-                </div>
-            </div>
-            <div class="panel-header-tiny" style="margin-top: 16px;">Offset Sources</div>
-            <div class="buff-card" style="padding: 12px;">
-                ${reasonsHTML}
-            </div>
-        `;
-    },
-
     refreshOpenSubpanels: (container) => {
         const builder = container || document.getElementById('rotation-builder');
         if (!builder) return;
-        
+
         builder.querySelectorAll('.rotation-row').forEach(row => {
             const activeTrigger = row.querySelector('.sub-panel-trigger.is-active');
             const panel = row.querySelector('.sub-panel');
-            
+
             if (activeTrigger && panel && panel.classList.contains('is-open')) {
                 const data = RotationState.getData(row);
                 if (data) {
@@ -676,17 +232,16 @@ const RotationRenderer = {
 
     generatePanelContent: (type, unit, action, row) => {
         if (type === 'offset') {
-            return RotationRenderer._renderOffsetPanel(RotationState.getData(row));
+            return Templates.Rotation.renderOffsetPanel(RotationState.getData(row));
         }
-
         const config = PANEL_CONFIG[type];
-        if (!config) return `<div class="panel-content-grid">${RotationRenderer._createPanelItem("Info", "No data available", "text-dim")}</div>`;
-        
+        if (!config) return `<div class="panel-content-grid">${Templates.Rotation.createPanelItem("Info", "No data available", "text-dim")}</div>`;
+
         let bodyHTML = '';
-        if (config.type === "complex_dmg") bodyHTML = RotationRenderer._renderComplexDmgPanel(config, RotationState.getData(row));
-        else if (config.type === "complex_time") bodyHTML = RotationRenderer._renderComplexTimePanel(config, RotationState.getData(row));
-        else bodyHTML = RotationRenderer._renderStandardPanel(config, RotationState.getData(row));
-        
+        if (config.type === "complex_dmg") bodyHTML = Templates.Rotation.renderComplexDmgPanel(config, RotationState.getData(row));
+        else if (config.type === "complex_time") bodyHTML = Templates.Rotation.renderComplexTimePanel(config, RotationState.getData(row));
+        else bodyHTML = Templates.Rotation.renderStandardPanel(config, RotationState.getData(row));
+
         return `<div class="panel-header-main">${config.title}</div>${bodyHTML}`;
     }
 };
