@@ -1,0 +1,298 @@
+import React, { useState } from 'react';
+import { useBuilderStore } from '../../store/useBuilderStore';
+import { DataLoader } from '../../utils/DataLoader';
+import { CommonUtils } from '../../utils/Common';
+import { BuilderUtils } from '../../utils/BuilderUtils';
+import { BaseStatsForm } from './BaseStatsForm';
+import { MechanicNodeCard } from './MechanicNodeCard';
+import { JsonOutputPane } from './JsonOutputPane';
+import { BuilderState } from '../../data/db';
+import type { MechanicNode } from '../../types';
+
+interface GridCardProps {
+  itemName: string;
+  imgFolder: string;
+  dbRef?: Record<string, any>;
+  onClick: (rarity: number) => void;
+}
+
+const GridCard: React.FC<GridCardProps> = ({ itemName, imgFolder, dbRef, onClick }) => {
+  const [imgError, setImgError] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
+
+  let rarity = 5;
+  let rarityClass = 'rarity-none';
+  let iconClass = 'char-icon';
+
+  if (imgFolder === 'characters' || imgFolder === 'weapons') {
+    rarity = dbRef?.[itemName]?.rarity || 5;
+    rarityClass = `rarity-${rarity}`;
+  } else if (imgFolder === 'echo Sets' || imgFolder === 'system') {
+    iconClass += ' echo-set-icon';
+  }
+
+  const fontSize = imgFolder === 'characters' ? '0.8em' : '0.65em';
+  const iconPath = CommonUtils.getIconPath(itemName, imgFolder);
+
+  return (
+    <div className="char-grid-card" onClick={() => onClick(rarity)}>
+      <div className={`${iconClass} ${rarityClass}`}>
+        {!imgError && (
+          <img
+            className={`char-grid-img ${imgLoaded ? 'opacity-1' : 'opacity-0'}`}
+            src={iconPath}
+            alt={itemName}
+            onLoad={() => setImgLoaded(true)}
+            onError={() => setImgError(true)}
+          />
+        )}
+        {(!imgLoaded || imgError) && (
+          <span className="char-fallback">{itemName.charAt(0)}</span>
+        )}
+      </div>
+      <div
+        className="char-name-label"
+        style={{
+          fontSize,
+          lineHeight: 1.2,
+          whiteSpace: 'normal',
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical'
+        }}
+      >
+        {itemName}
+      </div>
+    </div>
+  );
+};
+
+export const MechanicsBuilder: React.FC = () => {
+  const { activeChar, setActiveChar, mechanics, setMechanicNode, baseStats, setBaseStat } = useBuilderStore();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedTemplates, setSelectedTemplates] = useState<Record<string, string>>({});
+
+  if (!activeChar) {
+    const buildSection = (
+      title: string,
+      items: string[],
+      dbRef: Record<string, any> | undefined,
+      imgFolder: string
+    ) => {
+      const filtered = items.filter(item =>
+        item.toLowerCase().includes(searchTerm.toLowerCase().trim())
+      );
+      if (!filtered || filtered.length === 0) return null;
+
+      return (
+        <div key={title} className="grid-section" style={{ width: '100%' }}>
+          <div
+            className="text-gold mb-4px"
+            style={{ fontSize: '1.1em', fontWeight: 'bold', borderBottom: '1px solid #444', paddingBottom: '4px' }}
+          >
+            {title}
+          </div>
+          <div
+            className="item-grid"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(85px, 1fr))',
+              gap: '12px',
+              marginTop: '12px',
+              width: '100%'
+            }}
+          >
+            {filtered.map(itemName => (
+              <GridCard
+                key={itemName}
+                itemName={itemName}
+                imgFolder={imgFolder}
+                dbRef={dbRef}
+                onClick={rarity => setActiveChar(itemName, imgFolder, rarity)}
+              />
+            ))}
+          </div>
+        </div>
+      );
+    };
+
+    return (
+      <div id="view-grid" className="builder-view" style={{ flexDirection: 'column', flex: 1, minHeight: 0, height: '100%' }}>
+        <div style={{ padding: '20px 20px 16px 20px', flexShrink: 0 }}>
+          <input
+            type="text"
+            id="grid-search-input"
+            className="form-input"
+            placeholder="Search Characters, Weapons, Echoes..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            style={{
+              width: '100%',
+              maxWidth: '400px',
+              padding: '10px 15px',
+              fontSize: '0.9rem',
+              background: '#1a1a1a',
+              borderRadius: '6px'
+            }}
+          />
+        </div>
+
+        <div
+          id="character-grid"
+          style={{
+            flex: 1,
+            minHeight: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '24px',
+            overflowY: 'auto',
+            padding: '0 20px 20px 20px',
+            width: '100%',
+            boxSizing: 'border-box'
+          }}
+        >
+          {buildSection('Characters', Object.keys(DataLoader.characterDB), DataLoader.characterDB, 'characters')}
+          {buildSection('Weapons', Object.keys(DataLoader.weaponDB), DataLoader.weaponDB, 'weapons')}
+          {buildSection('Main Echoes', DataLoader.allMainEchoes, undefined, 'echoes')}
+          {buildSection('Echo Sets', DataLoader.sonataSets, undefined, 'echo Sets')}
+          {buildSection('System', ['Generic'], undefined, 'system')}
+        </div>
+      </div>
+    );
+  }
+
+  const isCharacter = !!DataLoader.characterDB[activeChar];
+  const isWeapon = !!DataLoader.weaponDB[activeChar];
+  const isSonataSet = DataLoader.sonataSets.includes(activeChar);
+  const isTriggerSet = DataLoader.triggerSets.includes(activeChar);
+
+  // Determine correct accordion categories based on entity type
+  let targetCategories: string[] = [];
+  if (activeChar === 'Generic') {
+    targetCategories = ['System Mechanics'];
+  } else if (isCharacter) {
+    targetCategories = BuilderState.categories;
+  } else if (isWeapon) {
+    targetCategories = ['Weapon Passive'];
+  } else if (isSonataSet) {
+    targetCategories = isTriggerSet ? ['3-pc Set Effect'] : ['2-pc Set Effect', '5-pc Set Effect'];
+  } else {
+    targetCategories = ['Echo Skill', 'Echo Passive'];
+  }
+
+  const getDefaultTemplateKey = (cat: string) => {
+    const keys = Object.keys(BuilderState.templates);
+    return keys.find(k => k === cat || k.startsWith(cat)) || keys[0];
+  };
+
+  const handleAddNode = (category: string) => {
+    const tmplKey = selectedTemplates[category] || getDefaultTemplateKey(category);
+    const template: MechanicNode = JSON.parse(
+      JSON.stringify(
+        (BuilderState.templates as Record<string, any>)[tmplKey] || {
+          name: 'New Mechanic',
+          triggerRule: '',
+          isPassive: false
+        }
+      )
+    );
+
+    // Swap default template element ('Glacio') with active character's element
+    if (isCharacter && DataLoader.characterDB[activeChar]?.element) {
+      const charElement = DataLoader.characterDB[activeChar].element;
+      const elements = ['Glacio', 'Aero', 'Electro', 'Fusion', 'Spectro', 'Havoc', 'Physical'];
+      if ((template.dmgTypes || []).length === 0 && !template.isPassive) {
+        template.dmgTypes = [charElement];
+      } else if (template.dmgTypes) {
+        template.dmgTypes = template.dmgTypes.map(t => (elements.includes(t) ? charElement : t));
+      }
+    }
+
+    const provider = activeChar || 'System';
+    let nodeId = BuilderUtils.generateId(provider, template.name);
+    if (mechanics[nodeId]) {
+      let suffix = 2;
+      while (mechanics[`${nodeId} (${suffix})`]) suffix++;
+      nodeId = `${nodeId} (${suffix})`;
+      template.name = `${template.name} (${suffix})`;
+    }
+    setMechanicNode(nodeId, { ...template, category, provider } as MechanicNode);
+  };
+
+  const skillGroupNames = baseStats.skillGroupNames || {};
+
+  return (
+    <div id="view-editor" className="builder-view" style={{ flex: 1, minHeight: 0, height: '100%' }}>
+      <div className="editor-pane scrollable" style={{ flex: 3, overflowY: 'auto', minHeight: 0 }}>
+        <div className="panel-header-main" id="editor-char-name">
+          {activeChar.toUpperCase()} SETUP
+        </div>
+        <BaseStatsForm />
+        <div id="mechanics-accordion" className="flex-col gap-md" style={{ marginTop: '20px' }}>
+          {targetCategories.map((cat: string) => {
+            const catMechs = (Object.entries(mechanics) as [string, MechanicNode][]).filter(([id, m]) => {
+              if (m.category && targetCategories.includes(m.category)) return m.category === cat;
+              if (activeChar === 'Generic') return cat === 'System Mechanics';
+              if (!isCharacter) {
+                if (targetCategories.includes('Echo Skill')) {
+                  const isPassive = !!m.isPassive || id.toLowerCase().includes('passive') || (m.name || '').toLowerCase().includes('passive') ||
+                    (m.triggerRule && m.triggerRule.trim().startsWith('ALWAYS'));
+                  return isPassive ? cat === 'Echo Passive' : cat === 'Echo Skill';
+                }
+                if (targetCategories.length === 1) return cat === targetCategories[0];
+                const is2pc = (m.name || '').includes('2-pc') || id.includes('2pc');
+                return cat === (is2pc ? '2-pc Set Effect' : '5-pc Set Effect');
+              }
+              return BuilderUtils.guessCategory(m) === cat;
+            });
+
+            return (
+              <div key={cat} className="mechanic-category" data-category={cat}>
+                <div className="mechanic-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                    <span className="text-bold text-gold">{cat}</span>
+                    {isCharacter && (
+                      <input
+                        type="text"
+                        className="form-input category-group-name"
+                        value={skillGroupNames[cat] || ''}
+                        placeholder="Skill Category Name"
+                        onChange={e => {
+                          const updated = { ...skillGroupNames, [cat]: e.target.value };
+                          setBaseStat('skillGroupNames', updated);
+                        }}
+                        style={{ height: '24px', fontSize: '0.8rem', width: '280px', borderColor: '#444', background: 'rgba(0,0,0,0.2)' }}
+                      />
+                    )}
+                  </div>
+                  <div className="flex-row gap-sm w-auto">
+                    <select
+                      className="base-select template-select w-150px"
+                      value={selectedTemplates[cat] || getDefaultTemplateKey(cat)}
+                      onChange={e => setSelectedTemplates({ ...selectedTemplates, [cat]: e.target.value })}
+                    >
+                      {Object.keys(BuilderState.templates).map(k => (
+                        <option key={k} value={k}>
+                          {(BuilderState.templates as any)[k].name}
+                        </option>
+                      ))}
+                    </select>
+                    <button type="button" className="base-btn text-xs add-node-btn" onClick={() => handleAddNode(cat)}>
+                      Add Node
+                    </button>
+                  </div>
+                </div>
+                <div className="nodes-container">
+                  {catMechs.map(([id, node]) => (
+                    <MechanicNodeCard key={id} nodeId={id} data={node} />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <JsonOutputPane />
+    </div>
+  );
+};

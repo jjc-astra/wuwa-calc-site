@@ -1,0 +1,275 @@
+// src/components/rotation/RotationBuilder.tsx
+import React, { useRef, useState, useEffect } from 'react';
+import { useRotationStore } from '../../store/useRotationStore';
+import { useRosterStore } from '../../store/useRosterStore';
+import { RotationToolbar } from './RotationToolbar';
+import { RotationRow } from './RotationRow';
+
+interface RotationBuilderProps {
+  isOpen: boolean;
+  onToggle: () => void;
+}
+
+export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onToggle }) => {
+  const isCollapsed = !isOpen;
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const {
+    rows,
+    startEnergy,
+    startConcerto,
+    selectedIndices,
+    setSelectedIndices,
+    deleteRows,
+    moveRows,
+    undo,
+    redo,
+    importRotation
+  } = useRotationStore();
+
+  const { team, importTeam } = useRosterStore();
+
+  // Active Sub-Panel state: { rowIndex: number, trigger: string }
+  const [activeSubPanel, setActiveSubPanel] = useState<{ rowIndex: number; trigger: string } | null>(null);
+
+  // Drag and Drop state
+  const [draggedIndices, setDraggedIndices] = useState<number[]>([]);
+  const [dragOverInfo, setDragOverInfo] = useState<{ index: number; position: 'top' | 'bottom' } | null>(null);
+
+  // Global Keyboard Shortcuts (Delete, Undo, Redo)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const active = document.activeElement as HTMLElement | null;
+      const inputType = active && active.tagName === 'INPUT' ? (active as HTMLInputElement).type : '';
+      const isEditingInput =
+        active &&
+        (active.tagName === 'SELECT' || active.tagName === 'TEXTAREA' ||
+          (active.tagName === 'INPUT' && inputType !== 'checkbox' && inputType !== 'radio' && inputType !== 'button'));
+
+      if (!isEditingInput) {
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+          const deletable = selectedIndices.filter(i => i !== rows.length - 1);
+          if (deletable.length > 0) {
+            e.preventDefault();
+            deleteRows(deletable);
+          }
+        }
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        undo();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        e.preventDefault();
+        redo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedIndices, deleteRows, undo, redo, rows.length]);
+
+  const handleSelectRow = (index: number, shiftKey: boolean) => {
+    if (shiftKey && selectedIndices.length > 0) {
+      const last = selectedIndices[selectedIndices.length - 1];
+      const start = Math.min(last, index);
+      const end = Math.max(last, index);
+      const range = Array.from({ length: end - start + 1 }, (_, i) => start + i);
+      setSelectedIndices(range);
+    } else {
+      if (selectedIndices.includes(index) && selectedIndices.length === 1) {
+        setSelectedIndices([]);
+      } else {
+        setSelectedIndices([index]);
+      }
+    }
+  };
+
+  const handleTriggerClick = (rowIndex: number, trigger: string) => {
+    if (activeSubPanel?.rowIndex === rowIndex && activeSubPanel?.trigger === trigger) {
+      setActiveSubPanel(null);
+    } else {
+      setActiveSubPanel({ rowIndex, trigger });
+    }
+  };
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    if (index === rows.length - 1) {
+      e.preventDefault();
+      return;
+    }
+    const toDrag = (selectedIndices.includes(index) ? selectedIndices : [index]).filter(i => i !== rows.length - 1);
+    setDraggedIndices(toDrag);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (draggedIndices.includes(targetIndex)) return;
+
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const isBelow = e.clientY > rect.top + rect.height / 2;
+    setDragOverInfo({ index: targetIndex, position: isBelow ? 'bottom' : 'top' });
+  };
+
+  const handleDragLeave = () => {
+    setDragOverInfo(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    if (draggedIndices.length === 0 || draggedIndices.includes(targetIndex)) {
+      setDragOverInfo(null);
+      setDraggedIndices([]);
+      return;
+    }
+
+    let adjustedTarget = targetIndex;
+    if (dragOverInfo?.position === 'bottom') adjustedTarget++;
+
+    moveRows(draggedIndices, adjustedTarget);
+    setDragOverInfo(null);
+    setDraggedIndices([]);
+  };
+
+  const handleExport = () => {
+    if (rows.length === 0) return alert('Rotation is empty.');
+
+    const exportObject = {
+      rotation: rows.map(({ unit, action, timing }) => ({ unit, action, timing })),
+      team: team.map(slot => {
+        const { domRef, ...cleanData } = slot;
+        return cleanData;
+      }),
+      settings: { startEnergy, startConcerto }
+    };
+
+    const names = team
+      .filter(s => s.character)
+      .map(s => {
+        let id = s.character.replace(/\s+/g, '');
+        if (s.weapon) {
+          const initials = s.weapon.match(/\b\w/g) || [];
+          id += `-${initials.join('').toUpperCase()}`;
+        }
+        return id;
+      });
+
+    const filename = names.length > 0 ? `Rotation_${names.join('_')}.json` : 'Rotation_Config.json';
+    const blob = new Blob([JSON.stringify(exportObject, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async ev => {
+      try {
+        const rawData = JSON.parse(ev.target?.result as string);
+        const rotData = Array.isArray(rawData) ? rawData : rawData.rotation;
+
+        if (rawData.team) {
+          await importTeam(rawData.team);
+        }
+
+        if (rotData) {
+          importRotation(rotData, rawData.settings);
+          // The rotation section may still be collapsed (e.g. import triggered while the
+          // Team step is open) -- open it first so the newly-imported rows, including the
+          // trailing placeholder row, are actually visible, then scroll to reveal the end.
+          if (!isOpen) onToggle();
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              const container = document.getElementById('rotation-builder');
+              container?.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+            });
+          });
+        }
+      } catch (err) {
+        console.error('[RotationBuilder] Error loading rotation:', err);
+        alert('Error loading rotation.');
+      }
+    };
+    reader.readAsText(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  return (
+    <div className={`section-wrapper ${isCollapsed ? 'is-collapsed' : 'anim-done'}`} id="step2-wrapper">
+      <div
+        className="section-header"
+        id="rotation-header"
+        onClick={e => {
+          const target = e.target as HTMLElement;
+          if (target.classList.contains('toggle-icon')) {
+            onToggle();
+            return;
+          }
+          if (target.tagName !== 'BUTTON' && target.tagName !== 'INPUT') {
+            onToggle();
+          }
+        }}
+      >
+        <div className="header-left">
+          <button className={`toggle-icon ${isCollapsed ? 'collapsed' : ''}`}>▼</button>
+          <h2 className="section-title">Step 2: Build Rotation</h2>
+        </div>
+        <div className="header-right">
+          <input type="file" ref={fileInputRef} accept=".json" style={{ display: 'none' }} onChange={handleImport} />
+          <button className="base-btn" onClick={() => fileInputRef.current?.click()}>
+            Import Rotation
+          </button>
+          <button className="base-btn" onClick={handleExport}>
+            Export Rotation
+          </button>
+        </div>
+      </div>
+
+      <div id="rotation-content" className={`collapsible-content ${isCollapsed ? 'is-collapsed' : ''}`}>
+        <RotationToolbar />
+
+        <div className="rotation-header-row">
+          <div></div>
+          <div>Unit</div>
+          <div>Action</div>
+          <div>Time</div>
+          <div>Timing</div>
+          <div>Offset</div>
+          <div>DMG</div>
+          <div>Fortes</div>
+          <div>Concerto</div>
+          <div>Energy</div>
+          <div>Tune</div>
+        </div>
+
+        <div id="rotation-builder" className="flex-col gap-sm" style={{ padding: 0 }}>
+          {rows.map((row, i) => (
+            <RotationRow
+              key={i}
+              index={i}
+              row={row}
+              isSelected={selectedIndices.includes(i)}
+              activeTrigger={activeSubPanel?.rowIndex === i ? activeSubPanel.trigger : null}
+              onSelectRow={handleSelectRow}
+              onTriggerClick={handleTriggerClick}
+              onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              dragOverPosition={dragOverInfo?.index === i ? dragOverInfo.position : null}
+              isLastRow={i === rows.length - 1}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};

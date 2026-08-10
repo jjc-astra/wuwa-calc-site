@@ -1,0 +1,39 @@
+{
+  "TRIGGER_SETS": [
+    "Dream of the Lost",
+    "Crown of Valor",
+    "Law of Harmony",
+    "Flamewings Shadow",
+    "Thread of Severed Fate"
+  ],
+  "SET_ECHO_MAPPING": {
+    "Sound of True Name": ["Nameless Explorer"],
+    "Trailblazing Star": ["Sigilum"],
+    "Chromatic Foam": ["Reactor Husk"],
+    "Rite of Gilded Revelation": ["Hyvatia","Twin Nova - Nebulous Cannon"],
+    "Halo of Starry Radiance": ["Reactor Husk"],
+    "Pact of Neonlight Leap": ["Hyvatia"],
+    "Thread of Severed Fate": ["Threnodian - Leviathan"],
+    "Flamewings Shadow": ["Corrosaurus", "Threnodian - Leviathan"],
+    "Law of Harmony": ["Fenrico"],
+    "Crown of Valor": ["The False Sovereign"],
+    "Dream of the Lost": ["NM Hecate", "Fenrico"],
+    "Flaming Clawprint": ["Lioness of Glory"],
+    "Windward Pilgrimage": ["Fleurdelys", "NM Kelpie"],
+    "Gusts of Welkin": ["Fleurdelys", "NM Kelpie"],
+    "Tidebreaking Courage": ["Dragon of Dirge"],
+    "Empyrean Anthem": ["Hecate", "NM Tempest Mephis", "NM Lampylumen Myriad"],
+    "Midnight Veil": ["NM Impermanence Heron", "Lorelei"],
+    "Eternal Radiance": ["Capitaneus", "NM Mourning Aix"],
+    "Frosty Resolve": ["Sentry Construct"],
+    "Lingering Tunes": ["Mech Abomination"],
+    "Moonlit Clouds": ["Impermanence Heron"],
+    "Rejuvenating Glow": ["Bell-Borne", "Fallacy of No Return"],
+    "Sun-sinking Eclipse": ["Dreamless", "Crownless"],
+    "Celestial Light": ["Jue", "Mourning Aix"],
+    "Sierra Gale": ["Feilian Beringal", "NM Feilian Beringal"],
+    "Void Thunder": ["Tempest Mephis", "Thundering Mephis", "NM Tempest Mephis", "NM Thundering Mephis"],
+    "Molten Rift": ["Inferno Rider", "NM Inferno Rider"],
+    "Freezing Frost": ["Lampylumen Myriad"]
+  }
+}

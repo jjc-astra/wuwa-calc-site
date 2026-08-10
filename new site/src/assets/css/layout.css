@@ -1,0 +1,408 @@
+/* =========================================
+   1. APP SHELL & SECTIONS
+   ========================================= */
+html, body {
+    height: 100vh;
+    margin: 0; 
+    padding: 10px;
+    background-color: var(--bg-dark);
+    color: var(--text-main);
+    font-family: sans-serif;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+#root {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+#app-layout {
+    height: 100%; 
+    width: 100%;
+    display: flex; 
+    flex-direction: column;
+    gap: 10px; 
+    overflow: hidden;
+    min-height: 0;
+}
+
+/* --- Section Wrappers --- */
+.global-nav-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    background: #111; /* Slightly darker to establish hierarchy */
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+
+.global-nav-header .header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+/* Page Switcher Button Styling */
+.nav-btn {
+    background: rgba(220, 165, 76, 0.1); /* Subtle gold tint */
+    border-color: var(--accent);
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.nav-btn:hover {
+    background: var(--accent);
+    color: var(--bg-dark);
+}
+
+.nav-arrow-icon {
+    margin-left: 4px;
+    opacity: 0.8;
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nav-btn:hover .nav-arrow-icon {
+    transform: translateX(4px); /* Pushes the arrow right on hover to indicate movement */
+}
+.section-wrapper {
+    display: flex; flex-direction: column;
+    transition: flex-grow 0.3s ease-in-out; 
+    background: #1a1a1a; 
+    border: 1px solid var(--border); border-radius: 8px;
+    overflow: hidden; position: relative; z-index: 1; 
+}
+#app-layout > .section-wrapper:last-of-type { margin-bottom: 15px; }
+
+/* State: Open */
+.section-wrapper:not(.is-collapsed) {
+    flex: 1 1 auto; z-index: 10; 
+}
+/* State: Closed */
+.section-wrapper.is-collapsed {
+    flex: 0 0 auto; height: auto;
+    border-bottom: 1px solid var(--border); z-index: 0; 
+}
+
+/* --- Headers --- */
+.section-header {
+    flex-shrink: 0; display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 15px; background: rgba(0, 0, 0, 0.4);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer; user-select: none;
+}
+.section-header:hover { background: rgba(255, 255, 255, 0.05); }
+.section-wrapper:not(.is-collapsed) .section-header { border-bottom: 1px solid var(--border); }
+
+.section-title { margin: 0; font-size: 1.1rem; color: var(--accent); font-weight: bold; }
+.header-left, .header-right { display: flex; align-items: center; gap: 10px; }
+
+.toggle-icon {
+    background: none; border: none; padding: 0;
+    color: var(--accent); font-size: 0.8rem;
+    cursor: pointer; transition: transform 0.2s ease;
+    display: flex; align-items: center; justify-content: center;
+}
+.toggle-icon.collapsed { transform: rotate(-90deg); }
+
+/* --- Content Areas --- */
+.collapsible-content {
+    display: flex; flex-direction: column; flex: 1; min-height: 0;
+}
+.collapsible-content.is-collapsed { display: none !important; }
+
+/* Scrollbar Handling */
+#team-content .team-container,
+#rotation-content #rotation-builder {
+    flex: 1; padding: 0; overflow-y: hidden;
+}
+.section-wrapper.anim-done #team-content .team-container,
+.section-wrapper.anim-done #rotation-content #rotation-builder {
+    overflow-y: auto; 
+}
+#team-content .team-container { padding: 10px; }
+
+
+/* =========================================
+   2. TEAM ROSTER GRID (UNTOUCHED)
+   ========================================= */
+.team-container { width: 100%; }
+
+.char-row {
+    display: grid;
+    /* Fixed Panels + Flexible Echoes */
+    grid-template-columns: 175px 160px 160px 1fr;
+    align-items: stretch;
+    margin: 10px; padding: 10px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border); border-radius: 8px;
+    overflow-x: auto; min-width: 850px; 
+}
+
+/* Sub-panels inside row */
+.panel-col {
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+    padding: 0 5px; border-right: 1px solid var(--border);
+}
+.panel-col:nth-child(3) { border-right: none; }
+
+.set-header {
+    margin-top: 8px; margin-bottom: 8px; width: 100%;
+    color: var(--accent); font-weight: bold; font-size: 0.8rem;
+    border-bottom: 1px solid #555;
+}
+
+/* Input Specifics */
+.seq-mode-row { width: 100%; display: flex; }
+.seq-box { display: flex; align-items: center; justify-content: space-between; }
+.mode-select { font-size: 0.75rem; padding: 0 5px; height: 100%; }
+.seq-input, .rank-input { width: 20px !important; text-align: right; }
+
+/* Mode Logic Toggles (Handled via class in JS) */
+.char-row.has-mode .seq-box, .char-row.has-mode .mode-select { flex: 1; }
+.char-row:not(.has-mode) .seq-box { flex: 1; }
+.char-row:not(.has-mode) .mode-select { display: none; }
+
+/* Echo Container Layout */
+.echo-container {
+    display: grid; grid-template-columns: repeat(5, minmax(145px, 1fr));
+    align-content: center; min-width: 800px;
+}
+
+/* Responsive */
+@media (max-width: 1400px) {
+    .char-row {
+        grid-template-columns: repeat(3, minmax(267px, 1fr));
+        grid-template-areas: "char weapon set" "echo echo echo";
+        padding-bottom: 5px; 
+    }
+    .panel-col:nth-child(1) { grid-area: char; }
+    .panel-col:nth-child(2) { grid-area: weapon; }
+    .panel-col:nth-child(3) { grid-area: set; }
+    .echo-container { 
+        grid-area: echo; margin-top: 10px; border-top: 1px solid #444; padding-top: 10px;
+    }
+}
+
+
+/* =========================================
+   3. ROTATION BUILDER GRID (MODIFIED FOR SUB-PANEL)
+   ========================================= */
+:root {
+    /* Index/Check | Unit | Action | Time | Timing | Offset | DMG | Fortes | Concerto | Energy | Tune */
+    --rot-grid: 15px 110px      1fr   65px     85px     65px 130px     85px       75px     60px  40px;
+}
+
+.separator-v { width: 1px; height: 20px; background: var(--border); }
+
+/* --- Content Wrapper --- */
+#rotation-content {
+    display: flex; 
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow-x: auto; 
+}
+
+/* --- The Builder List --- */
+#rotation-builder {
+    flex: 1; 
+    overflow-y: auto; 
+    overflow-x: hidden;
+    display: flex; 
+    flex-direction: column; 
+    gap: 0;
+    background: transparent; 
+}
+
+/* --- Toolbar --- */
+.rotation-toolbar {
+    display: flex; align-items: center; gap: 15px;
+    padding: 10px 15px; background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+    min-width: 900px; 
+}
+
+/* --- Grid Definitions --- */
+/* .rotation-row is NO LONGER A GRID. It is a wrapper. */
+/* .rotation-header-row and .row-grid-layer ARE the grids. */
+
+.rotation-header-row, 
+.row-grid-layer {
+    display: grid; 
+    grid-template-columns: var(--rot-grid);
+    gap: 10px; 
+    align-items: center; 
+    padding: 5px 15px;
+    min-width: 900px; 
+}
+
+.rotation-header-row {
+    background: rgba(0,0,0,0.3); border-bottom: 1px solid var(--border);
+    font-size: 0.75rem; font-weight: bold; color: var(--text-dim); text-transform: uppercase;
+    text-align: center; flex-shrink: 0;
+    transition: padding-right 0.1s; 
+}
+
+/* Hide header scrollbar */
+.rotation-header-row::-webkit-scrollbar { width: 10px; background: transparent; }
+.rotation-header-row::-webkit-scrollbar-thumb { background: transparent; }
+
+/* Header Alignment overrides */
+.rotation-header-row > div:nth-child(2),
+.rotation-header-row > div:nth-child(3) { text-align: left; }
+
+/* --- Row Wrapper (Stacking Context) --- */
+.rotation-row {
+    width: 100%; box-sizing: border-box;
+    background: var(--bg-panel); 
+    border-bottom: 1px solid var(--border);
+    border-top: 1px solid transparent; 
+    transition: background 0.15s, border-color 0.15s;
+    
+    /* MODIFICATION: Flex Column to stack Grid Layer + Sub Panel */
+    display: flex; 
+    flex-direction: column; 
+    padding: 0; /* Remove padding here, move to .row-grid-layer */
+}
+
+/* --- Inner Grid Layer --- */
+.row-grid-layer {
+    width: 100%;
+    height: 100%;
+    /* This inherits grid props from the group selector above */
+}
+
+.rotation-row:hover { 
+    background: #2a2a2a; 
+}
+
+/* Selection Highlight */
+.rotation-row.selected { 
+    background: rgba(220, 165, 76, 0.25) !important;
+    border-bottom: 1px solid var(--accent);
+    border-top: 1px solid var(--accent);
+}
+
+/* --- Offset Column Styles --- */
+.offset-pos { 
+    background-color: rgba(220, 50, 50, 0.15) !important; 
+    color: #ff6666 !important; 
+    border-color: #ff6666 !important; 
+    font-weight: bold;
+}
+.offset-neg { 
+    background-color: rgba(50, 220, 50, 0.15) !important; 
+    color: #66ff66 !important; 
+    border-color: #66ff66 !important; 
+    font-weight: bold;
+}
+
+/* --- Index & Checkbox Logic --- */
+.index-cell {
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+    width: 100%; height: 100%;
+}
+
+.row-index {
+    font-size: 0.75rem; color: var(--text-dim); font-weight: bold;
+    position: absolute;
+    transition: opacity 0.2s ease;
+    opacity: 1; pointer-events: none;
+}
+
+.check-wrap {
+    position: absolute;
+    display: flex; align-items: center; justify-content: center;
+    padding: 12px; cursor: pointer;
+    opacity: 0; transform: scale(0.8);
+    transition: all 0.15s ease-out;
+    z-index: 5;
+}
+
+.check-wrap input { position: absolute; opacity: 0; cursor: pointer; height: 0; width: 0; }
+
+.check-visual {
+    width: 14px; height: 14px;
+    border: 1px solid #666; border-radius: 2px;
+    background-color: rgba(0,0,0,0.5);
+    transition: all 0.15s;
+    pointer-events: none; 
+}
+
+.check-wrap input:checked ~ .check-visual {
+    background-color: var(--accent); border-color: var(--accent);
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.3); 
+}
+
+.rotation-row:hover .row-index { opacity: 0; }
+.rotation-row:hover .check-wrap { opacity: 1; transform: scale(1); }
+.rotation-row.selected .row-index { opacity: 0; }
+.rotation-row.selected .check-wrap { opacity: 1; transform: scale(1); }
+
+/* =========================================
+   IDLE STATS & ENEMY CONFIGURATION
+   ========================================= */
+.idle-stats-wrapper {
+    display: flex;
+    gap: 10px;
+    margin: 0 10px 10px 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border);
+    overflow-x: auto;
+}
+
+.idle-stat-card {
+    flex: 1;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    min-width: 340px; /* <-- INCREASED */
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
+}
+
+.idle-stat-header {
+    font-weight: 800;
+    color: var(--accent);
+    margin-bottom: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 4px;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    display: flex;
+    justify-content: space-between;
+}
+
+.idle-stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 12px;
+    font-size: 0.8rem;
+}
+
+.idle-stat-grid .stat-row-display {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255,255,255,0.02);
+    padding-bottom: 2px;
+}
+
+.idle-stat-grid .stat-val {
+    font-family: 'JetBrains Mono', 'Roboto Mono', monospace;
+    font-weight: bold;
+    color: var(--text-main);
+}
+
+.enemy-stat-card {
+    border-color: #ff5555;
+    background: rgba(255, 85, 85, 0.05);
+}

@@ -1,0 +1,33 @@
+{
+	  "Moonlit Clouds_2-pc Effect": {
+    "name": "2-pc Effect",
+    "category": "2-pc Set Effect",
+    "isPassive": true,
+    "triggerRule": "ALWAYS",
+    "effects": [
+      {
+        "type": "buff",
+        "name": "Moonlit Clouds 2-pc",
+        "stat": "ER %",
+        "value": "10%",
+        "duration": "@Default.PermanentDuration"
+      }
+    ]
+  },
+    "Moonlit Clouds_5-pc Effect": {
+    "name": "5-pc Effect",
+    "category": "5-pc Set Effect",
+    "isPassive": true,
+    "triggerRule": "OnCast[Outro]",
+    "effects": [
+      {
+        "type": "buff",
+        "target": "@Next",
+        "name": "Moonlit Clouds 5-pc",
+        "stat": "ATK %",
+        "value": "22.5%",
+        "duration": 15
+      }
+    ]
+  }
+}
