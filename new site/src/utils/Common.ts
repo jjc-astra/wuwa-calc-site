@@ -1,3 +1,5 @@
+import type { ImageFolder } from '../data/db';
+
 export const EXTENSION = '.webp';
 export const TRANSPARENT_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
 
@@ -75,7 +77,7 @@ export const CommonUtils = {
     return Math.min(max, Math.max(min, val));
   },
 
-  getIconPath: (name: string, folder: string): string => {
+  getIconPath: (name: string, folder: ImageFolder): string => {
     if (!name) return TRANSPARENT_PIXEL;
     const n = name.startsWith('Rover') ? 'Rover' : name;
     return CommonUtils.getImage(`${folder}/Icon_${n.replaceAll(' ', '')}${EXTENSION}`);

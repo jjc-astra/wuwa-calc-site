@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { MechanicNode, BaseStats } from '../types';
 import { DataLoader } from '../utils/DataLoader';
+import { IMAGE_FOLDERS } from '../data/db';
 
 interface BuilderState {
   activeChar: string | null;
@@ -28,14 +29,14 @@ export const useBuilderStore = create<BuilderState>()(
   persist(
     (set, get) => ({
       activeChar: null,
-      activeFolder: 'characters',
+      activeFolder: IMAGE_FOLDERS.CHARACTERS,
       activeRarity: 5,
       baseStats: {},
       mechanics: {},
       highlightedNodeId: null,
       setHighlightedNodeId: (nodeId) => set({ highlightedNodeId: nodeId }),
 
-      setActiveChar: async (charName, folder = 'characters', rarity = 5) => {
+      setActiveChar: async (charName, folder = IMAGE_FOLDERS.CHARACTERS, rarity = 5) => {
         const requestId = ++activeCharRequestSeq;
 
         if (!charName) {

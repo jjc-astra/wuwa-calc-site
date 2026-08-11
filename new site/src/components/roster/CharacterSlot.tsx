@@ -3,7 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { useRosterStore } from '../../store/useRosterStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { CommonUtils, TRANSPARENT_PIXEL } from '../../utils/Common';
-import { CHARS_WITH_MODES, SET_LAYOUTS } from '../../data/db';
+import { CHARS_WITH_MODES, SET_LAYOUTS, IMAGE_FOLDERS } from '../../data/db';
+import type { ImageFolder } from '../../data/db';
 import { EchoCard } from './EchoCard';
 
 interface CharacterSlotProps {
@@ -41,7 +42,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
   const renderAvatar = (
     type: 'char' | 'wep' | 'mainSet' | 'subSet' | 'mainEcho',
     val: string,
-    folder: string,
+    folder: ImageFolder,
     avatarClass: string
   ) => {
     const hasVal = !!val;
@@ -85,7 +86,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
           </svg>
         </button>
 
-        {renderAvatar('char', slot.character, 'characters', 'avatar-lg avatar-circle mb-sm')}
+        {renderAvatar('char', slot.character, IMAGE_FOLDERS.CHARACTERS, 'avatar-lg avatar-circle mb-sm')}
 
         <div className="flex-col gap-sm" style={{ marginTop: 'auto' }}>
           <select className={`base-select char-select text-bold ${slot.character ? 'has-value' : ''}`} value={slot.character || ''} onChange={e => setSlotField(index, 'character', e.target.value)}>
@@ -110,7 +111,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
 
       {/* 2. Weapon Column */}
       <div className="panel-col">
-        {renderAvatar('wep', slot.weapon, 'weapons', 'avatar-lg avatar-rect mb-sm')}
+        {renderAvatar('wep', slot.weapon, IMAGE_FOLDERS.WEAPONS, 'avatar-lg avatar-rect mb-sm')}
         <div className="flex-col gap-sm" style={{ marginTop: 'auto' }}>
           <select className={`base-select wep-select text-bold ${slot.weapon ? 'has-value' : ''}`} value={slot.weapon || ''} disabled={!slot.character} onChange={e => setSlotField(index, 'weapon', e.target.value)}>
             <option value="" disabled hidden>{slot.character ? 'Weapon' : 'Select Character First'}</option>
@@ -134,7 +135,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
             </select>
           </div>
           <div className="flex-row gap-sm">
-            {renderAvatar('mainSet', slot.mainSet, 'echo sets', 'avatar-sm')}
+            {renderAvatar('mainSet', slot.mainSet, IMAGE_FOLDERS.ECHO_SETS, 'avatar-sm')}
             <select className={`base-select main-set-select ${slot.mainSet ? 'has-value' : ''}`} value={slot.mainSet || ''} onChange={e => setSlotField(index, 'mainSet', e.target.value)}>
               <option value="" disabled hidden>Main Set</option>
               {DataLoader.sonataSets.map(s => <option key={s} value={s}>{s}</option>)}
@@ -142,7 +143,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
           </div>
           {isTriggerSet && (
             <div className="flex-row gap-sm sub-set-row">
-              {renderAvatar('subSet', slot.subSet, 'echo sets', 'avatar-sm')}
+              {renderAvatar('subSet', slot.subSet, IMAGE_FOLDERS.ECHO_SETS, 'avatar-sm')}
               <select className={`base-select sub-set-select ${slot.subSet ? 'has-value' : ''}`} value={slot.subSet || ''} onChange={e => setSlotField(index, 'subSet', e.target.value)}>
                 <option value="" disabled hidden>Sub Set</option>
                 {DataLoader.sonataSets.map(s => <option key={s} value={s}>{s}</option>)}
@@ -151,7 +152,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
           )}
           {slot.mainSet && (
             <div className="flex-row gap-sm main-echo-row">
-              {renderAvatar('mainEcho', slot.mainEcho, 'echoes', 'avatar-sm')}
+              {renderAvatar('mainEcho', slot.mainEcho, IMAGE_FOLDERS.ECHOES, 'avatar-sm')}
               <select className={`base-select main-echo-select ${slot.mainEcho ? 'has-value' : ''}`} value={slot.mainEcho || ''} onChange={e => setSlotField(index, 'mainEcho', e.target.value)}>
                 <option value="" disabled hidden>Main Echo</option>
                 {allowedEchoes.map(e => <option key={e} value={e}>{e}</option>)}

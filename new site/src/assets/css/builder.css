@@ -572,7 +572,7 @@
 }
 
 .builder-view .echo-set-icon {
-    border-radius: 50% !important;
+    border-radius: 6px 6px 0 0 !important;
     background: transparent !important;
     aspect-ratio: 1 / 1 !important;
     padding: 6px;

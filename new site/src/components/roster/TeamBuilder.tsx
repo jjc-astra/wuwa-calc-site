@@ -2,6 +2,8 @@
 import React, { useRef, useState } from 'react';
 import { useRosterStore } from '../../store/useRosterStore';
 import { CommonUtils } from '../../utils/Common';
+import { IMAGE_FOLDERS } from '../../data/db';
+import type { ImageFolder } from '../../data/db';
 import { CharacterSlot } from './CharacterSlot';
 import { IdleStats } from './IdleStats';
 import { useAccordionAnimDone } from '../../hooks/useAccordionAnimDone';
@@ -12,7 +14,7 @@ interface TeamBuilderProps {
   onToggle: () => void;
 }
 
-const PreviewIcon: React.FC<{ name: string; folder: string }> = ({ name, folder }) => {
+const PreviewIcon: React.FC<{ name: string; folder: ImageFolder }> = ({ name, folder }) => {
   const [loaded, setLoaded] = useState(false);
   const [errored, setErrored] = useState(false);
   const showImage = !errored;
@@ -113,7 +115,7 @@ export const TeamBuilder: React.FC<TeamBuilderProps> = ({ isOpen, onToggle }) =>
               <div key={i} className="preview-slot">
                 <div className="preview-avatar preview-circle preview-avatar-wrap" title={slot.character || 'No Character'}>
                   {slot.character ? (
-                    <PreviewIcon name={slot.character} folder="characters" />
+                    <PreviewIcon name={slot.character} folder={IMAGE_FOLDERS.CHARACTERS} />
                   ) : (
                     <span className="preview-char-initial">?</span>
                   )}
@@ -122,7 +124,7 @@ export const TeamBuilder: React.FC<TeamBuilderProps> = ({ isOpen, onToggle }) =>
                 <span style={{ color: '#555', margin: '0 5px' }}>/</span>
                 <div className="preview-avatar preview-rect preview-avatar-wrap" title={slot.weapon || 'No Weapon'}>
                   {slot.weapon ? (
-                    <PreviewIcon name={slot.weapon} folder="weapons" />
+                    <PreviewIcon name={slot.weapon} folder={IMAGE_FOLDERS.WEAPONS} />
                   ) : (
                     <span className="preview-char-initial">?</span>
                   )}

@@ -1,5 +1,18 @@
 import type { WeaponType, MechanicNode } from '../types';
 
+// Public/images subfolder names, single-sourced so every icon path builder and
+// class-selection check (MechanicsBuilder, TeamBuilder, CharacterSlot, BaseStatsForm)
+// stays in sync if these folders are ever renamed.
+export const IMAGE_FOLDERS = {
+  CHARACTERS: 'characters',
+  WEAPONS: 'weapons',
+  ECHOES: 'echoes',
+  ECHO_SETS: 'echo sets',
+  SYSTEM: 'system'
+} as const;
+
+export type ImageFolder = typeof IMAGE_FOLDERS[keyof typeof IMAGE_FOLDERS];
+
 export const MECHANICS_NOTATION = {
   HOLD_DEFAULTS: {
     CURSOR_SPEED: 100,

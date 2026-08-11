@@ -6,12 +6,13 @@ import { BuilderUtils } from '../../utils/BuilderUtils';
 import { BaseStatsForm } from './BaseStatsForm';
 import { MechanicNodeCard } from './MechanicNodeCard';
 import { JsonOutputPane } from './JsonOutputPane';
-import { BuilderState } from '../../data/db';
+import { BuilderState, IMAGE_FOLDERS } from '../../data/db';
 import type { MechanicNode } from '../../types';
+import type { ImageFolder } from '../../data/db';
 
 interface GridCardProps {
   itemName: string;
-  imgFolder: string;
+  imgFolder: ImageFolder;
   dbRef?: Record<string, any>;
   onClick: (rarity: number) => void;
 }
@@ -24,14 +25,14 @@ const GridCard: React.FC<GridCardProps> = ({ itemName, imgFolder, dbRef, onClick
   let rarityClass = 'rarity-none';
   let iconClass = 'char-icon';
 
-  if (imgFolder === 'characters' || imgFolder === 'weapons') {
+  if (imgFolder === IMAGE_FOLDERS.CHARACTERS || imgFolder === IMAGE_FOLDERS.WEAPONS) {
     rarity = dbRef?.[itemName]?.rarity || 5;
     rarityClass = `rarity-${rarity}`;
-  } else if (imgFolder === 'echo Sets' || imgFolder === 'system') {
+  } else if (imgFolder === IMAGE_FOLDERS.ECHO_SETS || imgFolder === IMAGE_FOLDERS.SYSTEM) {
     iconClass += ' echo-set-icon';
   }
 
-  const fontSize = imgFolder === 'characters' ? '0.8em' : '0.65em';
+  const fontSize = imgFolder === IMAGE_FOLDERS.CHARACTERS ? '0.8em' : '0.65em';
   const iconPath = CommonUtils.getIconPath(itemName, imgFolder);
 
   return (
@@ -77,7 +78,7 @@ export const MechanicsBuilder: React.FC = () => {
       title: string,
       items: string[],
       dbRef: Record<string, any> | undefined,
-      imgFolder: string
+      imgFolder: ImageFolder
     ) => {
       const filtered = items.filter(item =>
         item.toLowerCase().includes(searchTerm.toLowerCase().trim())
@@ -151,11 +152,11 @@ export const MechanicsBuilder: React.FC = () => {
             boxSizing: 'border-box'
           }}
         >
-          {buildSection('Characters', Object.keys(DataLoader.characterDB), DataLoader.characterDB, 'characters')}
-          {buildSection('Weapons', Object.keys(DataLoader.weaponDB), DataLoader.weaponDB, 'weapons')}
-          {buildSection('Main Echoes', DataLoader.allMainEchoes, undefined, 'echoes')}
-          {buildSection('Echo Sets', DataLoader.sonataSets, undefined, 'echo Sets')}
-          {buildSection('System', ['Generic'], undefined, 'system')}
+          {buildSection('Characters', Object.keys(DataLoader.characterDB), DataLoader.characterDB, IMAGE_FOLDERS.CHARACTERS)}
+          {buildSection('Weapons', Object.keys(DataLoader.weaponDB), DataLoader.weaponDB, IMAGE_FOLDERS.WEAPONS)}
+          {buildSection('Main Echoes', DataLoader.allMainEchoes, undefined, IMAGE_FOLDERS.ECHOES)}
+          {buildSection('Echo Sets', DataLoader.sonataSets, undefined, IMAGE_FOLDERS.ECHO_SETS)}
+          {buildSection('System', ['Generic'], undefined, IMAGE_FOLDERS.SYSTEM)}
         </div>
       </div>
     );

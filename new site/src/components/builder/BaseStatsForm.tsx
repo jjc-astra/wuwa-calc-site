@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useBuilderStore } from '../../store/useBuilderStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { CommonUtils } from '../../utils/Common';
+import { IMAGE_FOLDERS } from '../../data/db';
 
 export const BaseStatsForm: React.FC = () => {
   const { activeChar, baseStats, setBaseStat } = useBuilderStore();
@@ -16,7 +17,7 @@ export const BaseStatsForm: React.FC = () => {
   if (!isChar && !isWep) return null;
 
   const talentOpts = ['', 'ATK %', 'HP %', 'DEF %', 'CR Rate', 'CR DMG', 'Healing Bonus', 'Glacio DMG', 'Fusion DMG', 'Electro DMG', 'Aero DMG', 'Spectro DMG', 'Havoc DMG', 'Physical DMG'];
-  const iconFolder = isChar ? 'characters' : 'weapons';
+  const iconFolder = isChar ? IMAGE_FOLDERS.CHARACTERS : IMAGE_FOLDERS.WEAPONS;
   const iconPath = CommonUtils.getIconPath(activeChar, iconFolder);
   const forteCount = parseInt(baseStats.forteCount as any, 10) || 1;
 
