@@ -117,42 +117,20 @@ html, body {
     background: #1a1a1a;
     border: 1px solid var(--border); border-radius: 8px;
     overflow: hidden; position: relative; z-index: 1;
-    /* No transition here on purpose: this box's height is a passive result of its
-       .collapsible-content child's animated max-height (below). Flex-basis:auto tracks
-       that child's live, per-frame rendered size, so this wrapper (and its open sibling,
-       via flex:1 filling whatever space this one gives up) both resize smoothly in lockstep
-       without needing their own transition. */
-    /* Explicit floor, not left to flexbox's automatic minimum sizing: mid-transition, the
-       OPENING panel's content jumps straight to max-height:none (uncapped) the instant it
-       starts, so its flex-basis:auto is its full natural content size from frame one --
-       while the CLOSING sibling's content is still momentarily at its old (also large) size,
-       since its own shrink-to-0 animation hasn't caught up yet. Two competing oversized
-       flex-basis values, both needing to shrink at once, is exactly the kind of nested
-       flex + shrink + automatic-min-size combination that's easy to get subtly wrong in
-       practice. Rather than trust that interaction to always protect the header, pin an
-       explicit floor matching .section-header's own rendered height so the header can never
-       be compressed away regardless of how the shrink math resolves elsewhere. */
+    /* Explicit floor so the header can never get squeezed away mid-transition, when both
+       panels' content briefly demand more space than is available. */
     min-height: 56px;
 }
-/* Bottom spacing now comes solely from the body's own 10px padding (matching the left/right
-   edges) now that the header sits flush against the top with no matching gap -- the old extra
-   15px margin here made the bottom of the page look unbalanced/empty against the flush top. */
+/* Bottom spacing comes from body's own padding now that the header sits flush with the top. */
 
 /* State: Open */
 .section-wrapper:not(.is-collapsed) {
     flex: 1 1 auto; z-index: 10;
 }
-/* State: Closed */
+/* State: Closed. flex-shrink stays 1 (not 0) so this panel shares the transient squeeze with
+   its opening sibling instead of dumping all of it there; headers are protected separately
+   via min-height above. */
 .section-wrapper.is-collapsed {
-    /* flex-shrink must stay 1 (not 0) here: mid-transition, this panel's own content
-       hasn't finished clipping down yet, so its natural size is still momentarily large.
-       With shrink disabled it would refuse to yield any of that stale space, dumping the
-       entire deficit onto the opening sibling and squeezing it (header included) below its
-       own natural size for a frame. Shrink:1 lets both panels share the transient deficit;
-       each one's own header (flex-shrink:0 within .section-wrapper, see below) still can't
-       be compressed below its natural size thanks to flexbox's automatic minimum sizing,
-       so neither header is ever at risk -- only the collapsible-content areas (min-height:0)
-       absorb the squeeze.  */
     flex: 0 1 auto;
     border-bottom: 1px solid var(--border); z-index: 0;
 }
@@ -170,14 +148,9 @@ html, body {
 .section-title { margin: 0; font-size: 1.1rem; color: var(--accent); font-weight: bold; }
 .header-left, .header-right { display: flex; align-items: center; gap: 10px; }
 
-/* When collapsed, .header-preview (team avatar badges) can be wider than the space left
-   over between the title and the header's action buttons. Without anywhere designated to
-   give way, that overflow just bled past the header and got hard-clipped by
-   .section-wrapper's overflow:hidden -- an abrupt cut with no rounded edge, mid-badge.
-   Make .header-left the one flexible/shrinkable side (header-right's buttons must stay
-   fully clickable), and within it, make .header-preview specifically the part that yields:
-   its own overflow:hidden (declared elsewhere) then clips gracefully within its own
-   rounded/padded box instead of spilling past the header. */
+/* .header-left is the shrinkable side (header-right's buttons must stay fully clickable);
+   within it, .header-preview is what actually yields, clipping gracefully in its own box
+   instead of spilling past the header. */
 .section-header .header-left {
     flex: 1 1 auto;
     min-width: 0;
@@ -207,23 +180,16 @@ html, body {
     display: flex; flex-direction: column; flex: 1; min-height: 0;
     overflow: hidden;
     transition: max-height 0.3s ease-in-out;
-    /* max-height itself is driven by the useCollapseMaxHeight hook: 'none' while open (so
-       flex:1 can fill whatever space is available), a measured pixel value transitioning
-       down to 0 while closing. Using an actual clip boundary (instead of the old display:none
-       swap) means content is revealed/hidden gradually pixel-by-pixel, not all at once. */
+    /* max-height is driven by the useCollapseMaxHeight hook -- see there for the open/close
+       animation. Clipping via max-height (not display:none) reveals content gradually. */
 }
 
 /* Scrollbar Handling */
 #team-content .team-container,
 #rotation-content #rotation-builder {
-    /* min-height:0 is load-bearing: without it, a flex item defaults to min-height:auto,
-       which for a scrollable container resolves to its full natural (unscrolled) content
-       height -- e.g. 1000px+ for a rotation with 30 rows -- regardless of overflow-y:hidden.
-       That forces this element (and everything above it: .collapsible-content, then
-       .section-wrapper) to demand at least that much height during layout, blowing past
-       whatever space the accordion actually has and distorting the whole transition (this
-       is what let a tall rotation squeeze/hide the OTHER section's header, even after the
-       flex-shrink fix -- that fix only helps once each side's natural size is reasonable). */
+    /* min-height:0 stops this scrollable flex item from demanding its full unscrolled
+       content height (min-height:auto default), which would blow past the accordion's
+       available space and distort the whole transition. */
     flex: 1; padding: 0; overflow-y: hidden; min-height: 0;
 }
 .section-wrapper.anim-done #team-content .team-container,
@@ -232,21 +198,9 @@ html, body {
 }
 #team-content .team-container {
     padding: 10px;
-    /* flex-basis:0 (from "flex:1" above) is fine for #rotation-builder, which has no
-       competing shrinkable sibling -- toolbar/header-row are both flex-shrink:0, so it
-       absorbs 100% of any size change alone, smoothly. .team-container isn't so lucky: it
-       shares .team-content with <IdleStats>, which is flex-grow:0/flex-basis:auto (a fixed,
-       natural-sized panel, not meant to stretch). With .team-container pinned to
-       flex-basis:0, the flex algorithm treats IdleStats as the only side with a "needed"
-       basis to satisfy first -- so early in a transition ALL available space goes to
-       IdleStats until it reaches its natural size, and only THEN does .team-container start
-       getting anything. That's a two-phase animation (one side saturates quickly, the other
-       is stuck at 0 until it does) that reads as a jolt, even though each half is
-       individually "smooth". Switching to flex-basis:auto puts .team-container into the
-       same shrink pool as IdleStats (both now have a real basis, both flex-shrink:1), so the
-       browser distributes any size change between them proportionally, in the same frame,
-       instead of sequentially. The settled/open end state is identical either way -- this
-       only changes the path taken to get there. */
+    /* flex-basis:auto (not the "flex:1" 0-basis above) puts this in the same shrink pool as
+       its flex-basis:auto sibling <IdleStats>, so they resize proportionally together
+       instead of IdleStats claiming space first and .team-container waiting for leftovers. */
     flex: 1 1 auto;
 }
 

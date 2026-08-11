@@ -203,10 +203,8 @@
     width: 100%;
 }
 
-/* DSL syntax-highlight overlay: the overlay div supplies the visible box (background,
-   border, colored tokens) in normal flow; the real <input> is layered on top with
-   transparent text/border/background so it keeps native caret/selection/typing behavior
-   while the colored text underneath shows through. */
+/* Overlay div renders the colored tokens; the real <input> sits on top, transparent, so it
+   keeps native caret/selection/typing while the colored text shows through underneath. */
 .builder-view .dsl-highlight-overlay {
     display: flex;
     align-items: center;
@@ -216,12 +214,8 @@
     white-space: nowrap;
 }
 
-/* Native <input> elements don't inherit font-size from their surrounding div context the
-   way a plain <div> does -- they fall back to the browser's own form-control default
-   (e.g. 13.3333px in Chrome) unless a size is set explicitly. Left unset, the overlay's
-   text and the real input's text render at slightly different sizes, so the caret drifts
-   further from the highlighted characters the longer the string gets. Pin both sides to
-   the same explicit value so they always render pixel-identical. */
+/* <input> elements don't inherit font-size like a <div> does -- pin it explicitly so the
+   overlay and the real input render pixel-identical (otherwise the caret drifts). */
 .builder-view .dsl-input {
     font-size: 13px;
 }

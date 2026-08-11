@@ -23,17 +23,14 @@ export function useCollapseMaxHeight(isOpen: boolean, contentRef: RefObject<HTML
     let settleTimer: ReturnType<typeof setTimeout>;
 
     if (isOpen) {
-      // Starting point is already a concrete '0px' (unchanged from the collapsed render
-      // that just committed), so a later frame flipping it to OPEN_CAP_PX is a real,
-      // transitionable value change -- same double-rAF reasoning as the closing branch.
+      // Delay a frame so the browser commits the current '0px' before animating away from it.
       requestAnimationFrame(() => {
         requestAnimationFrame(() => setMaxHeight(`${OPEN_CAP_PX}px`));
       });
       settleTimer = setTimeout(() => setMaxHeight('none'), TRANSITION_MS + 50);
     } else {
-      // CSS can't transition from the keyword "none", so first freeze at the current
-      // rendered pixel height (a no-op visually), then flip to 0 on a later frame once
-      // that's committed -- only then does the browser actually animate through it.
+      // Freeze at the current rendered height first so there's a concrete value to animate
+      // from, then flip to 0 next frame.
       const current = contentRef.current?.getBoundingClientRect().height ?? 0;
       setMaxHeight(`${current}px`);
       requestAnimationFrame(() => {
