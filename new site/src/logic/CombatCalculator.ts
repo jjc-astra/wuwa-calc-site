@@ -415,6 +415,7 @@ export const CombatCalculator = {
       nonCrit: Math.floor(nonCritDmg),
       crit: Math.floor(critDmg),
       isOpen: hitConfig.isOpen ?? false,
+      gameTime: hitConfig.gameTime,
       data: {
         ...stateData,
         activeBuffs: appliedBuffs,

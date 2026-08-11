@@ -71,13 +71,24 @@ export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row }) => {
                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}
                   onClick={() => setOpenInstances(p => ({ ...p, [idx]: !p[idx] }))}
                 >
-                  <div className="flex-row align-center gap-sm">
-                    <svg className="dmg-accordion-icon" viewBox="0 0 24 24" fill="currentColor">
+                  <div className="flex-row align-center gap-sm" style={{ width: 'auto', flex: '0 1 auto', minWidth: 0, overflow: 'hidden' }}>
+                    <svg className="dmg-accordion-icon" viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}>
                       <path d="M8 5v14l11-7z" />
                     </svg>
-                    <span className="dmg-accordion-title">{inst.title}</span>
+                    <span
+                      className="dmg-accordion-title"
+                      style={{ flexGrow: 0, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}
+                    >
+                      {inst.title}
+                    </span>
+                    {typeof inst.gameTime === 'number' && (
+                      <span className="dmg-accordion-time">{inst.gameTime.toFixed(2)}s</span>
+                    )}
                   </div>
-                  <div className="dmg-accordion-breakdown-values flex-row align-center" style={{ gap: '12px', marginLeft: 'auto' }}>
+                  <div
+                    className="dmg-accordion-breakdown-values flex-row align-center"
+                    style={{ gap: '12px', marginLeft: 'auto', width: 'auto', flexShrink: 0 }}
+                  >
                     <div className="flex-row align-center" style={{ paddingRight: '12px', borderRight: '1px solid rgba(255,255,255,0.15)', gap: '6px' }}>
                       <span className="text-dim" style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.5px' }}>NON-CRIT</span>
                       <span style={{ color: '#ccc', fontSize: '0.85rem', fontWeight: 700 }}>{Math.floor(nonCritVal).toLocaleString()}</span>

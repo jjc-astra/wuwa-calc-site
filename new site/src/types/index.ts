@@ -168,6 +168,7 @@ export interface HitConfig {
   isNegativeStatus?: boolean;
   actionId?: string;
   moveName?: string;
+  gameTime?: number;
 }
 
 export interface DamageInstanceResult {
@@ -177,6 +178,7 @@ export interface DamageInstanceResult {
   nonCrit: number;
   crit: number;
   isOpen: boolean;
+  gameTime?: number;
   data: {
     activeBuffs: Record<string, Effect>;
     baseMult: string;

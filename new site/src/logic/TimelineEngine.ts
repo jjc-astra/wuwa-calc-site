@@ -813,6 +813,17 @@ export class TimelineEngineClass {
       const { prevRow, nextRow, dropdownState, _pendingHits, ...cleanData } = currentData;
       if (!nextHit.originRow._pendingHits) nextHit.originRow._pendingHits = [];
 
+      // executeAt is a real-time offset; convert it to the equivalent game time. Only the
+      // move's own freezeTime pulls real time and game time apart -- NOT the swap/cancel
+      // truncated duration, since hits scheduled within the move's true damage window (which
+      // is resolved before that truncation is applied) keep resolving in the background after
+      // a swap cuts the animation short. Elapsed time still inside the freeze window collapses
+      // to the instant the freeze began; anything past it resumes 1:1 with real time.
+      const originRow = nextHit.originRow;
+      const elapsedSinceRowStart = Math.max(0, nextHit.executeAt - (originRow.timeStart || 0));
+      const rowFreezeTime = originRow.freezeTime || 0;
+      const hitGameTime = (originRow.gameTimeStart || 0) + Math.max(0, elapsedSinceRowStart - rowFreezeTime);
+
       nextHit.originRow._pendingHits.push({
         config: {
           hitMult: nextHit.hitMult, provider: nextHit.provider, dmgTypes: nextHit.originMoveData.dmgTypes,
@@ -821,7 +832,8 @@ export class TimelineEngineClass {
           isOpen: false,
           isNegativeStatus: nextHit.originMoveData.isNegativeStatus,
           actionId: nextHit.originActionId,
-          moveName: nextHit.originMoveData.name
+          moveName: nextHit.originMoveData.name,
+          gameTime: hitGameTime
         },
         context: JSON.parse(JSON.stringify(cleanData))
       });

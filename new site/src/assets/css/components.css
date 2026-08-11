@@ -745,6 +745,21 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     text-transform: uppercase; /* Added to make it feel more structural */
 }
 
+.dmg-accordion-time {
+    font-family: 'JetBrains Mono', 'Roboto Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--accent);
+    background: rgba(220, 165, 76, 0.12);
+    border: 1px solid rgba(220, 165, 76, 0.3);
+    border-radius: 4px;
+    padding: 1px 7px;
+    letter-spacing: 0.02rem;
+    text-transform: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
 .dmg-accordion-total {
     font-family: 'JetBrains Mono', 'Roboto Mono', monospace;
     font-size: 1.05rem; /* Scaled down from 1.25rem */
