@@ -192,16 +192,90 @@
 }
 
 .builder-view .form-input {
-    background: var(--input-bg); 
+    background: var(--input-bg);
     border: 1px solid var(--border);
-    color: var(--text-main); 
-    border-radius: 4px; 
+    color: var(--text-main);
+    border-radius: 4px;
     font-family: monospace;
     padding: 0 8px;
     height: 28px;
     box-sizing: border-box;
     width: 100%;
 }
+
+/* DSL syntax-highlight overlay: the overlay div supplies the visible box (background,
+   border, colored tokens) in normal flow; the real <input> is layered on top with
+   transparent text/border/background so it keeps native caret/selection/typing behavior
+   while the colored text underneath shows through. */
+.builder-view .dsl-highlight-overlay {
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    pointer-events: none;
+    user-select: none;
+    white-space: nowrap;
+}
+
+/* Native <input> elements don't inherit font-size from their surrounding div context the
+   way a plain <div> does -- they fall back to the browser's own form-control default
+   (e.g. 13.3333px in Chrome) unless a size is set explicitly. Left unset, the overlay's
+   text and the real input's text render at slightly different sizes, so the caret drifts
+   further from the highlighted characters the longer the string gets. Pin both sides to
+   the same explicit value so they always render pixel-identical. */
+.builder-view .dsl-input {
+    font-size: 13px;
+}
+
+.builder-view .dsl-highlight-content {
+    display: inline-block;
+    white-space: pre;
+}
+
+.builder-view .dsl-input-real {
+    position: absolute;
+    top: 0;
+    left: 0;
+    background: transparent;
+    border-color: transparent;
+    color: transparent;
+    caret-color: var(--text-main);
+}
+
+.builder-view .dsl-input-real::placeholder {
+    color: var(--text-dim);
+    opacity: 1;
+}
+
+/* --- Autocomplete Dropdown --- */
+.builder-view .autocomplete-popup {
+    display: none;
+    position: absolute;
+    z-index: 9999;
+    background: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+    width: max-content;
+    min-width: 100%;
+    top: 100%;
+    left: 0;
+    margin-top: 2px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+}
+
+.builder-view .autocomplete-item {
+    padding: 6px 12px;
+    cursor: pointer;
+    color: var(--text-main);
+    font-size: 0.8rem;
+    font-family: 'JetBrains Mono', monospace;
+    border-bottom: 1px solid var(--border);
+}
+
+.builder-view .autocomplete-item:last-child { border-bottom: none; }
+.builder-view .autocomplete-item:hover { background: rgba(220, 165, 76, 0.2); color: var(--accent); }
+.builder-view .autocomplete-item.is-active { background: var(--accent) !important; color: #111 !important; }
 
 .builder-view .base-select {
     background: var(--input-bg); 

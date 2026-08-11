@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { DSL_SCHEMA, BuilderState } from '../../data/db';
 import { useBuilderStore } from '../../store/useBuilderStore';
 import { DataLoader } from '../../utils/DataLoader';
+import { tokenizeDSL } from '../../utils/DSLHighlight';
 
 interface AutocompleteInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   mode?: 'general' | 'eff-name' | 'eff-stat' | 'eff-target';
@@ -41,10 +42,19 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
   const [popupHtml, setPopupHtml] = useState<Array<{ group: string; items: SuggestionItem[] }>>([]);
   const [flatSuggestions, setFlatSuggestions] = useState<Array<{ item: SuggestionItem; rule: MatchRule; match: RegExpMatchArray }>>([]);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const { mechanics, baseStats } = useBuilderStore();
+
+  const tokens = useMemo(() => tokenizeDSL(value), [value]);
+  const syncScroll = () => {
+    if (inputRef.current) setScrollLeft(inputRef.current.scrollLeft);
+  };
+  useEffect(() => {
+    syncScroll();
+  }, [value]);
 
   const parenEvents = ['AfterHit', 'OnTick'];
   const bracketEvents = DSL_SCHEMA.events.filter(
@@ -366,10 +376,17 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
 
   return (
     <div className="relative w-100 m-0 p-0">
+      <div className={`form-input dsl-input w-100 dsl-highlight-overlay ${className}`} aria-hidden="true">
+        <div className="dsl-highlight-content" style={{ transform: `translateX(-${scrollLeft}px)` }}>
+          {tokens.map((t, i) => (
+            <span key={i} style={{ color: t.color }}>{t.text}</span>
+          ))}
+        </div>
+      </div>
       <input
         ref={inputRef}
         type="text"
-        className={`form-input dsl-input w-100 ${className}`}
+        className={`form-input dsl-input dsl-input-real w-100 ${className}`}
         value={value}
         onChange={e => {
           onValueChange(e.target.value);
@@ -379,6 +396,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
         onClick={handleAutocomplete}
         onBlur={() => setTimeout(() => setIsOpen(false), 200)}
         onKeyDown={handleKeyDown}
+        onScroll={syncScroll}
         placeholder={placeholder}
         {...rest}
       />
