@@ -373,6 +373,7 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     padding: 6px 10px; border-radius: 4px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.5);
     font-size: 0.75rem; pointer-events: none; display: none;
+    max-width: 280px; line-height: 1.4;
 }
 .tooltip-key { color: var(--text-dim); font-weight: bold; margin-right: 4px; }
 .tooltip-val { color: var(--accent); font-weight: bold; }

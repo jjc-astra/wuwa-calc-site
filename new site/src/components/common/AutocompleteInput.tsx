@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { DSL_SCHEMA, BuilderState } from '../../data/db';
+import { DSL_SCHEMA, DSL_TOOLTIPS, BuilderState } from '../../data/db';
 import { useBuilderStore } from '../../store/useBuilderStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { tokenizeDSL } from '../../utils/DSLHighlight';
+import { TooltipManager } from '../../utils/Common';
 
 interface AutocompleteInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   mode?: 'general' | 'eff-name' | 'eff-stat' | 'eff-target';
@@ -17,6 +18,31 @@ interface SuggestionItem {
   group: string;
   prefix?: string;
   append?: string;
+  /** Lookup key into DSL_TOOLTIPS when it differs from `val` (e.g. a pointer's trailing '.'/'(' stripped). */
+  tooltipKey?: string;
+  /** For the Properties group: which pointer (Self/Enemy/Move/...) this property belongs to. */
+  pointer?: string;
+}
+
+// Resolves an autocomplete item to its DSL_TOOLTIPS description, if one is configured for its group.
+function resolveTooltip(item: SuggestionItem, group: string): string | undefined {
+  const key = item.tooltipKey ?? item.val;
+  switch (group) {
+    case 'Events': return DSL_TOOLTIPS.events[key];
+    case 'Modifiers': return DSL_TOOLTIPS.modifiers[key];
+    case 'Pointers':
+    case 'Targets':
+      return DSL_TOOLTIPS.pointers[key];
+    case 'Properties':
+      return item.pointer ? DSL_TOOLTIPS.properties[item.pointer]?.[key] : undefined;
+    case 'Sheet Stats':
+      return DSL_TOOLTIPS.sheetStats[key];
+    case 'Combat Modifiers':
+    case 'Specific Modifiers':
+      return DSL_TOOLTIPS.statModifiers[key];
+    default:
+      return undefined;
+  }
 }
 
 interface MatchRule {
@@ -55,6 +81,12 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
   useEffect(() => {
     syncScroll();
   }, [value]);
+
+  // Closing the dropdown (select, blur, Escape) can unmount a hovered item without a
+  // mouseleave event ever firing, which would otherwise leave its tooltip stuck on screen.
+  useEffect(() => {
+    if (!isOpen) TooltipManager.hide();
+  }, [isOpen]);
 
   const parenEvents = ['AfterHit', 'OnTick'];
   const bracketEvents = DSL_SCHEMA.events.filter(
@@ -128,7 +160,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
       const dmgList = dmgOptions.length > 0 ? dmgOptions : BuilderState.DMG_OPTIONS;
       dmgList.forEach(dmgType => {
         ['DMG Bonus', 'DMG Amp', 'Deepen', 'DMG Taken', 'Ignore RES', 'Ignore DEF', 'Additive Mult', 'Multiplicative Mult'].forEach(mod => {
-          specificMods.push({ val: `${dmgType} ${mod}`, group: 'Specific Modifiers' });
+          specificMods.push({ val: `${dmgType} ${mod}`, group: 'Specific Modifiers', tooltipKey: mod });
         });
       });
 
@@ -147,7 +179,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
     if (mode === 'eff-target') {
       return [{
         trigger: /(.*)/,
-        options: DSL_SCHEMA.pointers.map(p => ({ val: '@' + p, group: 'Targets' })),
+        options: DSL_SCHEMA.pointers.map(p => ({ val: '@' + p, group: 'Targets', tooltipKey: p })),
         prefix: ''
       }];
     }
@@ -165,7 +197,8 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
         options: () => {
           const base = DSL_SCHEMA.pointers.map(p => ({
             val: p + (p === 'System' ? '(' : '.'),
-            group: 'Pointers'
+            group: 'Pointers',
+            tooltipKey: p
           }));
           const chars = Object.keys(DataLoader.characterDB).map(c => ({
             val: c.replace(/[^a-zA-Z0-9]/g, '') + '(',
@@ -228,10 +261,10 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
           const pointer = match[1];
           const propsMap = DSL_SCHEMA.properties as Record<string, string[]>;
           if (!propsMap[pointer]) return [];
-          const props = propsMap[pointer].map(p => ({ val: p, group: 'Properties' }));
+          const props = propsMap[pointer].map(p => ({ val: p, group: 'Properties', pointer }));
           if (pointer === 'Self') {
             const fCount = parseInt((baseStats.forteCount as any) || '1', 10);
-            for (let i = 1; i <= fCount; i++) props.push({ val: `Forte${i}`, group: 'Properties' });
+            for (let i = 1; i <= fCount; i++) props.push({ val: `Forte${i}`, group: 'Properties', pointer });
           }
           return props;
         },
@@ -423,6 +456,8 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
                 {g.items.map((item, i) => {
                   const currentIdx = globalIdx++;
                   const flatEntry = flatSuggestions[currentIdx];
+                  const label = `${flatEntry?.rule.prefix || ''}${item.val}`;
+                  const tooltip = resolveTooltip(item, g.group);
                   return (
                     <div
                       key={i}
@@ -431,9 +466,15 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
                         e.preventDefault();
                         if (flatEntry) handleSelect(flatEntry);
                       }}
-                      onMouseEnter={() => setActiveIndex(currentIdx)}
+                      onMouseEnter={e => {
+                        setActiveIndex(currentIdx);
+                        if (tooltip) {
+                          TooltipManager.show(e.currentTarget, `<div class="tooltip-val">${label}</div><div style="margin-top:2px;">${tooltip}</div>`);
+                        }
+                      }}
+                      onMouseLeave={() => TooltipManager.hide()}
                     >
-                      {flatEntry?.rule.prefix || ''}{item.val}
+                      {label}
                     </div>
                   );
                 })}
