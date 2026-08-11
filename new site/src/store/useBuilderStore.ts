@@ -19,6 +19,11 @@ interface BuilderState {
   resetCache: () => void;
 }
 
+// Guards against a stale in-flight setActiveChar call (e.g. a slow character load)
+// resolving after the user has already navigated elsewhere (or hit "Back to Library")
+// and clobbering whatever the more recent call decided.
+let activeCharRequestSeq = 0;
+
 export const useBuilderStore = create<BuilderState>()(
   persist(
     (set, get) => ({
@@ -31,6 +36,8 @@ export const useBuilderStore = create<BuilderState>()(
       setHighlightedNodeId: (nodeId) => set({ highlightedNodeId: nodeId }),
 
       setActiveChar: async (charName, folder = 'characters', rarity = 5) => {
+        const requestId = ++activeCharRequestSeq;
+
         if (!charName) {
           set({ activeChar: null });
           return;
@@ -44,6 +51,10 @@ export const useBuilderStore = create<BuilderState>()(
         else if (lowerFolder === 'system' || lowerFolder === 'generic') mechFolder = 'generic';
 
         await DataLoader.loadMechanic(mechFolder, charName);
+
+        // A newer call (a different character, or "Back to Library") already landed while
+        // this load was in flight -- let it win instead of snapping back over it.
+        if (requestId !== activeCharRequestSeq) return;
 
         const loadedStats = DataLoader.characterDB[charName] || DataLoader.weaponDB[charName] || {};
         const loadedMechs: Record<string, MechanicNode> = {};

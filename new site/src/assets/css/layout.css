@@ -3,8 +3,8 @@
    ========================================= */
 html, body {
     height: 100vh;
-    margin: 0; 
-    padding: 10px;
+    margin: 0;
+    padding: 0 10px 10px 10px;
     background-color: var(--bg-dark);
     color: var(--text-main);
     font-family: sans-serif;
@@ -36,40 +36,81 @@ html, body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 20px;
+    padding: 10px 20px;
     background: #111; /* Slightly darker to establish hierarchy */
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-top: none; /* flush with the window's top edge, no need for a border there */
+    border-radius: 0 0 8px 8px; /* top corners stay square against the window edge */
     flex-shrink: 0;
 }
 
 .global-nav-header .header-left {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 24px;
 }
 
-/* Page Switcher Button Styling */
-.nav-btn {
-    background: rgba(220, 165, 76, 0.1); /* Subtle gold tint */
+/* Brand / Home link */
+.nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--text-main);
+    font-size: 1.05rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.nav-brand:hover { color: var(--accent); }
+
+/* Multi-page nav item list */
+.nav-items {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.nav-item-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 14px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: var(--text-dim);
+    font-weight: bold;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.nav-item-btn:hover {
+    color: var(--text-main);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.nav-item-btn.is-active {
+    background: rgba(220, 165, 76, 0.12);
     border-color: var(--accent);
     color: var(--accent);
-    text-decoration: none;
 }
 
-.nav-btn:hover {
-    background: var(--accent);
-    color: var(--bg-dark);
-}
-
-.nav-arrow-icon {
-    margin-left: 4px;
-    opacity: 0.8;
-    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.nav-btn:hover .nav-arrow-icon {
-    transform: translateX(4px); /* Pushes the arrow right on hover to indicate movement */
+.nav-item-btn .coming-soon-badge {
+    font-size: 0.6rem;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: var(--border);
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    font-weight: bold;
 }
 .section-wrapper {
     display: flex; flex-direction: column;
