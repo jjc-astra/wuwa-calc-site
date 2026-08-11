@@ -1,0 +1,244 @@
+/* src/assets/css/results.css */
+
+/* =========================================
+   LAYOUT
+   ========================================= */
+.calculator-layout {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+.calculator-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.results-panel {
+    width: 440px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: #1a1a1a;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.results-panel-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 12px;
+}
+
+@media (max-width: 1400px) {
+    .calculator-layout { flex-direction: column; }
+    .results-panel { width: 100%; flex: 0 0 auto; max-height: 45%; }
+}
+
+/* =========================================
+   CHROME TABS
+   ========================================= */
+.chrome-tabs {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    padding: 8px 8px 0 8px;
+    background: rgba(0, 0, 0, 0.4);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.chrome-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    color: var(--text-dim);
+    font-size: 0.78rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    cursor: pointer;
+    position: relative;
+    top: 1px;
+    transition: 0.15s;
+}
+.chrome-tab:hover { color: var(--text-main); background: rgba(255, 255, 255, 0.06); }
+.chrome-tab.is-active {
+    background: #1a1a1a;
+    color: var(--accent);
+    border-color: var(--border);
+    border-bottom: 1px solid #1a1a1a;
+}
+
+/* =========================================
+   SHARED CARD / EMPTY / COMING SOON
+   ========================================= */
+.results-tab-grid { display: flex; flex-direction: column; gap: 12px; }
+
+.results-card {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+}
+.results-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: bold;
+    color: var(--accent);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.results-empty { color: var(--text-dim); font-size: 0.8rem; padding: 10px 0; }
+
+.results-coming-soon {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 8px;
+    padding: 60px 20px;
+    color: var(--text-main);
+}
+.results-coming-soon h3 { margin: 4px 0 0 0; color: var(--accent); }
+.results-coming-soon p { margin: 0; font-size: 0.85rem; max-width: 280px; }
+
+/* =========================================
+   DPS TABLE
+   ========================================= */
+.dps-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.dps-table th {
+    text-align: right;
+    color: var(--text-dim);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    padding: 4px 6px;
+    border-bottom: 1px solid var(--border);
+}
+.dps-table th:first-child { text-align: left; }
+.dps-table td { padding: 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); text-align: right; font-variant-numeric: tabular-nums; }
+.dps-table-label { text-align: left !important; color: var(--text-main); }
+.dps-table-value { color: var(--text-main); font-weight: bold; }
+.dps-table-delta { font-weight: bold; }
+.dps-table-delta.is-good { color: #0ca30c; }
+.dps-table-delta.is-bad { color: #d03b3b; }
+
+/* =========================================
+   PIN COMPARISON CONTROL
+   ========================================= */
+.pin-control { position: relative; }
+.pin-menu-backdrop { position: fixed; inset: 0; z-index: 99; }
+.pin-menu {
+    position: absolute; top: calc(100% + 4px); right: 0;
+    background: #1a1a1a; border: 1px solid var(--border); border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    z-index: 100; min-width: 170px; overflow: hidden;
+}
+.pin-menu-item {
+    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    width: 100%; text-align: left; padding: 8px 12px; background: none; border: none;
+    color: var(--text-main); font-size: 0.78rem; cursor: pointer;
+}
+.pin-menu-item:hover:not(:disabled) { background: rgba(255, 255, 255, 0.06); }
+.pin-menu-item:disabled { color: var(--text-dim); cursor: not-allowed; }
+
+.pin-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(220, 165, 76, 0.12); border: 1px solid var(--accent); border-radius: 12px;
+    padding: 3px 6px 3px 10px; font-size: 0.72rem; color: var(--accent); max-width: 200px;
+}
+.pin-chip-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pin-chip-remove {
+    background: none; border: none; color: var(--accent); cursor: pointer; font-size: 0.9rem;
+    line-height: 1; padding: 2px;
+}
+
+/* =========================================
+   TIME TO KILL CHART
+   ========================================= */
+.ttk-chart { width: 100%; height: auto; }
+.ttk-gridline { stroke: #2c2c2a; stroke-width: 1; }
+.ttk-axis-label { fill: #898781; font-size: 8px; }
+.ttk-reference-line { stroke: #555; stroke-width: 1; stroke-dasharray: 4 3; }
+.ttk-reference-label { fill: var(--text-dim); font-size: 8px; }
+.ttk-line { stroke-width: 2; }
+.ttk-marker { stroke: var(--bg-panel); stroke-width: 2; }
+.ttk-marker-label { fill: var(--text-main); font-size: 8px; font-weight: bold; }
+.ttk-crosshair { stroke: rgba(255, 255, 255, 0.25); stroke-width: 1; }
+
+.ttk-tooltip {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    margin-top: 6px; padding: 6px 8px; background: rgba(0, 0, 0, 0.3); border-radius: 4px;
+    font-size: 0.72rem;
+}
+.ttk-tooltip-time { color: var(--text-dim); font-weight: bold; }
+.ttk-tooltip-row { display: inline-flex; align-items: center; gap: 5px; }
+.ttk-tooltip-key { width: 10px; height: 2px; display: inline-block; }
+
+/* =========================================
+   UNIT TABS (Substat Worth + Team Contribution)
+   ========================================= */
+.unit-tabs { display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
+.unit-tab {
+    padding: 4px 10px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border);
+    border-radius: 4px; color: var(--text-dim); font-size: 0.72rem; font-weight: bold; cursor: pointer;
+}
+.unit-tab:hover { color: var(--text-main); }
+.unit-tab.is-active { background: rgba(220, 165, 76, 0.12); border-color: var(--accent); color: var(--accent); }
+
+/* =========================================
+   SUBSTAT WORTH CHART
+   ========================================= */
+.substat-chart { display: flex; flex-direction: column; gap: 4px; }
+.substat-chart-headrow, .substat-row {
+    display: grid;
+    grid-template-columns: 90px 1fr 46px 52px 46px;
+    align-items: center;
+    gap: 6px;
+}
+.substat-chart-headrow { font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; }
+.substat-col-header { text-align: right; }
+.substat-label-col { font-size: 0.72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.substat-track-col { position: relative; }
+.substat-track { position: relative; display: block; width: 100%; height: 6px; background: rgba(255, 255, 255, 0.06); border-radius: 3px; }
+.substat-range { position: absolute; top: 0; height: 100%; background: rgba(57, 135, 229, 0.55); border-radius: 3px; }
+.substat-default-marker {
+    position: absolute; top: 50%; width: 3px; height: 14px; background: var(--accent);
+    border-radius: 2px; transform: translate(-50%, -50%); cursor: pointer;
+}
+.substat-col-value { text-align: right; font-size: 0.72rem; font-variant-numeric: tabular-nums; color: var(--text-main); }
+.substat-row:hover { background: rgba(255, 255, 255, 0.03); }
+
+/* =========================================
+   PIE / DONUT CHART
+   ========================================= */
+.pie-chart { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.pie-chart svg path { cursor: pointer; }
+.pie-chart-total-value { fill: var(--text-main); font-size: 15px; font-weight: bold; }
+.pie-chart-total-label { fill: var(--text-dim); font-size: 8px; text-transform: uppercase; letter-spacing: 0.3px; }
+.pie-chart-legend { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 120px; }
+.pie-chart-legend-row { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; padding: 2px 4px; border-radius: 3px; }
+.pie-chart-legend-row.is-hovered { background: rgba(255, 255, 255, 0.05); }
+.pie-chart-swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+.pie-chart-legend-label { color: var(--text-main); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pie-chart-legend-value { color: var(--text-dim); font-variant-numeric: tabular-nums; }

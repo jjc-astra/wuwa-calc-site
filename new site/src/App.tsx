@@ -6,6 +6,7 @@ import { ComingSoonPage } from './components/ComingSoonPage';
 import { MechanicsBuilder } from './components/builder/MechanicsBuilder';
 import { TeamBuilder } from './components/roster/TeamBuilder';
 import { RotationBuilder } from './components/rotation/RotationBuilder';
+import { ResultsPanel } from './components/results/ResultsPanel';
 import { DataLoader } from './utils/DataLoader';
 import { NAV_ITEMS } from './config/nav';
 import { useHashRoute } from './hooks/useHashRoute';
@@ -13,6 +14,7 @@ import './assets/css/layout.css';
 import './assets/css/components.css';
 import './assets/css/builder.css';
 import './assets/css/landing.css';
+import './assets/css/results.css';
 
 export default function App() {
   const [{ view: currentView, step: activeStep }, navigate] = useHashRoute();
@@ -40,16 +42,19 @@ export default function App() {
       {currentView === 'landing' && <LandingPage onNavigate={navigate} />}
 
       {currentView === 'calculator' && (
-        <>
-          <TeamBuilder
-            isOpen={activeStep === 1}
-            onToggle={() => navigate('calculator', activeStep === 1 ? 2 : 1)}
-          />
-          <RotationBuilder
-            isOpen={activeStep === 2}
-            onToggle={() => navigate('calculator', activeStep === 2 ? 1 : 2)}
-          />
-        </>
+        <div className="calculator-layout">
+          <ResultsPanel />
+          <div className="calculator-steps">
+            <TeamBuilder
+              isOpen={activeStep === 1}
+              onToggle={() => navigate('calculator', activeStep === 1 ? 2 : 1)}
+            />
+            <RotationBuilder
+              isOpen={activeStep === 2}
+              onToggle={() => navigate('calculator', activeStep === 2 ? 1 : 2)}
+            />
+          </div>
+        </div>
       )}
 
       {currentView === 'builder' && <MechanicsBuilder />}
