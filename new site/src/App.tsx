@@ -8,15 +8,14 @@ import { TeamBuilder } from './components/roster/TeamBuilder';
 import { RotationBuilder } from './components/rotation/RotationBuilder';
 import { DataLoader } from './utils/DataLoader';
 import { NAV_ITEMS } from './config/nav';
-import type { ViewId } from './config/nav';
+import { useHashRoute } from './hooks/useHashRoute';
 import './assets/css/layout.css';
 import './assets/css/components.css';
 import './assets/css/builder.css';
 import './assets/css/landing.css';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<ViewId>('landing');
-  const [activeStep, setActiveStep] = useState<1 | 2>(1);
+  const [{ view: currentView, step: activeStep }, navigate] = useHashRoute();
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -36,19 +35,19 @@ export default function App() {
 
   return (
     <div id="app-layout">
-      <Header currentView={currentView} onNavClick={setCurrentView} />
+      <Header currentView={currentView} onNavClick={navigate} />
 
-      {currentView === 'landing' && <LandingPage onNavigate={setCurrentView} />}
+      {currentView === 'landing' && <LandingPage onNavigate={navigate} />}
 
       {currentView === 'calculator' && (
         <>
           <TeamBuilder
             isOpen={activeStep === 1}
-            onToggle={() => setActiveStep(activeStep === 1 ? 2 : 1)}
+            onToggle={() => navigate('calculator', activeStep === 1 ? 2 : 1)}
           />
           <RotationBuilder
             isOpen={activeStep === 2}
-            onToggle={() => setActiveStep(activeStep === 2 ? 1 : 2)}
+            onToggle={() => navigate('calculator', activeStep === 2 ? 1 : 2)}
           />
         </>
       )}
