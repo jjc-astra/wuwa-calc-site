@@ -22,6 +22,8 @@ interface SuggestionItem {
   tooltipKey?: string;
   /** For the Properties group: which pointer (Self/Enemy/Move/...) this property belongs to. */
   pointer?: string;
+  /** Display text, when it should differ from the text actually inserted (`val`). */
+  label?: string;
 }
 
 // Resolves an autocomplete item to its DSL_TOOLTIPS description, if one is configured for its group.
@@ -40,6 +42,10 @@ function resolveTooltip(item: SuggestionItem, group: string): string | undefined
     case 'Combat Modifiers':
     case 'Specific Modifiers':
       return DSL_TOOLTIPS.statModifiers[key];
+    case 'Continue':
+      // See EventManager.ts's requiredModifiers check: every listed modifier must match, so
+      // comma-separated entries are an AND filter (e.g. OnHit[Skill, Fusion] = Skill AND Fusion), not an OR.
+      return key === ',' ? 'Combines with AND — the action must match every listed modifier, not just one.' : undefined;
     default:
       return undefined;
   }
@@ -52,6 +58,20 @@ interface MatchRule {
   prefix?: string;
   append?: string;
   dynamicAppend?: (val: string) => string | null;
+  /** Marks a bracket-style rule (e.g. On Hit[...]) where multiple comma-separated values can be typed. */
+  commaList?: boolean;
+}
+
+// For a commaList rule's captured bracket content, splits on ',' to find the segment currently
+// being typed (for search/replace) and the segments already committed (to exclude from suggestions).
+function getCommaSegmentInfo(fullCaptured: string): { currentTerm: string; replaceLength: number; chosenTerms: string[] } {
+  const segments = fullCaptured.split(',');
+  const rawLast = segments[segments.length - 1];
+  const currentTerm = rawLast.trim();
+  const leadingWhitespaceLen = rawLast.length - rawLast.replace(/^\s+/, '').length;
+  const replaceLength = rawLast.length - leadingWhitespaceLen;
+  const chosenTerms = segments.slice(0, -1).map(s => s.trim()).filter(Boolean);
+  return { currentTerm, replaceLength, chosenTerms };
 }
 
 export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
@@ -189,8 +209,8 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
       {
         trigger: /\b(?:On|After|Detonate)[a-zA-Z]*\[([^\]]*)$/i,
         options: DSL_SCHEMA.modifiers.map(v => ({ val: v, group: 'Modifiers' })),
-        append: ']',
-        prefix: ''
+        prefix: '',
+        commaList: true
       },
       {
         trigger: /@([a-zA-Z]*)$/,
@@ -293,18 +313,29 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
       const match = textBeforeCursor.match(rule.trigger);
       if (match) {
         const groupIdx = rule.matchGroup || 1;
-        const searchStr = match[groupIdx] !== undefined ? match[groupIdx].toLowerCase() : match[0].toLowerCase();
+        const fullCaptured = match[groupIdx] !== undefined ? match[groupIdx] : match[0];
         const optionsList = typeof rule.options === 'function' ? rule.options(match) : rule.options;
-        const searchTerms = searchStr.trim().split(/\s+/).filter(Boolean);
 
-        const matches = optionsList.filter(o => {
-          const optLower = o.val.toLowerCase();
-          if (searchTerms.length === 0) return true;
-          return searchTerms.every(term => optLower.includes(term));
-        });
+        let searchStr: string;
+        let matches: SuggestionItem[];
+
+        if (rule.commaList) {
+          const { currentTerm, chosenTerms } = getCommaSegmentInfo(fullCaptured);
+          searchStr = currentTerm.toLowerCase();
+          const available = optionsList.filter(o => !chosenTerms.includes(o.val));
+          matches = searchStr === '' ? available : available.filter(o => o.val.toLowerCase().includes(searchStr));
+        } else {
+          searchStr = fullCaptured.toLowerCase();
+          const searchTerms = searchStr.trim().split(/\s+/).filter(Boolean);
+          matches = optionsList.filter(o => {
+            const optLower = o.val.toLowerCase();
+            if (searchTerms.length === 0) return true;
+            return searchTerms.every(term => optLower.includes(term));
+          });
+        }
 
         if (matches.length > 0) {
-          if (matches.length === 1 && matches[0].val.toLowerCase() === searchStr.trim()) {
+          if (!rule.commaList && matches.length === 1 && matches[0].val.toLowerCase() === searchStr.trim()) {
             setIsOpen(false);
             matched = true;
             break;
@@ -337,11 +368,47 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
     if (!matched) setIsOpen(false);
   };
 
+  // After finishing one comma-list entry (e.g. a modifier inside On Hit[...]), offer to add
+  // another or close the bracket, instead of guessing which one the user wants.
+  const showContinueOptions = () => {
+    const items: SuggestionItem[] = [
+      { val: ',', group: 'Continue', label: ',  (add another)' },
+      { val: ']', group: 'Continue', label: ']  (close)' }
+    ];
+    const dummyRule: MatchRule = { trigger: /(?:)/, options: items, prefix: '' };
+    const flatList = items.map(item => ({ item, rule: dummyRule, match: [''] as unknown as RegExpMatchArray }));
+    setPopupHtml([{ group: 'Continue', items }]);
+    setFlatSuggestions(flatList);
+    setActiveIndex(0);
+    setIsOpen(true);
+  };
+
   const handleSelect = (entry: { item: SuggestionItem; rule: MatchRule; match: RegExpMatchArray }) => {
     const input = inputRef.current;
     if (!input) return;
 
     const { item, rule, match } = entry;
+
+    if (item.group === 'Continue') {
+      const val = input.value;
+      const cursorPos = input.selectionStart || 0;
+      const insertText = item.val === ',' ? ', ' : ']';
+      const newVal = val.slice(0, cursorPos) + insertText + val.slice(cursorPos);
+      const newCursorPos = cursorPos + insertText.length;
+
+      onValueChange(newVal);
+      setIsOpen(false);
+
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+          inputRef.current.selectionStart = inputRef.current.selectionEnd = newCursorPos;
+          if (item.val === ',') handleAutocomplete();
+        }
+      }, 0);
+      return;
+    }
+
     const val = input.value;
     const cursorPos = input.selectionStart || 0;
     const groupIdx = rule.matchGroup || 1;
@@ -353,6 +420,13 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
     if (mode === 'eff-stat' || mode === 'eff-target') {
       newVal = completion;
       newCursorPos = completion.length;
+    } else if (rule.commaList) {
+      const fullCaptured = match[groupIdx] !== undefined ? match[groupIdx] : match[0];
+      const { replaceLength } = getCommaSegmentInfo(fullCaptured);
+      const replaceStart = cursorPos - replaceLength;
+
+      newVal = val.slice(0, replaceStart) + completion + val.slice(cursorPos);
+      newCursorPos = replaceStart + completion.length;
     } else {
       const matchLength = match[groupIdx] !== undefined ? match[groupIdx].length : match[0].length;
       const replaceStart = cursorPos - matchLength;
@@ -386,6 +460,11 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
       if (inputRef.current) {
         inputRef.current.focus();
         inputRef.current.selectionStart = inputRef.current.selectionEnd = newCursorPos;
+        if (rule.commaList) {
+          showContinueOptions();
+        } else {
+          handleAutocomplete();
+        }
       }
     }, 0);
   };
@@ -456,7 +535,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
                 {g.items.map((item, i) => {
                   const currentIdx = globalIdx++;
                   const flatEntry = flatSuggestions[currentIdx];
-                  const label = `${flatEntry?.rule.prefix || ''}${item.val}`;
+                  const label = item.label ?? `${flatEntry?.rule.prefix || ''}${item.val}`;
                   const tooltip = resolveTooltip(item, g.group);
                   return (
                     <div
