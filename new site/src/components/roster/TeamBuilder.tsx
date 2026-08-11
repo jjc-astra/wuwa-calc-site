@@ -4,6 +4,8 @@ import { useRosterStore } from '../../store/useRosterStore';
 import { CommonUtils } from '../../utils/Common';
 import { CharacterSlot } from './CharacterSlot';
 import { IdleStats } from './IdleStats';
+import { useAccordionAnimDone } from '../../hooks/useAccordionAnimDone';
+import { useCollapseMaxHeight } from '../../hooks/useCollapseMaxHeight';
 
 interface TeamBuilderProps {
   isOpen: boolean;
@@ -33,6 +35,10 @@ const PreviewIcon: React.FC<{ name: string; folder: string }> = ({ name, folder 
 
 export const TeamBuilder: React.FC<TeamBuilderProps> = ({ isOpen, onToggle }) => {
   const isCollapsed = !isOpen;
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const animDone = useAccordionAnimDone(isOpen, wrapperRef);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const maxHeight = useCollapseMaxHeight(isOpen, contentRef);
   const { team, importTeam } = useRosterStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -84,7 +90,7 @@ export const TeamBuilder: React.FC<TeamBuilderProps> = ({ isOpen, onToggle }) =>
   };
 
   return (
-    <div className={`section-wrapper ${isCollapsed ? 'is-collapsed' : 'anim-done'}`} id="step1-wrapper">
+    <div ref={wrapperRef} className={`section-wrapper ${isCollapsed ? 'is-collapsed' : ''} ${animDone ? 'anim-done' : ''}`} id="step1-wrapper">
       <div
         className="section-header"
         id="team-header"
@@ -136,7 +142,13 @@ export const TeamBuilder: React.FC<TeamBuilderProps> = ({ isOpen, onToggle }) =>
           </button>
         </div>
       </div>
-      <div id="team-content" className={`collapsible-content ${isCollapsed ? 'is-collapsed' : ''}`}>
+      <div
+        id="team-content"
+        ref={contentRef}
+        className="collapsible-content"
+        style={{ maxHeight }}
+        aria-hidden={isCollapsed}
+      >
         <div id="team-roster" className="team-container">
           {[0, 1, 2].map(index => (
             <CharacterSlot key={index} index={index} />

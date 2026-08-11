@@ -4,6 +4,8 @@ import { useRotationStore } from '../../store/useRotationStore';
 import { useRosterStore } from '../../store/useRosterStore';
 import { RotationToolbar } from './RotationToolbar';
 import { RotationRow } from './RotationRow';
+import { useAccordionAnimDone } from '../../hooks/useAccordionAnimDone';
+import { useCollapseMaxHeight } from '../../hooks/useCollapseMaxHeight';
 
 interface RotationBuilderProps {
   isOpen: boolean;
@@ -12,6 +14,10 @@ interface RotationBuilderProps {
 
 export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onToggle }) => {
   const isCollapsed = !isOpen;
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const animDone = useAccordionAnimDone(isOpen, wrapperRef);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const maxHeight = useCollapseMaxHeight(isOpen, contentRef);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -203,7 +209,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
   };
 
   return (
-    <div className={`section-wrapper ${isCollapsed ? 'is-collapsed' : 'anim-done'}`} id="step2-wrapper">
+    <div ref={wrapperRef} className={`section-wrapper ${isCollapsed ? 'is-collapsed' : ''} ${animDone ? 'anim-done' : ''}`} id="step2-wrapper">
       <div
         className="section-header"
         id="rotation-header"
@@ -233,7 +239,13 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
         </div>
       </div>
 
-      <div id="rotation-content" className={`collapsible-content ${isCollapsed ? 'is-collapsed' : ''}`}>
+      <div
+        id="rotation-content"
+        ref={contentRef}
+        className="collapsible-content"
+        style={{ maxHeight }}
+        aria-hidden={isCollapsed}
+      >
         <RotationToolbar />
 
         <div className="rotation-header-row">
