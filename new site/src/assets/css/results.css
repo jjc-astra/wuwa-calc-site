@@ -30,6 +30,46 @@
     border: 1px solid var(--border);
     border-radius: 8px;
     overflow: hidden;
+    position: relative;
+    /* Both bounds are concrete px values (unlike a height auto-collapse), so a plain
+       width transition is enough here -- no measure-then-flip dance needed. */
+    transition: width 0.3s ease-in-out;
+}
+/* Its info only applies once a rotation is being built (Step 2) -- collapse to a rail
+   while Step 1 (team setup) is open instead of showing stale/irrelevant results. */
+.results-panel.is-collapsed {
+    width: 44px;
+}
+
+.results-panel-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    opacity: 1;
+    transition: opacity 0.15s ease-in-out;
+}
+.results-panel.is-collapsed .results-panel-content {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.results-panel-rail-label {
+    display: none;
+    position: absolute;
+    inset: 0;
+    align-items: center;
+    justify-content: center;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    color: var(--text-dim);
+    font-size: 0.72rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+}
+.results-panel.is-collapsed .results-panel-rail-label {
+    display: flex;
 }
 
 .results-panel-body {
@@ -41,7 +81,9 @@
 
 @media (max-width: 1400px) {
     .calculator-layout { flex-direction: column; }
-    .results-panel { width: 100%; flex: 0 0 auto; max-height: 45%; }
+    .results-panel { width: 100%; flex: 0 0 auto; max-height: 45%; transition: max-height 0.3s ease-in-out; }
+    .results-panel.is-collapsed { width: 100%; max-height: 40px; }
+    .results-panel.is-collapsed .results-panel-rail-label { writing-mode: horizontal-tb; transform: none; }
 }
 
 /* =========================================
@@ -124,24 +166,80 @@
 .results-coming-soon p { margin: 0; font-size: 0.85rem; max-width: 280px; }
 
 /* =========================================
-   DPS TABLE
+   DPS PANEL
    ========================================= */
-.dps-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-.dps-table th {
-    text-align: right;
-    color: var(--text-dim);
-    font-size: 0.7rem;
+.dps-table-label {
+    color: var(--text-main);
+    font-size: 0.75rem;
+    font-weight: 700;
     text-transform: uppercase;
-    padding: 4px 6px;
-    border-bottom: 1px solid var(--border);
+    letter-spacing: 0.5px;
 }
-.dps-table th:first-child { text-align: left; }
-.dps-table td { padding: 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); text-align: right; font-variant-numeric: tabular-nums; }
-.dps-table-label { text-align: left !important; color: var(--text-main); }
-.dps-table-value { color: var(--text-main); font-weight: bold; }
-.dps-table-delta { font-weight: bold; }
-.dps-table-delta.is-good { color: #0ca30c; }
-.dps-table-delta.is-bad { color: #d03b3b; }
+
+/* Column headers shown once above the whole list, rather than repeated per row. */
+.dps-compare-legend {
+    display: flex; justify-content: space-between;
+    font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.3px;
+    padding-bottom: 6px; margin-bottom: 4px; border-bottom: 1px solid var(--border);
+}
+
+.dps-compare-list { display: flex; flex-direction: column; gap: 12px; }
+.dps-compare-row-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 4px; font-size: 0.8rem; white-space: nowrap; gap: 8px;
+}
+.dps-delta-good, .dps-delta-bad { font-weight: bold; white-space: nowrap; }
+.dps-delta-good { color: #66ff66; }
+.dps-delta-bad { color: #ff6666; }
+
+/* The "tug of war" bar: two proportional segments (green = higher/better side, red = the
+   other), split point offset from center by the delta% so the direction and rough margin
+   both read at a glance, with a dashed line marking the true 50/50 tie point underneath.
+   Segment styling (tinted fill + colored border + colored text) matches this site's other
+   status badges (.offset-pos/.offset-neg, .pin-chip) rather than a solid-fill bar. */
+.dps-compare-bar {
+    position: relative;
+    /* Establishes its own stacking context so the midline's negative z-index below stays
+       scoped to this bar instead of escaping to the page's stacking order. */
+    z-index: 0;
+    display: flex;
+    align-items: stretch;
+    height: 28px;
+    gap: 3px;
+}
+.dps-compare-segment {
+    display: flex; align-items: center;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    transition: width 0.2s ease-in-out;
+}
+.dps-compare-segment.is-winner { background-color: rgba(50, 220, 50, 0.15); border-color: #66ff66; }
+.dps-compare-segment.is-loser { background-color: rgba(220, 50, 50, 0.15); border-color: #ff6666; }
+/* Named classes rather than :first-child/:last-child -- the midline div is also a child of
+   .dps-compare-bar, so the segment is never actually the structural last child. */
+.dps-compare-segment-left { justify-content: flex-end; padding-right: 8px; }
+.dps-compare-segment-right { justify-content: flex-start; padding-left: 8px; padding-right: 10px; }
+/* No pinned rotation to compare against yet -- same bar shape as the compare rows, just one
+   segment (width set inline, normalized to the group's highest DPS value) in the accent tint
+   (matching .pin-chip) instead of a red/green split. */
+.dps-compare-segment-solo {
+    justify-content: flex-start; padding-left: 10px;
+    background-color: rgba(220, 165, 76, 0.12); border-color: var(--accent);
+}
+.dps-compare-segment-solo span { color: var(--accent); }
+.dps-compare-segment span { font-weight: bold; font-size: 0.75rem; font-variant-numeric: tabular-nums; }
+.dps-compare-segment.is-winner span { color: #66ff66; }
+.dps-compare-segment.is-loser span { color: #ff6666; }
+.dps-compare-midline {
+    position: absolute; left: 50%; top: -5px; bottom: -5px; width: 1px;
+    /* A short dot-and-gap repeat reads as finely dotted, at low opacity -- border-style
+       dashed can't get this fine (browsers floor dash length well above 1-2px). */
+    background-image: repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.55) 0 2px, transparent 2px 5px);
+    pointer-events: none;
+    /* Behind the (non-positioned, so normally paint-first) segments, so their translucent
+       fill dims the line where it crosses a bar; only the poking-out ends stay full brightness. */
+    z-index: -1;
+}
 
 /* =========================================
    PIN COMPARISON CONTROL
@@ -186,14 +284,11 @@
 .ttk-marker-label { fill: var(--text-main); font-size: 8px; font-weight: bold; }
 .ttk-crosshair { stroke: rgba(255, 255, 255, 0.25); stroke-width: 1; }
 
-.ttk-tooltip {
-    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-    margin-top: 6px; padding: 6px 8px; background: rgba(0, 0, 0, 0.3); border-radius: 4px;
-    font-size: 0.72rem;
-}
-.ttk-tooltip-time { color: var(--text-dim); font-weight: bold; }
-.ttk-tooltip-row { display: inline-flex; align-items: center; gap: 5px; }
-.ttk-tooltip-key { width: 10px; height: 2px; display: inline-block; }
+/* Rendered inside the shared floating .global-tooltip (see TooltipManager.showAtPoint) */
+.ttk-tooltip-time { color: var(--text-dim); font-weight: bold; margin-bottom: 3px; }
+.ttk-tooltip-row { display: flex; align-items: center; gap: 5px; }
+.ttk-tooltip-row + .ttk-tooltip-row { margin-top: 2px; }
+.ttk-tooltip-key { width: 10px; height: 2px; display: inline-block; flex-shrink: 0; }
 
 /* =========================================
    UNIT TABS (Substat Worth + Team Contribution)

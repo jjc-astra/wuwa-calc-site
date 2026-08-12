@@ -43,7 +43,7 @@ export default function App() {
 
       {currentView === 'calculator' && (
         <div className="calculator-layout">
-          <ResultsPanel />
+          <ResultsPanel collapsed={activeStep === 1} />
           <div className="calculator-steps">
             <TeamBuilder
               isOpen={activeStep === 1}

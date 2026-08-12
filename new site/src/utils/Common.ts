@@ -39,6 +39,27 @@ class TooltipManagerClass {
     el.style.left = `${left}px`;
   }
 
+  /** Like show(), but anchored to raw cursor coordinates instead of a target element's rect --
+   * for a crosshair-style hover that tracks the pointer across a continuous chart. */
+  showAtPoint(x: number, y: number, html: string | null): void {
+    if (!html) return;
+    const el = this.ensureEl();
+    el.innerHTML = html;
+    el.style.display = 'block';
+
+    const tipRect = el.getBoundingClientRect();
+    let left = x + 16;
+    let top = y - tipRect.height / 2;
+
+    if (left + tipRect.width > window.innerWidth - 10) left = x - tipRect.width - 16;
+    if (left < 10) left = 10;
+    if (top < 10) top = 10;
+    if (top + tipRect.height > window.innerHeight - 10) top = window.innerHeight - tipRect.height - 10;
+
+    el.style.top = `${top}px`;
+    el.style.left = `${left}px`;
+  }
+
   hide(): void {
     if (this.el) this.el.style.display = 'none';
   }

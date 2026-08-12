@@ -11,23 +11,31 @@ const TABS: ChromeTabDef[] = [
   { id: 'history', label: 'History', comingSoon: true }
 ];
 
-export const ResultsPanel: React.FC = () => {
+interface ResultsPanelProps {
+  /** Collapses the panel to a thin rail -- its info only matters while working in Step 2. */
+  collapsed: boolean;
+}
+
+export const ResultsPanel: React.FC<ResultsPanelProps> = ({ collapsed }) => {
   const [activeTab, setActiveTab] = useState('results');
 
   return (
-    <div className="results-panel">
-      <ChromeTabs tabs={TABS} activeId={activeTab} onSelect={setActiveTab} />
-      <div className="results-panel-body">
-        {activeTab === 'results' && <ResultsTab />}
-        {activeTab === 'timeline' && (
-          <ComingSoonTab
-            title="Timeline"
-            description="A video-editor style timeline of character moves, buff lifetimes, and negative status stacks."
-          />
-        )}
-        {activeTab === 'history' && (
-          <ComingSoonTab title="History" description="Snapshots of rotations you've previously run, ready to revisit or compare." />
-        )}
+    <div className={`results-panel ${collapsed ? 'is-collapsed' : ''}`}>
+      <div className="results-panel-rail-label">Results</div>
+      <div className="results-panel-content">
+        <ChromeTabs tabs={TABS} activeId={activeTab} onSelect={setActiveTab} />
+        <div className="results-panel-body">
+          {activeTab === 'results' && <ResultsTab />}
+          {activeTab === 'timeline' && (
+            <ComingSoonTab
+              title="Timeline"
+              description="A video-editor style timeline of character moves, buff lifetimes, and negative status stacks."
+            />
+          )}
+          {activeTab === 'history' && (
+            <ComingSoonTab title="History" description="Snapshots of rotations you've previously run, ready to revisit or compare." />
+          )}
+        </div>
       </div>
     </div>
   );

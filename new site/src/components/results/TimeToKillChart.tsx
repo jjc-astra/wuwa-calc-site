@@ -1,5 +1,5 @@
 // src/components/results/TimeToKillChart.tsx
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRosterStore } from '../../store/useRosterStore';
 import { useRotationStore } from '../../store/useRotationStore';
 import { useComparisonStore } from '../../store/useComparisonStore';
@@ -7,6 +7,7 @@ import { generateMockTtkSeries } from '../../data/mockResults';
 import type { TtkSeries, TtkPoint } from '../../data/mockResults';
 import { PinRotationControl } from './PinRotationControl';
 import { CATEGORICAL_PALETTE } from './chartPalette';
+import { TooltipManager } from '../../utils/Common';
 
 const TWO_MIN = 120;
 const WIDTH = 440;
@@ -39,7 +40,7 @@ export const TimeToKillChart: React.FC = () => {
   const teamNames = team.filter(s => s.character).map(s => s.character);
   const seed = `${teamNames.join(',')}:${rows.length}`;
 
-  const primary = useMemo(() => generateMockTtkSeries(seed || 'empty-team', 'This Rotation'), [seed]);
+  const primary = useMemo(() => generateMockTtkSeries(seed || 'empty-team', 'Current Rotation'), [seed]);
   const series: TtkSeries[] = pinned ? [primary, pinned.ttkSeries] : [primary];
 
   const domainMaxT = Math.max(...primary.points.map(p => p.t));
@@ -52,6 +53,20 @@ export const TimeToKillChart: React.FC = () => {
 
   const pathFor = (points: TtkPoint[]) => points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xScale(p.t)} ${yScale(p.dmg)}`).join(' ');
 
+  // Tooltip follows the cursor rather than sitting in a fixed spot, so it stays readable at
+  // whatever point along the line the reader is actually looking at.
+  useEffect(() => () => TooltipManager.hide(), []);
+
+  const buildTooltipHtml = (t: number) =>
+    `<div class="ttk-tooltip-time">${formatTime(t)}</div>` +
+    series
+      .map(
+        (s, i) =>
+          `<div class="ttk-tooltip-row"><span class="ttk-tooltip-key" style="background:${CATEGORICAL_PALETTE[i]}"></span>` +
+          `<span class="tooltip-val">${formatDmg(valueAtTime(s.points, t))}</span> <span class="text-dim">${s.label}</span></div>`
+      )
+      .join('');
+
   const handleMove: React.MouseEventHandler<SVGSVGElement> = e => {
     const svg = svgRef.current;
     if (!svg) return;
@@ -60,6 +75,12 @@ export const TimeToKillChart: React.FC = () => {
     const localX = (e.clientX - rect.left) * scaleX;
     const t = Math.min(domainMaxT, Math.max(0, ((localX - PAD.left) / plotW) * domainMaxT));
     setHoverT(t);
+    TooltipManager.showAtPoint(e.clientX, e.clientY, buildTooltipHtml(t));
+  };
+
+  const handleLeave = () => {
+    setHoverT(null);
+    TooltipManager.hide();
   };
 
   return (
@@ -73,7 +94,7 @@ export const TimeToKillChart: React.FC = () => {
         className="ttk-chart"
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         onMouseMove={handleMove}
-        onMouseLeave={() => setHoverT(null)}
+        onMouseLeave={handleLeave}
       >
         {/* Y gridlines / ticks */}
         {[0, 0.25, 0.5, 0.75, 1].map(f => {
@@ -155,19 +176,6 @@ export const TimeToKillChart: React.FC = () => {
           </g>
         )}
       </svg>
-
-      {hoverT !== null && (
-        <div className="ttk-tooltip">
-          <span className="ttk-tooltip-time">{formatTime(hoverT)}</span>
-          {series.map((s, i) => (
-            <span key={s.label} className="ttk-tooltip-row">
-              <span className="ttk-tooltip-key" style={{ background: CATEGORICAL_PALETTE[i] }} />
-              <span className="tooltip-val">{formatDmg(valueAtTime(s.points, hoverT))}</span>
-              <span className="text-dim">{s.label}</span>
-            </span>
-          ))}
-        </div>
-      )}
 
       {series.length > 1 && (
         <div className="pie-chart-legend">
