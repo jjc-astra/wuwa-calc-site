@@ -6,6 +6,8 @@ export interface PieSlice {
   label: string;
   value: number;
   color: string;
+  /** Overrides the legend label's text color (e.g. a character's theme color); defaults to the standard text token. */
+  labelColor?: string;
 }
 
 interface PieChartProps {
@@ -96,7 +98,7 @@ export const PieChart: React.FC<PieChartProps> = ({ data, size = 170, totalLabel
             onMouseLeave={() => setHoverIdx(null)}
           >
             <span className="pie-chart-swatch" style={{ background: arc.color }} />
-            <span className="pie-chart-legend-label">{arc.label}</span>
+            <span className="pie-chart-legend-label" style={arc.labelColor ? { color: arc.labelColor } : undefined}>{arc.label}</span>
             <span className="pie-chart-legend-value">{arc.pct.toFixed(1)}%</span>
           </div>
         ))}

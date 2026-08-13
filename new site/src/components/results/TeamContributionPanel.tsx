@@ -1,9 +1,11 @@
 // src/components/results/TeamContributionPanel.tsx
 import React, { useMemo, useState } from 'react';
 import { useRosterStore } from '../../store/useRosterStore';
+import { DataLoader } from '../../utils/DataLoader';
 import { generateMockTeamContribution, generateMockUnitContribution } from '../../data/mockResults';
 import { PieChart } from './PieChart';
 import { colorForIndex, OTHER_SLICE_COLOR } from './chartPalette';
+import { getCharacterThemeColor } from '../../utils/Common';
 
 export const TeamContributionPanel: React.FC = () => {
   const team = useRosterStore(s => s.team);
@@ -17,7 +19,15 @@ export const TeamContributionPanel: React.FC = () => {
 
   const data =
     tab === 'Team'
-      ? teamSlices.map((s, i) => ({ label: s.label, value: s.dmg, color: colorForIndex(i) }))
+      ? teamSlices.map((s, i) => {
+          // The first `units.length` slices are the team's own units, in the same order --
+          // theme each by its own character color instead of the generic categorical palette.
+          if (i < units.length) {
+            const themeColor = getCharacterThemeColor(DataLoader.characterDB[s.label]);
+            return { label: s.label, value: s.dmg, color: themeColor, labelColor: themeColor };
+          }
+          return { label: s.label, value: s.dmg, color: colorForIndex(i - units.length) };
+        })
       : unitSlices.map((s, i) => ({
           label: s.castType,
           value: s.dmg,
@@ -35,7 +45,13 @@ export const TeamContributionPanel: React.FC = () => {
         <>
           <div className="unit-tabs">
             {tabs.map(t => (
-              <button key={t} type="button" className={`unit-tab ${t === tab ? 'is-active' : ''}`} onClick={() => setActiveTab(t)}>
+              <button
+                key={t}
+                type="button"
+                className={`unit-tab ${t === tab ? 'is-active' : ''}`}
+                style={t === 'Team' ? undefined : ({ '--unit-theme': getCharacterThemeColor(DataLoader.characterDB[t]) } as React.CSSProperties)}
+                onClick={() => setActiveTab(t)}
+              >
                 {t}
               </button>
             ))}

@@ -6,6 +6,7 @@ import { useComparisonStore } from '../../store/useComparisonStore';
 import { generateMockDpsStats } from '../../data/mockResults';
 import type { DpsStats } from '../../data/mockResults';
 import { PinRotationControl } from './PinRotationControl';
+import { CATEGORICAL_PALETTE } from './chartPalette';
 
 const formatDps = (v: number): string => `${(v / 1000).toFixed(1)}K`;
 
@@ -45,9 +46,15 @@ export const DpsPanel: React.FC = () => {
       </div>
 
       {pinned && (
-        <div className="dps-compare-legend">
-          <span className="text-dim">Current Rotation</span>
-          <span className="text-dim">{pinned.label}</span>
+        <div className="results-legend">
+          <span className="results-legend-item">
+            <span className="results-legend-swatch" style={{ background: CATEGORICAL_PALETTE[0] }} />
+            <span className="text-dim">Current Rotation</span>
+          </span>
+          <span className="results-legend-item">
+            <span className="results-legend-swatch" style={{ background: CATEGORICAL_PALETTE[1] }} />
+            <span className="text-dim">{pinned.label}</span>
+          </span>
         </div>
       )}
 
@@ -90,15 +97,16 @@ export const DpsPanel: React.FC = () => {
                   className={`dps-compare-segment dps-compare-segment-left ${currentWins ? 'is-winner' : 'is-loser'}`}
                   style={{ width: `${splitPct}%` }}
                 >
+                  <span className="dps-compare-segment-swatch" style={{ background: CATEGORICAL_PALETTE[0] }} />
                   <span>{formatDps(currentVal)}</span>
                 </div>
                 <div
                   className={`dps-compare-segment dps-compare-segment-right ${currentWins ? 'is-loser' : 'is-winner'}`}
                   style={{ width: `${100 - splitPct}%` }}
                 >
+                  <span className="dps-compare-segment-swatch" style={{ background: CATEGORICAL_PALETTE[1] }} />
                   <span>{formatDps(pinnedVal)}</span>
                 </div>
-                <div className="dps-compare-midline" />
               </div>
             </div>
           );

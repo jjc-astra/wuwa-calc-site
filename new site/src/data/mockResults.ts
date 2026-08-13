@@ -41,39 +41,39 @@ export function generateMockDpsStats(seed: string): DpsStats {
   };
 }
 
-export interface TtkPoint {
+export interface DmgOverTimePoint {
   t: number;
   dmg: number;
 }
 
-export interface TtkSeries {
+export interface DmgOverTimeSeries {
   label: string;
-  points: TtkPoint[];
+  points: DmgOverTimePoint[];
   bossMaxHp: number;
   killTime: number | null;
 }
 
-const TTK_DOMAIN_SECONDS = 150;
-const TTK_STEP_SECONDS = 2;
+const DMG_OVER_TIME_DOMAIN_SECONDS = 150;
+const DMG_OVER_TIME_STEP_SECONDS = 2;
 
-export function generateMockTtkSeries(seed: string, label: string, bossMaxHp: number = ENEMY_DEFAULTS.hp): TtkSeries {
-  const rng = seededRng(seed + ':ttk');
+export function generateMockDmgOverTimeSeries(seed: string, label: string, bossMaxHp: number = ENEMY_DEFAULTS.hp): DmgOverTimeSeries {
+  const rng = seededRng(seed + ':dmg-over-time');
   const stats = generateMockDpsStats(seed);
 
-  const points: TtkPoint[] = [];
+  const points: DmgOverTimePoint[] = [];
   let cumulative = 0;
   let killTime: number | null = null;
 
-  for (let t = 0; t <= TTK_DOMAIN_SECONDS; t += TTK_STEP_SECONDS) {
+  for (let t = 0; t <= DMG_OVER_TIME_DOMAIN_SECONDS; t += DMG_OVER_TIME_STEP_SECONDS) {
     const instantDps = t < 10 ? stats.openerDps * range(rng, 0.9, 1.1) : stats.avgLoopDps * range(rng, 0.85, 1.15);
-    cumulative += instantDps * TTK_STEP_SECONDS;
+    cumulative += instantDps * DMG_OVER_TIME_STEP_SECONDS;
     points.push({ t, dmg: cumulative });
 
     if (killTime === null && cumulative >= bossMaxHp) {
       const prev = points[points.length - 2];
       if (prev) {
         const frac = (bossMaxHp - prev.dmg) / (cumulative - prev.dmg);
-        killTime = prev.t + frac * TTK_STEP_SECONDS;
+        killTime = prev.t + frac * DMG_OVER_TIME_STEP_SECONDS;
       } else {
         killTime = t;
       }

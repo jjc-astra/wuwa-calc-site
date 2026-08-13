@@ -3,6 +3,22 @@ import type { ImageFolder } from '../data/db';
 export const EXTENSION = '.webp';
 export const TRANSPARENT_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
 
+export const ELEMENT_COLORS: Record<string, string> = {
+  Glacio: '#40c4ff',
+  Fusion: '#ff6b3b',
+  Electro: '#b873f9',
+  Aero: '#20e2a3',
+  Spectro: '#ffe14d',
+  Havoc: '#e056fd',
+  Physical: '#aaaaaa'
+};
+
+/** A character's brand color, falling back through element color to a neutral gray. */
+export function getCharacterThemeColor(dbChar: Record<string, any> | undefined): string {
+  if (!dbChar) return '#555555';
+  return dbChar.themeColor || dbChar.color || ELEMENT_COLORS[dbChar.element] || '#555555';
+}
+
 /**
  * Single shared, viewport-aware hover tooltip (mirrors the old site's TooltipManager).
  * One DOM node is reused for every caller instead of each element owning its own tooltip.

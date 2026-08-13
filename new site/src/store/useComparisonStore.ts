@@ -1,11 +1,11 @@
 import { create } from 'zustand';
-import { generateMockDpsStats, generateMockTtkSeries } from '../data/mockResults';
-import type { DpsStats, TtkSeries } from '../data/mockResults';
+import { generateMockDpsStats, generateMockDmgOverTimeSeries } from '../data/mockResults';
+import type { DpsStats, DmgOverTimeSeries } from '../data/mockResults';
 
 export interface PinnedRotation {
   label: string;
   dpsStats: DpsStats;
-  ttkSeries: TtkSeries;
+  dmgOverTimeSeries: DmgOverTimeSeries;
 }
 
 interface ComparisonState {
@@ -34,8 +34,9 @@ function labelFromTeam(team: Array<{ character?: string; weapon?: string }> | un
 export const useComparisonStore = create<ComparisonState>()((set) => ({
   pinned: null,
 
-  // The imported rotation's own DPS/TTK isn't actually recalculated yet -- only its label is
-  // real, seeded off the file's content so the same file always renders the same mock numbers.
+  // The imported rotation's own DPS/dmg-over-time isn't actually recalculated yet -- only its
+  // label is real, seeded off the file's content so the same file always renders the same
+  // mock numbers.
   pinFromFile: async (file: File) => {
     const text = await file.text();
     let label = file.name.replace(/\.json$/i, '');
@@ -51,7 +52,7 @@ export const useComparisonStore = create<ComparisonState>()((set) => ({
       pinned: {
         label,
         dpsStats: generateMockDpsStats(seed),
-        ttkSeries: generateMockTtkSeries(seed, label)
+        dmgOverTimeSeries: generateMockDmgOverTimeSeries(seed, label)
       }
     });
   },

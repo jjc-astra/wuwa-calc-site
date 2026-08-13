@@ -8,7 +8,7 @@ import { ContextManager } from '../../logic/ContextManager';
 import { DSLParser } from '../../logic/DSLParser';
 import { DialGauge, VerticalGauge, MultiForteGauge } from './Gauge';
 import { SubPanel } from './SubPanel';
-import { TooltipManager } from '../../utils/Common';
+import { TooltipManager, getCharacterThemeColor } from '../../utils/Common';
 
 interface RotationRowProps {
   index: number;
@@ -42,16 +42,6 @@ interface ActionGroup {
   options: ActionOption[];
 }
 
-const ELEMENT_COLORS: Record<string, string> = {
-  Glacio: '#40c4ff',
-  Fusion: '#ff6b3b',
-  Electro: '#b873f9',
-  Aero: '#20e2a3',
-  Spectro: '#ffe14d',
-  Havoc: '#e056fd',
-  Physical: '#aaaaaa'
-};
-
 export const RotationRow: React.FC<RotationRowProps> = ({
   index,
   row,
@@ -74,7 +64,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
   const selectedUnit = row.unit || '';
 
   const dbChar: Record<string, any> = selectedUnit ? DataLoader.characterDB[selectedUnit] || {} : {};
-  const themeColor = dbChar.themeColor || dbChar.color || ELEMENT_COLORS[dbChar.element] || '#555555';
+  const themeColor = getCharacterThemeColor(dbChar);
 
   // Build categorized action groups filtered by DSL trigger rules
   const getActionGroups = (): ActionGroup[] => {

@@ -1,14 +1,14 @@
 // src/components/results/ResultsTab.tsx
 import React from 'react';
 import { DpsPanel } from './DpsPanel';
-import { TimeToKillChart } from './TimeToKillChart';
+import { DmgOverTimeChart } from './DmgOverTimeChart';
 import { SubstatWorthChart } from './SubstatWorthChart';
 import { TeamContributionPanel } from './TeamContributionPanel';
 
 export const ResultsTab: React.FC = () => (
   <div className="results-tab-grid">
     <DpsPanel />
-    <TimeToKillChart />
+    <DmgOverTimeChart />
     <SubstatWorthChart />
     <TeamContributionPanel />
   </div>

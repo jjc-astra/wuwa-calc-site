@@ -176,12 +176,19 @@
     letter-spacing: 0.5px;
 }
 
-/* Column headers shown once above the whole list, rather than repeated per row. */
-.dps-compare-legend {
-    display: flex; justify-content: space-between;
+/* A distinct chip-styled bar (its own background/radius) rather than plain text, so it
+   reads as UI chrome labeling the series below -- not as a caption glued to content.
+   Shared across any results panel comparing "Current Rotation" against a pinned one. */
+.results-legend {
+    display: flex; justify-content: space-between; align-items: center;
     font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.3px;
-    padding-bottom: 6px; margin-bottom: 4px; border-bottom: 1px solid var(--border);
+    padding: 6px 8px;
+    margin-bottom: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 4px;
 }
+.results-legend-item { display: inline-flex; align-items: center; gap: 5px; }
+.results-legend-swatch { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
 
 .dps-compare-list { display: flex; flex-direction: column; gap: 12px; }
 .dps-compare-row-head {
@@ -194,25 +201,24 @@
 
 /* The "tug of war" bar: two proportional segments (green = higher/better side, red = the
    other), split point offset from center by the delta% so the direction and rough margin
-   both read at a glance, with a dashed line marking the true 50/50 tie point underneath.
-   Segment styling (tinted fill + colored border + colored text) matches this site's other
-   status badges (.offset-pos/.offset-neg, .pin-chip) rather than a solid-fill bar. */
+   both read at a glance. Segment styling (tinted fill + colored border + colored text)
+   matches this site's other status badges (.offset-pos/.offset-neg, .pin-chip) rather than
+   a solid-fill bar. */
 .dps-compare-bar {
-    position: relative;
-    /* Establishes its own stacking context so the midline's negative z-index below stays
-       scoped to this bar instead of escaping to the page's stacking order. */
-    z-index: 0;
     display: flex;
     align-items: stretch;
     height: 28px;
     gap: 3px;
 }
 .dps-compare-segment {
-    display: flex; align-items: center;
+    display: flex; align-items: center; gap: 5px;
     border: 1px solid transparent;
     border-radius: 4px;
     transition: width 0.2s ease-in-out;
 }
+/* Repeats the legend's identity color on every row, right on the value it belongs to --
+   so which side is which team never depends on remembering the legend above. */
+.dps-compare-segment-swatch { width: 6px; height: 6px; border-radius: 1px; flex-shrink: 0; }
 .dps-compare-segment.is-winner { background-color: rgba(50, 220, 50, 0.15); border-color: #66ff66; }
 .dps-compare-segment.is-loser { background-color: rgba(220, 50, 50, 0.15); border-color: #ff6666; }
 /* Named classes rather than :first-child/:last-child -- the midline div is also a child of
@@ -230,16 +236,6 @@
 .dps-compare-segment span { font-weight: bold; font-size: 0.75rem; font-variant-numeric: tabular-nums; }
 .dps-compare-segment.is-winner span { color: #66ff66; }
 .dps-compare-segment.is-loser span { color: #ff6666; }
-.dps-compare-midline {
-    position: absolute; left: 50%; top: -5px; bottom: -5px; width: 1px;
-    /* A short dot-and-gap repeat reads as finely dotted, at low opacity -- border-style
-       dashed can't get this fine (browsers floor dash length well above 1-2px). */
-    background-image: repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.55) 0 2px, transparent 2px 5px);
-    pointer-events: none;
-    /* Behind the (non-positioned, so normally paint-first) segments, so their translucent
-       fill dims the line where it crosses a bar; only the poking-out ends stay full brightness. */
-    z-index: -1;
-}
 
 /* =========================================
    PIN COMPARISON CONTROL
@@ -272,34 +268,43 @@
 }
 
 /* =========================================
-   TIME TO KILL CHART
+   DMG OVER TIME CHART
    ========================================= */
-.ttk-chart { width: 100%; height: auto; }
-.ttk-gridline { stroke: #2c2c2a; stroke-width: 1; }
-.ttk-axis-label { fill: #898781; font-size: 8px; }
-.ttk-reference-line { stroke: #555; stroke-width: 1; stroke-dasharray: 4 3; }
-.ttk-reference-label { fill: var(--text-dim); font-size: 8px; }
-.ttk-line { stroke-width: 2; }
-.ttk-marker { stroke: var(--bg-panel); stroke-width: 2; }
-.ttk-marker-label { fill: var(--text-main); font-size: 8px; font-weight: bold; }
-.ttk-crosshair { stroke: rgba(255, 255, 255, 0.25); stroke-width: 1; }
+.dmg-time-chart { width: 100%; height: auto; }
+.dmg-time-gridline { stroke: #2c2c2a; stroke-width: 1; }
+.dmg-time-axis-label { fill: #b4b2a9; font-size: 11px; }
+.dmg-time-reference-line { stroke: #555; stroke-width: 1; stroke-dasharray: 4 3; }
+.dmg-time-reference-label { fill: var(--text-main); font-size: 11px; font-weight: bold; }
+.dmg-time-line { stroke-width: 2; }
+.dmg-time-marker { stroke: var(--bg-panel); stroke-width: 2; }
+.dmg-time-marker-label { font-size: 11px; font-weight: bold; }
+.dmg-time-crosshair { stroke: rgba(255, 255, 255, 0.25); stroke-width: 1; }
 
 /* Rendered inside the shared floating .global-tooltip (see TooltipManager.showAtPoint) */
-.ttk-tooltip-time { color: var(--text-dim); font-weight: bold; margin-bottom: 3px; }
-.ttk-tooltip-row { display: flex; align-items: center; gap: 5px; }
-.ttk-tooltip-row + .ttk-tooltip-row { margin-top: 2px; }
-.ttk-tooltip-key { width: 10px; height: 2px; display: inline-block; flex-shrink: 0; }
+.dmg-time-tooltip-time { color: var(--text-dim); font-weight: bold; margin-bottom: 3px; }
+.dmg-time-tooltip-row { display: flex; align-items: center; gap: 5px; }
+.dmg-time-tooltip-row + .dmg-time-tooltip-row { margin-top: 2px; }
+.dmg-time-tooltip-key { width: 10px; height: 2px; display: inline-block; flex-shrink: 0; }
 
 /* =========================================
    UNIT TABS (Substat Worth + Team Contribution)
    ========================================= */
 .unit-tabs { display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
+/* --unit-theme defaults to the accent gold (e.g. the "Team" tab, which isn't one character);
+   a character tab overrides it inline with that character's own theme color, the same
+   color-mix theming convention .rotation-row uses. */
 .unit-tab {
+    --unit-theme: var(--accent);
     padding: 4px 10px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border);
     border-radius: 4px; color: var(--text-dim); font-size: 0.72rem; font-weight: bold; cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background-color 0.15s;
 }
-.unit-tab:hover { color: var(--text-main); }
-.unit-tab.is-active { background: rgba(220, 165, 76, 0.12); border-color: var(--accent); color: var(--accent); }
+.unit-tab:hover { color: color-mix(in srgb, var(--unit-theme) 60%, #ffffff); border-color: var(--unit-theme); }
+.unit-tab.is-active {
+    background: color-mix(in srgb, var(--unit-theme) 18%, transparent);
+    border-color: var(--unit-theme);
+    color: color-mix(in srgb, var(--unit-theme) 55%, #ffffff);
+}
 
 /* =========================================
    SUBSTAT WORTH CHART
@@ -313,13 +318,22 @@
 }
 .substat-chart-headrow { font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; }
 .substat-col-header { text-align: right; }
-.substat-label-col { font-size: 0.72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.substat-label-col {
+    font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+    color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .substat-track-col { position: relative; }
 .substat-track { position: relative; display: block; width: 100%; height: 6px; background: rgba(255, 255, 255, 0.06); border-radius: 3px; }
-.substat-range { position: absolute; top: 0; height: 100%; background: rgba(57, 135, 229, 0.55); border-radius: 3px; }
+/* Same two yellows as the echo substat sliders (.base-slider): darker gold accent for the
+   range/track fill, lighter gold for the default-value marker/thumb. */
+.substat-range { position: absolute; top: 0; height: 100%; background: var(--accent); border-radius: 3px; }
+/* Centered via margin, not a translate(-50%) transform -- at the arbitrary fractional-%
+   `left` each row computes, a compositor transform lands this thin a bar on a different
+   sub-pixel offset per row and anti-aliases it to an inconsistent apparent width; margins
+   resolve in layout instead, so every marker rasterizes at the same crisp 3px. */
 .substat-default-marker {
-    position: absolute; top: 50%; width: 3px; height: 14px; background: var(--accent);
-    border-radius: 2px; transform: translate(-50%, -50%); cursor: pointer;
+    position: absolute; top: 50%; width: 3px; height: 14px; margin-left: -1.5px; margin-top: -7px;
+    background: #f0d8a8; border-radius: 2px; cursor: pointer;
 }
 .substat-col-value { text-align: right; font-size: 0.72rem; font-variant-numeric: tabular-nums; color: var(--text-main); }
 .substat-row:hover { background: rgba(255, 255, 255, 0.03); }
@@ -335,5 +349,5 @@
 .pie-chart-legend-row { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; padding: 2px 4px; border-radius: 3px; }
 .pie-chart-legend-row.is-hovered { background: rgba(255, 255, 255, 0.05); }
 .pie-chart-swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
-.pie-chart-legend-label { color: var(--text-main); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pie-chart-legend-label { color: var(--text-main); font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pie-chart-legend-value { color: var(--text-dim); font-variant-numeric: tabular-nums; }
