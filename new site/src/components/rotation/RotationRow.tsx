@@ -56,9 +56,10 @@ export const RotationRow: React.FC<RotationRowProps> = ({
   dragOverPosition,
   isLastRow
 }) => {
-  const { updateRowField, addRow, isStale } = useRotationStore();
+  const { updateRowField, updateRowFields, addRow, isStale } = useRotationStore();
   const { team } = useRosterStore();
   const [isDraggable, setIsDraggable] = useState(true);
+  const [offsetDraft, setOffsetDraft] = useState<string | null>(null);
 
   const teamUnits = team.map(t => t.character).filter(Boolean);
   const selectedUnit = row.unit || '';
@@ -168,10 +169,27 @@ export const RotationRow: React.FC<RotationRowProps> = ({
     updateRowField(index, 'timing', e.target.value);
   };
 
-  const handleOffsetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const num = parseFloat(e.target.value) || 0;
-    updateRowField(index, 'offset', num);
-    updateRowField(index, 'manualOffset', num);
+  // Buffered locally instead of committing on every keystroke: a controlled input that
+  // reformats to "X.XX" on each change would stomp a lone "-" or trailing "." before the
+  // user can finish typing a negative or decimal offset. Commit only on blur/Enter.
+  const handleOffsetInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setOffsetDraft(e.target.value);
+  };
+
+  const commitOffsetDraft = () => {
+    if (offsetDraft === null) return;
+    const num = parseFloat(offsetDraft) || 0;
+    setOffsetDraft(null);
+    updateRowFields(index, { offset: num, manualOffset: num });
+  };
+
+  const handleOffsetKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.currentTarget.blur();
+    } else if (e.key === 'Escape') {
+      setOffsetDraft(null);
+      e.currentTarget.blur();
+    }
   };
 
   const timeStart = row.gameTimeStart !== undefined ? `${row.gameTimeStart.toFixed(2)}s` : '0.00s';
@@ -294,9 +312,12 @@ export const RotationRow: React.FC<RotationRowProps> = ({
             <input
               type="text"
               className="num-input text-xs offset-input"
-              value={offsetStr}
+              value={offsetDraft !== null ? offsetDraft : offsetStr}
               readOnly={row.timing !== 'Simultaneous'}
-              onChange={handleOffsetChange}
+              onChange={handleOffsetInput}
+              onFocus={() => setOffsetDraft(offsetStr)}
+              onBlur={commitOffsetDraft}
+              onKeyDown={handleOffsetKeyDown}
             />
           </div>
         </div>

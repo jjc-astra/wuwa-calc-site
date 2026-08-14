@@ -8,6 +8,7 @@ import {
   AddRowCommand,
   DeleteRowsCommand,
   EditValueCommand,
+  EditFieldsCommand,
   MoveRowsCommand,
   CompositeCommand
 } from '../systems/HistoryManager';
@@ -43,6 +44,7 @@ interface RotationState {
   moveRows: (indicesToMove: number[], targetIndex: number) => void;
   pasteRows: () => void;
   updateRowField: (index: number, field: string, value: any) => void;
+  updateRowFields: (index: number, fields: Record<string, any>) => void;
 
   executeCommand: (cmd: Command) => void;
   recalculate: () => void;
@@ -166,6 +168,20 @@ export const useRotationStore = create<RotationState>()(
           const oldValue = get().rows[index]?.[field];
           if (oldValue === value) return;
           const cmd = new EditValueCommand(getRawRows, setRawRows, index, field, oldValue, value, triggerRecalc);
+          historyManager.execute(cmd);
+        },
+
+        updateRowFields: (index: number, fields: Record<string, any>) => {
+          const row = get().rows[index];
+          if (!row) return;
+          const oldValues: Record<string, any> = {};
+          let changed = false;
+          Object.keys(fields).forEach(key => {
+            oldValues[key] = row[key];
+            if (row[key] !== fields[key]) changed = true;
+          });
+          if (!changed) return;
+          const cmd = new EditFieldsCommand(getRawRows, setRawRows, index, oldValues, fields, triggerRecalc);
           historyManager.execute(cmd);
         },
 

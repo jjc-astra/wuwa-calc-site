@@ -225,6 +225,53 @@ export class EditValueCommand implements Command {
   }
 }
 
+// Same as EditValueCommand but sets several fields on a row as one atomic step, so a
+// single edit (e.g. Simultaneous offset, which mirrors into both `offset` and
+// `manualOffset`) undoes/redoes in one step and never leaves the fields transiently
+// out of sync where an intermediate recalc could observe only one of them updated.
+export class EditFieldsCommand implements Command {
+  private getRows: () => any[];
+  private setRows: (rows: any[]) => void;
+  private index: number;
+  private oldValues: Record<string, any>;
+  private newValues: Record<string, any>;
+  private onComplete?: () => void;
+
+  constructor(
+    getRows: () => any[],
+    setRows: (rows: any[]) => void,
+    index: number,
+    oldValues: Record<string, any>,
+    newValues: Record<string, any>,
+    onComplete?: () => void
+  ) {
+    this.getRows = getRows;
+    this.setRows = setRows;
+    this.index = index;
+    this.oldValues = oldValues;
+    this.newValues = newValues;
+    this.onComplete = onComplete;
+  }
+
+  execute() {
+    const current = [...this.getRows()];
+    if (this.index >= 0 && this.index < current.length) {
+      current[this.index] = { ...current[this.index], ...this.newValues };
+      this.setRows(current);
+      this.onComplete?.();
+    }
+  }
+
+  undo() {
+    const current = [...this.getRows()];
+    if (this.index >= 0 && this.index < current.length) {
+      current[this.index] = { ...current[this.index], ...this.oldValues };
+      this.setRows(current);
+      this.onComplete?.();
+    }
+  }
+}
+
 export class MoveRowsCommand implements Command {
   private getRows: () => any[];
   private setRows: (rows: any[]) => void;
