@@ -23,6 +23,14 @@ interface RotationRowProps {
   onDrop: (e: React.DragEvent, index: number) => void;
   dragOverPosition: 'top' | 'bottom' | null;
   isLastRow?: boolean;
+  isLoopStart?: boolean;
+  isLoopStartOverride?: boolean;
+  loopErrorMsg?: string | null;
+  loopWarningMsg?: string | null;
+  isLoopDragTarget?: boolean;
+  onLoopMarkerDragStart?: (e: React.DragEvent) => void;
+  onLoopMarkerDragEnd?: (e: React.DragEvent) => void;
+  onResetLoopStart?: () => void;
 }
 
 interface TimingOption {
@@ -54,7 +62,15 @@ export const RotationRow: React.FC<RotationRowProps> = ({
   onDragLeave,
   onDrop,
   dragOverPosition,
-  isLastRow
+  isLastRow,
+  isLoopStart,
+  isLoopStartOverride,
+  loopErrorMsg,
+  loopWarningMsg,
+  isLoopDragTarget,
+  onLoopMarkerDragStart,
+  onLoopMarkerDragEnd,
+  onResetLoopStart
 }) => {
   const { updateRowField, updateRowFields, addRow, isStale } = useRotationStore();
   const { team } = useRosterStore();
@@ -219,6 +235,28 @@ export const RotationRow: React.FC<RotationRowProps> = ({
       onDragLeave={onDragLeave}
       onDrop={e => onDrop(e, index)}
     >
+      {isLoopStart && (
+        <div
+          className={`loop-start-tag ${loopErrorMsg ? 'loop-tag-error' : loopWarningMsg ? 'loop-tag-warning' : ''} ${isLoopDragTarget ? 'loop-tag-drop-target' : ''}`}
+          draggable
+          onDragStart={onLoopMarkerDragStart}
+          onDragEnd={onLoopMarkerDragEnd}
+          title={loopErrorMsg || loopWarningMsg || 'Loop begins here — drag to move'}
+        >
+          <span className="loop-tag-icon">⟳</span>
+          <span className="loop-tag-label">LOOP START</span>
+          {(loopErrorMsg || loopWarningMsg) && <span className="loop-tag-msg">{loopErrorMsg || loopWarningMsg}</span>}
+          {isLoopStartOverride && (
+            <button
+              className="loop-tag-reset"
+              onClick={e => { e.stopPropagation(); onResetLoopStart?.(); }}
+              title="Reset to auto-detected position"
+            >
+              ↺
+            </button>
+          )}
+        </div>
+      )}
       <div className="row-grid-layer">
         {/* Index & Checkbox Cell */}
         <div

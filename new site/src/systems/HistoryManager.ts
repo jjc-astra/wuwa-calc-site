@@ -272,6 +272,52 @@ export class EditFieldsCommand implements Command {
   }
 }
 
+// Only one row may carry `loopStartOverride` at a time. Moves the flag from wherever it
+// currently sits (if anywhere) to `newIndex` in one atomic step -- pass `newIndex: null`
+// to clear it entirely (falling back to auto-detection) without setting a new one.
+export class SetLoopStartCommand implements Command {
+  private getRows: () => any[];
+  private setRows: (rows: any[]) => void;
+  private newIndex: number | null;
+  private prevIndex: number | null;
+  private onComplete?: () => void;
+
+  constructor(
+    getRows: () => any[],
+    setRows: (rows: any[]) => void,
+    newIndex: number | null,
+    onComplete?: () => void
+  ) {
+    this.getRows = getRows;
+    this.setRows = setRows;
+    this.newIndex = newIndex;
+    this.prevIndex = this.getRows().findIndex(r => r.loopStartOverride === true);
+    if (this.prevIndex === -1) this.prevIndex = null;
+    this.onComplete = onComplete;
+  }
+
+  private apply(clearIndex: number | null, setIndex: number | null) {
+    const current = [...this.getRows()];
+    if (clearIndex !== null && clearIndex >= 0 && clearIndex < current.length) {
+      const { loopStartOverride, ...rest } = current[clearIndex];
+      current[clearIndex] = rest;
+    }
+    if (setIndex !== null && setIndex >= 0 && setIndex < current.length) {
+      current[setIndex] = { ...current[setIndex], loopStartOverride: true };
+    }
+    this.setRows(current);
+    this.onComplete?.();
+  }
+
+  execute() {
+    this.apply(this.prevIndex, this.newIndex);
+  }
+
+  undo() {
+    this.apply(this.newIndex, this.prevIndex);
+  }
+}
+
 export class MoveRowsCommand implements Command {
   private getRows: () => any[];
   private setRows: (rows: any[]) => void;

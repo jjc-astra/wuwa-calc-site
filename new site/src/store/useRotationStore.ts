@@ -10,6 +10,7 @@ import {
   EditValueCommand,
   EditFieldsCommand,
   MoveRowsCommand,
+  SetLoopStartCommand,
   CompositeCommand
 } from '../systems/HistoryManager';
 import type { Command } from '../systems/HistoryManager';
@@ -20,6 +21,7 @@ export interface RotationRow {
   timing: string;
   offset?: number;
   manualOffset?: number;
+  loopStartOverride?: boolean;
   [key: string]: any;
 }
 
@@ -32,6 +34,10 @@ interface RotationState {
   isStale: boolean;
   selectedIndices: number[];
   clipboard: RotationRow[];
+  loopStartIndex: number;
+  loopStartIsOverride: boolean;
+  loopErrorMsg: string | null;
+  loopWarningMsg: string | null;
 
   setStartEnergy: (val: boolean) => void;
   setStartConcerto: (val: boolean) => void;
@@ -45,6 +51,8 @@ interface RotationState {
   pasteRows: () => void;
   updateRowField: (index: number, field: string, value: any) => void;
   updateRowFields: (index: number, fields: Record<string, any>) => void;
+  setLoopStartOverride: (index: number) => void;
+  resetLoopStart: () => void;
 
   executeCommand: (cmd: Command) => void;
   recalculate: () => void;
@@ -53,6 +61,27 @@ interface RotationState {
   redo: () => void;
   importRotation: (rows: RotationRow[], settings?: { startEnergy?: boolean; startConcerto?: boolean }) => void;
 }
+
+// A manual override (a row flagged `loopStartOverride`) always wins. Otherwise, auto-detect:
+// the loop starts right after the main DPS's first Outro in the rotation, since that's what
+// ends the opener. No Outro found, or nothing follows it, means there's no distinct opener --
+// the whole rotation is the loop.
+const findLoopStart = (rows: RotationRow[], mainDps: string | undefined): { index: number; isOverride: boolean } => {
+  const overrideIndex = rows.findIndex(r => r.loopStartOverride === true && !!r.unit);
+  if (overrideIndex !== -1) return { index: overrideIndex, isOverride: true };
+
+  if (mainDps) {
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      if (row.unit === mainDps && Array.isArray(row.castTypes) && row.castTypes.includes('Outro')) {
+        const next = i + 1;
+        if (next < rows.length && rows[next]?.unit) return { index: next, isOverride: false };
+        return { index: 0, isOverride: false };
+      }
+    }
+  }
+  return { index: 0, isOverride: false };
+};
 
 const historyManager = new HistoryManager();
 
@@ -65,8 +94,21 @@ export const useRotationStore = create<RotationState>()(
 
       const getRawRows = () => get().rows;
       const setRawRows = (rows: RotationRow[]) => set({ rows });
+
+      // Multi-row operations (paste, undo/redo of a paste) run as several Commands inside one
+      // CompositeCommand, and each Command's execute()/undo() calls this individually -- without
+      // coalescing, pasting N rows would re-run the full recalculation (now including the loop
+      // analysis) N times in a row. Collapsing same-tick calls into one microtask-deferred
+      // recalculate() fixes that with no perceptible delay (microtasks flush before the next
+      // paint, so a single edit still updates effectively immediately).
+      let recalcScheduled = false;
       const triggerRecalc = () => {
-        get().recalculate();
+        if (recalcScheduled) return;
+        recalcScheduled = true;
+        queueMicrotask(() => {
+          recalcScheduled = false;
+          get().recalculate();
+        });
       };
 
       return {
@@ -78,6 +120,10 @@ export const useRotationStore = create<RotationState>()(
         isStale: false,
         selectedIndices: [],
         clipboard: [],
+        loopStartIndex: 0,
+        loopStartIsOverride: false,
+        loopErrorMsg: null,
+        loopWarningMsg: null,
 
         setStartEnergy: (val: boolean) => {
           set({ startEnergy: val });
@@ -185,6 +231,20 @@ export const useRotationStore = create<RotationState>()(
           historyManager.execute(cmd);
         },
 
+        setLoopStartOverride: (index: number) => {
+          const row = get().rows[index];
+          if (!row || !row.unit || row.loopStartOverride === true) return;
+          const cmd = new SetLoopStartCommand(getRawRows, setRawRows, index, triggerRecalc);
+          historyManager.execute(cmd);
+        },
+
+        resetLoopStart: () => {
+          const hasOverride = get().rows.some(r => r.loopStartOverride === true);
+          if (!hasOverride) return;
+          const cmd = new SetLoopStartCommand(getRawRows, setRawRows, null, triggerRecalc);
+          historyManager.execute(cmd);
+        },
+
         executeCommand: (cmd: Command) => {
           historyManager.execute(cmd);
         },
@@ -200,7 +260,17 @@ export const useRotationStore = create<RotationState>()(
           evaluatedRows.forEach((row: any, i: number) => {
             row.damageInstances = existingDamageMap.get(i) || row.damageInstances || [];
           });
-          set({ rows: evaluatedRows, isStale: true });
+
+          const { index: loopStartIndex, isOverride: loopStartIsOverride } = findLoopStart(evaluatedRows, team[0]?.character);
+          const { errorMsg: loopErrorMsg, warningMsg: loopWarningMsg } = TimelineEngine.analyzeLoop(
+            evaluatedRows,
+            team,
+            { startEnergy, startConcerto },
+            enemy,
+            loopStartIndex
+          );
+
+          set({ rows: evaluatedRows, isStale: true, loopStartIndex, loopStartIsOverride, loopErrorMsg, loopWarningMsg });
         },
 
         // Manual Combat Calculation (Triggered exclusively by the "Calculate" button)
@@ -253,12 +323,13 @@ export const useRotationStore = create<RotationState>()(
     {
       name: 'wuwa_calc_rotation_cache',
       partialize: (state) => ({
-        rows: state.rows.map(({ unit, action, timing, offset, manualOffset }) => ({
+        rows: state.rows.map(({ unit, action, timing, offset, manualOffset, loopStartOverride }) => ({
           unit,
           action,
           timing,
           ...(offset !== undefined && { offset }),
-          ...(manualOffset !== undefined && { manualOffset })
+          ...(manualOffset !== undefined && { manualOffset }),
+          ...(loopStartOverride === true && { loopStartOverride: true })
         })),
         startEnergy: state.startEnergy,
         startConcerto: state.startConcerto

@@ -30,16 +30,26 @@ export class TimelineEngineClass {
   _localBuffCache: Record<string, Effect> = {};
   _globalBuffCache: Record<string, Effect | null> = {};
   _enemyConfig: { level: number; res: number; hp: number } = ENEMY_DEFAULTS;
+  // Skips building UI-only bookkeeping (dropdown snapshots, per-hit history entries) that
+  // callers like analyzeLoop's throwaway simulations never read -- see recalculateState.
+  _lightweightMode = false;
+  // Memoizes _getModifiedMoveData per actionId for the current recalculateState call, since
+  // the same move gets looked up repeatedly (a row's own cast, the next-row lookahead in
+  // _resolveTimings, and every occurrence of that action across repeated loop iterations)
+  // and its raw definition can't change mid-simulation. Reset at the top of every call.
+  _moveDataCache: Record<string, MechanicNode | null> = {};
 
   recalculateState(
     activeRows: any[],
     team: any[] = [],
-    options: { startEnergy?: boolean; startConcerto?: boolean } = {},
+    options: { startEnergy?: boolean; startConcerto?: boolean; lightweight?: boolean } = {},
     enemyConfig: { level: number; res: number; hp: number } = ENEMY_DEFAULTS
   ): any[] {
     if (activeRows.length === 0) return [];
 
     this.isRecalculating = true;
+    this._lightweightMode = !!options.lightweight;
+    this._moveDataCache = {};
     this._enemyConfig = enemyConfig;
     this.damageQueue = [];
     this.currentGlobalGameTime = 0;
@@ -81,8 +91,10 @@ export class TimelineEngineClass {
         this._applyInheritance(currentData, prevData, accumulatedGameTime, team);
         currentData.timeStart = accumulatedTime;
         currentData.gameTimeStart = accumulatedGameTime;
-        const { dropdownState, prevRow, nextRow, ...cleanEmpty } = currentData;
-        currentData.dropdownState = JSON.parse(JSON.stringify(cleanEmpty));
+        if (!this._lightweightMode) {
+          const { dropdownState, prevRow, nextRow, ...cleanEmpty } = currentData;
+          currentData.dropdownState = JSON.parse(JSON.stringify(cleanEmpty));
+        }
         continue;
       }
 
@@ -129,6 +141,7 @@ export class TimelineEngineClass {
 
       let finalWaitTime = Math.max(wCD, wBusy);
       currentData.waitTime = finalWaitTime;
+      currentData.cdWaitTime = wCD;
       this._applyDecay(currentData, finalWaitTime, finalWaitTime, i > 0, activeTeam, activeRows, team);
 
       if (dbMove.inputType === 'Release' && currentData.trackers && currentData.trackers.Hold_Start !== undefined) {
@@ -313,30 +326,33 @@ export class TimelineEngineClass {
         }
       }
 
-      // --- PRE-CAST DROPDOWN SNAPSHOT ---
-      currentData.dropdownState = {
-        ...currentData,
-        hp: JSON.parse(JSON.stringify(currentData.hp || {})),
-        energy: JSON.parse(JSON.stringify(currentData.energy || {})),
-        forte1: JSON.parse(JSON.stringify(currentData.forte1 || {})),
-        forte2: JSON.parse(JSON.stringify(currentData.forte2 || {})),
-        forte3: JSON.parse(JSON.stringify(currentData.forte3 || {})),
-        forte4: JSON.parse(JSON.stringify(currentData.forte4 || {})),
-        forte5: JSON.parse(JSON.stringify(currentData.forte5 || {})),
-        forte6: JSON.parse(JSON.stringify(currentData.forte6 || {})),
-        concerto: JSON.parse(JSON.stringify(currentData.concerto || {})),
-        trackers: JSON.parse(JSON.stringify(currentData.trackers || {})),
-        activeBuffs: JSON.parse(JSON.stringify(currentData.activeBuffs || {})),
-        cooldowns: JSON.parse(JSON.stringify(currentData.cooldowns || {})),
-        enemyTune: currentData.enemyTune,
-        enemyMaxTune: currentData.enemyMaxTune,
-        gameTimeStart: currentData.gameTimeStart,
-        prevRow: currentData.prevRow,
-        nextRow: currentData.nextRow,
-        unitCombos: currentData.unitCombos ? JSON.parse(JSON.stringify(currentData.unitCombos)) : {}
-      };
+      // --- PRE-CAST DROPDOWN SNAPSHOT --- (skipped in lightweight mode: legality-only
+      // simulations never render a row's inspector panel, so this is pure waste for them)
+      if (!this._lightweightMode) {
+        currentData.dropdownState = {
+          ...currentData,
+          hp: JSON.parse(JSON.stringify(currentData.hp || {})),
+          energy: JSON.parse(JSON.stringify(currentData.energy || {})),
+          forte1: JSON.parse(JSON.stringify(currentData.forte1 || {})),
+          forte2: JSON.parse(JSON.stringify(currentData.forte2 || {})),
+          forte3: JSON.parse(JSON.stringify(currentData.forte3 || {})),
+          forte4: JSON.parse(JSON.stringify(currentData.forte4 || {})),
+          forte5: JSON.parse(JSON.stringify(currentData.forte5 || {})),
+          forte6: JSON.parse(JSON.stringify(currentData.forte6 || {})),
+          concerto: JSON.parse(JSON.stringify(currentData.concerto || {})),
+          trackers: JSON.parse(JSON.stringify(currentData.trackers || {})),
+          activeBuffs: JSON.parse(JSON.stringify(currentData.activeBuffs || {})),
+          cooldowns: JSON.parse(JSON.stringify(currentData.cooldowns || {})),
+          enemyTune: currentData.enemyTune,
+          enemyMaxTune: currentData.enemyMaxTune,
+          gameTimeStart: currentData.gameTimeStart,
+          prevRow: currentData.prevRow,
+          nextRow: currentData.nextRow,
+          unitCombos: currentData.unitCombos ? JSON.parse(JSON.stringify(currentData.unitCombos)) : {}
+        };
+      }
 
-      this._runValidation(currentData, prevData, team);
+      this._runValidation(currentData, prevData, team, dbMove);
 
       if (currentData.warningMsg || currentData.errorMsg) {
         console.warn(`[TimelineEngine] Row #${i + 1} (${currentData.unit} - ${currentData.action}):`, {
@@ -347,7 +363,7 @@ export class TimelineEngineClass {
         });
       }
 
-      this._evaluateMechanics(currentData, activeTeam, activeRows, i, team);
+      this._evaluateMechanics(currentData, activeTeam, activeRows, i, team, dbMove);
       this._resolveComboWindows(currentData, dbMove, prevData, team);
     }
 
@@ -359,9 +375,11 @@ export class TimelineEngineClass {
       emptyRow.gameTimeStart = accumulatedGameTime;
       emptyRow.timeStart = accumulatedTime;
 
-      const { dropdownState, prevRow, nextRow, ...cleanEmpty } = emptyRow;
-      emptyRow.dropdownState = JSON.parse(JSON.stringify(cleanEmpty));
-    } else if (emptyRow) {
+      if (!this._lightweightMode) {
+        const { dropdownState, prevRow, nextRow, ...cleanEmpty } = emptyRow;
+        emptyRow.dropdownState = JSON.parse(JSON.stringify(cleanEmpty));
+      }
+    } else if (emptyRow && !this._lightweightMode) {
       const { dropdownState, prevRow, nextRow, ...cleanEmpty } = emptyRow;
       emptyRow.dropdownState = JSON.parse(JSON.stringify(cleanEmpty));
     }
@@ -382,8 +400,96 @@ export class TimelineEngineClass {
     return activeRows;
   }
 
+  // Checks whether the loop portion of a rotation (rows[loopStartIndex..]) can repeat: builds
+  // opener + 2 loop reps and inspects the second rep for issues that only surface once state
+  // has carried over from a prior loop (cooldowns not yet up, trigger rules no longer
+  // satisfied, resources not regenerated). This is the live, on-every-edit legality check --
+  // it only needs to prove the *next* iteration works, not simulate out to a full 2-minute
+  // window, so it stays cheap regardless of how short the loop is. Simulating far enough to
+  // cover 2 minutes for real DPS stats is future work, reserved for an explicit "Calculate"
+  // action rather than this live check.
+  analyzeLoop(
+    rows: any[],
+    team: any[] = [],
+    options: { startEnergy?: boolean; startConcerto?: boolean } = {},
+    enemyConfig: { level: number; res: number; hp: number } = ENEMY_DEFAULTS,
+    loopStartIndex: number = 0
+  ): { errorMsg: string | null; warningMsg: string | null } {
+    const contentRows = rows.filter(r => r && r.unit);
+    if (contentRows.length === 0) return { errorMsg: null, warningMsg: null };
+
+    const clampedStart = Math.max(0, Math.min(loopStartIndex, contentRows.length));
+    const openerRows = contentRows.slice(0, clampedStart);
+    const loopTemplate = contentRows.slice(clampedStart);
+    if (loopTemplate.length === 0) return { errorMsg: null, warningMsg: null };
+
+    // `rows` is this edit's already-recalculated pass, so its timing fields are trustworthy --
+    // no need to re-simulate the opener+1-loop from scratch just to read them back.
+    const openerEndRow = openerRows.length > 0 ? openerRows[openerRows.length - 1] : null;
+    const openerEndTime = openerEndRow ? (openerEndRow.gameTimeStart || 0) + (openerEndRow.gameTimePassed || 0) : 0;
+    const loopEndRow = loopTemplate[loopTemplate.length - 1];
+    const loopEndTime = (loopEndRow.gameTimeStart || 0) + (loopEndRow.gameTimePassed || 0);
+    const loopDuration = loopEndTime - openerEndTime;
+
+    if (loopDuration <= 0.01) {
+      return { errorMsg: 'Loop has no duration — cannot repeat.', warningMsg: null };
+    }
+
+    // recalculateState's post-loop pass assumes the array's last element is the UI's
+    // trailing blank row; feeding it a real action there silently corrupts that row's
+    // timing, so every synthetic array built here must end with one.
+    const cloneAuthored = (r: any) => ({
+      unit: r.unit,
+      action: r.action,
+      timing: r.timing,
+      ...(r.offset !== undefined && { offset: r.offset }),
+      ...(r.manualOffset !== undefined && { manualOffset: r.manualOffset })
+    });
+
+    const extendedContent: any[] = [
+      ...openerRows.map(cloneAuthored),
+      ...loopTemplate.map(cloneAuthored),
+      ...loopTemplate.map(cloneAuthored)
+    ];
+    const extendedInput = [...extendedContent, { unit: '', action: '', timing: 'Auto', offset: 0 }];
+    const extendedResult = this.recalculateState(extendedInput, team, { ...options, lightweight: true }, enemyConfig);
+
+    const secondRepStart = openerRows.length + loopTemplate.length;
+    const contentEnd = extendedContent.length; // excludes the synthetic trailing blank row
+
+    let firstError: string | null = null;
+    let firstWarning: string | null = null;
+
+    for (let i = secondRepStart; i < contentEnd; i++) {
+      const row = extendedResult[i];
+      const moveName = row.moveName || row.action;
+
+      if (row.errorMsg) {
+        firstError = `${moveName}: ${row.errorMsg}`;
+        break;
+      }
+      if (row.warningMsg && /^Combo requirement not met/.test(row.warningMsg)) {
+        firstError = `${moveName}: ${row.warningMsg}`;
+        break;
+      }
+      if (!firstWarning) {
+        if (row.warningMsg && /^Not enough (Resonance Energy|Forte \d+|Tune)/.test(row.warningMsg)) {
+          firstWarning = `${moveName}: ${row.warningMsg}`;
+        } else if (row.cdWaitTime > 0.05) {
+          firstWarning = `${moveName} needs ${row.cdWaitTime.toFixed(2)}s more (on cooldown).`;
+        }
+      }
+    }
+
+    return { errorMsg: firstError, warningMsg: firstError ? null : firstWarning };
+  }
+
   _getModifiedMoveData(actionId: string): MechanicNode | null {
     if (!actionId) return null;
+    if (Object.prototype.hasOwnProperty.call(this._moveDataCache, actionId)) {
+      return this._moveDataCache[actionId];
+    }
+
     let rawMove = DataLoader.mechanicsDB[actionId] || null;
     if (!rawMove) {
       const matchKey = Object.keys(DataLoader.mechanicsDB).find(k =>
@@ -391,13 +497,17 @@ export class TimelineEngineClass {
       );
       if (matchKey) rawMove = DataLoader.mechanicsDB[matchKey];
     }
-    if (!rawMove) return null;
+    if (!rawMove) {
+      this._moveDataCache[actionId] = null;
+      return null;
+    }
 
     const { _compiledRule, ...safeData } = rawMove as any;
     const patchedMove = JSON.parse(JSON.stringify(safeData));
     if (_compiledRule && typeof _compiledRule.evaluate === 'function') {
       patchedMove._compiledRule = _compiledRule;
     }
+    this._moveDataCache[actionId] = patchedMove;
     return patchedMove;
   }
 
@@ -479,13 +589,13 @@ export class TimelineEngineClass {
       currentData[fKey] = { ...(prevData[fKey] || {}) };
     }
 
-    currentData.trackers = JSON.parse(JSON.stringify(prevData.trackers || {}));
+    currentData.trackers = structuredClone(prevData.trackers || {});
     for (const key in currentData.trackers) {
       if (key.endsWith('_Delta')) delete currentData.trackers[key];
     }
 
-    currentData.cooldowns = JSON.parse(JSON.stringify(prevData.cooldowns || {}));
-    currentData.activeBuffs = JSON.parse(JSON.stringify(prevData.activeBuffs || {}));
+    currentData.cooldowns = structuredClone(prevData.cooldowns || {});
+    currentData.activeBuffs = structuredClone(prevData.activeBuffs || {});
 
     // Buffs flagged removeOnSwap belong to whoever swaps off-field; drop them the moment
     // that unit leaves so later hits (from a different acting unit) can't still benefit.
@@ -507,7 +617,7 @@ export class TimelineEngineClass {
       });
     }
 
-    currentData.timeScales = JSON.parse(JSON.stringify(prevData.timeScales || {}));
+    currentData.timeScales = structuredClone(prevData.timeScales || {});
     if (prevData.unit && currentData.unit && currentData.unit !== prevData.unit) {
       const isIntro = currentData.castTypes?.includes('Intro');
       const myCombo = prevData.unitCombos?.[currentData.unit];
@@ -809,34 +919,39 @@ export class TimelineEngineClass {
       this._executeEffectsStream(onHitEffects, currentData, activeTeam, activeRows, nextHit.executeAt, nextHit.provider, team);
       delete currentData.activeProcSource;
 
-      const hitName = nextHit.originMoveData.name + (nextHit.totalHits > 1 ? ` (Hit ${nextHit.hitIndex + 1})` : '');
-      const { prevRow, nextRow, dropdownState, _pendingHits, ...cleanData } = currentData;
-      if (!nextHit.originRow._pendingHits) nextHit.originRow._pendingHits = [];
+      // Builds this hit's UI-facing history entry (the damage breakdown shown when a row's
+      // DMG cell is inspected). Skipped in lightweight mode: analyzeLoop's throwaway
+      // simulations only read errorMsg/warningMsg/cdWaitTime off the result rows, never this.
+      if (!this._lightweightMode) {
+        const hitName = nextHit.originMoveData.name + (nextHit.totalHits > 1 ? ` (Hit ${nextHit.hitIndex + 1})` : '');
+        const { prevRow, nextRow, dropdownState, _pendingHits, ...cleanData } = currentData;
+        if (!nextHit.originRow._pendingHits) nextHit.originRow._pendingHits = [];
 
-      // executeAt is a real-time offset; convert it to the equivalent game time. Only the
-      // move's own freezeTime pulls real time and game time apart -- NOT the swap/cancel
-      // truncated duration, since hits scheduled within the move's true damage window (which
-      // is resolved before that truncation is applied) keep resolving in the background after
-      // a swap cuts the animation short. Elapsed time still inside the freeze window collapses
-      // to the instant the freeze began; anything past it resumes 1:1 with real time.
-      const originRow = nextHit.originRow;
-      const elapsedSinceRowStart = Math.max(0, nextHit.executeAt - (originRow.timeStart || 0));
-      const rowFreezeTime = originRow.freezeTime || 0;
-      const hitGameTime = (originRow.gameTimeStart || 0) + Math.max(0, elapsedSinceRowStart - rowFreezeTime);
+        // executeAt is a real-time offset; convert it to the equivalent game time. Only the
+        // move's own freezeTime pulls real time and game time apart -- NOT the swap/cancel
+        // truncated duration, since hits scheduled within the move's true damage window (which
+        // is resolved before that truncation is applied) keep resolving in the background after
+        // a swap cuts the animation short. Elapsed time still inside the freeze window collapses
+        // to the instant the freeze began; anything past it resumes 1:1 with real time.
+        const originRow = nextHit.originRow;
+        const elapsedSinceRowStart = Math.max(0, nextHit.executeAt - (originRow.timeStart || 0));
+        const rowFreezeTime = originRow.freezeTime || 0;
+        const hitGameTime = (originRow.gameTimeStart || 0) + Math.max(0, elapsedSinceRowStart - rowFreezeTime);
 
-      nextHit.originRow._pendingHits.push({
-        config: {
-          hitMult: nextHit.hitMult, provider: nextHit.provider, dmgTypes: nextHit.originMoveData.dmgTypes,
-          castTypes: nextHit.originMoveData.castTypes, scalar: nextHit.originMoveData.scalar,
-          title: nextHit.isProc ? `[Proc] ${hitName}` : (nextHit.totalHits > 1 ? `Hit ${nextHit.hitIndex + 1}` : 'Active Hit'),
-          isOpen: false,
-          isNegativeStatus: nextHit.originMoveData.isNegativeStatus,
-          actionId: nextHit.originActionId,
-          moveName: nextHit.originMoveData.name,
-          gameTime: hitGameTime
-        },
-        context: JSON.parse(JSON.stringify(cleanData))
-      });
+        nextHit.originRow._pendingHits.push({
+          config: {
+            hitMult: nextHit.hitMult, provider: nextHit.provider, dmgTypes: nextHit.originMoveData.dmgTypes,
+            castTypes: nextHit.originMoveData.castTypes, scalar: nextHit.originMoveData.scalar,
+            title: nextHit.isProc ? `[Proc] ${hitName}` : (nextHit.totalHits > 1 ? `Hit ${nextHit.hitIndex + 1}` : 'Active Hit'),
+            isOpen: false,
+            isNegativeStatus: nextHit.originMoveData.isNegativeStatus,
+            actionId: nextHit.originActionId,
+            moveName: nextHit.originMoveData.name,
+            gameTime: hitGameTime
+          },
+          context: JSON.parse(JSON.stringify(cleanData))
+        });
+      }
 
       const afterHitEffects = EventManager.emit('AfterHit', nextHit.hitModifiers, currentData, nextHit.provider, team, { hitIndex: nextHit.hitIndex + 1, totalHits: nextHit.totalHits });
       this._executeEffectsStream(afterHitEffects, currentData, activeTeam, activeRows, nextHit.executeAt, nextHit.provider, team);
@@ -1026,9 +1141,9 @@ export class TimelineEngineClass {
     return effects;
   }
 
-  _evaluateMechanics(currentData: any, activeTeam: string[], activeRows: any[], currentIndex: number, team: any[]): void {
+  _evaluateMechanics(currentData: any, activeTeam: string[], activeRows: any[], currentIndex: number, team: any[], dbMove: MechanicNode): void {
     const unitName = currentData.unit;
-    const moveData = this._getModifiedMoveData(currentData.action) || ({ name: currentData.action } as MechanicNode);
+    const moveData = dbMove;
     const prevData = currentIndex > 0 ? activeRows[currentIndex - 1] : this._getDefaultData();
 
     const startEnergy = currentData.energy?.[unitName] || 0;
@@ -1114,10 +1229,10 @@ export class TimelineEngineClass {
     }
   }
 
-  _runValidation(currentData: any, prevData: any, team: any[]): void {
+  _runValidation(currentData: any, prevData: any, team: any[], dbMove: MechanicNode): void {
     currentData.errorMsg = null;
     currentData.warningMsg = null;
-    const moveData = this._getModifiedMoveData(currentData.action) || ({ name: currentData.action } as MechanicNode);
+    const moveData = dbMove;
     const moveName = moveData.name || currentData.action;
     const castRes: Record<string, any> = moveData.castResources || (moveData as any).resources || {};
     const costs: Record<string, any> = (moveData as any).cost || {};

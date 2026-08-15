@@ -30,7 +30,13 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     moveRows,
     undo,
     redo,
-    importRotation
+    importRotation,
+    loopStartIndex,
+    loopStartIsOverride,
+    loopErrorMsg,
+    loopWarningMsg,
+    setLoopStartOverride,
+    resetLoopStart
   } = useRotationStore();
 
   const { team, importTeam } = useRosterStore();
@@ -41,6 +47,11 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
   // Drag and Drop state
   const [draggedIndices, setDraggedIndices] = useState<number[]>([]);
   const [dragOverInfo, setDragOverInfo] = useState<{ index: number; position: 'top' | 'bottom' } | null>(null);
+
+  // Loop-start tag drag state -- a separate gesture from row reordering above: dragging the
+  // tag relocates which row is flagged as the loop start, it never reorders rows.
+  const [draggedLoopMarker, setDraggedLoopMarker] = useState(false);
+  const [loopDragOverIndex, setLoopDragOverIndex] = useState<number | null>(null);
 
   // Global Keyboard Shortcuts (Delete, Undo, Redo)
   useEffect(() => {
@@ -112,6 +123,11 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
   const handleDragOver = (e: React.DragEvent, targetIndex: number) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
+
+    if (draggedLoopMarker) {
+      setLoopDragOverIndex(targetIndex);
+      return;
+    }
     if (draggedIndices.includes(targetIndex)) return;
 
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -125,6 +141,14 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
 
   const handleDrop = (e: React.DragEvent, targetIndex: number) => {
     e.preventDefault();
+
+    if (draggedLoopMarker) {
+      if (rows[targetIndex]?.unit) setLoopStartOverride(targetIndex);
+      setDraggedLoopMarker(false);
+      setLoopDragOverIndex(null);
+      return;
+    }
+
     if (draggedIndices.length === 0 || draggedIndices.includes(targetIndex)) {
       setDragOverInfo(null);
       setDraggedIndices([]);
@@ -139,11 +163,27 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     setDraggedIndices([]);
   };
 
+  const handleLoopMarkerDragStart = (e: React.DragEvent) => {
+    e.stopPropagation();
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedLoopMarker(true);
+  };
+
+  const handleLoopMarkerDragEnd = () => {
+    setDraggedLoopMarker(false);
+    setLoopDragOverIndex(null);
+  };
+
   const handleExport = () => {
     if (rows.length === 0) return alert('Rotation is empty.');
 
     const exportObject = {
-      rotation: rows.map(({ unit, action, timing }) => ({ unit, action, timing })),
+      rotation: rows.map(({ unit, action, timing, loopStartOverride }) => ({
+        unit,
+        action,
+        timing,
+        ...(loopStartOverride === true && { loopStartOverride: true })
+      })),
       team: team.map(slot => {
         const { domRef, ...cleanData } = slot;
         return cleanData;
@@ -278,6 +318,14 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
               onDrop={handleDrop}
               dragOverPosition={dragOverInfo?.index === i ? dragOverInfo.position : null}
               isLastRow={i === rows.length - 1}
+              isLoopStart={i === loopStartIndex && rows.some(r => r.unit)}
+              isLoopStartOverride={loopStartIsOverride && i === loopStartIndex}
+              loopErrorMsg={i === loopStartIndex ? loopErrorMsg : null}
+              loopWarningMsg={i === loopStartIndex ? loopWarningMsg : null}
+              isLoopDragTarget={draggedLoopMarker && loopDragOverIndex === i}
+              onLoopMarkerDragStart={handleLoopMarkerDragStart}
+              onLoopMarkerDragEnd={handleLoopMarkerDragEnd}
+              onResetLoopStart={resetLoopStart}
             />
           ))}
         </div>
