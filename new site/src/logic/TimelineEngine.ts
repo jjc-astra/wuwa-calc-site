@@ -468,16 +468,23 @@ export class TimelineEngineClass {
         firstError = `${moveName}: ${row.errorMsg}`;
         break;
       }
-      if (row.warningMsg && /^Combo requirement not met/.test(row.warningMsg)) {
-        firstError = `${moveName}: ${row.warningMsg}`;
-        break;
-      }
-      if (!firstWarning) {
-        if (row.warningMsg && /^Not enough (Resonance Energy|Forte \d+|Tune)/.test(row.warningMsg)) {
-          firstWarning = `${moveName}: ${row.warningMsg}`;
-        } else if (row.cdWaitTime > 0.05) {
+      // A cooldown-blocked move fails its trigger rule the same way a genuine combo-order
+      // violation does, but it isn't actually illegal -- the loop is fine, it just needs to
+      // wait. Check cdWaitTime first so that case is always a wait-time warning, never
+      // promoted to the "illegal loop" error below.
+      if (row.cdWaitTime > 0.05) {
+        if (!firstWarning) {
           firstWarning = `${moveName} needs ${row.cdWaitTime.toFixed(2)}s more (on cooldown).`;
         }
+      } else if (row.warningMsg && /^Combo requirement not met/.test(row.warningMsg)) {
+        firstError = `${moveName}: ${row.warningMsg}`;
+        break;
+      } else if (
+        !firstWarning &&
+        row.warningMsg &&
+        /out of the required .* (Resonance Energy|Forte \d+|Tune)/.test(row.warningMsg)
+      ) {
+        firstWarning = `${moveName}: ${row.warningMsg}`;
       }
     }
 
@@ -1237,11 +1244,28 @@ export class TimelineEngineClass {
     const castRes: Record<string, any> = moveData.castResources || (moveData as any).resources || {};
     const costs: Record<string, any> = (moveData as any).cost || {};
 
+    const buildShortfallMsg = (label: string, myVal: number, req: number, isEnergy: boolean) => {
+      const base = `${currentData.unit} has ${myVal.toFixed(1)} out of the required ${req} ${label}`;
+      if (!isEnergy || myVal <= 0) return `${base}.`;
+      // Energy accumulated so far already reflects the unit's current ER% (see
+      // _handleResourceEffect), so the base (unbuffed) potential can be backed out and
+      // re-scaled to find the ER% that would have closed the gap by now -- a rough
+      // "aim for this much ER" target rather than just the flat energy shortfall. There's no
+      // equivalent rate to extrapolate for Concerto/Forte/Tune, so they skip this suffix.
+      const validBuffs = Object.values(currentData.activeBuffs || {}).filter((b: any) =>
+        b.target === currentData.unit || b.target === '@Team' || b.target === 'Active'
+      );
+      const stats = CombatCalculator.calculateFinalStats(currentData.unit, validBuffs as Effect[], team);
+      const erTotal = stats.energyRegen || 100;
+      const extraErNeeded = erTotal * ((req - myVal) / myVal);
+      return `${base} (Needs ${extraErNeeded.toFixed(0)}% ER on top of the current ${erTotal.toFixed(0)}% ER).`;
+    };
+
     const validateRes = (key: string, myVal: number, label: string) => {
       const req = (costs[key] || 0) + (castRes[key] < 0 ? Math.abs(castRes[key]) : 0);
       if (req > 0 && myVal < req) {
         if (key === 'concerto') currentData.errorMsg = `Not enough Concerto (Needs ${req}).`;
-        else currentData.warningMsg = `Not enough ${label} (Needs ${req}).`;
+        else currentData.warningMsg = buildShortfallMsg(label, myVal, req, key === 'energy');
       }
     };
 
@@ -1258,8 +1282,17 @@ export class TimelineEngineClass {
       }
       if (moveData._compiledRule && typeof moveData._compiledRule.evaluate === 'function') {
         const ctx = ContextManager.buildContext(currentData, currentData.unit, team);
-        if (!moveData._compiledRule.evaluate(ctx, currentData.unit)) {
-          currentData.warningMsg = `Combo requirement not met for ${moveName}.`;
+        if (!moveData._compiledRule.evaluate(ctx, currentData.unit) && !currentData.warningMsg) {
+          // A trigger rule commonly fails simply because the move is still on its own
+          // cooldown, or because validateRes already diagnosed a resource shortfall above --
+          // in either case that's a more specific, already-set message, so only fall back to
+          // the generic "requirement not met" text (or the cooldown wait) when nothing better
+          // has been found yet.
+          if (currentData.cdWaitTime > 0.05) {
+            currentData.warningMsg = `${moveName} needs ${currentData.cdWaitTime.toFixed(2)}s more (on cooldown).`;
+          } else {
+            currentData.warningMsg = `Combo requirement not met for ${moveName}.`;
+          }
         }
       }
     }
