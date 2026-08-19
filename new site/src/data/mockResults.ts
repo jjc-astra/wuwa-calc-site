@@ -131,7 +131,7 @@ export interface TeamDmgSlice {
   dmg: number;
 }
 
-const MOCK_GLOBAL_MECHANICS = ['Outro Buff', 'Coordinated Attack', 'Amplify Field'];
+const MOCK_GLOBAL_MECHANICS = ['Aero Erosion', 'Tune Break',];
 
 export function generateMockTeamContribution(teamNames: string[]): TeamDmgSlice[] {
   const rng = seededRng(teamNames.join('|') + ':team-contribution');
