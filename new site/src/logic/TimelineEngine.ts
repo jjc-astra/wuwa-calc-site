@@ -1282,17 +1282,12 @@ export class TimelineEngineClass {
       }
       if (moveData._compiledRule && typeof moveData._compiledRule.evaluate === 'function') {
         const ctx = ContextManager.buildContext(currentData, currentData.unit, team);
+        // validateRes above may already have diagnosed a specific resource shortfall -- that's
+        // more useful than this generic text, so only fall back to it when nothing better has
+        // been found yet. (If the rule failed purely because of cooldown, the standalone check
+        // below replaces this with the concrete wait anyway.)
         if (!moveData._compiledRule.evaluate(ctx, currentData.unit) && !currentData.warningMsg) {
-          // A trigger rule commonly fails simply because the move is still on its own
-          // cooldown, or because validateRes already diagnosed a resource shortfall above --
-          // in either case that's a more specific, already-set message, so only fall back to
-          // the generic "requirement not met" text (or the cooldown wait) when nothing better
-          // has been found yet.
-          if (currentData.cdWaitTime > 0.05) {
-            currentData.warningMsg = `${moveName} needs ${currentData.cdWaitTime.toFixed(2)}s more (on cooldown).`;
-          } else {
-            currentData.warningMsg = `Combo requirement not met for ${moveName}.`;
-          }
+          currentData.warningMsg = `Combo requirement not met for ${moveName}.`;
         }
       }
     }
@@ -1302,6 +1297,15 @@ export class TimelineEngineClass {
       if (currentData.unit === prevData.unit && actualStance !== moveData.stanceReq) {
         currentData.warningMsg = (currentData.warningMsg ? currentData.warningMsg + ' | ' : '') + `Stance mismatch: Requires ${moveData.stanceReq}, but character is ${actualStance}.`;
       }
+    }
+
+    // A move can be delayed by its own cooldown regardless of whether it has a trigger rule at
+    // all (most moves don't) -- surface that wait directly rather than only catching it as a
+    // side effect of a trigger-rule failure. Resource-shortfall messages from validateRes above
+    // are more specific/actionable, so they're left alone; this only replaces nothing or the
+    // generic combo-requirement fallback.
+    if (currentData.cdWaitTime > 0.05 && (!currentData.warningMsg || /^Combo requirement not met/.test(currentData.warningMsg))) {
+      currentData.warningMsg = `${moveName} needs ${currentData.cdWaitTime.toFixed(2)}s more (on cooldown).`;
     }
 
     const prevWasOutro = prevData.castTypes && prevData.castTypes.includes('Outro');
