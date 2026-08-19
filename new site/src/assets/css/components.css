@@ -916,9 +916,6 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     background: rgba(255, 204, 0, 0.1);
     border-color: rgba(255, 204, 0, 0.3);
 }
-.loop-start-tag.loop-tag-drop-target {
-    box-shadow: 0 0 0 2px var(--accent);
-}
 .loop-tag-icon { flex-shrink: 0; }
 .loop-tag-label { flex-shrink: 0; }
 .loop-tag-msg {

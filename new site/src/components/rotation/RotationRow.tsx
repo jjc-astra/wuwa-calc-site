@@ -27,7 +27,6 @@ interface RotationRowProps {
   isLoopStartOverride?: boolean;
   loopErrorMsg?: string | null;
   loopWarningMsg?: string | null;
-  isLoopDragTarget?: boolean;
   onLoopMarkerDragStart?: (e: React.DragEvent) => void;
   onLoopMarkerDragEnd?: (e: React.DragEvent) => void;
   onResetLoopStart?: () => void;
@@ -67,7 +66,6 @@ export const RotationRow: React.FC<RotationRowProps> = ({
   isLoopStartOverride,
   loopErrorMsg,
   loopWarningMsg,
-  isLoopDragTarget,
   onLoopMarkerDragStart,
   onLoopMarkerDragEnd,
   onResetLoopStart
@@ -237,7 +235,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
     >
       {isLoopStart && (
         <div
-          className={`loop-start-tag ${loopErrorMsg ? 'loop-tag-error' : loopWarningMsg ? 'loop-tag-warning' : ''} ${isLoopDragTarget ? 'loop-tag-drop-target' : ''}`}
+          className={`loop-start-tag ${loopErrorMsg ? 'loop-tag-error' : loopWarningMsg ? 'loop-tag-warning' : ''}`}
           draggable
           onDragStart={onLoopMarkerDragStart}
           onDragEnd={onLoopMarkerDragEnd}

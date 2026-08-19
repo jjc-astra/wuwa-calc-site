@@ -26,8 +26,12 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     startConcerto,
     selectedIndices,
     setSelectedIndices,
+    clipboard,
+    setClipboard,
+    addRow,
     deleteRows,
     moveRows,
+    pasteRows,
     undo,
     redo,
     importRotation,
@@ -49,11 +53,14 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
   const [dragOverInfo, setDragOverInfo] = useState<{ index: number; position: 'top' | 'bottom' } | null>(null);
 
   // Loop-start tag drag state -- a separate gesture from row reordering above: dragging the
-  // tag relocates which row is flagged as the loop start, it never reorders rows.
+  // tag relocates which row is flagged as the loop start, it never reorders rows. It shares
+  // dragOverInfo with row reordering so the top/bottom placement indicator looks and behaves
+  // identically for both.
   const [draggedLoopMarker, setDraggedLoopMarker] = useState(false);
-  const [loopDragOverIndex, setLoopDragOverIndex] = useState<number | null>(null);
 
-  // Global Keyboard Shortcuts (Delete, Undo, Redo)
+  // Global Keyboard Shortcuts (Delete, Undo/Redo, Copy/Paste, Insert Above/Below).
+  // Mirrors the equivalent buttons/logic in RotationToolbar -- same duplication pattern
+  // already used there for Delete, since each component owns its own store subscription.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const active = document.activeElement as HTMLElement | null;
@@ -63,20 +70,51 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
         (active.tagName === 'SELECT' || active.tagName === 'TEXTAREA' ||
           (active.tagName === 'INPUT' && inputType !== 'checkbox' && inputType !== 'radio' && inputType !== 'button'));
 
+      const lastIndex = rows.length - 1;
+      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+      const key = e.key.toLowerCase();
+
       if (!isEditingInput) {
         if (e.key === 'Delete' || e.key === 'Backspace') {
-          const deletable = selectedIndices.filter(i => i !== rows.length - 1);
+          const deletable = selectedIndices.filter(i => i !== lastIndex);
           if (deletable.length > 0) {
             e.preventDefault();
             deleteRows(deletable);
           }
+        } else if (isCtrlOrCmd && key === 'c') {
+          const validIndices = selectedIndices.filter(i => i !== lastIndex);
+          const selectedRows = rows.filter((_, i) => validIndices.includes(i));
+          if (selectedRows.length > 0) {
+            e.preventDefault();
+            setClipboard(selectedRows.map(({ unit, action, timing }) => ({ unit, action, timing })));
+            setSelectedIndices([]);
+          }
+        } else if (isCtrlOrCmd && key === 'v') {
+          if (clipboard.length > 0) {
+            e.preventDefault();
+            pasteRows();
+          }
+        } else if (isCtrlOrCmd && e.key === 'ArrowUp') {
+          if (selectedIndices.length > 0) {
+            e.preventDefault();
+            addRow('', '', selectedIndices[0]);
+            // The new blank row pushes the selected block down by one; follow it rather
+            // than leaving the selection pinned to the row index (now the new blank row).
+            setSelectedIndices(selectedIndices.map(i => i + 1));
+          }
+        } else if (isCtrlOrCmd && e.key === 'ArrowDown') {
+          if (selectedIndices.length > 0) {
+            e.preventDefault();
+            addRow('', '', selectedIndices[selectedIndices.length - 1] + 1);
+          }
         }
       }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+
+      if (isCtrlOrCmd && key === 'z') {
         e.preventDefault();
-        undo();
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        if (e.shiftKey) redo();
+        else undo();
+      } else if (isCtrlOrCmd && key === 'y') {
         e.preventDefault();
         redo();
       }
@@ -84,7 +122,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedIndices, deleteRows, undo, redo, rows.length]);
+  }, [selectedIndices, rows, clipboard, deleteRows, setClipboard, setSelectedIndices, pasteRows, addRow, undo, redo]);
 
   const handleSelectRow = (index: number, shiftKey: boolean) => {
     if (shiftKey && selectedIndices.length > 0) {
@@ -124,11 +162,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
 
-    if (draggedLoopMarker) {
-      setLoopDragOverIndex(targetIndex);
-      return;
-    }
-    if (draggedIndices.includes(targetIndex)) return;
+    if (!draggedLoopMarker && draggedIndices.includes(targetIndex)) return;
 
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const isBelow = e.clientY > rect.top + rect.height / 2;
@@ -143,9 +177,11 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     e.preventDefault();
 
     if (draggedLoopMarker) {
-      if (rows[targetIndex]?.unit) setLoopStartOverride(targetIndex);
+      let adjustedTarget = targetIndex;
+      if (dragOverInfo?.position === 'bottom') adjustedTarget++;
+      if (rows[adjustedTarget]?.unit) setLoopStartOverride(adjustedTarget);
       setDraggedLoopMarker(false);
-      setLoopDragOverIndex(null);
+      setDragOverInfo(null);
       return;
     }
 
@@ -171,7 +207,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
 
   const handleLoopMarkerDragEnd = () => {
     setDraggedLoopMarker(false);
-    setLoopDragOverIndex(null);
+    setDragOverInfo(null);
   };
 
   const handleExport = () => {
@@ -322,7 +358,6 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
               isLoopStartOverride={loopStartIsOverride && i === loopStartIndex}
               loopErrorMsg={i === loopStartIndex ? loopErrorMsg : null}
               loopWarningMsg={i === loopStartIndex ? loopWarningMsg : null}
-              isLoopDragTarget={draggedLoopMarker && loopDragOverIndex === i}
               onLoopMarkerDragStart={handleLoopMarkerDragStart}
               onLoopMarkerDragEnd={handleLoopMarkerDragEnd}
               onResetLoopStart={resetLoopStart}

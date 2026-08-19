@@ -48,6 +48,7 @@ export const RotationToolbar: React.FC = () => {
   const handleInsertAbove = () => {
     if (selectedIndices.length === 0) return;
     addRow('', '', selectedIndices[0]);
+    setSelectedIndices(selectedIndices.map(i => i + 1));
   };
 
   const handleInsertBelow = () => {
