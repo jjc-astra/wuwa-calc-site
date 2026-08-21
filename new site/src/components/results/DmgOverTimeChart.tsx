@@ -20,6 +20,10 @@ const SNAP_PX = 8;
 // the component still bails to `null` after the hooks, per the Rules of Hooks.
 const EMPTY_SERIES: DmgOverTimeSeries = { label: '', points: [{ t: 0, dmg: 0 }], bossMaxHp: 1, killTime: null };
 
+type ViewMode = 'dmg' | 'dps';
+// "Rolling avg of the past 1 second" per spec.
+const DPS_WINDOW = 1;
+
 const formatDmg = (v: number) => (v >= 1_000_000 ? `${(v / 1_000_000).toFixed(2)}M` : `${(v / 1000).toFixed(0)}K`);
 const formatTime = (t: number) => `${Math.floor(t / 60)}:${String(Math.round(t % 60)).padStart(2, '0')}`;
 
@@ -36,17 +40,49 @@ function valueAtTime(points: DmgOverTimePoint[], t: number): number {
   return points[points.length - 1].dmg;
 }
 
+// Derives a trailing-1s-average DPS line from the dmg dmg points, sampled at every real
+// hit's own timestamp (where the average jumps up) AND at that hit's +1s "expiry" timestamp
+// (where it drops back out of the window) -- capturing the actual rise/decay shape a rolling
+// average produces, rather than just linearly bridging between whatever hit timestamps happen
+// to exist (which would smear a burst's decay into a random later sample).
+function buildDpsPoints(points: DmgOverTimePoint[]): DmgOverTimePoint[] {
+  const domainMaxT = points[points.length - 1].t;
+  const criticalTimes = new Set<number>([0, domainMaxT]);
+  points.forEach(p => {
+    criticalTimes.add(p.t);
+    if (p.t + DPS_WINDOW <= domainMaxT) criticalTimes.add(p.t + DPS_WINDOW);
+  });
+  return Array.from(criticalTimes)
+    .sort((a, b) => a - b)
+    .map(t => {
+      const windowStart = Math.max(0, t - DPS_WINDOW);
+      const windowLen = t - windowStart;
+      const dmg = windowLen > 0 ? (valueAtTime(points, t) - valueAtTime(points, windowStart)) / windowLen : 0;
+      return { t, dmg };
+    });
+}
+
 export const DmgOverTimeChart: React.FC = () => {
   const results = useRotationStore(s => s.results);
   const { pinned } = useComparisonStore();
   const svgRef = useRef<SVGSVGElement>(null);
   const [hoverT, setHoverT] = useState<number | null>(null);
+  const [mode, setMode] = useState<ViewMode>('dmg');
 
-  const primary = results?.dmgOverTimeSeries ?? EMPTY_SERIES;
-  const series: DmgOverTimeSeries[] = pinned ? [primary, pinned.dmgOverTimeSeries] : [primary];
+  const primarydmg = results?.dmgOverTimeSeries ?? EMPTY_SERIES;
+  const dmgSeries: DmgOverTimeSeries[] = pinned ? [primarydmg, pinned.dmgOverTimeSeries] : [primarydmg];
+  // In DPS mode, every series' points are replaced with the derived rolling-average line --
+  // label/bossMaxHp/killTime (all time- or total-based, not shape-of-the-line-based) still
+  // carry over unchanged, so the rest of the chart (kill markers, snap times, legend) doesn't
+  // need to know which mode it's in.
+  const series: DmgOverTimeSeries[] =
+    mode === 'dmg' ? dmgSeries : dmgSeries.map(s => ({ ...s, points: buildDpsPoints(s.points) }));
 
-  const domainMaxT = Math.max(...primary.points.map(p => p.t));
-  const domainMaxDmg = Math.max(primary.bossMaxHp, ...series.flatMap(s => s.points.map(p => p.dmg))) * 1.05;
+  const domainMaxT = Math.max(...primarydmg.points.map(p => p.t));
+  const domainMaxDmg =
+    mode === 'dmg'
+      ? Math.max(primarydmg.bossMaxHp, ...series.flatMap(s => s.points.map(p => p.dmg))) * 1.05
+      : Math.max(1, ...series.flatMap(s => s.points.map(p => p.dmg))) * 1.05;
 
   const plotW = WIDTH - PAD.left - PAD.right;
   const plotH = HEIGHT - PAD.top - PAD.bottom;
@@ -54,6 +90,7 @@ export const DmgOverTimeChart: React.FC = () => {
   const yScale = (v: number) => PAD.top + plotH - (v / domainMaxDmg) * plotH;
 
   const pathFor = (points: DmgOverTimePoint[]) => points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xScale(p.t)} ${yScale(p.dmg)}`).join(' ');
+  const formatValue = (v: number) => (mode === 'dps' ? `${formatDmg(v)}/s` : formatDmg(v));
 
   // Every kill intercept (one per series) plus the shared 2-minute mark -- hovering near any
   // of these snaps the cursor to its exact time, so the tooltip reads its precise value
@@ -74,7 +111,7 @@ export const DmgOverTimeChart: React.FC = () => {
       .map(
         (s, i) =>
           `<div class="dmg-time-tooltip-row"><span class="dmg-time-tooltip-key" style="background:${CATEGORICAL_PALETTE[i]}"></span>` +
-          `<span class="tooltip-val">${formatDmg(valueAtTime(s.points, t))}</span> <span class="text-dim">${s.label}</span></div>`
+          `<span class="tooltip-val">${formatValue(valueAtTime(s.points, t))}</span> <span class="text-dim">${s.label}</span></div>`
       )
       .join('');
 
@@ -108,7 +145,27 @@ export const DmgOverTimeChart: React.FC = () => {
     <div className="results-card">
       <div className="results-card-header">
         <span>Dmg Over Time</span>
-        <PinRotationControl />
+        <div className="results-card-header-controls">
+          <div className="segmented-toggle" role="group" aria-label="Dmg over time view">
+            <button
+              type="button"
+              className={`segmented-toggle-btn ${mode === 'dmg' ? 'is-active' : ''}`}
+              title="Total damage accumulated over time"
+              onClick={() => setMode('dmg')}
+            >
+              DMG
+            </button>
+            <button
+              type="button"
+              className={`segmented-toggle-btn ${mode === 'dps' ? 'is-active' : ''}`}
+              title="Rolling average DPS over the past 1 second"
+              onClick={() => setMode('dps')}
+            >
+              DPS
+            </button>
+          </div>
+          <PinRotationControl />
+        </div>
       </div>
       {series.length > 1 && (
         <div className="results-legend">
@@ -134,7 +191,7 @@ export const DmgOverTimeChart: React.FC = () => {
             <g key={f}>
               <line x1={PAD.left} x2={WIDTH - PAD.right} y1={yScale(v)} y2={yScale(v)} className="dmg-time-gridline" />
               <text x={PAD.left - 8} y={yScale(v)} textAnchor="end" dominantBaseline="middle" className="dmg-time-axis-label">
-                {formatDmg(v)}
+                {formatValue(v)}
               </text>
             </g>
           );
@@ -147,15 +204,19 @@ export const DmgOverTimeChart: React.FC = () => {
           </text>
         ))}
 
-        {/* Boss HP reference line */}
-        <line
-          x1={PAD.left} x2={WIDTH - PAD.right}
-          y1={yScale(primary.bossMaxHp)} y2={yScale(primary.bossMaxHp)}
-          className="dmg-time-reference-line"
-        />
-        <text x={WIDTH - PAD.right} y={yScale(primary.bossMaxHp) - 4} textAnchor="end" className="dmg-time-reference-label">
-          Boss HP
-        </text>
+        {/* Boss HP reference line -- a dmg-total concept only, not a rate */}
+        {mode === 'dmg' && (
+          <>
+            <line
+              x1={PAD.left} x2={WIDTH - PAD.right}
+              y1={yScale(primarydmg.bossMaxHp)} y2={yScale(primarydmg.bossMaxHp)}
+              className="dmg-time-reference-line"
+            />
+            <text x={WIDTH - PAD.right} y={yScale(primarydmg.bossMaxHp) - 4} textAnchor="end" className="dmg-time-reference-label">
+              Boss HP
+            </text>
+          </>
+        )}
 
         {/* 2-minute reference line */}
         {TWO_MIN <= domainMaxT && (
@@ -176,14 +237,17 @@ export const DmgOverTimeChart: React.FC = () => {
           <path key={s.label} d={pathFor(s.points)} className="dmg-time-line" stroke={CATEGORICAL_PALETTE[i]} fill="none" />
         ))}
 
-        {/* Kill intercept markers -- labeled for every series, not just the primary one */}
+        {/* Kill intercept markers -- labeled for every series, not just the primary one. Y
+            position reads this series' own value at kill time -- in dmg mode that's
+            just bossMaxHp again (kill time is defined as exactly when dmg crosses it),
+            in DPS mode it's wherever the rolling-average line happens to sit at that instant. */}
         {series.map((s, i) =>
           s.killTime !== null && s.killTime <= domainMaxT ? (
             <g key={`kill-${s.label}`}>
-              <circle cx={xScale(s.killTime)} cy={yScale(s.bossMaxHp)} r={4} className="dmg-time-marker" fill={CATEGORICAL_PALETTE[i]} />
+              <circle cx={xScale(s.killTime)} cy={yScale(valueAtTime(s.points, s.killTime))} r={4} className="dmg-time-marker" fill={CATEGORICAL_PALETTE[i]} />
               <text
                 x={xScale(s.killTime)}
-                y={yScale(s.bossMaxHp) - 10 - i * 13}
+                y={yScale(valueAtTime(s.points, s.killTime)) - 10 - i * 13}
                 textAnchor="middle"
                 className="dmg-time-marker-label"
                 fill={CATEGORICAL_PALETTE[i]}
