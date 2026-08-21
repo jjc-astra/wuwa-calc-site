@@ -5,7 +5,7 @@ import { useRotationStore } from '../../store/useRotationStore';
 import { DataLoader } from '../../utils/DataLoader';
 import type { DpsWindowKey } from '../../types/results';
 import { PieChart } from './PieChart';
-import { colorForIndex, OTHER_SLICE_COLOR } from './chartPalette';
+import { colorForLabel, OTHER_SLICE_COLOR } from './chartPalette';
 import { getCharacterThemeColor } from '../../utils/Common';
 
 const DPS_TYPE_OPTIONS: Array<{ key: DpsWindowKey; label: string }> = [
@@ -30,25 +30,25 @@ export const TeamContributionPanel: React.FC = () => {
 
   const data =
     tab === 'Team'
-      ? teamSlices.map((s, i) => {
+      ? teamSlices.map(s => {
           // Status/mechanic slices (e.g. Aero Erosion) aren't a team unit -- fall through to
           // the generic categorical palette for those instead of a character theme color.
           if (units.includes(s.label)) {
             const themeColor = getCharacterThemeColor(DataLoader.characterDB[s.label]);
             return { label: s.label, value: s.dmg, color: themeColor, labelColor: themeColor };
           }
-          return { label: s.label, value: s.dmg, color: colorForIndex(i) };
+          return { label: s.label, value: s.dmg, color: colorForLabel(s.label) };
         })
-      : unitSlices.map((s, i) => ({
+      : unitSlices.map(s => ({
           label: s.castType,
           value: s.dmg,
-          color: s.castType === 'Other' ? OTHER_SLICE_COLOR : colorForIndex(i)
+          color: s.castType === 'Other' ? OTHER_SLICE_COLOR : colorForLabel(s.castType)
         }));
 
   return (
     <div className="results-card">
       <div className="results-card-header">
-        <span>Team DMG Contribution</span>
+        <span>DMG Contribution</span>
         <select
           className="base-select text-xs results-dps-type-select"
           value={dpsType}
