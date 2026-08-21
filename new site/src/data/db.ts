@@ -68,8 +68,8 @@ export const STAT_DB: Record<string, { values: number[]; defaultIndex: number }>
   'Heavy DMG': { values: COMMON_DMG_PCT, defaultIndex: 3 },
   'Lib DMG': { values: COMMON_DMG_PCT, defaultIndex: 3 },
   'HP': { values: [320, 360, 390, 430, 470, 510, 540, 580], defaultIndex: 3 },
-  'ATK': { values: [30, 40, 50, 60], defaultIndex: 2 },
-  'DEF': { values: [40, 50, 60, 70], defaultIndex: 2 }
+  'ATK': { values: [30, 40, 50, 60], defaultIndex: 1 },
+  'DEF': { values: [40, 50, 60, 70], defaultIndex: 1 }
 };
 
 export const STAT_NAME_MAP: Record<string, string> = {
