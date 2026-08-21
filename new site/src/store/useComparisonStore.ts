@@ -1,11 +1,12 @@
 import { create } from 'zustand';
-import { generateMockDpsStats, generateMockDmgOverTimeSeries } from '../data/mockResults';
+import { generateMockDpsStats, generateMockAllDmgOverTime } from '../data/mockResults';
 import type { DpsStats, DmgOverTimeSeries } from '../data/mockResults';
+import type { DpsWindowKey } from '../types/results';
 
 export interface PinnedRotation {
   label: string;
   dpsStats: DpsStats;
-  dmgOverTimeSeries: DmgOverTimeSeries;
+  dmgOverTimeSeries: Record<DpsWindowKey, DmgOverTimeSeries>;
 }
 
 interface ComparisonState {
@@ -52,7 +53,7 @@ export const useComparisonStore = create<ComparisonState>()((set) => ({
       pinned: {
         label,
         dpsStats: generateMockDpsStats(seed),
-        dmgOverTimeSeries: generateMockDmgOverTimeSeries(seed, label)
+        dmgOverTimeSeries: generateMockAllDmgOverTime(seed, label)
       }
     });
   },

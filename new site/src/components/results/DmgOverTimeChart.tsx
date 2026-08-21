@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRotationStore } from '../../store/useRotationStore';
 import { useComparisonStore } from '../../store/useComparisonStore';
-import type { DmgOverTimeSeries, DmgOverTimePoint } from '../../types/results';
+import type { DmgOverTimeSeries, DmgOverTimePoint, DpsWindowKey } from '../../types/results';
 import { PinRotationControl } from './PinRotationControl';
 import { CATEGORICAL_PALETTE } from './chartPalette';
 import { TooltipManager } from '../../utils/Common';
@@ -18,11 +18,40 @@ const SNAP_PX = 8;
 
 // Safe placeholder so every hook below can run unconditionally even before results exist --
 // the component still bails to `null` after the hooks, per the Rules of Hooks.
-const EMPTY_SERIES: DmgOverTimeSeries = { label: '', points: [{ t: 0, dmg: 0 }], bossMaxHp: 1, killTime: null };
+const EMPTY_SERIES: DmgOverTimeSeries = { label: '', points: [{ t: 0, dmg: 0 }], bossMaxHp: 1, killTime: null, windowEnd: 0 };
+
+// Same 4 windows/labels as TeamContributionPanel's dropdown, so picking "First Loop" here means
+// the same thing it does there.
+const DPS_TYPE_OPTIONS: Array<{ key: DpsWindowKey; label: string }> = [
+  { key: 'opener', label: 'Opener' },
+  { key: 'firstLoop', label: 'First Loop' },
+  { key: 'avgLoop', label: 'Avg Loop' },
+  { key: 'twoMin', label: '2-Min' }
+];
 
 type ViewMode = 'dmg' | 'dps';
 // "Rolling avg of the past 1 second" per spec.
 const DPS_WINDOW = 1;
+
+// Picks a readable tick spacing for whichever window is selected -- an Opener window might be
+// 8s long, a 2-Min window is 120s+, and one fixed tick set can't read well across that range.
+function pickTickStep(domainMaxT: number): number {
+  if (domainMaxT <= 15) return 2;
+  if (domainMaxT <= 40) return 5;
+  if (domainMaxT <= 80) return 10;
+  if (domainMaxT <= 150) return 30;
+  return 60;
+}
+
+// A label centered/anchored right at the plot's left or right edge would render half off the
+// chart (SVG text isn't clipped to the viewBox by default, it just draws past it and gets cut
+// off by the container) -- flip to "start"/"end" near either edge so it draws inward instead.
+const EDGE_ZONE = 22;
+function edgeAnchor(x: number): 'start' | 'middle' | 'end' {
+  if (x <= PAD.left + EDGE_ZONE) return 'start';
+  if (x >= WIDTH - PAD.right - EDGE_ZONE) return 'end';
+  return 'middle';
+}
 
 const formatDmg = (v: number) => (v >= 1_000_000 ? `${(v / 1_000_000).toFixed(2)}M` : `${(v / 1000).toFixed(0)}K`);
 const formatTime = (t: number) => `${Math.floor(t / 60)}:${String(Math.round(t % 60)).padStart(2, '0')}`;
@@ -45,8 +74,7 @@ function valueAtTime(points: DmgOverTimePoint[], t: number): number {
 // (where it drops back out of the window) -- capturing the actual rise/decay shape a rolling
 // average produces, rather than just linearly bridging between whatever hit timestamps happen
 // to exist (which would smear a burst's decay into a random later sample).
-function buildDpsPoints(points: DmgOverTimePoint[]): DmgOverTimePoint[] {
-  const domainMaxT = points[points.length - 1].t;
+function buildDpsPoints(points: DmgOverTimePoint[], domainMaxT: number): DmgOverTimePoint[] {
   const criticalTimes = new Set<number>([0, domainMaxT]);
   points.forEach(p => {
     criticalTimes.add(p.t);
@@ -68,21 +96,23 @@ export const DmgOverTimeChart: React.FC = () => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [hoverT, setHoverT] = useState<number | null>(null);
   const [mode, setMode] = useState<ViewMode>('dmg');
+  const [dpsType, setDpsType] = useState<DpsWindowKey>('twoMin');
 
-  const primarydmg = results?.dmgOverTimeSeries ?? EMPTY_SERIES;
-  const dmgSeries: DmgOverTimeSeries[] = pinned ? [primarydmg, pinned.dmgOverTimeSeries] : [primarydmg];
+  const primarydmg = results?.dmgOverTimeSeries[dpsType] ?? EMPTY_SERIES;
+  const dmgSeries: DmgOverTimeSeries[] = pinned ? [primarydmg, pinned.dmgOverTimeSeries[dpsType]] : [primarydmg];
+  const domainMaxT = primarydmg.windowEnd;
   // In DPS mode, every series' points are replaced with the derived rolling-average line --
   // label/bossMaxHp/killTime (all time- or total-based, not shape-of-the-line-based) still
   // carry over unchanged, so the rest of the chart (kill markers, snap times, legend) doesn't
   // need to know which mode it's in.
   const series: DmgOverTimeSeries[] =
-    mode === 'dmg' ? dmgSeries : dmgSeries.map(s => ({ ...s, points: buildDpsPoints(s.points) }));
+    mode === 'dmg' ? dmgSeries : dmgSeries.map(s => ({ ...s, points: buildDpsPoints(s.points, domainMaxT) }));
 
-  const domainMaxT = Math.max(...primarydmg.points.map(p => p.t));
-  const domainMaxDmg =
-    mode === 'dmg'
-      ? Math.max(primarydmg.bossMaxHp, ...series.flatMap(s => s.points.map(p => p.dmg))) * 1.05
-      : Math.max(1, ...series.flatMap(s => s.points.map(p => p.dmg))) * 1.05;
+  // Scaled to whatever's actually visible in the current window, not always up to Boss HP --
+  // a short zoomed-in window (Opener, one loop) rarely gets anywhere near full Boss HP, and
+  // forcing that into the domain would waste most of the chart's height on empty space above
+  // a tiny line. The Boss HP reference line below only renders when it's actually in range.
+  const domainMaxDmg = Math.max(1, ...series.flatMap(s => s.points.map(p => p.dmg))) * 1.05;
 
   const plotW = WIDTH - PAD.left - PAD.right;
   const plotH = HEIGHT - PAD.top - PAD.bottom;
@@ -167,6 +197,12 @@ export const DmgOverTimeChart: React.FC = () => {
           <PinRotationControl />
         </div>
       </div>
+      {domainMaxT <= 0 ? (
+        <div className="results-empty">
+          {dpsType === 'opener' ? 'No opener in this rotation.' : 'No loop content in this rotation.'}
+        </div>
+      ) : (
+        <>
       {series.length > 1 && (
         <div className="results-legend">
           {series.map((s, i) => (
@@ -197,40 +233,43 @@ export const DmgOverTimeChart: React.FC = () => {
           );
         })}
 
-        {/* X axis ticks */}
-        {[0, 30, 60, 90, 120, 150].filter(t => t <= domainMaxT).map(t => (
-          <text key={t} x={xScale(t)} y={HEIGHT - PAD.bottom + 16} textAnchor="middle" className="dmg-time-axis-label">
-            {formatTime(t)}
-          </text>
-        ))}
+        {/* X axis ticks -- spacing adapts to the selected window's width (an Opener window and
+            a 2-Min window need very different tick density). */}
+        {(() => {
+          const step = pickTickStep(domainMaxT);
+          const ticks: number[] = [];
+          for (let t = 0; t <= domainMaxT; t += step) ticks.push(t);
+          return ticks.map(t => (
+            <text key={t} x={xScale(t)} y={HEIGHT - PAD.bottom + 16} textAnchor={edgeAnchor(xScale(t))} className="dmg-time-axis-label">
+              {formatTime(t)}
+            </text>
+          ));
+        })()}
 
-        {/* Boss HP reference line -- a dmg-total concept only, not a rate */}
-        {mode === 'dmg' && (
+        {/* Boss HP reference line -- a dmg-total concept only, not a rate, and only drawn when
+            it's actually within the current window's scale (a short zoomed-in window rarely
+            reaches it, and forcing it into the domain would flatten the visible line). Labeled
+            from the left edge rather than the right -- kill markers tend to land late in a
+            window, so anchoring here on the right would routinely collide with a "Kill" label
+            sitting right on top of this same line. */}
+        {mode === 'dmg' && primarydmg.bossMaxHp <= domainMaxDmg && (
           <>
             <line
               x1={PAD.left} x2={WIDTH - PAD.right}
               y1={yScale(primarydmg.bossMaxHp)} y2={yScale(primarydmg.bossMaxHp)}
               className="dmg-time-reference-line"
             />
-            <text x={WIDTH - PAD.right} y={yScale(primarydmg.bossMaxHp) - 4} textAnchor="end" className="dmg-time-reference-label">
+            <text x={PAD.left + 4} y={yScale(primarydmg.bossMaxHp) - 4} textAnchor="start" className="dmg-time-reference-label">
               Boss HP
             </text>
           </>
         )}
 
-        {/* 2-minute reference line */}
-        {TWO_MIN <= domainMaxT && (
-          <>
-            <line
-              x1={xScale(TWO_MIN)} x2={xScale(TWO_MIN)}
-              y1={PAD.top} y2={HEIGHT - PAD.bottom}
-              className="dmg-time-reference-line"
-            />
-            <text x={xScale(TWO_MIN) + 4} y={PAD.top + 10} className="dmg-time-reference-label">
-              2:00
-            </text>
-          </>
-        )}
+        {/* No separate "2:00" vertical reference line -- in the 2-Min window (the only mode
+            this would apply to), the window itself now ends at exactly t=120, so that line
+            would always sit right on the plot's own right border and its label would always
+            duplicate the x-axis's own last tick. Hover-snapping to exactly 2:00 (in snapTimes
+            above) still works without it. */}
 
         {/* Series lines */}
         {series.map((s, i) => (
@@ -247,8 +286,8 @@ export const DmgOverTimeChart: React.FC = () => {
               <circle cx={xScale(s.killTime)} cy={yScale(valueAtTime(s.points, s.killTime))} r={4} className="dmg-time-marker" fill={CATEGORICAL_PALETTE[i]} />
               <text
                 x={xScale(s.killTime)}
-                y={yScale(valueAtTime(s.points, s.killTime)) - 10 - i * 13}
-                textAnchor="middle"
+                y={Math.max(PAD.top + 8, yScale(valueAtTime(s.points, s.killTime)) - 10 - i * 13)}
+                textAnchor={edgeAnchor(xScale(s.killTime))}
                 className="dmg-time-marker-label"
                 fill={CATEGORICAL_PALETTE[i]}
               >
@@ -258,8 +297,8 @@ export const DmgOverTimeChart: React.FC = () => {
           ) : null
         )}
 
-        {/* 2-minute intercept markers */}
-        {TWO_MIN <= domainMaxT &&
+        {/* 2-minute intercept markers -- only meaningful in the 2-Min window itself */}
+        {dpsType === 'twoMin' && TWO_MIN <= domainMaxT &&
           series.map((s, i) => (
             <circle
               key={`two-min-${s.label}`}
@@ -288,6 +327,19 @@ export const DmgOverTimeChart: React.FC = () => {
           </g>
         )}
       </svg>
+        </>
+      )}
+      <div className="dmg-time-window-row">
+        <select
+          className="base-select text-xs results-dps-type-select"
+          value={dpsType}
+          onChange={e => setDpsType(e.target.value as DpsWindowKey)}
+        >
+          {DPS_TYPE_OPTIONS.map(opt => (
+            <option key={opt.key} value={opt.key}>{opt.label}</option>
+          ))}
+        </select>
+      </div>
     </div>
   );
 };

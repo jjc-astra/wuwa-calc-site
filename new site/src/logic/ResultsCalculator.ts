@@ -53,9 +53,10 @@ const cloneAuthored = (r: any) => ({
 });
 
 // Opener + N loop reps, run through the real (non-lightweight) engine once. N is at least
-// AVG_LOOP_REPS and enough whole reps to cross 120s -- the last rep is left to finish
-// naturally rather than truncated, which is what lets the dmg-over-time graph show the final
-// loop's full trajectory past the 2-minute mark, with no separate padding rep needed.
+// AVG_LOOP_REPS (so the avg-loop window always has its full 3 reps available) and enough whole
+// reps to cross 120s (so the 2-min window always has a full 120s of hits available) -- every
+// per-window series below then clips to its own exact window, none of them need the
+// simulation to run any further than this.
 function buildExtendedTimeline(
   rows: any[],
   team: any[],
@@ -160,22 +161,102 @@ function buildDpsStats(hits: RotationHit[], openerEndTime: number, loopDuration:
   return { openerDps, firstLoopDps, avgLoopDps, twoMinDps };
 }
 
-function buildDmgOverTimeSeries(hits: RotationHit[], bossMaxHp: number, label: string): DmgOverTimeSeries {
+// Builds one window's cumulative dmg-over-time series from a list of hits already shifted to
+// window-relative time (t=0 == this window's own start) and already divided down for
+// averaging where that applies (see buildAvgLoopDmgOverTime) -- so this function itself never
+// needs to know which window it's building.
+function buildDmgOverTimeForWindow(
+  relativeHits: Array<{ t: number; total: number }>,
+  bossMaxHp: number,
+  label: string,
+  windowEnd: number
+): DmgOverTimeSeries {
   const points: DmgOverTimePoint[] = [{ t: 0, dmg: 0 }];
   let cumulative = 0;
   let killTime: number | null = null;
 
-  for (const h of hits) {
+  for (const h of relativeHits) {
     cumulative += h.total;
-    points.push({ t: h.gameTime, dmg: cumulative });
+    points.push({ t: h.t, dmg: cumulative });
     if (killTime === null && cumulative >= bossMaxHp) {
       const prev = points[points.length - 2];
       const frac = cumulative === prev.dmg ? 0 : (bossMaxHp - prev.dmg) / (cumulative - prev.dmg);
-      killTime = prev.t + frac * (h.gameTime - prev.t);
+      killTime = prev.t + frac * (h.t - prev.t);
     }
   }
 
-  return { label, points, bossMaxHp, killTime };
+  return { label, points, bossMaxHp, killTime, windowEnd };
+}
+
+// Folds AVG_LOOP_REPS reps' worth of hits into one loop-length window (each hit's time taken
+// modulo loopDuration, so all 3 reps land in the same [0, loopDuration] range) and divides the
+// running cumulative total by AVG_LOOP_REPS at every point -- the same "average per loop"
+// treatment buildContributionForWindow gives its totals, just applied to a time series instead
+// of a single sum. A hit landing exactly on a rep boundary (gameTime - openerEndTime is an
+// exact multiple of loopDuration) belongs to the rep that just finished, not t=0 of the next.
+function buildAvgLoopDmgOverTime(hits: RotationHit[], openerEndTime: number, loopDuration: number, bossMaxHp: number): DmgOverTimeSeries {
+  const windowHits = windowedHits(hits, openerEndTime, openerEndTime + AVG_LOOP_REPS * loopDuration);
+  const folded = windowHits
+    .map(h => {
+      const rel = (h.gameTime - openerEndTime) % loopDuration;
+      return { t: rel === 0 ? loopDuration : rel, total: h.total };
+    })
+    .sort((a, b) => a.t - b.t);
+
+  const points: DmgOverTimePoint[] = [{ t: 0, dmg: 0 }];
+  let cumulative = 0;
+  let killTime: number | null = null;
+
+  for (const h of folded) {
+    cumulative += h.total;
+    const avgDmg = cumulative / AVG_LOOP_REPS;
+    points.push({ t: h.t, dmg: avgDmg });
+    if (killTime === null && avgDmg >= bossMaxHp) {
+      const prev = points[points.length - 2];
+      const frac = avgDmg === prev.dmg ? 0 : (bossMaxHp - prev.dmg) / (avgDmg - prev.dmg);
+      killTime = prev.t + frac * (h.t - prev.t);
+    }
+  }
+
+  return { label: 'Avg Loop', points, bossMaxHp, killTime, windowEnd: loopDuration };
+}
+
+function buildAllDmgOverTime(
+  hits: RotationHit[],
+  openerEndTime: number,
+  loopDuration: number | null,
+  bossMaxHp: number
+): Record<DpsWindowKey, DmgOverTimeSeries> {
+  const opener = buildDmgOverTimeForWindow(
+    windowedHits(hits, -Infinity, openerEndTime).map(h => ({ t: h.gameTime, total: h.total })),
+    bossMaxHp,
+    'Opener',
+    openerEndTime
+  );
+
+  const firstLoop =
+    loopDuration !== null
+      ? buildDmgOverTimeForWindow(
+          windowedHits(hits, openerEndTime, openerEndTime + loopDuration).map(h => ({ t: h.gameTime - openerEndTime, total: h.total })),
+          bossMaxHp,
+          'First Loop',
+          loopDuration
+        )
+      : buildDmgOverTimeForWindow([], bossMaxHp, 'First Loop', 0);
+
+  const avgLoop =
+    loopDuration !== null
+      ? buildAvgLoopDmgOverTime(hits, openerEndTime, loopDuration, bossMaxHp)
+      : buildDmgOverTimeForWindow([], bossMaxHp, 'Avg Loop', 0);
+
+  const twoMin = buildDmgOverTimeForWindow(
+    windowedHits(hits, -Infinity, TWO_MIN).map(h => ({ t: h.gameTime, total: h.total })),
+    bossMaxHp,
+    'Current Rotation',
+    TWO_MIN
+  );
+
+  return { opener, firstLoop, avgLoop, twoMin };
 }
 
 function buildContributionForWindow(windowHits: RotationHit[], teamNames: string[], divisor: number): ContributionForWindow {
@@ -317,7 +398,7 @@ export function buildRotationResults(
 
   return {
     dpsStats: buildDpsStats(hits, openerEndTime, loopDuration),
-    dmgOverTimeSeries: buildDmgOverTimeSeries(hits, enemyConfig.hp, 'Current Rotation'),
+    dmgOverTimeSeries: buildAllDmgOverTime(hits, openerEndTime, loopDuration, enemyConfig.hp),
     contribution: buildAllContribution(hits, openerEndTime, loopDuration, teamNames),
     substatWorth: buildSubstatWorth(twoMinHits, team)
   };

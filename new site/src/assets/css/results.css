@@ -362,6 +362,9 @@
    title -- sized down from the default .base-select since it sits inline in a small header. */
 .results-dps-type-select { width: auto; padding: 2px 6px; font-size: 0.7rem; }
 
+/* Dmg/DPS Over Time's own window select sits below the chart instead, centered under it. */
+.dmg-time-window-row { display: flex; justify-content: center; margin-top: 8px; }
+
 /* =========================================
    SUBSTAT WORTH CHART
    ========================================= */

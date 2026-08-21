@@ -5,7 +5,7 @@
 // real data from logic/ResultsCalculator.ts -- only the pin comparison still uses these
 // seeded, deterministic placeholder numbers.
 import { ENEMY_DEFAULTS } from './db';
-import type { DpsStats, DmgOverTimePoint, DmgOverTimeSeries } from '../types/results';
+import type { DpsStats, DmgOverTimePoint, DmgOverTimeSeries, DpsWindowKey } from '../types/results';
 export type { DpsStats, DmgOverTimePoint, DmgOverTimeSeries };
 
 // djb2 string hash -> mulberry32 PRNG, so the same seed always produces the same numbers.
@@ -37,19 +37,23 @@ export function generateMockDpsStats(seed: string): DpsStats {
   };
 }
 
-const DMG_OVER_TIME_DOMAIN_SECONDS = 150;
 const DMG_OVER_TIME_STEP_SECONDS = 2;
 
-export function generateMockDmgOverTimeSeries(seed: string, label: string, bossMaxHp: number = ENEMY_DEFAULTS.hp): DmgOverTimeSeries {
-  const rng = seededRng(seed + ':dmg-over-time');
-  const stats = generateMockDpsStats(seed);
+function generateMockDmgOverTimeForWindow(
+  seed: string,
+  label: string,
+  domainSeconds: number,
+  dpsEstimate: number,
+  bossMaxHp: number
+): DmgOverTimeSeries {
+  const rng = seededRng(seed + ':dmg-over-time:' + label);
 
   const points: DmgOverTimePoint[] = [];
   let cumulative = 0;
   let killTime: number | null = null;
 
-  for (let t = 0; t <= DMG_OVER_TIME_DOMAIN_SECONDS; t += DMG_OVER_TIME_STEP_SECONDS) {
-    const instantDps = t < 10 ? stats.openerDps! * range(rng, 0.9, 1.1) : stats.avgLoopDps! * range(rng, 0.85, 1.15);
+  for (let t = 0; t <= domainSeconds; t += DMG_OVER_TIME_STEP_SECONDS) {
+    const instantDps = dpsEstimate * range(rng, 0.85, 1.15);
     cumulative += instantDps * DMG_OVER_TIME_STEP_SECONDS;
     points.push({ t, dmg: cumulative });
 
@@ -64,5 +68,18 @@ export function generateMockDmgOverTimeSeries(seed: string, label: string, bossM
     }
   }
 
-  return { label, points, bossMaxHp, killTime };
+  return { label, points, bossMaxHp, killTime, windowEnd: domainSeconds };
+}
+
+// One mock series per window, matching the real calculator's 4-window shape (opener/first
+// loop/avg loop/2-min) -- the pinned-comparison feature itself stays out of scope/mocked, this
+// just keeps its placeholder data type-compatible with the real per-window series.
+export function generateMockAllDmgOverTime(seed: string, label: string, bossMaxHp: number = ENEMY_DEFAULTS.hp): Record<DpsWindowKey, DmgOverTimeSeries> {
+  const stats = generateMockDpsStats(seed);
+  return {
+    opener: generateMockDmgOverTimeForWindow(seed, label, 12, stats.openerDps!, bossMaxHp),
+    firstLoop: generateMockDmgOverTimeForWindow(seed, label, 40, stats.firstLoopDps!, bossMaxHp),
+    avgLoop: generateMockDmgOverTimeForWindow(seed, label, 40, stats.avgLoopDps!, bossMaxHp),
+    twoMin: generateMockDmgOverTimeForWindow(seed, label, 150, stats.twoMinDps, bossMaxHp)
+  };
 }

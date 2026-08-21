@@ -20,6 +20,11 @@ export interface DmgOverTimeSeries {
   points: DmgOverTimePoint[];
   bossMaxHp: number;
   killTime: number | null;
+  // Nominal duration of the window this series covers (openerEndTime, loopDuration, etc.) --
+  // used to size the chart's x-axis so it "zooms" to exactly that window's width, rather than
+  // however far the last real hit happened to land (which can undershoot the window's true
+  // end when nothing hits right at the boundary).
+  windowEnd: number;
 }
 
 export interface SubstatWorthValues {
@@ -69,7 +74,9 @@ export interface ContributionForWindow {
 
 export interface RotationResults {
   dpsStats: DpsStats;
-  dmgOverTimeSeries: DmgOverTimeSeries;
+  // Same 4 windows as `contribution` below -- lets the Dmg/DPS Over Time chart zoom into just
+  // one window's own timeline instead of always showing the whole extended simulation.
+  dmgOverTimeSeries: Record<DpsWindowKey, DmgOverTimeSeries>;
   contribution: Record<DpsWindowKey, ContributionForWindow>;
   // Per-unit substat worth rows, keyed by character name.
   substatWorth: Record<string, SubstatWorthRow[]>;
