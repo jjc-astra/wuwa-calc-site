@@ -1,10 +1,8 @@
 // src/components/results/DpsPanel.tsx
 import React from 'react';
-import { useRosterStore } from '../../store/useRosterStore';
 import { useRotationStore } from '../../store/useRotationStore';
 import { useComparisonStore } from '../../store/useComparisonStore';
-import { generateMockDpsStats } from '../../data/mockResults';
-import type { DpsStats } from '../../data/mockResults';
+import type { DpsStats } from '../../types/results';
 import { PinRotationControl } from './PinRotationControl';
 import { CATEGORICAL_PALETTE } from './chartPalette';
 
@@ -29,14 +27,13 @@ const MAX_SPLIT = 90;
 const MIN_SOLO_WIDTH = 20;
 
 export const DpsPanel: React.FC = () => {
-  const team = useRosterStore(s => s.team);
-  const rows = useRotationStore(s => s.rows);
+  const results = useRotationStore(s => s.results);
   const { pinned } = useComparisonStore();
 
-  const teamNames = team.filter(s => s.character).map(s => s.character);
-  const seed = `${teamNames.join(',')}:${rows.length}`;
-  const current = generateMockDpsStats(seed || 'empty-team');
-  const maxCurrentDps = Math.max(...ROWS.map(row => current[row.key]));
+  if (!results) return null;
+  const current = results.dpsStats;
+  const knownVals = ROWS.map(row => current[row.key]).filter((v): v is number => v !== null);
+  const maxCurrentDps = knownVals.length > 0 ? Math.max(...knownVals) : 1;
 
   return (
     <div className="results-card">
@@ -63,7 +60,22 @@ export const DpsPanel: React.FC = () => {
           const currentVal = current[row.key];
           const pinnedVal = pinned?.dpsStats[row.key];
 
-          if (pinnedVal === undefined) {
+          if (currentVal === null) {
+            return (
+              <div key={row.key} className="dps-compare-row">
+                <div className="dps-compare-row-head">
+                  <span className="dps-table-label">{row.label}</span>
+                </div>
+                <div className="dps-compare-bar">
+                  <div className="dps-compare-segment dps-compare-segment-solo results-empty" style={{ width: `${MIN_SOLO_WIDTH}%` }}>
+                    <span>N/A</span>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          if (pinnedVal === undefined || pinnedVal === null) {
             const soloWidth = Math.max(MIN_SOLO_WIDTH, (currentVal / maxCurrentDps) * 100);
             return (
               <div key={row.key} className="dps-compare-row">

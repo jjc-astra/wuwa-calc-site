@@ -1,7 +1,25 @@
 import { DataLoader } from '../utils/DataLoader';
 import { CommonUtils } from '../utils/Common';
+import { DSLParser } from './DSLParser';
 import { CHARACTER_DEFAULTS, SIM_CONSTANTS, ENEMY_DEFAULTS, STAT_NAME_MAP } from '../data/db';
 import type { Effect, HitConfig, DamageInstanceResult, BuffTotals, CalculatedStats } from '../types';
+
+// Resolves a buff's raw value string when it's a dynamic math expression (contains an '@'
+// pointer, e.g. a kit passive that converts a unit's own ER% or Max HP into another stat --
+// "for every 1% of ER over 125%, gain 2% Echo Skill DMG Bonus, up to 50%") into the same plain
+// "N" / "N%" string shape a static buff value already comes in, so callers can keep treating
+// every buff value the same way afterward. Resolved against `selfStats`, a snapshot of the
+// unit's OWN stats (gear/passives, no buffs) rather than a live re-entrant calculateFinalStats
+// call -- these kit passives are worded as "based on this unit's own X", and re-deriving fully
+// buffed stats here would mean calculateFinalStats calling itself to build the buff context
+// that calculateFinalStats itself is in the middle of resolving.
+function resolveBuffValue(rawVal: any, selfStats: Record<string, number> | null): any {
+  if (typeof rawVal !== 'string' || !rawVal.includes('@') || !selfStats) return rawVal;
+  const ctx = { self: { getStat: (key: string) => selfStats[key] ?? 0 } };
+  const isPctExpr = rawVal.includes('%');
+  const evaluated = DSLParser.evaluateMath(rawVal, ctx);
+  return isPctExpr ? `${evaluated * 100}%` : evaluated;
+}
 
 const DEFAULT_ECHO_STATS = {
   flatHP: 0, percentHP: 0, flatAtk: 0, percentAtk: 0, flatDef: 0, percentDef: 0,
@@ -155,6 +173,21 @@ export const CombatCalculator = {
     injectPassiveStat(dbUnit.talentStat1, dbUnit.talentVal1);
     injectPassiveStat(dbUnit.talentStat2, dbUnit.talentVal2);
 
+    // Lazily-computed, per-provider cache of "that unit's own stats, no buffs" -- the
+    // substitution source for any buff below whose value is a dynamic expression (see
+    // resolveBuffValue above). Keyed by provider rather than always this unit (`unitName`)
+    // because "@Self" in a buff's own formula means whoever's kit authored the buff, not
+    // whoever ends up consuming it -- e.g. a team-wide debuff Mornye applies to the enemy,
+    // scaled off Mornye's own ER%, must still read Mornye's ER% while resolving for Sanhua's
+    // hit. Computed with an empty buffs array, so this can never recurse back into itself.
+    const providerStatsCache: Record<string, Record<string, number>> = {};
+    const getProviderStats = (providerName: string): Record<string, number> => {
+      if (!providerStatsCache[providerName]) {
+        providerStatsCache[providerName] = CombatCalculator.calculateFinalStats(providerName, [], team) as unknown as Record<string, number>;
+      }
+      return providerStatsCache[providerName];
+    };
+
     activeBuffs.forEach(buff => {
       if (buff.stat) {
         let baseStatKey = STAT_NAME_MAP[buff.stat] || buff.stat;
@@ -176,6 +209,9 @@ export const CombatCalculator = {
         let rawVal = buff.value;
         if (typeof rawVal === 'string' && rawVal.includes('/')) {
           rawVal = CommonUtils.parseRankValue(rawVal, slot.rank || 1);
+        }
+        if (typeof rawVal === 'string' && rawVal.includes('@')) {
+          rawVal = resolveBuffValue(rawVal, getProviderStats(buff.provider || unitName));
         }
         const valStr = String(rawVal || '0');
         const isPct = valStr.includes('%');
@@ -217,6 +253,17 @@ export const CombatCalculator = {
     const appliedBuffs: Record<string, Effect> = {};
     const activeBuffs = stateData.activeBuffs || {};
     const modsSet = new Set((hitModifiers || []).map(m => String(m).toLowerCase().trim()));
+
+    // See the matching cache in calculateFinalStats above -- same reasoning: a dynamic buff
+    // value resolves against its own provider's stats (buffs computed with no buffs, so this
+    // can never recurse), not the unit whose hit is currently consuming the buff.
+    const providerStatsCache: Record<string, Record<string, number>> = {};
+    const getProviderStats = (providerName: string): Record<string, number> => {
+      if (!providerStatsCache[providerName]) {
+        providerStatsCache[providerName] = CombatCalculator.calculateFinalStats(providerName, [], team) as unknown as Record<string, number>;
+      }
+      return providerStatsCache[providerName];
+    };
 
     const tagSpecs = [
       { key: 'basic', tags: ['basic'] }, { key: 'heavy', tags: ['heavy'] },
@@ -270,6 +317,9 @@ export const CombatCalculator = {
       let rawVal = buff.value;
       if (typeof rawVal === 'string' && rawVal.includes('/')) {
         rawVal = CommonUtils.parseRankValue(rawVal, rank);
+      }
+      if (typeof rawVal === 'string' && rawVal.includes('@')) {
+        rawVal = resolveBuffValue(rawVal, getProviderStats(providerUnit));
       }
 
       const valStr = String(rawVal || '0');
@@ -333,9 +383,15 @@ export const CombatCalculator = {
 
     const { buffTotals, appliedBuffs } = CombatCalculator.aggregateBuffTotals(stateData, executingUnit, hitModifiers, team);
 
+    // Deliberately dmgTypes only, not the combined hitModifiers -- "Basic/Heavy/Skill/Lib DMG
+    // Bonus" stats scale with a hit's damage-bonus category, not its cast/input category, and
+    // those can differ (e.g. a move whose castType is "Heavy" can have dmgType "Basic", so it
+    // should only pick up basicDmgBonus). hitModifiers also carries castTypes for buff-tag
+    // matching in aggregateBuffTotals above, which is a separate, intentional use.
     let baseDmgBonus = 0;
-    hitModifiers.forEach(type => {
-      const statKey = (type === 'liberation' ? 'lib' : type) + 'DmgBonus';
+    dmgTypes.forEach(type => {
+      const key = String(type).toLowerCase();
+      const statKey = (key === 'liberation' ? 'lib' : key) + 'DmgBonus';
       if (getBaseStat(statKey)) baseDmgBonus += (getBaseStat(statKey) / 100);
     });
 

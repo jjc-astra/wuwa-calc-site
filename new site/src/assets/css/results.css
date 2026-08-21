@@ -136,6 +136,13 @@
     border-radius: 8px;
     padding: 12px;
 }
+.results-card-header-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-transform: none;
+    letter-spacing: normal;
+}
 .results-card-header {
     display: flex;
     justify-content: space-between;
@@ -164,6 +171,26 @@
 }
 .results-coming-soon h3 { margin: 4px 0 0 0; color: var(--accent); }
 .results-coming-soon p { margin: 0; font-size: 0.85rem; max-width: 280px; }
+
+/* Shown in place of the 4 result cards until the first Calculate press -- same centered-
+   placeholder shape as .results-coming-soon, distinct class since the meaning differs
+   (nothing calculated yet, not an unbuilt feature). */
+.results-uncalculated {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 8px;
+    padding: 60px 20px;
+    color: var(--text-main);
+}
+.results-uncalculated h3 { margin: 0; color: var(--accent); }
+.results-uncalculated p { margin: 0; font-size: 0.85rem; max-width: 280px; }
+
+/* Results exist but the rotation has changed since the last Calculate press -- dim rather
+   than hide, so the (now out of date) numbers stay visible for reference. */
+.results-tab-grid.is-stale { opacity: 0.45; pointer-events: none; transition: opacity 0.15s; }
 
 /* =========================================
    DPS PANEL
@@ -305,6 +332,35 @@
     border-color: var(--unit-theme);
     color: color-mix(in srgb, var(--unit-theme) 55%, #ffffff);
 }
+
+/* A 2-option switch (Substat Worth's -1/+1 direction) -- same pill idiom as .unit-tab, just
+   two segments sharing one pill instead of separate buttons. */
+.segmented-toggle {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.segmented-toggle-btn {
+    padding: 3px 9px;
+    background: rgba(255, 255, 255, 0.03);
+    border: none;
+    color: var(--text-dim);
+    font-size: 0.72rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: color 0.15s, background-color 0.15s;
+}
+.segmented-toggle-btn + .segmented-toggle-btn { border-left: 1px solid var(--border); }
+.segmented-toggle-btn:hover { color: color-mix(in srgb, var(--accent) 60%, #ffffff); }
+.segmented-toggle-btn.is-active {
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    color: color-mix(in srgb, var(--accent) 55%, #ffffff);
+}
+
+/* Team Contribution's DPS-type window select, right-aligned in the card header next to the
+   title -- sized down from the default .base-select since it sits inline in a small header. */
+.results-dps-type-select { width: auto; padding: 2px 6px; font-size: 0.7rem; }
 
 /* =========================================
    SUBSTAT WORTH CHART

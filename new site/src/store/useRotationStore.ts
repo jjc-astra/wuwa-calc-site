@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { TimelineEngine } from '../logic/TimelineEngine';
 import { CombatCalculator } from '../logic/CombatCalculator';
+import { buildRotationResults } from '../logic/ResultsCalculator';
+import type { RotationResults } from '../types/results';
 import { useRosterStore } from './useRosterStore';
 import {
   HistoryManager,
@@ -38,6 +40,7 @@ interface RotationState {
   loopStartIsOverride: boolean;
   loopErrorMsg: string | null;
   loopWarningMsg: string | null;
+  results: RotationResults | null;
 
   setStartEnergy: (val: boolean) => void;
   setStartConcerto: (val: boolean) => void;
@@ -124,6 +127,7 @@ export const useRotationStore = create<RotationState>()(
         loopStartIsOverride: false,
         loopErrorMsg: null,
         loopWarningMsg: null,
+        results: null,
 
         setStartEnergy: (val: boolean) => {
           set({ startEnergy: val });
@@ -277,9 +281,12 @@ export const useRotationStore = create<RotationState>()(
         calculateDamage: () => {
           const team = useRosterStore.getState().team;
           const enemy = useRosterStore.getState().enemy;
-          const { startEnergy, startConcerto, rows } = get();
+          const { startEnergy, startConcerto, rows, loopStartIndex } = get();
+          const options = { startEnergy, startConcerto };
 
-          const evaluatedRows = TimelineEngine.recalculateState(rows, team, { startEnergy, startConcerto }, enemy);
+          // Short pass over the literal authored rows -- feeds the per-row damage-breakdown
+          // dropdown in the rotation table, independent of the Results panel below.
+          const evaluatedRows = TimelineEngine.recalculateState(rows, team, options, enemy);
           let runningEnemyHp = enemy.hp;
 
           evaluatedRows.forEach((row: any) => {
@@ -293,7 +300,11 @@ export const useRotationStore = create<RotationState>()(
               });
             }
           });
-          set({ rows: evaluatedRows, isStale: false });
+
+          // Separate extended (opener + N-loop-repetition) pass -- feeds the Results panel.
+          const results = buildRotationResults(rows, team, options, enemy, loopStartIndex);
+
+          set({ rows: evaluatedRows, isStale: false, results });
         },
 
         undo: () => {

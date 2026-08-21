@@ -1,10 +1,8 @@
 // src/components/results/DmgOverTimeChart.tsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useRosterStore } from '../../store/useRosterStore';
 import { useRotationStore } from '../../store/useRotationStore';
 import { useComparisonStore } from '../../store/useComparisonStore';
-import { generateMockDmgOverTimeSeries } from '../../data/mockResults';
-import type { DmgOverTimeSeries, DmgOverTimePoint } from '../../data/mockResults';
+import type { DmgOverTimeSeries, DmgOverTimePoint } from '../../types/results';
 import { PinRotationControl } from './PinRotationControl';
 import { CATEGORICAL_PALETTE } from './chartPalette';
 import { TooltipManager } from '../../utils/Common';
@@ -17,6 +15,10 @@ const PAD = { top: 22, right: 16, bottom: 30, left: 62 };
 // hover snaps to its exact time, so the tooltip reads that intercept's precise values
 // instead of an approximate nearby point.
 const SNAP_PX = 8;
+
+// Safe placeholder so every hook below can run unconditionally even before results exist --
+// the component still bails to `null` after the hooks, per the Rules of Hooks.
+const EMPTY_SERIES: DmgOverTimeSeries = { label: '', points: [{ t: 0, dmg: 0 }], bossMaxHp: 1, killTime: null };
 
 const formatDmg = (v: number) => (v >= 1_000_000 ? `${(v / 1_000_000).toFixed(2)}M` : `${(v / 1000).toFixed(0)}K`);
 const formatTime = (t: number) => `${Math.floor(t / 60)}:${String(Math.round(t % 60)).padStart(2, '0')}`;
@@ -35,16 +37,12 @@ function valueAtTime(points: DmgOverTimePoint[], t: number): number {
 }
 
 export const DmgOverTimeChart: React.FC = () => {
-  const team = useRosterStore(s => s.team);
-  const rows = useRotationStore(s => s.rows);
+  const results = useRotationStore(s => s.results);
   const { pinned } = useComparisonStore();
   const svgRef = useRef<SVGSVGElement>(null);
   const [hoverT, setHoverT] = useState<number | null>(null);
 
-  const teamNames = team.filter(s => s.character).map(s => s.character);
-  const seed = `${teamNames.join(',')}:${rows.length}`;
-
-  const primary = useMemo(() => generateMockDmgOverTimeSeries(seed || 'empty-team', 'Current Rotation'), [seed]);
+  const primary = results?.dmgOverTimeSeries ?? EMPTY_SERIES;
   const series: DmgOverTimeSeries[] = pinned ? [primary, pinned.dmgOverTimeSeries] : [primary];
 
   const domainMaxT = Math.max(...primary.points.map(p => p.t));
@@ -103,6 +101,8 @@ export const DmgOverTimeChart: React.FC = () => {
     setHoverT(null);
     TooltipManager.hide();
   };
+
+  if (!results) return null;
 
   return (
     <div className="results-card">

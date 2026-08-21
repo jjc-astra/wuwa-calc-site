@@ -1,19 +1,40 @@
 // src/components/results/SubstatWorthChart.tsx
 import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useRosterStore } from '../../store/useRosterStore';
+import { useRotationStore } from '../../store/useRotationStore';
 import { DataLoader } from '../../utils/DataLoader';
-import { generateMockSubstatWorth } from '../../data/mockResults';
 import { TooltipManager, getCharacterThemeColor } from '../../utils/Common';
 
 const formatPct = (v: number) => `${v.toFixed(1)}%`;
 
+type Direction = 'minus' | 'plus';
+type Mode = 'team' | 'personal';
+
 export const SubstatWorthChart: React.FC = () => {
   const team = useRosterStore(s => s.team);
+  const results = useRotationStore(s => s.results);
   const units = team.filter(s => s.character).map(s => s.character);
   const [activeUnit, setActiveUnit] = useState(units[0] || '');
+  const [direction, setDirection] = useState<Direction>('plus');
+  const [mode, setMode] = useState<Mode>('team');
   const unit = units.includes(activeUnit) ? activeUnit : units[0] || '';
 
-  const rows = useMemo(() => (unit ? generateMockSubstatWorth(unit) : []), [unit]);
+  // Each row's min/max/default here are the % worth of a roll of this substat at that roll
+  // value, in the selected -1/+1 direction and team/personal mode -- not the substat's own raw
+  // roll values (those only feed which roll value was tested, via logic/ResultsCalculator).
+  // Rows where the roll moved nothing at all (already-overcapped stats, or a stat this unit's
+  // kit never touches) are dropped rather than shown as a dead 0.0% line.
+  const rows = useMemo(() => {
+    const raw = unit ? results?.substatWorth[unit] ?? [] : [];
+    return raw
+      .map(r => ({
+        substat: r.substat,
+        min: r[direction][mode].min,
+        max: r[direction][mode].max,
+        default: r[direction][mode].default
+      }))
+      .filter(r => r.min !== 0 || r.max !== 0 || r.default !== 0);
+  }, [unit, results, direction, mode]);
   const scaleMax = Math.max(1, ...rows.map(r => r.max)) * 1.08;
 
   // Every row's track is the same width (shared CSS Grid column), so one measurement covers
@@ -41,6 +62,44 @@ export const SubstatWorthChart: React.FC = () => {
     <div className="results-card">
       <div className="results-card-header">
         <span>Substat Worth</span>
+        <div className="results-card-header-controls">
+          <div className="segmented-toggle" role="group" aria-label="Substat worth scope">
+            <button
+              type="button"
+              className={`segmented-toggle-btn ${mode === 'team' ? 'is-active' : ''}`}
+              title="Show % change of the whole team's damage"
+              onClick={() => setMode('team')}
+            >
+              Team
+            </button>
+            <button
+              type="button"
+              className={`segmented-toggle-btn ${mode === 'personal' ? 'is-active' : ''}`}
+              title="Show % change of just this unit's own damage"
+              onClick={() => setMode('personal')}
+            >
+              Personal
+            </button>
+          </div>
+          <div className="segmented-toggle" role="group" aria-label="Substat worth direction">
+            <button
+              type="button"
+              className={`segmented-toggle-btn ${direction === 'minus' ? 'is-active' : ''}`}
+              title="Show what you'd lose without this roll"
+              onClick={() => setDirection('minus')}
+            >
+              -1
+            </button>
+            <button
+              type="button"
+              className={`segmented-toggle-btn ${direction === 'plus' ? 'is-active' : ''}`}
+              title="Show what an extra roll would gain"
+              onClick={() => setDirection('plus')}
+            >
+              +1
+            </button>
+          </div>
+        </div>
       </div>
       {units.length === 0 ? (
         <div className="results-empty">Add characters to the team to see substat worth.</div>
@@ -68,8 +127,13 @@ export const SubstatWorthChart: React.FC = () => {
               <span className="substat-col-header">Max</span>
             </div>
             {rows.map((row, idx) => {
-              const minPct = (row.min / scaleMax) * 100;
-              const maxPct = (row.max / scaleMax) * 100;
+              // Worth doesn't strictly increase with roll size near a stat's overcap (e.g. a
+              // big Crit Rate roll can be worth *less* than a smaller one if it crosses 100%
+              // crit) -- guard the low/high bar edges rather than assuming min <= max.
+              const lo = Math.min(row.min, row.max);
+              const hi = Math.max(row.min, row.max);
+              const minPct = (lo / scaleMax) * 100;
+              const maxPct = (hi / scaleMax) * 100;
               const defPct = (row.default / scaleMax) * 100;
 
               // Snap the range bar's own edges the same way, rather than a raw min%/width%,
@@ -96,7 +160,7 @@ export const SubstatWorthChart: React.FC = () => {
                         onMouseEnter={e =>
                           TooltipManager.show(
                             e.currentTarget,
-                            `<div class="tooltip-val">${formatPct(row.default)}</div><div style="margin-top:2px;">Default roll — ${row.substat}</div>`
+                            `<div class="tooltip-val">${formatPct(row.default)}</div><div style="margin-top:2px;">Default roll worth — ${row.substat}</div>`
                           )
                         }
                         onMouseLeave={() => TooltipManager.hide()}

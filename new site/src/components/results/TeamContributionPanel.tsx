@@ -1,32 +1,43 @@
 // src/components/results/TeamContributionPanel.tsx
 import React, { useMemo, useState } from 'react';
 import { useRosterStore } from '../../store/useRosterStore';
+import { useRotationStore } from '../../store/useRotationStore';
 import { DataLoader } from '../../utils/DataLoader';
-import { generateMockTeamContribution, generateMockUnitContribution } from '../../data/mockResults';
+import type { DpsWindowKey } from '../../types/results';
 import { PieChart } from './PieChart';
 import { colorForIndex, OTHER_SLICE_COLOR } from './chartPalette';
 import { getCharacterThemeColor } from '../../utils/Common';
 
+const DPS_TYPE_OPTIONS: Array<{ key: DpsWindowKey; label: string }> = [
+  { key: 'opener', label: 'Opener' },
+  { key: 'firstLoop', label: 'First Loop' },
+  { key: 'avgLoop', label: 'Avg Loop' },
+  { key: 'twoMin', label: '2-Min' }
+];
+
 export const TeamContributionPanel: React.FC = () => {
   const team = useRosterStore(s => s.team);
+  const results = useRotationStore(s => s.results);
   const units = team.filter(s => s.character).map(s => s.character);
   const tabs = ['Team', ...units];
   const [activeTab, setActiveTab] = useState('Team');
+  const [dpsType, setDpsType] = useState<DpsWindowKey>('twoMin');
   const tab = tabs.includes(activeTab) ? activeTab : 'Team';
 
-  const teamSlices = useMemo(() => generateMockTeamContribution(units), [units.join(',')]);
-  const unitSlices = useMemo(() => (tab !== 'Team' ? generateMockUnitContribution(tab) : []), [tab]);
+  const forWindow = results?.contribution[dpsType];
+  const teamSlices = useMemo(() => forWindow?.team ?? [], [forWindow]);
+  const unitSlices = useMemo(() => (tab !== 'Team' ? forWindow?.units[tab] ?? [] : []), [forWindow, tab]);
 
   const data =
     tab === 'Team'
       ? teamSlices.map((s, i) => {
-          // The first `units.length` slices are the team's own units, in the same order --
-          // theme each by its own character color instead of the generic categorical palette.
-          if (i < units.length) {
+          // Status/mechanic slices (e.g. Aero Erosion) aren't a team unit -- fall through to
+          // the generic categorical palette for those instead of a character theme color.
+          if (units.includes(s.label)) {
             const themeColor = getCharacterThemeColor(DataLoader.characterDB[s.label]);
             return { label: s.label, value: s.dmg, color: themeColor, labelColor: themeColor };
           }
-          return { label: s.label, value: s.dmg, color: colorForIndex(i - units.length) };
+          return { label: s.label, value: s.dmg, color: colorForIndex(i) };
         })
       : unitSlices.map((s, i) => ({
           label: s.castType,
@@ -38,8 +49,17 @@ export const TeamContributionPanel: React.FC = () => {
     <div className="results-card">
       <div className="results-card-header">
         <span>Team DMG Contribution</span>
+        <select
+          className="base-select text-xs results-dps-type-select"
+          value={dpsType}
+          onChange={e => setDpsType(e.target.value as DpsWindowKey)}
+        >
+          {DPS_TYPE_OPTIONS.map(opt => (
+            <option key={opt.key} value={opt.key}>{opt.label}</option>
+          ))}
+        </select>
       </div>
-      {units.length === 0 ? (
+      {!results || units.length === 0 ? (
         <div className="results-empty">Add characters to the team to see contribution.</div>
       ) : (
         <>
@@ -56,7 +76,11 @@ export const TeamContributionPanel: React.FC = () => {
               </button>
             ))}
           </div>
-          <PieChart data={data} totalLabel={tab === 'Team' ? 'Team DMG' : `${tab} DMG`} />
+          {data.length === 0 ? (
+            <div className="results-empty">No damage in this window.</div>
+          ) : (
+            <PieChart data={data} totalLabel={tab === 'Team' ? 'Team DMG' : `${tab} DMG`} />
+          )}
         </>
       )}
     </div>
