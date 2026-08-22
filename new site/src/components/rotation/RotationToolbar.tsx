@@ -10,6 +10,7 @@ export const RotationToolbar: React.FC = () => {
     canUndo,
     canRedo,
     isStale,
+    isCalculating,
     selectedIndices,
     clipboard,
     setStartEnergy,
@@ -113,6 +114,12 @@ export const RotationToolbar: React.FC = () => {
       
       <div style={{ flex: 1 }}></div>
 
+      {isCalculating && (
+        <span className="calc-loading-msg" style={{ display: 'flex' }}>
+          <span className="calc-loading-spinner" />
+          <span>CALCULATING…</span>
+        </span>
+      )}
       {isStale && (
         <span className="calc-warning-msg" style={{ display: 'flex' }}>
           <span>STATS CHANGED</span>

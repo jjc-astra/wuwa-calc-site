@@ -267,13 +267,7 @@ export const useRosterStore = create<RosterState>()(
         const current = get().team;
         const merged = current.map((existing, i) => ({ ...existing, ...(teamData[i] || {}), index: i }));
 
-        for (const slot of merged) {
-          if (slot.character) await DataLoader.loadMechanic('characters', slot.character);
-          if (slot.weapon) await DataLoader.loadMechanic('weapons', slot.weapon);
-          if (slot.mainSet) await DataLoader.loadMechanic('sets', slot.mainSet);
-          if (slot.subSet) await DataLoader.loadMechanic('sets', slot.subSet);
-          if (slot.mainEcho) await DataLoader.loadMechanic('echoes', slot.mainEcho);
-        }
+        await DataLoader.loadTeamMechanics(merged);
         merged.forEach(slot => { slot.echoStats = calculateEchoStatsForSlot(slot); });
         set({ team: merged });
         useRotationStore.getState().recalculate();

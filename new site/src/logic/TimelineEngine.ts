@@ -408,6 +408,28 @@ export class TimelineEngineClass {
   // window, so it stays cheap regardless of how short the loop is. Simulating far enough to
   // cover 2 minutes for real DPS stats is future work, reserved for an explicit "Calculate"
   // action rather than this live check.
+  // A manual override (a row flagged `loopStartOverride`) always wins. Otherwise, auto-detect:
+  // the loop starts right after the main DPS's first Outro in the rotation, since that's what
+  // ends the opener. No Outro found, or nothing follows it, means there's no distinct opener --
+  // the whole rotation is the loop. Lives here (not in useRotationStore) so both the store and
+  // the calc worker -- which can't import a Zustand store -- can call the same logic.
+  findLoopStart(rows: any[], mainDps: string | undefined): { index: number; isOverride: boolean } {
+    const overrideIndex = rows.findIndex(r => r.loopStartOverride === true && !!r.unit);
+    if (overrideIndex !== -1) return { index: overrideIndex, isOverride: true };
+
+    if (mainDps) {
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (row.unit === mainDps && Array.isArray(row.castTypes) && row.castTypes.includes('Outro')) {
+          const next = i + 1;
+          if (next < rows.length && rows[next]?.unit) return { index: next, isOverride: false };
+          return { index: 0, isOverride: false };
+        }
+      }
+    }
+    return { index: 0, isOverride: false };
+  }
+
   analyzeLoop(
     rows: any[],
     team: any[] = [],

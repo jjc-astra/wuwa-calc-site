@@ -40,10 +40,20 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     loopErrorMsg,
     loopWarningMsg,
     setLoopStartOverride,
-    resetLoopStart
+    resetLoopStart,
+    recalculate
   } = useRotationStore();
 
   const { team, importTeam } = useRosterStore();
+
+  // Refreshes gauges/timings once when the calculator page is actually opened, in case a
+  // rotation was rehydrated from a previous session but never recalculated since. This is the
+  // only place recalculate() runs on load -- it used to run app-wide (even on the landing page)
+  // from the store's persist rehydration hook, since the store module loads regardless of route.
+  useEffect(() => {
+    recalculate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Active Sub-Panel state: { rowIndex: number, trigger: string }
   const [activeSubPanel, setActiveSubPanel] = useState<{ rowIndex: number; trigger: string } | null>(null);

@@ -1,8 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { TimelineEngine } from '../logic/TimelineEngine';
-import { CombatCalculator } from '../logic/CombatCalculator';
-import { buildRotationResults } from '../logic/ResultsCalculator';
+import CalcWorker from '../workers/calc.worker.ts?worker';
 import type { RotationResults } from '../types/results';
 import { useRosterStore } from './useRosterStore';
 import {
@@ -41,6 +39,7 @@ interface RotationState {
   loopErrorMsg: string | null;
   loopWarningMsg: string | null;
   results: RotationResults | null;
+  isCalculating: boolean;
 
   setStartEnergy: (val: boolean) => void;
   setStartConcerto: (val: boolean) => void;
@@ -58,35 +57,78 @@ interface RotationState {
   resetLoopStart: () => void;
 
   executeCommand: (cmd: Command) => void;
-  recalculate: () => void;
-  calculateDamage: () => void;
+  recalculate: () => Promise<void>;
+  calculateDamage: () => Promise<void>;
   undo: () => void;
   redo: () => void;
   importRotation: (rows: RotationRow[], settings?: { startEnergy?: boolean; startConcerto?: boolean }) => void;
 }
 
-// A manual override (a row flagged `loopStartOverride`) always wins. Otherwise, auto-detect:
-// the loop starts right after the main DPS's first Outro in the rotation, since that's what
-// ends the opener. No Outro found, or nothing follows it, means there's no distinct opener --
-// the whole rotation is the loop.
-const findLoopStart = (rows: RotationRow[], mainDps: string | undefined): { index: number; isOverride: boolean } => {
-  const overrideIndex = rows.findIndex(r => r.loopStartOverride === true && !!r.unit);
-  if (overrideIndex !== -1) return { index: overrideIndex, isOverride: true };
-
-  if (mainDps) {
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
-      if (row.unit === mainDps && Array.isArray(row.castTypes) && row.castTypes.includes('Outro')) {
-        const next = i + 1;
-        if (next < rows.length && rows[next]?.unit) return { index: next, isOverride: false };
-        return { index: 0, isOverride: false };
-      }
-    }
-  }
-  return { index: 0, isOverride: false };
-};
-
 const historyManager = new HistoryManager();
+
+// The actual TimelineEngine/CombatCalculator/ResultsCalculator run inside this worker instead
+// of on the main thread, so a long rotation's simulation never freezes the UI while it runs.
+// Created lazily, on the first actual recalculate()/calculateDamage() call, NOT at module load
+// -- this store module gets imported (and its top-level code executed) as part of the app's
+// static import graph regardless of which page is showing, so an eagerly-created worker here
+// used to spin up and start doing work on every single page load, including the landing page.
+let worker: Worker | null = null;
+function getWorker(): Worker {
+  if (!worker) worker = new CalcWorker();
+  return worker;
+}
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    worker?.terminate();
+    worker = null;
+  });
+}
+
+// Every call gets its own request id, used both to match responses to requests and to detect
+// staleness -- but staleness is tracked per type (recalculate vs calculateDamage), not
+// globally. A recalculate() firing in the background (e.g. from an unrelated edit's
+// triggerRecalc) must never invalidate an explicit calculateDamage() the user just triggered
+// by pressing Calculate -- that's the one result that should always win once it lands, since
+// it's a deliberate action, not an incidental background sync. Each type only checks itself
+// for a newer in-flight/landed request of the *same* type.
+let requestSeq = 0;
+const latestSeqByType: Record<'recalculate' | 'calculateDamage', number> = { recalculate: 0, calculateDamage: 0 };
+
+// Requests are sent to the worker one at a time (queued here, not in parallel) even though
+// each call resolves independently. The worker's TimelineEngine/DataLoader hold shared,
+// stateful caches (compiled move data, loaded mechanics) -- two calls racing through them
+// concurrently can interleave mid-load and see a half-populated cache, not just a slow one.
+// Queuing avoids that at essentially no cost: the worker was never able to run two
+// simulations in true parallel anyway (it's one thread), so this doesn't reduce throughput,
+// it just stops requests from overlapping in a way that corrupts shared state.
+let workerQueue: Promise<void> = Promise.resolve();
+
+function postToWorker(type: 'recalculate' | 'calculateDamage', payload: any): { seq: number; result: Promise<any> } {
+  const seq = ++requestSeq;
+  latestSeqByType[type] = seq;
+  const result = workerQueue.then(
+    () =>
+      new Promise<any>((resolve, reject) => {
+        const w = getWorker();
+        const handleMessage = (e: MessageEvent) => {
+          if (e.data.id !== seq) return;
+          w.removeEventListener('message', handleMessage);
+          if (e.data.ok) resolve(e.data);
+          else reject(new Error(e.data.error));
+        };
+        w.addEventListener('message', handleMessage);
+        w.postMessage({ id: seq, type, payload });
+      })
+  );
+  // Chain the queue on this request's settling regardless of outcome, so one failed request
+  // doesn't wedge every request queued after it.
+  workerQueue = result.then(
+    () => undefined,
+    () => undefined
+  );
+  return { seq, result };
+}
 
 export const useRotationStore = create<RotationState>()(
   persist(
@@ -128,6 +170,7 @@ export const useRotationStore = create<RotationState>()(
         loopErrorMsg: null,
         loopWarningMsg: null,
         results: null,
+        isCalculating: false,
 
         setStartEnergy: (val: boolean) => {
           set({ startEnergy: val });
@@ -254,57 +297,74 @@ export const useRotationStore = create<RotationState>()(
         },
 
         // Timeline/Gauges/Timings Recalculation (Only marks stale, does NOT run combat damage)
-        recalculate: () => {
+        // -- runs in the calc worker (see postToWorker above) so it never blocks the UI thread.
+        recalculate: async () => {
           const team = useRosterStore.getState().team;
           const enemy = useRosterStore.getState().enemy;
           const { startEnergy, startConcerto, rows } = get();
-          const existingDamageMap = new Map(rows.map((r, i) => [i, r.damageInstances]));
-          const evaluatedRows = TimelineEngine.recalculateState(rows, team, { startEnergy, startConcerto }, enemy);
+          const options = { startEnergy, startConcerto };
 
+          set({ isCalculating: true });
+          const { seq, result } = postToWorker('recalculate', { rows, team, options, enemy });
+          let data: any;
+          try {
+            data = await result;
+          } catch (err) {
+            console.error('[useRotationStore] recalculate failed', err);
+            if (seq === latestSeqByType.recalculate) set({ isCalculating: false });
+            return;
+          }
+          // A newer recalculate() already landed (or is still in flight) by the time this one
+          // came back -- its result is stale, so just drop it instead of clobbering fresher
+          // state. calculateDamage() has its own independent tracking (see comment above),
+          // so an interleaved Calculate press doesn't affect this check either way.
+          if (seq !== latestSeqByType.recalculate) return;
+
+          // Read the row-level damageInstances fresh, right now, rather than a snapshot taken
+          // before this request was sent -- a calculateDamage() (or another recalculate())
+          // could easily have finished and populated fresher per-row damage in the meantime,
+          // and stomping that with whatever existed when this request started would silently
+          // undo it.
+          const existingDamageMap = new Map(get().rows.map((r, i) => [i, r.damageInstances]));
+          const evaluatedRows = data.evaluatedRows;
           evaluatedRows.forEach((row: any, i: number) => {
             row.damageInstances = existingDamageMap.get(i) || row.damageInstances || [];
           });
 
-          const { index: loopStartIndex, isOverride: loopStartIsOverride } = findLoopStart(evaluatedRows, team[0]?.character);
-          const { errorMsg: loopErrorMsg, warningMsg: loopWarningMsg } = TimelineEngine.analyzeLoop(
-            evaluatedRows,
-            team,
-            { startEnergy, startConcerto },
-            enemy,
-            loopStartIndex
-          );
-
-          set({ rows: evaluatedRows, isStale: true, loopStartIndex, loopStartIsOverride, loopErrorMsg, loopWarningMsg });
+          set({
+            rows: evaluatedRows,
+            isStale: true,
+            loopStartIndex: data.loopStartIndex,
+            loopStartIsOverride: data.loopStartIsOverride,
+            loopErrorMsg: data.loopErrorMsg,
+            loopWarningMsg: data.loopWarningMsg,
+            isCalculating: false
+          });
         },
 
-        // Manual Combat Calculation (Triggered exclusively by the "Calculate" button)
-        calculateDamage: () => {
+        // Manual Combat Calculation (Triggered exclusively by the "Calculate" button) -- also
+        // runs in the calc worker, same reasoning as recalculate above.
+        calculateDamage: async () => {
           const team = useRosterStore.getState().team;
           const enemy = useRosterStore.getState().enemy;
           const { startEnergy, startConcerto, rows, loopStartIndex } = get();
           const options = { startEnergy, startConcerto };
 
-          // Short pass over the literal authored rows -- feeds the per-row damage-breakdown
-          // dropdown in the rotation table, independent of the Results panel below.
-          const evaluatedRows = TimelineEngine.recalculateState(rows, team, options, enemy);
-          let runningEnemyHp = enemy.hp;
+          set({ isCalculating: true });
+          const { seq, result } = postToWorker('calculateDamage', { rows, team, options, enemy, loopStartIndex });
+          let data: any;
+          try {
+            data = await result;
+          } catch (err) {
+            console.error('[useRotationStore] calculateDamage failed', err);
+            if (seq === latestSeqByType.calculateDamage) set({ isCalculating: false });
+            return;
+          }
+          // Only a newer calculateDamage() (e.g. a second Calculate press before the first
+          // returned) supersedes this -- an interleaved recalculate() does not.
+          if (seq !== latestSeqByType.calculateDamage) return;
 
-          evaluatedRows.forEach((row: any) => {
-            row.damageInstances = [];
-            if (row._pendingHits && row._pendingHits.length > 0) {
-              row._pendingHits.forEach((hit: any) => {
-                hit.context.enemyHp = runningEnemyHp;
-                const result = CombatCalculator.calculateDamageInstance(hit.config, hit.context, team);
-                runningEnemyHp = Math.max(0, runningEnemyHp - result.total);
-                row.damageInstances.push(result);
-              });
-            }
-          });
-
-          // Separate extended (opener + N-loop-repetition) pass -- feeds the Results panel.
-          const results = buildRotationResults(rows, team, options, enemy, loopStartIndex);
-
-          set({ rows: evaluatedRows, isStale: false, results });
+          set({ rows: data.evaluatedRows, isStale: false, results: data.results, isCalculating: false });
         },
 
         undo: () => {
@@ -345,15 +405,10 @@ export const useRotationStore = create<RotationState>()(
         startEnergy: state.startEnergy,
         startConcerto: state.startConcerto
       }),
-      onRehydrateStorage: () => {
-        return (state, error) => {
-          if (!error && state) {
-            setTimeout(() => {
-              state.recalculate();
-            }, 100);
-          }
-        };
-      }
+      // No auto-recalculate here on purpose -- this fires on every page load app-wide (this
+      // store module is in the static import graph regardless of route), so triggering the
+      // worker from here meant it ran even on the landing page. The calculator page itself
+      // (RotationBuilder's mount effect) recalculates once when the user actually opens it.
     }
   )
 );

@@ -51,6 +51,19 @@ export class DataLoaderClass {
     await this.loadMechanic('generic', 'generic');
   }
 
+  // Loads every mechanic a team composition needs (each slot's character/weapon/sets/echo) --
+  // shared by the roster store (main thread) and the calc worker, which has its own separate
+  // DataLoader instance and so can't just read what the main thread already loaded.
+  async loadTeamMechanics(team: Array<{ character?: string; weapon?: string; mainSet?: string; subSet?: string; mainEcho?: string }>): Promise<void> {
+    for (const slot of team) {
+      if (slot.character) await this.loadMechanic('characters', slot.character);
+      if (slot.weapon) await this.loadMechanic('weapons', slot.weapon);
+      if (slot.mainSet) await this.loadMechanic('sets', slot.mainSet);
+      if (slot.subSet) await this.loadMechanic('sets', slot.subSet);
+      if (slot.mainEcho) await this.loadMechanic('echoes', slot.mainEcho);
+    }
+  }
+
   async loadMechanic(folder: string, itemName: string): Promise<void> {
     if (!itemName) return;
     const fileName = itemName.replace(/\s+/g, '_');

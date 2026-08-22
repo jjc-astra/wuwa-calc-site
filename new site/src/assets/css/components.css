@@ -987,6 +987,45 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     animation: flash 1s infinite ease-in-out;
 }
 
+/* Same pill shape as .calc-warning-msg, neutral/accent color instead of warning-yellow since
+   this just means "working", not "something needs attention". Shown while the calc worker is
+   running a recalculate/Calculate pass, so edits and the Calculate button never look frozen. */
+.calc-loading-msg {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    width: auto;
+    white-space: nowrap;
+    height: 100%;
+
+    background-color: color-mix(in srgb, var(--accent) 12%, transparent);
+    color: var(--accent);
+    border-left: 3px solid var(--accent);
+    border-right: 3px solid var(--accent);
+    padding: 4px 12px;
+    border-radius: 0 4px 4px 0;
+
+    font-size: 0.75rem;
+    font-weight: bold;
+    font-family: monospace;
+    text-transform: uppercase;
+    gap: 8px;
+}
+
+.calc-loading-spinner {
+    width: 12px;
+    height: 12px;
+    border: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    display: inline-block;
+    animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
 @keyframes flash {
     0% { opacity: 0.7; }
     50% { opacity: 1; }
