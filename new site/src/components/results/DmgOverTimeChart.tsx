@@ -8,7 +8,11 @@ import { CATEGORICAL_PALETTE } from './chartPalette';
 import { TooltipManager } from '../../utils/Common';
 
 const TWO_MIN = 120;
-const WIDTH = 440;
+// Initial/fallback logical width, used until the first ResizeObserver measurement lands --
+// the real width tracks the chart's actual rendered pixel width (see chartWidth state below),
+// so a wider container reveals more horizontal plot area instead of stretching a fixed-size
+// chart (which would distort the axis/label text along with the geometry).
+const DEFAULT_WIDTH = 440;
 const HEIGHT = 220;
 const PAD = { top: 22, right: 16, bottom: 30, left: 62 };
 // How close (in seconds) the cursor needs to be to a kill/2-minute intercept before the
@@ -47,9 +51,9 @@ function pickTickStep(domainMaxT: number): number {
 // chart (SVG text isn't clipped to the viewBox by default, it just draws past it and gets cut
 // off by the container) -- flip to "start"/"end" near either edge so it draws inward instead.
 const EDGE_ZONE = 22;
-function edgeAnchor(x: number): 'start' | 'middle' | 'end' {
+function edgeAnchor(x: number, width: number): 'start' | 'middle' | 'end' {
   if (x <= PAD.left + EDGE_ZONE) return 'start';
-  if (x >= WIDTH - PAD.right - EDGE_ZONE) return 'end';
+  if (x >= width - PAD.right - EDGE_ZONE) return 'end';
   return 'middle';
 }
 
@@ -97,10 +101,28 @@ export const DmgOverTimeChart: React.FC = () => {
   const [hoverT, setHoverT] = useState<number | null>(null);
   const [mode, setMode] = useState<ViewMode>('dmg');
   const [dpsType, setDpsType] = useState<DpsWindowKey>('twoMin');
+  const [WIDTH, setWidth] = useState(DEFAULT_WIDTH);
 
   const primarydmg = results?.dmgOverTimeSeries[dpsType] ?? EMPTY_SERIES;
   const dmgSeries: DmgOverTimeSeries[] = pinned ? [primarydmg, pinned.dmgOverTimeSeries[dpsType]] : [primarydmg];
   const domainMaxT = primarydmg.windowEnd;
+  const hasChart = domainMaxT > 0;
+
+  // Tracks the svg's actual rendered pixel width so a wider results panel reveals more plot
+  // area at the same crisp scale, instead of stretching the existing layout to fit (which would
+  // distort the axis/label text along with the line geometry). Re-runs when the svg itself
+  // mounts/unmounts (the "no opener/loop" placeholder below renders no svg at all).
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(entries => {
+      const w = entries[0]?.contentRect.width;
+      if (w) setWidth(w);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasChart]);
+
   // In DPS mode, every series' points are replaced with the derived rolling-average line --
   // label/bossMaxHp/killTime (all time- or total-based, not shape-of-the-line-based) still
   // carry over unchanged, so the rest of the chart (kill markers, snap times, legend) doesn't
@@ -197,7 +219,7 @@ export const DmgOverTimeChart: React.FC = () => {
           <PinRotationControl />
         </div>
       </div>
-      {domainMaxT <= 0 ? (
+      {!hasChart ? (
         <div className="results-empty">
           {dpsType === 'opener' ? 'No opener in this rotation.' : 'No loop content in this rotation.'}
         </div>
@@ -240,7 +262,7 @@ export const DmgOverTimeChart: React.FC = () => {
           const ticks: number[] = [];
           for (let t = 0; t <= domainMaxT; t += step) ticks.push(t);
           return ticks.map(t => (
-            <text key={t} x={xScale(t)} y={HEIGHT - PAD.bottom + 16} textAnchor={edgeAnchor(xScale(t))} className="dmg-time-axis-label">
+            <text key={t} x={xScale(t)} y={HEIGHT - PAD.bottom + 16} textAnchor={edgeAnchor(xScale(t), WIDTH)} className="dmg-time-axis-label">
               {formatTime(t)}
             </text>
           ));
@@ -287,7 +309,7 @@ export const DmgOverTimeChart: React.FC = () => {
               <text
                 x={xScale(s.killTime)}
                 y={Math.max(PAD.top + 8, yScale(valueAtTime(s.points, s.killTime)) - 10 - i * 13)}
-                textAnchor={edgeAnchor(xScale(s.killTime))}
+                textAnchor={edgeAnchor(xScale(s.killTime), WIDTH)}
                 className="dmg-time-marker-label"
                 fill={CATEGORICAL_PALETTE[i]}
               >
