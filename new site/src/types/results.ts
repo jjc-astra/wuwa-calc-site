@@ -13,6 +13,11 @@ export interface DpsStats {
 export interface DmgOverTimePoint {
   t: number;
   dmg: number;
+  // Who/what caused this point's damage -- a character name, or a status-effect dmgType label
+  // (e.g. "Aero Erosion") for non-attributable ticks. Same identity TeamDmgSlice.label uses, so
+  // the same color lookup applies to both. Absent on the t=0 origin point (nothing has hit yet)
+  // and on DPS-mode's derived rolling-average points (no single hit "produced" those).
+  label?: string;
 }
 
 export interface DmgOverTimeSeries {

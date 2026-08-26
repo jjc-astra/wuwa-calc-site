@@ -4,7 +4,7 @@ import { useRotationStore } from '../../store/useRotationStore';
 import { useComparisonStore } from '../../store/useComparisonStore';
 import type { DmgOverTimeSeries, DmgOverTimePoint, DpsWindowKey } from '../../types/results';
 import { PinRotationControl } from './PinRotationControl';
-import { CATEGORICAL_PALETTE } from './chartPalette';
+import { CATEGORICAL_PALETTE, colorForProvider } from './chartPalette';
 import { TooltipManager } from '../../utils/Common';
 
 const TWO_MIN = 120;
@@ -71,6 +71,16 @@ function valueAtTime(points: DmgOverTimePoint[], t: number): number {
     }
   }
   return points[points.length - 1].dmg;
+}
+
+// Same "which point governs this time" lookup as valueAtTime, but for the point's label --
+// used to color the hover dot/tooltip to match whichever unit's segment is currently under
+// the cursor, same as the line itself.
+function labelAtTime(points: DmgOverTimePoint[], t: number): string | undefined {
+  for (let i = 1; i < points.length; i++) {
+    if (points[i].t >= t) return points[i].label;
+  }
+  return points[points.length - 1].label;
 }
 
 // Derives a trailing-1s-average DPS line from the dmg dmg points, sampled at every real
@@ -157,12 +167,21 @@ export const DmgOverTimeChart: React.FC = () => {
   // whatever point along the line the reader is actually looking at.
   useEffect(() => () => TooltipManager.hide(), []);
 
+  // Matches the line's own per-segment coloring (one series -> colored by whoever's hit
+  // governs time t) or falls back to the fixed per-series color once a pinned comparison
+  // brings in a second line that needs to stay visually distinct from the first.
+  const colorForSeriesAt = (s: DmgOverTimeSeries, i: number, t: number): string => {
+    if (series.length > 1) return CATEGORICAL_PALETTE[i];
+    const label = labelAtTime(s.points, t);
+    return label ? colorForProvider(label) : CATEGORICAL_PALETTE[0];
+  };
+
   const buildTooltipHtml = (t: number) =>
     `<div class="dmg-time-tooltip-time">${formatTime(t)}</div>` +
     series
       .map(
         (s, i) =>
-          `<div class="dmg-time-tooltip-row"><span class="dmg-time-tooltip-key" style="background:${CATEGORICAL_PALETTE[i]}"></span>` +
+          `<div class="dmg-time-tooltip-row"><span class="dmg-time-tooltip-key" style="background:${colorForSeriesAt(s, i, t)}"></span>` +
           `<span class="tooltip-val">${formatValue(valueAtTime(s.points, t))}</span> <span class="text-dim">${s.label}</span></div>`
       )
       .join('');
@@ -293,10 +312,27 @@ export const DmgOverTimeChart: React.FC = () => {
             duplicate the x-axis's own last tick. Hover-snapping to exactly 2:00 (in snapTimes
             above) still works without it. */}
 
-        {/* Series lines */}
-        {series.map((s, i) => (
-          <path key={s.label} d={pathFor(s.points)} className="dmg-time-line" stroke={CATEGORICAL_PALETTE[i]} fill="none" />
-        ))}
+        {/* Series lines -- colored per-segment by whichever unit's hit produced that segment
+            (matches the Team Contribution pie's per-unit colors) when there's just one series
+            to show. With a pinned comparison, two lines need to stay visually distinguishable
+            from each other, so both fall back to one solid color per line instead -- per-unit
+            coloring would make the two series indistinguishable wherever they share a unit. */}
+        {series.length === 1
+          ? series[0].points.slice(1).map((p, i) => {
+              const prev = series[0].points[i];
+              return (
+                <line
+                  key={i}
+                  x1={xScale(prev.t)} y1={yScale(prev.dmg)}
+                  x2={xScale(p.t)} y2={yScale(p.dmg)}
+                  className="dmg-time-line"
+                  stroke={p.label ? colorForProvider(p.label) : CATEGORICAL_PALETTE[0]}
+                />
+              );
+            })
+          : series.map((s, i) => (
+              <path key={s.label} d={pathFor(s.points)} className="dmg-time-line" stroke={CATEGORICAL_PALETTE[i]} fill="none" />
+            ))}
 
         {/* Kill intercept markers -- labeled for every series, not just the primary one. Y
             position reads this series' own value at kill time -- in dmg mode that's
@@ -343,7 +379,7 @@ export const DmgOverTimeChart: React.FC = () => {
                 cy={yScale(valueAtTime(s.points, hoverT))}
                 r={4}
                 className="dmg-time-marker"
-                fill={CATEGORICAL_PALETTE[i]}
+                fill={colorForSeriesAt(s, i, hoverT)}
               />
             ))}
           </g>

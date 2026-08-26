@@ -1,4 +1,6 @@
 // src/components/results/chartPalette.ts
+import { DataLoader } from '../../utils/DataLoader';
+import { getCharacterThemeColor } from '../../utils/Common';
 // Fixed categorical order, validated (dataviz skill) against this app's --bg-panel dark
 // surface (#2b2b2b): CVD-adjacent ΔE >= 8.4, normal-vision-adjacent ΔE >= 19.3. Assign by
 // series identity in this order -- never cycle or reassign on filter.
@@ -27,6 +29,14 @@ export function colorForIndex(i: number): string {
 const NAMED_SLOTS: Record<string, number> = {
   Basic: 0, Heavy: 1, Skill: 2, Liberation: 3, Intro: 4, Outro: 5, Echo: 6
 };
+
+// A real team character gets its own theme color (same identity TeamContributionPanel's Team
+// tab colors its slices by); anything else (a status-effect dmgType label like "Aero Erosion")
+// falls through to the generic hash-based palette below.
+export function colorForProvider(label: string): string {
+  const dbChar = DataLoader.characterDB[label];
+  return dbChar ? getCharacterThemeColor(dbChar) : colorForLabel(label);
+}
 
 export function colorForLabel(label: string): string {
   if (label in NAMED_SLOTS) return CATEGORICAL_PALETTE[NAMED_SLOTS[label]];

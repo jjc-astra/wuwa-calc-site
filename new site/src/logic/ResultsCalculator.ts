@@ -44,6 +44,14 @@ interface RotationHit {
   context: any;
 }
 
+// Who/what a hit is attributed to for grouping/coloring purposes -- a status-effect tick isn't
+// caused by any one unit's action, so it's labeled by its dmgType instead (e.g. "Aero Erosion").
+// Shared by the team contribution pie's grouping and the dmg-over-time chart's per-segment
+// coloring, so both agree on the same identity for the same hit.
+function hitLabel(h: RotationHit): string {
+  return h.isNegativeStatus ? h.dmgTypes[0] || 'Status Effect' : h.provider;
+}
+
 const cloneAuthored = (r: any) => ({
   unit: r.unit,
   action: r.action,
@@ -166,7 +174,7 @@ function buildDpsStats(hits: RotationHit[], openerEndTime: number, loopDuration:
 // averaging where that applies (see buildAvgLoopDmgOverTime) -- so this function itself never
 // needs to know which window it's building.
 function buildDmgOverTimeForWindow(
-  relativeHits: Array<{ t: number; total: number }>,
+  relativeHits: Array<{ t: number; total: number; label: string }>,
   bossMaxHp: number,
   label: string,
   windowEnd: number
@@ -177,7 +185,7 @@ function buildDmgOverTimeForWindow(
 
   for (const h of relativeHits) {
     cumulative += h.total;
-    points.push({ t: h.t, dmg: cumulative });
+    points.push({ t: h.t, dmg: cumulative, label: h.label });
     if (killTime === null && cumulative >= bossMaxHp) {
       const prev = points[points.length - 2];
       const frac = cumulative === prev.dmg ? 0 : (bossMaxHp - prev.dmg) / (cumulative - prev.dmg);
@@ -199,7 +207,7 @@ function buildAvgLoopDmgOverTime(hits: RotationHit[], openerEndTime: number, loo
   const folded = windowHits
     .map(h => {
       const rel = (h.gameTime - openerEndTime) % loopDuration;
-      return { t: rel === 0 ? loopDuration : rel, total: h.total };
+      return { t: rel === 0 ? loopDuration : rel, total: h.total, label: hitLabel(h) };
     })
     .sort((a, b) => a.t - b.t);
 
@@ -210,7 +218,7 @@ function buildAvgLoopDmgOverTime(hits: RotationHit[], openerEndTime: number, loo
   for (const h of folded) {
     cumulative += h.total;
     const avgDmg = cumulative / AVG_LOOP_REPS;
-    points.push({ t: h.t, dmg: avgDmg });
+    points.push({ t: h.t, dmg: avgDmg, label: h.label });
     if (killTime === null && avgDmg >= bossMaxHp) {
       const prev = points[points.length - 2];
       const frac = avgDmg === prev.dmg ? 0 : (bossMaxHp - prev.dmg) / (avgDmg - prev.dmg);
@@ -228,7 +236,7 @@ function buildAllDmgOverTime(
   bossMaxHp: number
 ): Record<DpsWindowKey, DmgOverTimeSeries> {
   const opener = buildDmgOverTimeForWindow(
-    windowedHits(hits, -Infinity, openerEndTime).map(h => ({ t: h.gameTime, total: h.total })),
+    windowedHits(hits, -Infinity, openerEndTime).map(h => ({ t: h.gameTime, total: h.total, label: hitLabel(h) })),
     bossMaxHp,
     'Opener',
     openerEndTime
@@ -237,7 +245,7 @@ function buildAllDmgOverTime(
   const firstLoop =
     loopDuration !== null
       ? buildDmgOverTimeForWindow(
-          windowedHits(hits, openerEndTime, openerEndTime + loopDuration).map(h => ({ t: h.gameTime - openerEndTime, total: h.total })),
+          windowedHits(hits, openerEndTime, openerEndTime + loopDuration).map(h => ({ t: h.gameTime - openerEndTime, total: h.total, label: hitLabel(h) })),
           bossMaxHp,
           'First Loop',
           loopDuration
@@ -250,7 +258,7 @@ function buildAllDmgOverTime(
       : buildDmgOverTimeForWindow([], bossMaxHp, 'Avg Loop', 0);
 
   const twoMin = buildDmgOverTimeForWindow(
-    windowedHits(hits, -Infinity, TWO_MIN).map(h => ({ t: h.gameTime, total: h.total })),
+    windowedHits(hits, -Infinity, TWO_MIN).map(h => ({ t: h.gameTime, total: h.total, label: hitLabel(h) })),
     bossMaxHp,
     'Current Rotation',
     TWO_MIN
@@ -260,7 +268,7 @@ function buildAllDmgOverTime(
 }
 
 function buildContributionForWindow(windowHits: RotationHit[], teamNames: string[], divisor: number): ContributionForWindow {
-  const teamGroups = groupSum(windowHits, h => (h.isNegativeStatus ? h.dmgTypes[0] || 'Status Effect' : h.provider));
+  const teamGroups = groupSum(windowHits, hitLabel);
   const team: TeamDmgSlice[] = Object.entries(teamGroups)
     .map(([label, dmg]) => ({ label, dmg: dmg / divisor }))
     .filter(s => s.dmg > 0);
