@@ -2,10 +2,27 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRotationStore } from '../../store/useRotationStore';
 import { useComparisonStore } from '../../store/useComparisonStore';
-import type { DmgOverTimeSeries, DmgOverTimePoint, DpsWindowKey } from '../../types/results';
+import type { DmgOverTimeSeries, DpsWindowKey } from '../../types/results';
 import { PinRotationControl } from './PinRotationControl';
 import { CATEGORICAL_PALETTE, colorForProvider } from './chartPalette';
 import { TooltipManager } from '../../utils/Common';
+import { framesToSeconds } from '../../utils/Frames';
+
+// This chart's whole internal domain is plain display-seconds, converted once at the boundary
+// below (toDisplaySeries) from the engine's real Frames-typed series -- nothing past that point
+// needs to know about frames at all, matching every other seconds-only display in the app.
+interface DisplayPoint { t: number; dmg: number; label?: string; }
+interface DisplaySeries { label: string; points: DisplayPoint[]; bossMaxHp: number; killTime: number | null; windowEnd: number; }
+
+function toDisplaySeries(s: DmgOverTimeSeries): DisplaySeries {
+  return {
+    label: s.label,
+    points: s.points.map(p => ({ t: framesToSeconds(p.t), dmg: p.dmg, label: p.label })),
+    bossMaxHp: s.bossMaxHp,
+    killTime: s.killTime !== null ? framesToSeconds(s.killTime) : null,
+    windowEnd: framesToSeconds(s.windowEnd)
+  };
+}
 
 const TWO_MIN = 120;
 // Initial/fallback logical width, used until the first ResizeObserver measurement lands --
@@ -22,7 +39,7 @@ const SNAP_PX = 8;
 
 // Safe placeholder so every hook below can run unconditionally even before results exist --
 // the component still bails to `null` after the hooks, per the Rules of Hooks.
-const EMPTY_SERIES: DmgOverTimeSeries = { label: '', points: [{ t: 0, dmg: 0 }], bossMaxHp: 1, killTime: null, windowEnd: 0 };
+const EMPTY_SERIES: DisplaySeries = { label: '', points: [{ t: 0, dmg: 0 }], bossMaxHp: 1, killTime: null, windowEnd: 0 };
 
 // Same 4 windows/labels as TeamContributionPanel's dropdown, so picking "First Loop" here means
 // the same thing it does there.
@@ -60,7 +77,7 @@ function edgeAnchor(x: number, width: number): 'start' | 'middle' | 'end' {
 const formatDmg = (v: number) => (v >= 1_000_000 ? `${(v / 1_000_000).toFixed(2)}M` : `${(v / 1000).toFixed(0)}K`);
 const formatTime = (t: number) => `${Math.floor(t / 60)}:${String(Math.round(t % 60)).padStart(2, '0')}`;
 
-function valueAtTime(points: DmgOverTimePoint[], t: number): number {
+function valueAtTime(points: DisplayPoint[], t: number): number {
   if (t <= points[0].t) return points[0].dmg;
   for (let i = 1; i < points.length; i++) {
     if (points[i].t >= t) {
@@ -76,7 +93,7 @@ function valueAtTime(points: DmgOverTimePoint[], t: number): number {
 // Same "which point governs this time" lookup as valueAtTime, but for the point's label --
 // used to color the hover dot/tooltip to match whichever unit's segment is currently under
 // the cursor, same as the line itself.
-function labelAtTime(points: DmgOverTimePoint[], t: number): string | undefined {
+function labelAtTime(points: DisplayPoint[], t: number): string | undefined {
   for (let i = 1; i < points.length; i++) {
     if (points[i].t >= t) return points[i].label;
   }
@@ -88,7 +105,7 @@ function labelAtTime(points: DmgOverTimePoint[], t: number): string | undefined 
 // (where it drops back out of the window) -- capturing the actual rise/decay shape a rolling
 // average produces, rather than just linearly bridging between whatever hit timestamps happen
 // to exist (which would smear a burst's decay into a random later sample).
-function buildDpsPoints(points: DmgOverTimePoint[], domainMaxT: number): DmgOverTimePoint[] {
+function buildDpsPoints(points: DisplayPoint[], domainMaxT: number): DisplayPoint[] {
   const criticalTimes = new Set<number>([0, domainMaxT]);
   points.forEach(p => {
     criticalTimes.add(p.t);
@@ -113,8 +130,8 @@ export const DmgOverTimeChart: React.FC = () => {
   const [dpsType, setDpsType] = useState<DpsWindowKey>('twoMin');
   const [WIDTH, setWidth] = useState(DEFAULT_WIDTH);
 
-  const primarydmg = results?.dmgOverTimeSeries[dpsType] ?? EMPTY_SERIES;
-  const dmgSeries: DmgOverTimeSeries[] = pinned ? [primarydmg, pinned.dmgOverTimeSeries[dpsType]] : [primarydmg];
+  const primarydmg = results ? toDisplaySeries(results.dmgOverTimeSeries[dpsType]) : EMPTY_SERIES;
+  const dmgSeries: DisplaySeries[] = pinned ? [primarydmg, toDisplaySeries(pinned.dmgOverTimeSeries[dpsType])] : [primarydmg];
   const domainMaxT = primarydmg.windowEnd;
   const hasChart = domainMaxT > 0;
 
@@ -137,7 +154,7 @@ export const DmgOverTimeChart: React.FC = () => {
   // label/bossMaxHp/killTime (all time- or total-based, not shape-of-the-line-based) still
   // carry over unchanged, so the rest of the chart (kill markers, snap times, legend) doesn't
   // need to know which mode it's in.
-  const series: DmgOverTimeSeries[] =
+  const series: DisplaySeries[] =
     mode === 'dmg' ? dmgSeries : dmgSeries.map(s => ({ ...s, points: buildDpsPoints(s.points, domainMaxT) }));
 
   // Scaled to whatever's actually visible in the current window, not always up to Boss HP --
@@ -151,7 +168,7 @@ export const DmgOverTimeChart: React.FC = () => {
   const xScale = (t: number) => PAD.left + (t / domainMaxT) * plotW;
   const yScale = (v: number) => PAD.top + plotH - (v / domainMaxDmg) * plotH;
 
-  const pathFor = (points: DmgOverTimePoint[]) => points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xScale(p.t)} ${yScale(p.dmg)}`).join(' ');
+  const pathFor = (points: DisplayPoint[]) => points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xScale(p.t)} ${yScale(p.dmg)}`).join(' ');
   const formatValue = (v: number) => (mode === 'dps' ? `${formatDmg(v)}/s` : formatDmg(v));
 
   // Every kill intercept (one per series) plus the shared 2-minute mark -- hovering near any
@@ -170,7 +187,7 @@ export const DmgOverTimeChart: React.FC = () => {
   // Matches the line's own per-segment coloring (one series -> colored by whoever's hit
   // governs time t) or falls back to the fixed per-series color once a pinned comparison
   // brings in a second line that needs to stay visually distinct from the first.
-  const colorForSeriesAt = (s: DmgOverTimeSeries, i: number, t: number): string => {
+  const colorForSeriesAt = (s: DisplaySeries, i: number, t: number): string => {
     if (series.length > 1) return CATEGORICAL_PALETTE[i];
     const label = labelAtTime(s.points, t);
     return label ? colorForProvider(label) : CATEGORICAL_PALETTE[0];

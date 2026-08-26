@@ -1,3 +1,5 @@
+import type { Frames } from '../utils/Frames';
+
 // --- EQUIPMENT & STAT TYPES ---
 export type WeaponType = 'Broadblade' | 'Sword' | 'Rectifier' | 'Gauntlets' | 'Pistols';
 export type ElementType = 'Glacio' | 'Fusion' | 'Electro' | 'Aero' | 'Spectro' | 'Havoc' | 'Physical';
@@ -96,7 +98,7 @@ export interface HoldConfig {
 }
 
 export interface CancelTiming {
-  time: number;
+  time: Frames;
   hits?: number;
   triggerRule?: string;
   _compiledRule?: any;
@@ -116,21 +118,24 @@ export interface MechanicNode {
   hitResources?: Record<string, string | number | number[]>;
   hitMults?: (number | string)[];
   scalar?: ScalarStat;
-  actionDuration?: number | string;
+  // Duration-domain fields (how long the move/animation takes) -- Frames, per the frame-based
+  // timing migration. `cooldown` is a deliberate exception and stays in seconds (see
+  // TimelineEngine.ts's _processGameTimeDecay for the one place these two domains cross).
+  actionDuration?: Frames | string;
   cooldown?: number | string;
-  swapTiming?: number | string;
-  freezeTime?: number | string;
-  comboWindow?: number | string;
+  swapTiming?: Frames | string;
+  freezeTime?: Frames | string;
+  comboWindow?: Frames | string;
   stanceReq?: 'Any' | 'Grounded' | 'Midair';
   stanceResult?: 'Retain' | 'Grounded' | 'Midair';
-  stanceTime?: number | string;
+  stanceTime?: Frames | string;
   input?: string;
   inputType?: 'Press' | 'Hold' | 'Release';
   priority?: number | string;
   holdConfig?: HoldConfig;
   cancelTimings?: CancelTiming[];
   effects?: Effect[];
-  damageTimeframe?: { start?: number | string; end?: number | string };
+  damageTimeframe?: { start?: Frames | string; end?: Frames | string };
   allowedHits?: number;
   isNegativeStatus?: boolean;
   _compiledRule?: any;
@@ -168,7 +173,7 @@ export interface HitConfig {
   isNegativeStatus?: boolean;
   actionId?: string;
   moveName?: string;
-  gameTime?: number;
+  gameTime?: Frames;
 }
 
 export interface DamageInstanceResult {
@@ -178,7 +183,7 @@ export interface DamageInstanceResult {
   nonCrit: number;
   crit: number;
   isOpen: boolean;
-  gameTime?: number;
+  gameTime?: Frames;
   data: {
     activeBuffs: Record<string, Effect>;
     baseMult: string;

@@ -4,6 +4,7 @@ import React from 'react';
 import { DataLoader } from '../../utils/DataLoader';
 import { MECHANICS_NOTATION } from '../../data/db';
 import { TooltipManager } from '../../utils/Common';
+import { toFrames, framesToSeconds } from '../../utils/Frames';
 
 const formatGaugeValue = (val: number): number => (Number.isInteger(val) ? val : parseFloat(val.toFixed(2)));
 
@@ -92,7 +93,10 @@ export const MultiForteGauge: React.FC<MultiForteGaugeProps> = ({ unit, stateDat
             const rowEndGameTime = (stateData.gameTimeStart || 0) + (stateData.gameTimePassed || 0);
             const currentHoldDuration = rowEndGameTime - holdStart;
             const accumulated = stateData.trackers.Cursor_Accumulated || 0;
-            const progress = accumulated + (currentHoldDuration * speed);
+            // cursorSpeed is calibrated in cursor-units per real-time SECOND -- currentHoldDuration
+            // is frames (row-scheduling domain), so convert right at this multiplication, mirroring
+            // TimelineEngine.ts's identical hold-physics formula.
+            const progress = accumulated + (framesToSeconds(toFrames(currentHoldDuration)) * speed);
 
             if (mode === 'clamp') {
               val = Math.min(progress, maxVal);

@@ -12,7 +12,7 @@
       "forte1": [5, 5, 5]
     },
     "hitMults": ["31.81%", "31.81%", "31.81%"],
-    "actionDuration": 0.88,
+    "actionDuration": 53,
     "swapTiming": "@Default.SwapTime",
     "comboWindow": "@Default.ComboWindow",
     "input": "Basic",
@@ -32,7 +32,7 @@
       "forte1": [10]
     },
     "hitMults": ["63.62%"],
-    "actionDuration": 0.33,
+    "actionDuration": 20,
     "swapTiming": "@Default.SwapTime",
     "comboWindow": "@Default.ComboWindow",
     "input": "Dodge",
@@ -52,7 +52,7 @@
       "forte1": [15]
     },
     "hitMults": ["95.43%"],
-    "actionDuration": 0.77,
+    "actionDuration": 46,
     "swapTiming": "@Default.SwapTime",
     "comboWindow": "@Default.ComboWindow",
     "input": "Basic",
@@ -72,7 +72,7 @@
       "forte2": [15]
     },
     "hitMults": ["90.66%"],
-    "actionDuration": 0.37,
+    "actionDuration": 22,
     "swapTiming": "@Default.SwapTime",
     "comboWindow": "@Default.ComboWindow",
     "input": "Basic",
@@ -92,7 +92,7 @@
       "forte2": [20, 2, 2, 2, 2, 2]
     },
     "hitMults": ["107.66%", "21.54%", "21.54%", "21.54%", "21.54%", "21.54%"],
-    "actionDuration": 1.31,
+    "actionDuration": 79,
     "swapTiming": "@Default.SwapTime",
     "comboWindow": "@Default.ComboWindow",
     "input": "Basic",
@@ -112,7 +112,7 @@
       "forte2": [12, 28]
     },
     "hitMults": ["64.60%", "150.72%"],
-    "actionDuration": 0.7,
+    "actionDuration": 42,
     "swapTiming": "@Default.SwapTime",
     "comboWindow": "@Default.ComboWindow",
     "input": "Basic",
@@ -132,7 +132,7 @@
       "forte2": [10, 10]
     },
     "hitMults": ["66.11%", "66.11%"],
-    "actionDuration": 0.68,
+    "actionDuration": 41,
     "swapTiming": "@Default.SwapTime",
     "comboWindow": "@Default.ComboWindow",
     "inputType": "Hold",
@@ -152,7 +152,7 @@
       "forte2": [20]
     },
     "hitMults": ["113.33%"],
-    "actionDuration": 0.77,
+    "actionDuration": 46,
     "swapTiming": "@Default.SwapTime",
     "comboWindow": "@Default.ComboWindow",
     "input": "Basic",
@@ -171,7 +171,7 @@
       "tune": [0.768]
     },
     "hitMults": ["181.32%"],
-    "actionDuration": 1.45,
+    "actionDuration": 87,
     "swapTiming": "@Default.SwapTime",
     "comboWindow": "@Default.ComboWindow",
     "input": "Skill",
@@ -190,7 +190,7 @@
       "tune": [0.736]
     },
     "hitMults": ["173.76%"],
-    "actionDuration": 1.08,
+    "actionDuration": 65,
     "swapTiming": "@Default.SwapTime",
     "comboWindow": "@Default.ComboWindow",
     "input": "Skill",
@@ -210,9 +210,9 @@
       "tune": [14.4]
     },
     "hitMults": ["954.29%"],
-    "actionDuration": 2,
+    "actionDuration": 120,
     "cooldown": 20,
-    "freezeTime": 2,
+    "freezeTime": 120,
     "comboWindow": "@Default.ComboWindow",
     "input": "Liberation",
     "stanceReq": "Grounded",
@@ -231,14 +231,10 @@
       "forte1": [15]
     },
     "effects": [
-      {
-        "type": "tracker",
-        "name": "Lumi_Yellow Spotlight Mode",
-        "value": -1
-      }
+      { "type": "tracker", "name": "Lumi_Yellow Spotlight Mode", "value": -1 }
     ],
     "hitMults": ["81.52%"],
-    "actionDuration": 0.33,
+    "actionDuration": 20,
     "swapTiming": "@Default.SwapTime",
     "comboWindow": "@Default.ComboWindow",
     "input": "Dodge",
@@ -258,14 +254,10 @@
       "forte2": [18]
     },
     "effects": [
-      {
-        "type": "tracker",
-        "name": "Lumi_Red Spotlight Mode",
-        "value": -1
-      }
+      { "type": "tracker", "name": "Lumi_Red Spotlight Mode", "value": -1 }
     ],
     "hitMults": ["120.25%"],
-    "actionDuration": 0.37,
+    "actionDuration": 22,
     "swapTiming": "@Default.SwapTime",
     "comboWindow": "@Default.ComboWindow",
     "input": "Basic",
@@ -285,14 +277,10 @@
       "forte2": [24, 3, 3, 3, 3, 3]
     },
     "effects": [
-      {
-        "type": "tracker",
-        "name": "Lumi_Red Spotlight Mode",
-        "value": -1
-      }
+      { "type": "tracker", "name": "Lumi_Red Spotlight Mode", "value": -1 }
     ],
     "hitMults": ["138.32%", "27.67%", "27.67%", "27.67%", "27.67%", "27.67%"],
-    "actionDuration": 1.31,
+    "actionDuration": 79,
     "swapTiming": "@Default.SwapTime",
     "comboWindow": "@Default.ComboWindow",
     "input": "Basic",
@@ -312,14 +300,10 @@
       "forte2": [15, 35]
     },
     "effects": [
-      {
-        "type": "tracker",
-        "name": "Lumi_Red Spotlight Mode",
-        "value": -1
-      }
+      { "type": "tracker", "name": "Lumi_Red Spotlight Mode", "value": -1 }
     ],
     "hitMults": ["93.73%", "218.69%"],
-    "actionDuration": 0.7,
+    "actionDuration": 42,
     "swapTiming": "@Default.SwapTime",
     "comboWindow": "@Default.ComboWindow",
     "input": "Basic",
@@ -339,14 +323,10 @@
       "forte2": [14, 14]
     },
     "effects": [
-      {
-        "type": "tracker",
-        "name": "Lumi_Red Spotlight Mode",
-        "value": -1
-      }
+      { "type": "tracker", "name": "Lumi_Red Spotlight Mode", "value": -1 }
     ],
     "hitMults": ["88.18%", "88.18%"],
-    "actionDuration": 0.68,
+    "actionDuration": 41,
     "swapTiming": "@Default.SwapTime",
     "comboWindow": "@Default.ComboWindow",
     "stanceReq": "Grounded",
@@ -369,25 +349,12 @@
       "tune": [1.28, 1.28]
     },
     "effects": [
-      {
-        "type": "buffAction",
-        "action": "remove",
-        "name": "Lumi_Yellow Light Form"
-      },
-      {
-        "type": "buff",
-        "name": "Lumi_Red Light Form"
-      },
-      {
-        "type": "tracker",
-        "name": "Lumi_Red Spotlight Mode",
-        "action": "add",
-        "value": 4,
-        "max": 4
-      }
+      { "type": "buffAction", "action": "remove", "name": "Lumi_Yellow Light Form" },
+      { "type": "buff", "name": "Lumi_Red Light Form" },
+      { "type": "tracker", "name": "Lumi_Red Spotlight Mode", "action": "add", "value": 4, "max": 4 }
     ],
     "hitMults": ["183.31%", "183.31%"],
-    "actionDuration": 1.45,
+    "actionDuration": 87,
     "swapTiming": "@Default.SwapTime",
     "comboWindow": "@Default.ComboWindow",
     "input": "Skill",
@@ -411,25 +378,12 @@
       "tune": [0.74]
     },
     "effects": [
-      {
-        "type": "buffAction",
-        "action": "remove",
-        "name": "Lumi_Red Light Form"
-      },
-      {
-        "type": "buff",
-        "name": "Lumi_Yellow Light Form"
-      },
-      {
-        "type": "tracker",
-        "name": "Lumi_Yellow Spotlight Mode",
-        "action": "add",
-        "value": 6,
-        "max": 6
-      }
+      { "type": "buffAction", "action": "remove", "name": "Lumi_Red Light Form" },
+      { "type": "buff", "name": "Lumi_Yellow Light Form" },
+      { "type": "tracker", "name": "Lumi_Yellow Spotlight Mode", "action": "add", "value": 6, "max": 6 }
     ],
     "hitMults": ["251.70%"],
-    "actionDuration": 1.08,
+    "actionDuration": 65,
     "swapTiming": "@Default.SwapTime",
     "comboWindow": "@Default.ComboWindow",
     "input": "Skill",
@@ -452,14 +406,11 @@
       "tune": [0.27, 0.27]
     },
     "effects": [
-      {
-        "type": "buff",
-        "name": "Lumi_Yellow Light Form"
-      }
+      { "type": "buff", "name": "Lumi_Yellow Light Form" }
     ],
     "hitMults": ["56.33%", "56.33%"],
-    "actionDuration": 1,
-    "swapTiming": 1,
+    "actionDuration": 60,
+    "swapTiming": 60,
     "comboWindow": "@Default.ComboWindow",
     "stanceReq": "Any",
     "stanceResult": "Grounded",
@@ -475,15 +426,7 @@
       "concerto": -100
     },
     "effects": [
-      {
-        "type": "buff",
-        "name": "Lumi_Outro Skill DMG Amp",
-        "target": "Next",
-        "duration": 10,
-        "removeOnSwap": true,
-        "stat": "Skill DMG Amp",
-        "value": "38%"
-      }
+      { "type": "buff", "name": "Lumi_Outro Skill DMG Amp", "target": "Next", "duration": 10, "removeOnSwap": true, "stat": "Skill DMG Amp", "value": "38%" }
     ],
     "actionDuration": "@Default.SwapTime",
     "swapTiming": "@Default.SwapTime",
@@ -496,18 +439,9 @@
     "triggerRule": "OnCast[Outro] IF (@Self.HasBuff(@Lumi(Yellow Light Form)) && @Self.Forte1 >= 25)",
     "dmgTypes": ["Electro", "Basic"],
     "effects": [
-      {
-        "type": "resource",
-        "name": "forte1",
-        "value": -100
-      }
+      { "type": "resource", "name": "forte1", "value": -100 }
     ],
-    "hitMults": [
-      "(@Self.Forte1 >= 25 ? 74.56 : 0)%",
-      "(@Self.Forte1 >= 50 ? 74.56 : 0)%",
-      "(@Self.Forte1 >= 75 ? 74.56 : 0)%",
-      "(@Self.Forte1 >= 100 ? 74.56 : 0)%"
-    ]
+    "hitMults": ["(@Self.Forte1 >= 25 ? 74.56 : 0)%", "(@Self.Forte1 >= 50 ? 74.56 : 0)%", "(@Self.Forte1 >= 75 ? 74.56 : 0)%", "(@Self.Forte1 >= 100 ? 74.56 : 0)%"]
   },
   "Lumi_Laser Beam (Red Form)": {
     "name": "Laser Beam (Red Form)",
@@ -516,18 +450,9 @@
     "triggerRule": "OnCast[Outro] IF (@Self.HasBuff(@Lumi(Red Light Form)) && @Self.Forte2 >= 25)",
     "dmgTypes": ["Electro", "Basic"],
     "effects": [
-      {
-        "type": "resource",
-        "name": "forte2",
-        "value": -100
-      }
+      { "type": "resource", "name": "forte2", "value": -100 }
     ],
-    "hitMults": [
-      "(@Self.Forte2 >= 25 ? 74.56 : 0)%",
-      "(@Self.Forte2 >= 50 ? 74.56 : 0)%",
-      "(@Self.Forte2 >= 75 ? 74.56 : 0)%",
-      "(@Self.Forte2 >= 100 ? 74.56 : 0)%"
-    ]
+    "hitMults": ["(@Self.Forte2 >= 25 ? 74.56 : 0)%", "(@Self.Forte2 >= 50 ? 74.56 : 0)%", "(@Self.Forte2 >= 75 ? 74.56 : 0)%", "(@Self.Forte2 >= 100 ? 74.56 : 0)%"]
   },
   "Lumi_Form Initialization": {
     "name": "Form Initialization",
@@ -535,11 +460,7 @@
     "isPassive": true,
     "triggerRule": "OnStart IF (true)",
     "effects": [
-      {
-        "type": "buff",
-        "name": "Lumi_Red Light Form",
-        "duration": "@Default.PermanentDuration"
-      }
+      { "type": "buff", "name": "Lumi_Red Light Form", "duration": "@Default.PermanentDuration" }
     ]
   },
   "Lumi_Inherent Skill: Pathfinding": {
@@ -548,13 +469,7 @@
     "isPassive": true,
     "triggerRule": "OnStart IF (true)",
     "effects": [
-      {
-        "type": "buff",
-        "name": "Lumi_Red Light Form",
-        "duration": "@Default.PermanentDuration",
-        "stat": "Electro DMG Bonus",
-        "value": "10%"
-      }
+      { "type": "buff", "name": "Lumi_Red Light Form", "duration": "@Default.PermanentDuration", "stat": "Electro DMG Bonus", "value": "10%" }
     ]
   },
   "Lumi_Inherent Skill: Expediting": {
@@ -563,13 +478,7 @@
     "isPassive": true,
     "triggerRule": "OnCast[Self] IF (@Move.Id == @Lumi(Energized Pounce) || @Move.Id == @Lumi(Energized Rebound))",
     "effects": [
-      {
-        "type": "buff",
-        "name": "Lumi_Expediting",
-        "duration": 5,
-        "stat": "ATK %",
-        "value": "10%"
-      }
+      { "type": "buff", "name": "Lumi_Expediting", "duration": 5, "stat": "ATK %", "value": "10%" }
     ]
   },
   "Lumi_Sequence 2: Lollo Logistics, Ready to Help": {
@@ -578,13 +487,7 @@
     "isPassive": true,
     "triggerRule": "OnCast[Self] IF ((@Move.Id == @Lumi(Energized Pounce) || @Move.Id == @Lumi(Energized Rebound)) && @Self.Sequence >= 2)",
     "effects": [
-      {
-        "type": "buff",
-        "name": "Lumi_S2 DEF Ignore",
-        "duration": "@Default.PermanentDuration",
-        "stat": "Ignore DEF",
-        "value": "20%"
-      }
+      { "type": "buff", "name": "Lumi_S2 DEF Ignore", "duration": "@Default.PermanentDuration", "stat": "Ignore DEF", "value": "20%" }
     ]
   },
   "Lumi_Sequence 3: Priority Parcel In Transit": {
@@ -593,13 +496,7 @@
     "isPassive": true,
     "triggerRule": "IF (@Self.Sequence >= 3)",
     "effects": [
-      {
-        "type": "buff",
-        "name": "Lumi_S3 Liberation DMG",
-        "duration": "@Default.PermanentDuration",
-        "stat": "Liberation DMG Bonus",
-        "value": "30%"
-      }
+      { "type": "buff", "name": "Lumi_S3 Liberation DMG", "duration": "@Default.PermanentDuration", "stat": "Liberation DMG Bonus", "value": "30%" }
     ]
   },
   "Lumi_Sequence 4: Captain Lumi, At Your Service": {
@@ -608,13 +505,7 @@
     "isPassive": true,
     "triggerRule": "IF (@Self.Sequence >= 4)",
     "effects": [
-      {
-        "type": "buff",
-        "name": "Lumi_S4 Basic DMG",
-        "duration": "@Default.PermanentDuration",
-        "stat": "Basic DMG Bonus",
-        "value": "30%"
-      }
+      { "type": "buff", "name": "Lumi_S4 Basic DMG", "duration": "@Default.PermanentDuration", "stat": "Basic DMG Bonus", "value": "30%" }
     ]
   },
   "Lumi_Sequence 5: Parcel Collected On Time": {
@@ -623,17 +514,7 @@
     "isPassive": true,
     "triggerRule": "OnCast[Outro] IF (@Self.Sequence >= 5 && (@Self.Forte1 >= 100 || @Self.Forte2 >= 100) && (@Self.HasBuff(@Lumi(Yellow Light Form)) || @Self.HasBuff(@Lumi(Red Light Form))))",
     "effects": [
-      {
-        "type": "buff",
-        "name": "Lumi_Laser Mult Boost",
-        "applyTo": [
-          "@Lumi(Laser Beam (Yellow Form))",
-          "@Lumi(Laser Beam (Red Form))"
-        ],
-        "duration": 1,
-        "stat": "Multiplicative Mult",
-        "value": "100%"
-      }
+      { "type": "buff", "name": "Lumi_Laser Mult Boost", "applyTo": ["@Lumi(Laser Beam (Yellow Form))", "@Lumi(Laser Beam (Red Form))"], "duration": 1, "stat": "Multiplicative Mult", "value": "100%" }
     ]
   },
   "Lumi_Sequence 6: Give Me A Five-star Rating": {
@@ -642,14 +523,7 @@
     "isPassive": true,
     "triggerRule": "OnCast[Liberation, Self] IF (@Self.Sequence >= 6)",
     "effects": [
-      {
-        "type": "buff",
-        "name": "Lumi_S6 Team ATK",
-        "target": "@Team",
-        "duration": 20,
-        "stat": "ATK %",
-        "value": "20%"
-      }
+      { "type": "buff", "name": "Lumi_S6 Team ATK", "target": "@Team", "duration": 20, "stat": "ATK %", "value": "20%" }
     ]
   }
 }

@@ -163,6 +163,9 @@ export class EventManagerClass {
           stateData.trackers[countKey] = currentCount;
         }
       } else if (eventType === 'AfterHit') {
+        // NOTE: db.ts's tooltip copy documents AfterHit(n) as a seconds delay, but this treats
+        // the modifier as a hit-index/count filter instead -- a pre-existing discrepancy,
+        // unrelated to the frame-timing migration. Left as-is.
         const reqHit = (listener.requiredModifiers && listener.requiredModifiers.length > 0) ? listener.requiredModifiers[0] : null;
         const { hitIndex, totalHits } = extraPayload || { hitIndex: 1, totalHits: 1 };
         let matchesHit = true;

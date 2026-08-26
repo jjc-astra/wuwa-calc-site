@@ -3,16 +3,7 @@
     "name": "Emerald of Genesis - Stormy Resolution ER",
     "isPassive": true,
     "effects": [
-      {
-        "type": "buff",
-        "target": "@Equipper",
-        "name": "Stormy Resolution ER",
-        "label": "ER",
-        "stat": "ER",
-        "value": "12%/15%/18%/21%/24%",
-        "duration": "@Default.PermanentDuration",
-        "maxStacks": 1
-      }
+      { "type": "buff", "target": "@Equipper", "name": "Stormy Resolution ER", "label": "ER", "stat": "ER", "value": "12%/15%/18%/21%/24%", "duration": "@Default.PermanentDuration", "maxStacks": 1 }
     ]
   },
   "Emerald of Genesis_Stormy Resolution ATK": {
@@ -20,16 +11,7 @@
     "isPassive": true,
     "triggerRule": "OnCast[Skill]",
     "effects": [
-      {
-        "type": "buff",
-        "target": "@Equipper",
-        "name": "Stormy Resolution ATK",
-        "label": "ATK",
-        "stat": "ATK",
-        "value": "6%/7.5%/9%/10.5%/12%",
-        "duration": 10,
-        "maxStacks": 2
-      }
+      { "type": "buff", "target": "@Equipper", "name": "Stormy Resolution ATK", "label": "ATK", "stat": "ATK", "value": "6%/7.5%/9%/10.5%/12%", "duration": 10, "maxStacks": 2 }
     ]
   }
 }

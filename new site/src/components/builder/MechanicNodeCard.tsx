@@ -7,6 +7,7 @@ import { BuilderState } from '../../data/db';
 import { DataLoader } from '../../utils/DataLoader';
 import { CommonUtils } from '../../utils/Common';
 import { BuilderUtils } from '../../utils/BuilderUtils';
+import { parseTimeInput } from '../../utils/Frames';
 
 interface MechanicNodeCardProps {
   nodeId: string;
@@ -93,6 +94,24 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
     setMechanicNode(nodeId, { ...data, ...patch });
   };
 
+  // Normalizes a timing field's "30f"/"0.5s"/bare-number/DSL-expression text on blur, not on
+  // every keystroke -- these fields commit their raw typed string on every onChange (so DSL
+  // passthrough and mid-type values like "1." or "30f" aren't clobbered), and only get
+  // re-derived into the field's canonical unit once the user's actually done typing.
+  const makeTimeBlur = (field: keyof MechanicNode, nativeUnit: 'frames' | 'seconds') => () => {
+    const raw = (data as any)[field];
+    if (typeof raw !== 'string' || raw.trim() === '') return;
+    const parsed = parseTimeInput(raw, nativeUnit);
+    if (parsed !== raw) updateNode({ [field]: parsed } as Partial<MechanicNode>);
+  };
+
+  const makeTimeframeBlur = (edge: 'start' | 'end') => () => {
+    const raw = data.damageTimeframe?.[edge];
+    if (typeof raw !== 'string' || raw.trim() === '') return;
+    const parsed = parseTimeInput(raw, 'frames');
+    if (parsed !== raw) updateNode({ damageTimeframe: { ...(data.damageTimeframe || {}), [edge]: parsed } });
+  };
+
   // Renaming a node regenerates its ID (provider is always the active char, matching
   // the old site's ID = `${activeChar}_${name}` derivation). The re-key only happens on
   // blur -- doing it on every keystroke would change the store key (and thus this card's
@@ -155,7 +174,9 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
 
   const handleAddCancelTiming = () => {
     if (!cancelTime) return;
-    const obj: any = { time: parseFloat(cancelTime) };
+    // cancelTimings[].time is frames-domain (a cancel point within the move's animation) --
+    // accepts "30f"/"0.5s"/a bare number (frames, matching the field's native unit).
+    const obj: any = { time: Math.round(Number(parseTimeInput(cancelTime, 'frames'))) };
     if (cancelHits) obj.hits = parseInt(cancelHits, 10);
     if (cancelRule.trim()) obj.triggerRule = cancelRule.trim();
 
@@ -179,7 +200,8 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
         newEff.value = !isNaN(n) && n.toString() === effVal ? n : effVal;
       }
       if (effStacks && parseInt(effStacks, 10) !== 1) newEff.stacks = parseInt(effStacks, 10);
-      if (effDur) newEff.duration = parseFloat(effDur);
+      // Buff lifetimes stay seconds -- "30f"/"0.5s"/a bare number (seconds) all accepted.
+      if (effDur) newEff.duration = parseTimeInput(effDur, 'seconds');
       if (effMax) newEff.maxStacks = parseInt(effMax, 10);
       if (effStackBeh === 'separate') newEff.stackBehavior = effStackBeh;
       if (effExpBeh && effExpBeh !== 'clear') newEff.expireBehavior = effExpBeh;
@@ -196,7 +218,7 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
         const n = parseFloat(effVal);
         newEff.value = !isNaN(n) && n.toString() === effVal ? n : effVal;
       }
-      if (effectType === 'time_scale' && effDur) newEff.duration = parseFloat(effDur);
+      if (effectType === 'time_scale' && effDur) newEff.duration = parseTimeInput(effDur, 'seconds');
     }
 
     const effects = [...(data.effects || []), newEff];
@@ -463,7 +485,7 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
                   </div>
                   <div className="form-group relative">
                     <label className="form-label">Combo Window</label>
-                    <input type="text" className="form-input w-100" value={data.comboWindow ?? ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateNode({ comboWindow: e.target.value })} placeholder="@Default.ComboWindow" />
+                    <input type="text" className="form-input w-100" value={data.comboWindow ?? ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateNode({ comboWindow: e.target.value })} onBlur={makeTimeBlur('comboWindow', 'frames')} placeholder="@Default.ComboWindow" />
                   </div>
                 </div>
 
@@ -486,7 +508,7 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
                   </div>
                   <div className="form-group relative">
                     <label className="form-label">Transition Time</label>
-                    <input type="text" className="form-input w-100" value={data.stanceTime ?? ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateNode({ stanceTime: e.target.value })} placeholder="0.0" disabled={data.stanceResult === 'Retain'} />
+                    <input type="text" className="form-input w-100" value={data.stanceTime ?? ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateNode({ stanceTime: e.target.value })} onBlur={makeTimeBlur('stanceTime', 'frames')} placeholder="e.g. 0 or 15f" disabled={data.stanceResult === 'Retain'} />
                   </div>
                 </div>
               </div>
@@ -549,7 +571,7 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
               <div className="form-row">
                 <div className="form-group relative">
                   <label className="form-label">Action Duration</label>
-                  <input type="text" className="form-input w-100" value={data.actionDuration ?? ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateNode({ actionDuration: e.target.value })} placeholder="e.g. 1.2" />
+                  <input type="text" className="form-input w-100" value={data.actionDuration ?? ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateNode({ actionDuration: e.target.value })} onBlur={makeTimeBlur('actionDuration', 'frames')} placeholder="e.g. 72 or 1.2s" />
                 </div>
 
                 <div className="form-group">
@@ -558,25 +580,25 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
                   </label>
                   <div className="timeframe-split-box">
                     <div className="relative flex-1">
-                      <input type="text" className="form-input w-100" value={data.damageTimeframe?.start ?? ''} onChange={e => updateNode({ damageTimeframe: { ...(data.damageTimeframe || {}), start: e.target.value } })} placeholder="0.2" />
+                      <input type="text" className="form-input w-100" value={data.damageTimeframe?.start ?? ''} onChange={e => updateNode({ damageTimeframe: { ...(data.damageTimeframe || {}), start: e.target.value } })} onBlur={makeTimeframeBlur('start')} placeholder="e.g. 12 or 0.2s" />
                     </div>
                     <div className="relative flex-1">
-                      <input type="text" className="form-input w-100" value={data.damageTimeframe?.end ?? ''} onChange={e => updateNode({ damageTimeframe: { ...(data.damageTimeframe || {}), end: e.target.value } })} placeholder="0.8" />
+                      <input type="text" className="form-input w-100" value={data.damageTimeframe?.end ?? ''} onChange={e => updateNode({ damageTimeframe: { ...(data.damageTimeframe || {}), end: e.target.value } })} onBlur={makeTimeframeBlur('end')} placeholder="e.g. 48 or 0.8s" />
                     </div>
                   </div>
                 </div>
 
                 <div className="form-group relative">
                   <label className="form-label">Freeze Time</label>
-                  <input type="text" className="form-input w-100" value={data.freezeTime ?? ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateNode({ freezeTime: e.target.value })} placeholder="e.g. 0.5" />
+                  <input type="text" className="form-input w-100" value={data.freezeTime ?? ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateNode({ freezeTime: e.target.value })} onBlur={makeTimeBlur('freezeTime', 'frames')} placeholder="e.g. 30 or 0.5s" />
                 </div>
                 <div className="form-group relative">
                   <label className="form-label">Swap Time</label>
-                  <input type="text" className="form-input w-100" value={data.swapTiming ?? ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateNode({ swapTiming: e.target.value })} placeholder="e.g. @Default.SwapTime" />
+                  <input type="text" className="form-input w-100" value={data.swapTiming ?? ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateNode({ swapTiming: e.target.value })} onBlur={makeTimeBlur('swapTiming', 'frames')} placeholder="e.g. @Default.SwapTime" />
                 </div>
                 <div className="form-group relative">
                   <label className="form-label">Cooldown</label>
-                  <input type="text" className="form-input w-100" value={data.cooldown ?? ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateNode({ cooldown: e.target.value })} placeholder="e.g. 12.0" />
+                  <input type="text" className="form-input w-100" value={data.cooldown ?? ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateNode({ cooldown: e.target.value })} onBlur={makeTimeBlur('cooldown', 'seconds')} placeholder="e.g. 12.0 or 720f" />
                 </div>
               </div>
 

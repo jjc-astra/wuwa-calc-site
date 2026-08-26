@@ -3,6 +3,8 @@
 // calculation path (logic/ResultsCalculator.ts) and the still-mocked comparison-pin path
 // (data/mockResults.ts, store/useComparisonStore.ts) so the two stay interchangeable.
 
+import type { Frames } from '../utils/Frames';
+
 export interface DpsStats {
   openerDps: number | null;
   firstLoopDps: number | null;
@@ -11,7 +13,7 @@ export interface DpsStats {
 }
 
 export interface DmgOverTimePoint {
-  t: number;
+  t: Frames;
   dmg: number;
   // Who/what caused this point's damage -- a character name, or a status-effect dmgType label
   // (e.g. "Aero Erosion") for non-attributable ticks. Same identity TeamDmgSlice.label uses, so
@@ -24,12 +26,12 @@ export interface DmgOverTimeSeries {
   label: string;
   points: DmgOverTimePoint[];
   bossMaxHp: number;
-  killTime: number | null;
+  killTime: Frames | null;
   // Nominal duration of the window this series covers (openerEndTime, loopDuration, etc.) --
   // used to size the chart's x-axis so it "zooms" to exactly that window's width, rather than
   // however far the last real hit happened to land (which can undershoot the window's true
   // end when nothing hits right at the boundary).
-  windowEnd: number;
+  windowEnd: Frames;
 }
 
 export interface SubstatWorthValues {

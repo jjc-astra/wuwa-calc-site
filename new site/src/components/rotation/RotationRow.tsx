@@ -9,6 +9,7 @@ import { DSLParser } from '../../logic/DSLParser';
 import { DialGauge, VerticalGauge, MultiForteGauge } from './Gauge';
 import { SubPanel } from './SubPanel';
 import { TooltipManager, getCharacterThemeColor } from '../../utils/Common';
+import { toFrames, secondsToFrames, framesToSeconds, formatFramesAsSeconds } from '../../utils/Frames';
 
 interface RotationRowProps {
   index: number;
@@ -192,7 +193,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
 
   const commitOffsetDraft = () => {
     if (offsetDraft === null) return;
-    const num = parseFloat(offsetDraft) || 0;
+    const num = secondsToFrames(parseFloat(offsetDraft) || 0);
     setOffsetDraft(null);
     updateRowFields(index, { offset: num, manualOffset: num });
   };
@@ -206,8 +207,10 @@ export const RotationRow: React.FC<RotationRowProps> = ({
     }
   };
 
-  const timeStart = row.gameTimeStart !== undefined ? `${row.gameTimeStart.toFixed(2)}s` : '0.00s';
-  const offsetVal = row.offset || 0;
+  const timeStart = row.gameTimeStart !== undefined ? formatFramesAsSeconds(toFrames(row.gameTimeStart)) : '0.00s';
+  // row.offset is Frames; convert to seconds once here -- the sign is preserved by scaling, so
+  // this same value still drives the offset-pos/offset-neg styling below.
+  const offsetVal = framesToSeconds(toFrames(row.offset || 0));
   const offsetStr = `${offsetVal > 0 ? '+' : ''}${offsetVal.toFixed(2)}`;
   const totalDmg = (row.damageInstances || []).reduce((acc: number, d: any) => acc + (d.total || 0), 0);
 

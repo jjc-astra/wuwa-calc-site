@@ -130,6 +130,13 @@ export const DSLParser = {
     return jsStr;
   },
 
+  // Frames vs seconds cheat sheet for anyone authoring/reading DSL against this pointer table:
+  // @Move.TimeStart/Duration/GameTime/FreezeTime/DamageStart/DamageEnd/SwapTime, and the
+  // scalarMap's .TimeStart/.GameTimeStart/.SwapTime/.ComboWindow/.EchoSummonTime suffixes, are
+  // all FRAMES (the row-scheduling/animation-duration domain). .Cooldown(...)/getCooldown and
+  // .PermanentDuration stay SECONDS -- cooldowns and buff/effect lifetimes are a deliberate
+  // exception to the frame migration (see TimelineEngine.ts's _processGameTimeDecay for the one
+  // place these two domains cross).
   _translatePointers: (jsStr: string): string => {
     if (typeof jsStr !== 'string') return jsStr;
     let processing = true;

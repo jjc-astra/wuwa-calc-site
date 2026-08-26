@@ -8,6 +8,7 @@ import { TimelineEngine } from './TimelineEngine';
 import { CombatCalculator } from './CombatCalculator';
 import { STAT_DB, STAT_NAME_MAP } from '../data/db';
 import type { HitConfig, TeamSlot } from '../types';
+import { type Frames, toFrames, roundFrames, framesToSeconds } from '../utils/Frames';
 import type {
   DpsStats,
   DmgOverTimeSeries,
@@ -20,7 +21,7 @@ import type {
   ContributionForWindow
 } from '../types/results';
 
-const TWO_MIN = 120;
+const TWO_MIN = toFrames(120 * 60);
 // Fixed avg-loop sample size per spec: first loop + 2 more, regardless of how short/long a
 // single loop is (a fast loop won't naturally reach 3 reps just from the 120s target).
 const AVG_LOOP_REPS = 3;
@@ -33,7 +34,7 @@ const AVG_LOOP_REPS = 3;
 const PRIMARY_DMG_TYPES = ['Basic', 'Heavy', 'Skill', 'Liberation', 'Intro', 'Outro', 'Echo'];
 
 interface RotationHit {
-  gameTime: number;
+  gameTime: Frames;
   total: number;
   provider: string;
   dmgTypes: string[];
@@ -71,7 +72,7 @@ function buildExtendedTimeline(
   options: { startEnergy?: boolean; startConcerto?: boolean },
   enemyConfig: { level: number; res: number; hp: number },
   loopStartIndex: number
-): { evaluatedRows: any[]; openerEndTime: number; loopDuration: number | null } {
+): { evaluatedRows: any[]; openerEndTime: Frames; loopDuration: Frames | null } {
   const contentRows = rows.filter(r => r && r.unit);
   const clampedStart = Math.max(0, Math.min(loopStartIndex, contentRows.length));
   const openerRows = contentRows.slice(0, clampedStart);
@@ -80,7 +81,7 @@ function buildExtendedTimeline(
   // `rows` is the live already-recalculated pass, so its timing fields are trustworthy --
   // same trick analyzeLoop uses to avoid a throwaway baseline pass just to read them back.
   const openerEndRow = openerRows.length > 0 ? openerRows[openerRows.length - 1] : null;
-  const openerEndTime = openerEndRow ? (openerEndRow.gameTimeStart || 0) + (openerEndRow.gameTimePassed || 0) : 0;
+  const openerEndTime = toFrames(openerEndRow ? (openerEndRow.gameTimeStart || 0) + (openerEndRow.gameTimePassed || 0) : 0);
 
   const runSimple = (contentToRun: any[]) => {
     const extendedInput = [...contentToRun.map(cloneAuthored), { unit: '', action: '', timing: 'Auto', offset: 0 }];
@@ -93,9 +94,9 @@ function buildExtendedTimeline(
 
   const loopEndRow = loopTemplate[loopTemplate.length - 1];
   const loopEndTime = (loopEndRow.gameTimeStart || 0) + (loopEndRow.gameTimePassed || 0);
-  const loopDuration = loopEndTime - openerEndTime;
+  const loopDuration = toFrames(loopEndTime - openerEndTime);
 
-  if (loopDuration <= 0.01) {
+  if (loopDuration === 0) {
     return { evaluatedRows: runSimple([...openerRows, ...loopTemplate]), openerEndTime, loopDuration: null };
   }
 
@@ -120,7 +121,7 @@ function buildHitList(evaluatedRows: any[], team: any[], enemyConfig: { level: n
       const result = CombatCalculator.calculateDamageInstance(hit.config, hit.context, team);
       runningEnemyHp = Math.max(0, runningEnemyHp - result.total);
       hits.push({
-        gameTime: result.gameTime ?? hit.config.gameTime ?? 0,
+        gameTime: toFrames(result.gameTime ?? hit.config.gameTime ?? 0),
         total: result.total,
         provider: hit.config.provider,
         dmgTypes: hit.config.dmgTypes || [],
@@ -138,7 +139,7 @@ function buildHitList(evaluatedRows: any[], team: any[], enemyConfig: { level: n
   return hits.sort((a, b) => a.gameTime - b.gameTime);
 }
 
-const windowedHits = (hits: RotationHit[], startExclusive: number, endInclusive: number): RotationHit[] =>
+const windowedHits = (hits: RotationHit[], startExclusive: number, endInclusive: Frames): RotationHit[] =>
   hits.filter(h => h.gameTime > startExclusive && h.gameTime <= endInclusive);
 
 const sumTotal = (hits: RotationHit[]): number => hits.reduce((sum, h) => sum + h.total, 0);
@@ -157,15 +158,20 @@ function primaryDmgType(dmgTypes: string[]): string {
   return 'Other';
 }
 
-function buildDpsStats(hits: RotationHit[], openerEndTime: number, loopDuration: number | null): DpsStats {
-  const openerDps = openerEndTime > 0 ? sumTotal(windowedHits(hits, -Infinity, openerEndTime)) / openerEndTime : null;
+function buildDpsStats(hits: RotationHit[], openerEndTime: Frames, loopDuration: Frames | null): DpsStats {
+  // DPS is damage/second, so each window's frame-domain length converts to seconds right at
+  // the division -- a final-output-metric conversion, not internal scheduling math.
+  const openerDps = openerEndTime > 0 ? sumTotal(windowedHits(hits, -Infinity, openerEndTime)) / framesToSeconds(openerEndTime) : null;
   const firstLoopDps =
-    loopDuration !== null ? sumTotal(windowedHits(hits, openerEndTime, openerEndTime + loopDuration)) / loopDuration : null;
+    loopDuration !== null
+      ? sumTotal(windowedHits(hits, openerEndTime, toFrames(openerEndTime + loopDuration))) / framesToSeconds(loopDuration)
+      : null;
   const avgLoopDps =
     loopDuration !== null
-      ? sumTotal(windowedHits(hits, openerEndTime, openerEndTime + AVG_LOOP_REPS * loopDuration)) / (AVG_LOOP_REPS * loopDuration)
+      ? sumTotal(windowedHits(hits, openerEndTime, toFrames(openerEndTime + AVG_LOOP_REPS * loopDuration))) /
+        framesToSeconds(toFrames(AVG_LOOP_REPS * loopDuration))
       : null;
-  const twoMinDps = sumTotal(windowedHits(hits, -Infinity, TWO_MIN)) / TWO_MIN;
+  const twoMinDps = sumTotal(windowedHits(hits, -Infinity, TWO_MIN)) / framesToSeconds(TWO_MIN);
   return { openerDps, firstLoopDps, avgLoopDps, twoMinDps };
 }
 
@@ -174,14 +180,14 @@ function buildDpsStats(hits: RotationHit[], openerEndTime: number, loopDuration:
 // averaging where that applies (see buildAvgLoopDmgOverTime) -- so this function itself never
 // needs to know which window it's building.
 function buildDmgOverTimeForWindow(
-  relativeHits: Array<{ t: number; total: number; label: string }>,
+  relativeHits: Array<{ t: Frames; total: number; label: string }>,
   bossMaxHp: number,
   label: string,
-  windowEnd: number
+  windowEnd: Frames
 ): DmgOverTimeSeries {
-  const points: DmgOverTimePoint[] = [{ t: 0, dmg: 0 }];
+  const points: DmgOverTimePoint[] = [{ t: toFrames(0), dmg: 0 }];
   let cumulative = 0;
-  let killTime: number | null = null;
+  let killTime: Frames | null = null;
 
   for (const h of relativeHits) {
     cumulative += h.total;
@@ -189,7 +195,7 @@ function buildDmgOverTimeForWindow(
     if (killTime === null && cumulative >= bossMaxHp) {
       const prev = points[points.length - 2];
       const frac = cumulative === prev.dmg ? 0 : (bossMaxHp - prev.dmg) / (cumulative - prev.dmg);
-      killTime = prev.t + frac * (h.t - prev.t);
+      killTime = roundFrames(prev.t + frac * (h.t - prev.t));
     }
   }
 
@@ -202,18 +208,18 @@ function buildDmgOverTimeForWindow(
 // treatment buildContributionForWindow gives its totals, just applied to a time series instead
 // of a single sum. A hit landing exactly on a rep boundary (gameTime - openerEndTime is an
 // exact multiple of loopDuration) belongs to the rep that just finished, not t=0 of the next.
-function buildAvgLoopDmgOverTime(hits: RotationHit[], openerEndTime: number, loopDuration: number, bossMaxHp: number): DmgOverTimeSeries {
-  const windowHits = windowedHits(hits, openerEndTime, openerEndTime + AVG_LOOP_REPS * loopDuration);
+function buildAvgLoopDmgOverTime(hits: RotationHit[], openerEndTime: Frames, loopDuration: Frames, bossMaxHp: number): DmgOverTimeSeries {
+  const windowHits = windowedHits(hits, openerEndTime, toFrames(openerEndTime + AVG_LOOP_REPS * loopDuration));
   const folded = windowHits
     .map(h => {
       const rel = (h.gameTime - openerEndTime) % loopDuration;
-      return { t: rel === 0 ? loopDuration : rel, total: h.total, label: hitLabel(h) };
+      return { t: toFrames(rel === 0 ? loopDuration : rel), total: h.total, label: hitLabel(h) };
     })
     .sort((a, b) => a.t - b.t);
 
-  const points: DmgOverTimePoint[] = [{ t: 0, dmg: 0 }];
+  const points: DmgOverTimePoint[] = [{ t: toFrames(0), dmg: 0 }];
   let cumulative = 0;
-  let killTime: number | null = null;
+  let killTime: Frames | null = null;
 
   for (const h of folded) {
     cumulative += h.total;
@@ -222,7 +228,7 @@ function buildAvgLoopDmgOverTime(hits: RotationHit[], openerEndTime: number, loo
     if (killTime === null && avgDmg >= bossMaxHp) {
       const prev = points[points.length - 2];
       const frac = avgDmg === prev.dmg ? 0 : (bossMaxHp - prev.dmg) / (avgDmg - prev.dmg);
-      killTime = prev.t + frac * (h.t - prev.t);
+      killTime = roundFrames(prev.t + frac * (h.t - prev.t));
     }
   }
 
@@ -231,8 +237,8 @@ function buildAvgLoopDmgOverTime(hits: RotationHit[], openerEndTime: number, loo
 
 function buildAllDmgOverTime(
   hits: RotationHit[],
-  openerEndTime: number,
-  loopDuration: number | null,
+  openerEndTime: Frames,
+  loopDuration: Frames | null,
   bossMaxHp: number
 ): Record<DpsWindowKey, DmgOverTimeSeries> {
   const opener = buildDmgOverTimeForWindow(
@@ -245,17 +251,17 @@ function buildAllDmgOverTime(
   const firstLoop =
     loopDuration !== null
       ? buildDmgOverTimeForWindow(
-          windowedHits(hits, openerEndTime, openerEndTime + loopDuration).map(h => ({ t: h.gameTime - openerEndTime, total: h.total, label: hitLabel(h) })),
+          windowedHits(hits, openerEndTime, toFrames(openerEndTime + loopDuration)).map(h => ({ t: toFrames(h.gameTime - openerEndTime), total: h.total, label: hitLabel(h) })),
           bossMaxHp,
           'First Loop',
           loopDuration
         )
-      : buildDmgOverTimeForWindow([], bossMaxHp, 'First Loop', 0);
+      : buildDmgOverTimeForWindow([], bossMaxHp, 'First Loop', toFrames(0));
 
   const avgLoop =
     loopDuration !== null
       ? buildAvgLoopDmgOverTime(hits, openerEndTime, loopDuration, bossMaxHp)
-      : buildDmgOverTimeForWindow([], bossMaxHp, 'Avg Loop', 0);
+      : buildDmgOverTimeForWindow([], bossMaxHp, 'Avg Loop', toFrames(0));
 
   const twoMin = buildDmgOverTimeForWindow(
     windowedHits(hits, -Infinity, TWO_MIN).map(h => ({ t: h.gameTime, total: h.total, label: hitLabel(h) })),
@@ -289,13 +295,13 @@ function buildContributionForWindow(windowHits: RotationHit[], teamNames: string
 
 function buildAllContribution(
   hits: RotationHit[],
-  openerEndTime: number,
-  loopDuration: number | null,
+  openerEndTime: Frames,
+  loopDuration: Frames | null,
   teamNames: string[]
 ): Record<DpsWindowKey, ContributionForWindow> {
   const openerHits = windowedHits(hits, -Infinity, openerEndTime);
-  const firstLoopHits = loopDuration !== null ? windowedHits(hits, openerEndTime, openerEndTime + loopDuration) : [];
-  const avgLoopHits = loopDuration !== null ? windowedHits(hits, openerEndTime, openerEndTime + AVG_LOOP_REPS * loopDuration) : [];
+  const firstLoopHits = loopDuration !== null ? windowedHits(hits, openerEndTime, toFrames(openerEndTime + loopDuration)) : [];
+  const avgLoopHits = loopDuration !== null ? windowedHits(hits, openerEndTime, toFrames(openerEndTime + AVG_LOOP_REPS * loopDuration)) : [];
   const twoMinHits = windowedHits(hits, -Infinity, TWO_MIN);
 
   return {

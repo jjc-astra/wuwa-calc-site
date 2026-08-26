@@ -6,6 +6,7 @@ import { DataLoader } from '../../utils/DataLoader';
 import { PanelInfoItem } from '../common/PanelInfoItem';
 import { FormulaRow } from '../common/FormulaRow';
 import { BuffCard } from '../common/BuffCard';
+import { toFrames, framesToSeconds, formatFramesAsSeconds } from '../../utils/Frames';
 
 interface SubPanelProps {
   trigger: string;
@@ -82,7 +83,7 @@ export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row }) => {
                       {inst.title}
                     </span>
                     {typeof inst.gameTime === 'number' && (
-                      <span className="dmg-accordion-time">{inst.gameTime.toFixed(2)}s</span>
+                      <span className="dmg-accordion-time">{formatFramesAsSeconds(toFrames(inst.gameTime))}</span>
                     )}
                   </div>
                   <div
@@ -322,9 +323,17 @@ export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row }) => {
               </div>
               <div className="panel-content-grid">
                 {group.fields.map((f: any) => {
-                  let rawVal = row[f.key] !== undefined ? row[f.key] : f.default;
-                  let displayVal = typeof rawVal === 'number' && !Number.isInteger(rawVal) ? parseFloat(rawVal.toFixed(3)) : rawVal;
-                  return <PanelInfoItem key={f.key} label={f.label} value={`${displayVal}${f.suffix || ''}`} extraClass={f.highlight} />;
+                  const rawVal = row[f.key] !== undefined ? row[f.key] : f.default;
+                  // Every field in this panel is a raw Frames value (row-scheduling domain) --
+                  // format through the shared frames->seconds display helper rather than the
+                  // old generic .toFixed(3), which would otherwise print an integer frame
+                  // count as-is (e.g. "88s" instead of "1.47s").
+                  const genericVal = typeof rawVal === 'number' && !Number.isInteger(rawVal) ? parseFloat(rawVal.toFixed(3)) : rawVal;
+                  const displayVal =
+                    typeof rawVal === 'number' && f.suffix === 's'
+                      ? formatFramesAsSeconds(toFrames(rawVal))
+                      : `${genericVal}${f.suffix || ''}`;
+                  return <PanelInfoItem key={f.key} label={f.label} value={displayVal} extraClass={f.highlight} />;
                 })}
               </div>
             </div>
@@ -337,7 +346,7 @@ export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row }) => {
   // --- 3. OFFSET BREAKDOWN PANEL ---
   if (trigger === 'offset') {
     const reasons = row.offsetReasons || [];
-    const offsetVal = row.offset || 0;
+    const offsetVal = framesToSeconds(toFrames(row.offset || 0));
     const offsetStr = `${offsetVal > 0 ? '+' : ''}${offsetVal.toFixed(2)}s`;
     const offsetClass = offsetVal > 0 ? 'text-gold' : offsetVal < 0 ? 'text-main' : 'text-dim';
 
@@ -353,12 +362,17 @@ export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row }) => {
         <div className="panel-header-tiny" style={{ marginBottom: '8px' }}>Offset Sources</div>
         <div className="buff-card" style={{ padding: '12px' }}>
           {reasons.length > 0 ? (
-            reasons.map((r: any, idx: number) => (
-              <div key={idx} className="buff-effect-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', width: '100%' }}>
-                <span className="buff-effect-label">{r.label}:</span>
-                <span className={`buff-val-box text-bold ${r.isNegative ? 'text-main' : r.value === '0.00s' ? 'text-dim' : 'text-gold'}`}>{r.value}</span>
-              </div>
-            ))
+            reasons.map((r: any, idx: number) => {
+              const secs = framesToSeconds(toFrames(r.valueFrames));
+              const str = `${secs > 0 ? '+' : ''}${secs.toFixed(2)}s`;
+              const isZero = r.valueFrames === 0;
+              return (
+                <div key={idx} className="buff-effect-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', width: '100%' }}>
+                  <span className="buff-effect-label">{r.label}:</span>
+                  <span className={`buff-val-box text-bold ${r.isNegative ? 'text-main' : isZero ? 'text-dim' : 'text-gold'}`}>{str}</span>
+                </div>
+              );
+            })
           ) : (
             <div className="empty-buff-state" style={{ padding: '12px' }}>Standard Execution (No Offset)</div>
           )}

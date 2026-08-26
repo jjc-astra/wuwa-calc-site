@@ -6,6 +6,7 @@
 // seeded, deterministic placeholder numbers.
 import { ENEMY_DEFAULTS } from './db';
 import type { DpsStats, DmgOverTimePoint, DmgOverTimeSeries, DpsWindowKey } from '../types/results';
+import { secondsToFrames } from '../utils/Frames';
 export type { DpsStats, DmgOverTimePoint, DmgOverTimeSeries };
 
 // djb2 string hash -> mulberry32 PRNG, so the same seed always produces the same numbers.
@@ -50,25 +51,36 @@ function generateMockDmgOverTimeForWindow(
 
   const points: DmgOverTimePoint[] = [];
   let cumulative = 0;
-  let killTime: number | null = null;
+  // Mock generation stays in plain seconds internally (it's placeholder data, not a real
+  // simulation) -- only the final stored values cross into the Frames-typed result shape.
+  let killTimeSeconds: number | null = null;
+  let prevTSeconds = 0;
+  let prevCumulative = 0;
 
   for (let t = 0; t <= domainSeconds; t += DMG_OVER_TIME_STEP_SECONDS) {
     const instantDps = dpsEstimate * range(rng, 0.85, 1.15);
     cumulative += instantDps * DMG_OVER_TIME_STEP_SECONDS;
-    points.push({ t, dmg: cumulative });
+    points.push({ t: secondsToFrames(t), dmg: cumulative });
 
-    if (killTime === null && cumulative >= bossMaxHp) {
-      const prev = points[points.length - 2];
-      if (prev) {
-        const frac = (bossMaxHp - prev.dmg) / (cumulative - prev.dmg);
-        killTime = prev.t + frac * DMG_OVER_TIME_STEP_SECONDS;
+    if (killTimeSeconds === null && cumulative >= bossMaxHp) {
+      if (points.length > 1) {
+        const frac = (bossMaxHp - prevCumulative) / (cumulative - prevCumulative);
+        killTimeSeconds = prevTSeconds + frac * DMG_OVER_TIME_STEP_SECONDS;
       } else {
-        killTime = t;
+        killTimeSeconds = t;
       }
     }
+    prevTSeconds = t;
+    prevCumulative = cumulative;
   }
 
-  return { label, points, bossMaxHp, killTime, windowEnd: domainSeconds };
+  return {
+    label,
+    points,
+    bossMaxHp,
+    killTime: killTimeSeconds !== null ? secondsToFrames(killTimeSeconds) : null,
+    windowEnd: secondsToFrames(domainSeconds)
+  };
 }
 
 // One mock series per window, matching the real calculator's 4-window shape (opener/first

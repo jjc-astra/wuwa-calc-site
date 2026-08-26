@@ -1,4 +1,5 @@
 import type { WeaponType, MechanicNode } from '../types';
+import { toFrames } from '../utils/Frames';
 
 // Public/images subfolder names, single-sourced so every icon path builder and
 // class-selection check (MechanicsBuilder, TeamBuilder, CharacterSlot, BaseStatsForm)
@@ -110,14 +111,18 @@ export const SIM_CONSTANTS = {
   LEVEL_CAP: 90
 };
 
+// Duration-domain defaults (swapTime, comboWindow, echoSummonTime, holdLookahead*) are FRAMES,
+// per the frame-based timing migration -- 60fps: 0.15s->9, 0.5s->30, 0.17s->10 (10.2 rounded),
+// 5.0s->300, 0.01s step->1 (deliberately simplified to whole-frame stepping). swapCooldown and
+// permanentDuration are literal cooldown/buff-lifetime values and stay SECONDS, unconverted.
 export const GAME_DEFAULTS = {
-  swapTime: 0.15,
+  swapTime: 9,
   swapCooldown: 1.0,
-  comboWindow: 0.5,
-  echoSummonTime: 0.17,
+  comboWindow: 30,
+  echoSummonTime: 10,
   permanentDuration: 9999,
-  holdLookaheadMax: 5.0,
-  holdLookaheadStep: 0.01,
+  holdLookaheadMax: 300,
+  holdLookaheadStep: 1,
   basicPriority: 0,
   heavyPriority: 50,
   skillPriority: 100,
@@ -385,13 +390,15 @@ export const DSL_TOOLTIPS: {
   }
 };
 
+// actionDuration/freezeTime are frames (duration domain); cooldown stays seconds. Values below
+// are the same example durations as before, just expressed in frames (60fps).
 export const BUILDER_TEMPLATES: Record<string, MechanicNode> = {
   'Basic Attack': {
     name: 'Basic Attack 1',
     castTypes: ['Basic'],
     dmgTypes: ['Glacio', 'Basic'],
     hitMults: ['50%'],
-    actionDuration: 0.5,
+    actionDuration: toFrames(30),
     swapTiming: '@Default.SwapTime',
     comboWindow: '@Default.ComboWindow',
     isSwapInDefault: true,
@@ -404,7 +411,7 @@ export const BUILDER_TEMPLATES: Record<string, MechanicNode> = {
     castTypes: ['Skill'],
     dmgTypes: ['Glacio', 'Skill'],
     hitMults: ['100%'],
-    actionDuration: 0.8,
+    actionDuration: toFrames(48),
     cooldown: 10.0,
     input: 'Skill',
     inputType: 'Press',
@@ -416,8 +423,8 @@ export const BUILDER_TEMPLATES: Record<string, MechanicNode> = {
     castTypes: ['Liberation'],
     dmgTypes: ['Glacio', 'Liberation'],
     hitMults: ['200%'],
-    actionDuration: 2.1,
-    freezeTime: 2.0,
+    actionDuration: toFrames(126),
+    freezeTime: toFrames(120),
     cooldown: 25.0,
     triggerRule: 'IF (@Self.Energy >= @Self.MaxEnergy)',
     comboWindow: '@Default.ComboWindow',
@@ -432,7 +439,7 @@ export const BUILDER_TEMPLATES: Record<string, MechanicNode> = {
     castTypes: ['Heavy'],
     dmgTypes: ['Glacio', 'Heavy'],
     hitMults: ['150%'],
-    actionDuration: 1.0,
+    actionDuration: toFrames(60),
     triggerRule: 'IF (@Self.Forte1 >= @Self.MaxForte1)',
     input: 'Basic',
     inputType: 'Hold',
@@ -443,7 +450,7 @@ export const BUILDER_TEMPLATES: Record<string, MechanicNode> = {
     castTypes: ['Heavy'],
     dmgTypes: ['Glacio', 'Heavy'],
     hitMults: ['200%'],
-    actionDuration: 0.5,
+    actionDuration: toFrames(30),
     triggerRule: 'IF (@Self.HasBuff(Forte_Holding))',
     input: 'Basic',
     inputType: 'Release',
@@ -465,7 +472,7 @@ export const BUILDER_TEMPLATES: Record<string, MechanicNode> = {
     castResources: { concerto: 10 },
     dmgTypes: ['Glacio', 'Intro'],
     hitMults: ['100%'],
-    actionDuration: 1,
+    actionDuration: toFrames(60),
     comboWindow: '@Default.ComboWindow',
     stanceReq: 'Any',
     stanceResult: 'Grounded',

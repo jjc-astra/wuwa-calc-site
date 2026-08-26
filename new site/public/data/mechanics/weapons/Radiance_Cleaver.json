@@ -3,15 +3,7 @@
     "name": "Radiance Cleaver - Edge Breaker",
     "isPassive": true,
     "effects": [
-      {
-        "type": "buff",
-        "target": "@Equipper",
-        "name": "Edge Breaker ATK",
-        "stat": "ATK %",
-        "value": "12%/15%/18%/21%/24%",
-        "duration": "@Default.PermanentDuration",
-        "maxStacks": 1
-      }
+      { "type": "buff", "target": "@Equipper", "name": "Edge Breaker ATK", "stat": "ATK %", "value": "12%/15%/18%/21%/24%", "duration": "@Default.PermanentDuration", "maxStacks": 1 }
     ]
   }
 }
