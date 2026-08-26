@@ -7,7 +7,7 @@ import { BuilderState } from '../../data/db';
 import { DataLoader } from '../../utils/DataLoader';
 import { CommonUtils } from '../../utils/Common';
 import { BuilderUtils } from '../../utils/BuilderUtils';
-import { parseTimeInput } from '../../utils/Frames';
+import { parseTimeInput, toFrames, formatFramesAsSeconds } from '../../utils/Frames';
 
 interface MechanicNodeCardProps {
   nodeId: string;
@@ -250,6 +250,15 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
 
   const holdCfg = data.holdConfig || {};
 
+  // Quick-scan summary for the collapsed header -- cast type, dmg type, resolved duration (only
+  // when it's a plain frame count, not a DSL expression), and stance, so a moveset can often be
+  // scanned without expanding every card.
+  const summaryTags: string[] = [];
+  if (data.castTypes?.[0]) summaryTags.push(data.castTypes[0]);
+  if (data.dmgTypes?.[0]) summaryTags.push(data.dmgTypes[0]);
+  if (typeof data.actionDuration === 'number') summaryTags.push(formatFramesAsSeconds(toFrames(data.actionDuration)));
+  if (data.stanceReq && data.stanceReq !== 'Any') summaryTags.push(data.stanceReq);
+
   return (
     <div className={`mechanic-card ${collapsed ? 'collapsed' : ''}`}>
       <div
@@ -258,9 +267,16 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        <div className="flex-row gap-sm align-center" style={{ pointerEvents: 'none' }}>
+        <div className="flex-row gap-sm align-center" style={{ pointerEvents: 'none', flex: 1, minWidth: 0 }}>
           <span className="collapse-icon">{chevronIcon}</span>
           <span className="mech-banner-name">{data.name || 'New Mechanic'}</span>
+          {summaryTags.length > 0 && (
+            <span className="mech-banner-tags">
+              {summaryTags.map((t, i) => (
+                <span key={i} className={`mech-summary-tag ${i === 0 ? 'is-cast-type' : ''}`}>{t}</span>
+              ))}
+            </span>
+          )}
         </div>
         <button
           type="button"
@@ -297,16 +313,19 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
                   <label className="form-label text-accent">ID (Read-Only)</label>
                   <input type="text" className="form-input input-readonly" value={nodeId} readOnly />
                 </div>
-              </div>
-              <div className="form-row flags-row m-0 mt-4px">
-                <label className="checkbox-label">
-                  <input type="checkbox" checked={!!data.isPassive} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateNode({ isPassive: e.target.checked })} />
-                  <span>Is Passive</span>
-                </label>
-                <label className="checkbox-label" style={{ marginLeft: '12px' }}>
-                  <input type="checkbox" checked={!!data.isSwapInDefault} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateNode({ isSwapInDefault: e.target.checked })} />
-                  <span>Default Swap-In</span>
-                </label>
+                <div className="form-group flex-05">
+                  <label className="form-label">Flags</label>
+                  <div className="flags-row m-0">
+                    <label className="checkbox-label">
+                      <input type="checkbox" checked={!!data.isPassive} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateNode({ isPassive: e.target.checked })} />
+                      <span>Passive</span>
+                    </label>
+                    <label className="checkbox-label">
+                      <input type="checkbox" checked={!!data.isSwapInDefault} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateNode({ isSwapInDefault: e.target.checked })} />
+                      <span>Swap-In</span>
+                    </label>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -318,50 +337,6 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
               <span className="collapse-icon">{chevronIcon}</span>
             </div>
             <div className="section-content">
-              <div className="form-row">
-                <div className="form-group">
-                  <label className="form-label">Cast Types</label>
-                  <div className="type-tag-container">
-                    {(data.castTypes || []).map((t, i) => (
-                      <TypeTag
-                        key={i}
-                        val={t}
-                        label={t}
-                        onClick={() => { setCastSelect(t); updateNode({ castTypes: data.castTypes?.filter((_, idx) => idx !== i) }); }}
-                        onRemove={() => updateNode({ castTypes: data.castTypes?.filter((_, idx) => idx !== i) })}
-                      />
-                    ))}
-                  </div>
-                  <div className="flex-row gap-sm mt-4px">
-                    <select className="base-select flex-1" value={castSelect} onChange={e => setCastSelect(e.target.value)}>
-                      {BuilderState.CAST_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                    <button type="button" className="base-btn icon-btn icon-btn-sm" onClick={handleAddCastTag}>+</button>
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Damage Types</label>
-                  <div className="type-tag-container">
-                    {(data.dmgTypes || []).map((t, i) => (
-                      <TypeTag
-                        key={i}
-                        val={t}
-                        label={t}
-                        onClick={() => { setDmgSelect(t); updateNode({ dmgTypes: data.dmgTypes?.filter((_, idx) => idx !== i) }); }}
-                        onRemove={() => updateNode({ dmgTypes: data.dmgTypes?.filter((_, idx) => idx !== i) })}
-                      />
-                    ))}
-                  </div>
-                  <div className="flex-row gap-sm mt-4px">
-                    <select className="base-select flex-1" value={dmgSelect} onChange={e => setDmgSelect(e.target.value)}>
-                      {BuilderState.DMG_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                    <button type="button" className="base-btn icon-btn icon-btn-sm" onClick={handleAddDmgTag}>+</button>
-                  </div>
-                </div>
-              </div>
-
               <div className="form-row">
                 <div className="form-group flex-05">
                   <label className="form-label">Scalar Stat</label>
@@ -388,9 +363,58 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
               </div>
 
               <div className="form-row">
+                <div className="form-group">
+                  <div className="flex-row align-center gap-sm inline-label-row">
+                    <label className="form-label">Cast Types</label>
+                    <div className="type-tag-container flex-1">
+                      {(data.castTypes || []).map((t, i) => (
+                        <TypeTag
+                          key={i}
+                          val={t}
+                          label={t}
+                          onClick={() => { setCastSelect(t); updateNode({ castTypes: data.castTypes?.filter((_, idx) => idx !== i) }); }}
+                          onRemove={() => updateNode({ castTypes: data.castTypes?.filter((_, idx) => idx !== i) })}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex-row gap-sm mt-4px">
+                    <select className="base-select flex-1" value={castSelect} onChange={e => setCastSelect(e.target.value)}>
+                      {BuilderState.CAST_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                    <button type="button" className="base-btn icon-btn icon-btn-sm" onClick={handleAddCastTag}>+</button>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <div className="flex-row align-center gap-sm inline-label-row">
+                    <label className="form-label">Damage Types</label>
+                    <div className="type-tag-container flex-1">
+                      {(data.dmgTypes || []).map((t, i) => (
+                        <TypeTag
+                          key={i}
+                          val={t}
+                          label={t}
+                          onClick={() => { setDmgSelect(t); updateNode({ dmgTypes: data.dmgTypes?.filter((_, idx) => idx !== i) }); }}
+                          onRemove={() => updateNode({ dmgTypes: data.dmgTypes?.filter((_, idx) => idx !== i) })}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex-row gap-sm mt-4px">
+                    <select className="base-select flex-1" value={dmgSelect} onChange={e => setDmgSelect(e.target.value)}>
+                      {BuilderState.DMG_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                    <button type="button" className="base-btn icon-btn icon-btn-sm" onClick={handleAddDmgTag}>+</button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="form-row">
                 <div className="form-group flex-1">
-                  <label className="form-label">Resources</label>
-                  <div className="type-tag-container">
+                  <div className="flex-row align-center gap-sm inline-label-row">
+                    <label className="form-label">Resources</label>
+                    <div className="type-tag-container flex-1">
                     {Object.entries(data.castResources || {}).map(([k, v]) => (
                       <TypeTag
                         key={`cast_${k}`}
@@ -429,6 +453,7 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
                         }}
                       />
                     ))}
+                    </div>
                   </div>
                   <div className="flex-row gap-sm mt-4px">
                     <select className="base-select w-100px" value={resTiming} onChange={e => setResTiming(e.target.value as any)}>

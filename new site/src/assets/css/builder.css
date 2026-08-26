@@ -292,6 +292,11 @@
 }
 
 /* --- Type Tags & Chips --- */
+.builder-view .inline-label-row .form-label {
+    margin-bottom: 0;
+    flex-shrink: 0;
+}
+
 .builder-view .type-tag-container {
     display: flex; 
     flex-wrap: wrap; 
@@ -370,10 +375,11 @@
 .builder-view .flags-row {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 12px;
     margin-top: 8px;
     margin-bottom: 12px;
     padding-left: 2px;
+    height: 28px;
 }
 
 .builder-view .checkbox-label {
@@ -520,6 +526,30 @@
     border-bottom: 1px solid var(--border);
     border-radius: 4px 4px 0 0;
     font-weight: bold;
+    color: var(--accent);
+}
+
+.builder-view .mech-banner-tags {
+    display: flex;
+    gap: 6px;
+    margin-left: auto;
+    padding-right: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+.builder-view .mech-summary-tag {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 2px 8px;
+    font-size: 0.68rem;
+    font-weight: normal;
+    font-family: monospace;
+    color: var(--text-dim);
+    white-space: nowrap;
+}
+.builder-view .mech-summary-tag.is-cast-type {
+    border-color: var(--accent);
     color: var(--accent);
 }
 
