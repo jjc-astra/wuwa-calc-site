@@ -6,7 +6,11 @@ import type { DpsStats } from '../../types/results';
 import { PinRotationControl } from './PinRotationControl';
 import { CATEGORICAL_PALETTE } from './chartPalette';
 
-const formatDps = (v: number): string => `${(v / 1000).toFixed(1)}K`;
+const formatDps = (v: number, shorten: boolean) => {
+  if (shorten)
+    return `${(v / 1000).toFixed(1)}K`;
+  return Math.round(v).toLocaleString();
+};
 
 const ROWS: Array<{ key: keyof DpsStats; label: string }> = [
   { key: 'openerDps', label: 'Opener DPS' },
@@ -84,7 +88,7 @@ export const DpsPanel: React.FC = () => {
                 </div>
                 <div className="dps-compare-bar">
                   <div className="dps-compare-segment dps-compare-segment-solo" style={{ width: `${soloWidth}%` }}>
-                    <span>{formatDps(currentVal)}</span>
+                    <span>{formatDps(currentVal,false)}</span>
                   </div>
                 </div>
               </div>
@@ -110,14 +114,14 @@ export const DpsPanel: React.FC = () => {
                   style={{ width: `${splitPct}%` }}
                 >
                   <span className="dps-compare-segment-swatch" style={{ background: CATEGORICAL_PALETTE[0] }} />
-                  <span>{formatDps(currentVal)}</span>
+                  <span>{formatDps(currentVal,true)}</span>
                 </div>
                 <div
                   className={`dps-compare-segment dps-compare-segment-right ${currentWins ? 'is-loser' : 'is-winner'}`}
                   style={{ width: `${100 - splitPct}%` }}
                 >
                   <span className="dps-compare-segment-swatch" style={{ background: CATEGORICAL_PALETTE[1] }} />
-                  <span>{formatDps(pinnedVal)}</span>
+                  <span>{formatDps(pinnedVal,true)}</span>
                 </div>
               </div>
             </div>
