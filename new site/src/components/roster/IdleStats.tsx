@@ -53,7 +53,7 @@ export const IdleStats: React.FC = () => {
       {/* Enemy Config Card */}
       <div className="idle-stat-card enemy-stat-card" style={{ minWidth: '200px', flex: 0.5 }}>
         <div className="idle-stat-header">
-          <span style={{ color: '#ff5555' }}>Enemy Target</span>
+          <span style={{ color: 'var(--danger)' }}>Enemy Target</span>
         </div>
         <div className="idle-stat-grid" style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px' }}>
           <div className="stat-row-display">
@@ -63,7 +63,7 @@ export const IdleStats: React.FC = () => {
               className="num-input enemy-level-input"
               value={enemy.level}
               onChange={e => setEnemyField('level', CommonUtils.clampToRange(parseInt(e.target.value) || 90, 1, 100))}
-              style={{ width: '50px', background: '#222', border: '1px solid #555', borderRadius: '3px', fontSize: '0.85rem', padding: '2px 4px', color: '#ff9999' }}
+              style={{ width: '50px', background: 'var(--bg-well)', border: '1px solid var(--text-disabled)', borderRadius: '3px', fontSize: '0.85rem', padding: '2px 4px', color: '#ff9999' }}
             />
           </div>
           <div className="stat-row-display">
@@ -74,7 +74,7 @@ export const IdleStats: React.FC = () => {
                 className="num-input enemy-res-input"
                 value={enemy.res}
                 onChange={e => setEnemyField('res', CommonUtils.clampToRange(parseInt(e.target.value) || 10, -100, 100))}
-                style={{ width: '50px', background: '#222', border: '1px solid #555', borderRadius: '3px', fontSize: '0.85rem', padding: '2px 4px', color: '#ff9999' }}
+                style={{ width: '50px', background: 'var(--bg-well)', border: '1px solid var(--text-disabled)', borderRadius: '3px', fontSize: '0.85rem', padding: '2px 4px', color: '#ff9999' }}
               />
               <span className="text-dim ml-sm" style={{ marginLeft: '4px' }}>%</span>
             </div>
@@ -89,7 +89,7 @@ export const IdleStats: React.FC = () => {
                 const val = parseInt(e.target.value);
                 setEnemyField('hp', val > 0 ? val : 3000000);
               }}
-              style={{ width: '80px', background: '#222', border: '1px solid #555', borderRadius: '3px', fontSize: '0.85rem', padding: '2px 4px', color: '#ff9999' }}
+              style={{ width: '80px', background: 'var(--bg-well)', border: '1px solid var(--text-disabled)', borderRadius: '3px', fontSize: '0.85rem', padding: '2px 4px', color: '#ff9999' }}
             />
           </div>
           <div className="text-dim text-xs" style={{ marginTop: 'auto', fontStyle: 'italic' }}>

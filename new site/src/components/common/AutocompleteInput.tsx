@@ -522,12 +522,12 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
                   className="autocomplete-group-header"
                   style={{
                     fontSize: '0.75rem',
-                    color: '#a0a0a0',
-                    padding: '4px 8px',
-                    background: '#1a1a1a',
+                    color: 'var(--text-dim)',
+                    padding: 'var(--space-1) var(--space-3)',
+                    background: 'var(--bg-well)',
                     fontWeight: 'bold',
                     textTransform: 'uppercase',
-                    borderBottom: '1px solid #333'
+                    borderBottom: '1px solid var(--border)'
                   }}
                 >
                   {g.group}

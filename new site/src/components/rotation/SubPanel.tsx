@@ -92,11 +92,11 @@ export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row }) => {
                   >
                     <div className="flex-row align-center" style={{ paddingRight: '12px', borderRight: '1px solid rgba(255,255,255,0.15)', gap: '6px' }}>
                       <span className="text-dim" style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.5px' }}>NON-CRIT</span>
-                      <span style={{ color: '#ccc', fontSize: '0.85rem', fontWeight: 700 }}>{Math.floor(nonCritVal).toLocaleString()}</span>
+                      <span style={{ color: 'var(--text-main)', fontSize: '0.85rem', fontWeight: 700 }}>{Math.floor(nonCritVal).toLocaleString()}</span>
                     </div>
                     <div className="flex-row align-center" style={{ paddingRight: '12px', borderRight: '1px solid rgba(255,255,255,0.15)', gap: '6px' }}>
                       <span className="text-dim" style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.5px' }}>CRIT</span>
-                      <span style={{ color: '#e2c044', fontSize: '0.85rem', fontWeight: 700 }}>{Math.floor(critVal).toLocaleString()}</span>
+                      <span style={{ color: 'var(--accent)', fontSize: '0.85rem', fontWeight: 700 }}>{Math.floor(critVal).toLocaleString()}</span>
                     </div>
                     <div className="flex-row align-center" style={{ gap: '6px' }}>
                       <span className="text-dim" style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.5px' }}>AVG</span>
@@ -317,7 +317,7 @@ export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row }) => {
             <div key={idx} className="time-panel-group" style={{ marginBottom: '12px' }}>
               <div
                 className="panel-header-tiny"
-                style={{ marginBottom: '6px', paddingBottom: '4px', borderBottom: '1px solid rgba(255,255,255,0.1)', color: '#aaa' }}
+                style={{ marginBottom: '6px', paddingBottom: '4px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}
               >
                 {group.title}
               </div>

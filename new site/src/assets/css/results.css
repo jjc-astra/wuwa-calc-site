@@ -26,7 +26,7 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
-    background: #1a1a1a;
+    background: var(--bg-well);
     border: 1px solid var(--border);
     border-radius: 8px;
     overflow: hidden;
@@ -76,7 +76,7 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    padding: 12px;
+    padding: var(--space-4);
 }
 
 @media (max-width: 1400px) {
@@ -92,8 +92,8 @@
 .chrome-tabs {
     display: flex;
     align-items: flex-end;
-    gap: 4px;
-    padding: 8px 8px 0 8px;
+    gap: var(--space-1);
+    padding: var(--space-3) var(--space-3) 0 var(--space-3);
     background: rgba(0, 0, 0, 0.4);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
@@ -101,8 +101,8 @@
 .chrome-tab {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 8px 16px;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-5);
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid var(--border);
     border-bottom: none;
@@ -119,27 +119,27 @@
 }
 .chrome-tab:hover { color: var(--text-main); background: rgba(255, 255, 255, 0.06); }
 .chrome-tab.is-active {
-    background: #1a1a1a;
+    background: var(--bg-well);
     color: var(--accent);
     border-color: var(--border);
-    border-bottom: 1px solid #1a1a1a;
+    border-bottom: 1px solid var(--bg-well);
 }
 
 /* =========================================
    SHARED CARD / EMPTY / COMING SOON
    ========================================= */
-.results-tab-grid { display: flex; flex-direction: column; gap: 12px; }
+.results-tab-grid { display: flex; flex-direction: column; gap: var(--space-4); }
 
 .results-card {
     background: var(--bg-panel);
     border: 1px solid var(--border);
     border-radius: 8px;
-    padding: 12px;
+    padding: var(--space-4);
 }
 .results-card-header-controls {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-3);
     text-transform: none;
     letter-spacing: normal;
 }
@@ -153,7 +153,7 @@
     text-transform: uppercase;
     letter-spacing: 0.4px;
     margin-bottom: 10px;
-    padding-bottom: 6px;
+    padding-bottom: var(--space-2);
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -165,11 +165,11 @@
     align-items: center;
     justify-content: center;
     text-align: center;
-    gap: 8px;
+    gap: var(--space-3);
     padding: 60px 20px;
     color: var(--text-main);
 }
-.results-coming-soon h3 { margin: 4px 0 0 0; color: var(--accent); }
+.results-coming-soon h3 { margin: var(--space-1) 0 0 0; color: var(--accent); }
 .results-coming-soon p { margin: 0; font-size: 0.85rem; max-width: 280px; }
 
 /* Shown in place of the 4 result cards until the first Calculate press -- same centered-
@@ -181,7 +181,7 @@
     align-items: center;
     justify-content: center;
     text-align: center;
-    gap: 8px;
+    gap: var(--space-3);
     padding: 60px 20px;
     color: var(--text-main);
 }
@@ -209,22 +209,22 @@
 .results-legend {
     display: flex; justify-content: space-between; align-items: center;
     font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.3px;
-    padding: 6px 8px;
-    margin-bottom: 12px;
+    padding: var(--space-2) var(--space-3);
+    margin-bottom: var(--space-4);
     background: rgba(255, 255, 255, 0.03);
     border-radius: 4px;
 }
 .results-legend-item { display: inline-flex; align-items: center; gap: 5px; }
 .results-legend-swatch { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
 
-.dps-compare-list { display: flex; flex-direction: column; gap: 12px; }
+.dps-compare-list { display: flex; flex-direction: column; gap: var(--space-4); }
 .dps-compare-row-head {
     display: flex; justify-content: space-between; align-items: baseline;
-    margin-bottom: 4px; font-size: 0.8rem; white-space: nowrap; gap: 8px;
+    margin-bottom: var(--space-1); font-size: 0.8rem; white-space: nowrap; gap: var(--space-3);
 }
 .dps-delta-good, .dps-delta-bad { font-weight: bold; white-space: nowrap; }
-.dps-delta-good { color: #66ff66; }
-.dps-delta-bad { color: #ff6666; }
+.dps-delta-good { color: var(--success); }
+.dps-delta-bad { color: var(--danger-text); }
 
 /* The "tug of war" bar: two proportional segments (green = higher/better side, red = the
    other), split point offset from center by the delta% so the direction and rough margin
@@ -246,12 +246,12 @@
 /* Repeats the legend's identity color on every row, right on the value it belongs to --
    so which side is which team never depends on remembering the legend above. */
 .dps-compare-segment-swatch { width: 6px; height: 6px; border-radius: 1px; flex-shrink: 0; }
-.dps-compare-segment.is-winner { background-color: rgba(50, 220, 50, 0.15); border-color: #66ff66; }
-.dps-compare-segment.is-loser { background-color: rgba(220, 50, 50, 0.15); border-color: #ff6666; }
+.dps-compare-segment.is-winner { background-color: rgba(50, 220, 50, 0.15); border-color: var(--success); }
+.dps-compare-segment.is-loser { background-color: rgba(220, 50, 50, 0.15); border-color: var(--danger-text); }
 /* Named classes rather than :first-child/:last-child -- the midline div is also a child of
    .dps-compare-bar, so the segment is never actually the structural last child. */
-.dps-compare-segment-left { justify-content: flex-end; padding-right: 8px; }
-.dps-compare-segment-right { justify-content: flex-start; padding-left: 8px; padding-right: 10px; }
+.dps-compare-segment-left { justify-content: flex-end; padding-right: var(--space-3); }
+.dps-compare-segment-right { justify-content: flex-start; padding-left: var(--space-3); padding-right: 10px; }
 /* No pinned rotation to compare against yet -- same bar shape as the compare rows, just one
    segment (width set inline, normalized to the group's highest DPS value) in the accent tint
    (matching .pin-chip) instead of a red/green split. */
@@ -261,8 +261,8 @@
 }
 .dps-compare-segment-solo span { color: var(--accent); }
 .dps-compare-segment span { font-weight: bold; font-size: 0.75rem; font-variant-numeric: tabular-nums; }
-.dps-compare-segment.is-winner span { color: #66ff66; }
-.dps-compare-segment.is-loser span { color: #ff6666; }
+.dps-compare-segment.is-winner span { color: var(--success); }
+.dps-compare-segment.is-loser span { color: var(--danger-text); }
 
 /* =========================================
    PIN COMPARISON CONTROL
@@ -271,20 +271,20 @@
 .pin-menu-backdrop { position: fixed; inset: 0; z-index: 99; }
 .pin-menu {
     position: absolute; top: calc(100% + 4px); right: 0;
-    background: #1a1a1a; border: 1px solid var(--border); border-radius: 6px;
+    background: var(--bg-well); border: 1px solid var(--border); border-radius: 6px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
     z-index: 100; min-width: 170px; overflow: hidden;
 }
 .pin-menu-item {
-    display: flex; justify-content: space-between; align-items: center; gap: 8px;
-    width: 100%; text-align: left; padding: 8px 12px; background: none; border: none;
+    display: flex; justify-content: space-between; align-items: center; gap: var(--space-3);
+    width: 100%; text-align: left; padding: var(--space-3) var(--space-4); background: none; border: none;
     color: var(--text-main); font-size: 0.78rem; cursor: pointer;
 }
 .pin-menu-item:hover:not(:disabled) { background: rgba(255, 255, 255, 0.06); }
 .pin-menu-item:disabled { color: var(--text-dim); cursor: not-allowed; }
 
 .pin-chip {
-    display: inline-flex; align-items: center; gap: 6px;
+    display: inline-flex; align-items: center; gap: var(--space-2);
     background: rgba(220, 165, 76, 0.12); border: 1px solid var(--accent); border-radius: 12px;
     padding: 3px 6px 3px 10px; font-size: 0.72rem; color: var(--accent); max-width: 200px;
 }
@@ -321,7 +321,7 @@
 /* =========================================
    UNIT TABS (Substat Worth + Team Contribution)
    ========================================= */
-.unit-tabs { display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
+.unit-tabs { display: flex; gap: var(--space-1); margin-bottom: 10px; flex-wrap: wrap; }
 /* --unit-theme defaults to the accent gold (e.g. the "Team" tab, which isn't one character);
    a character tab overrides it inline with that character's own theme color, the same
    color-mix theming convention .rotation-row uses. */
@@ -368,17 +368,17 @@
 .results-dps-type-select { width: auto; padding: 2px 6px; font-size: 0.7rem; }
 
 /* Dmg/DPS Over Time's own window select sits below the chart instead, centered under it. */
-.dmg-time-window-row { display: flex; justify-content: center; margin-top: 8px; }
+.dmg-time-window-row { display: flex; justify-content: center; margin-top: var(--space-3); }
 
 /* =========================================
    SUBSTAT WORTH CHART
    ========================================= */
-.substat-chart { display: flex; flex-direction: column; gap: 4px; }
+.substat-chart { display: flex; flex-direction: column; gap: var(--space-1); }
 .substat-chart-headrow, .substat-row {
     display: grid;
     grid-template-columns: 90px 1fr 46px 52px 46px;
     align-items: center;
-    gap: 6px;
+    gap: var(--space-2);
 }
 .substat-chart-headrow { font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; }
 .substat-col-header { text-align: right; }
@@ -410,7 +410,7 @@
 .pie-chart-total-value { fill: var(--text-main); font-size: 15px; font-weight: bold; }
 .pie-chart-total-label { fill: var(--text-dim); font-size: 8px; text-transform: uppercase; letter-spacing: 0.3px; }
 .pie-chart-legend { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 120px; }
-.pie-chart-legend-row { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; padding: 2px 4px; border-radius: 3px; }
+.pie-chart-legend-row { display: flex; align-items: center; gap: var(--space-2); font-size: 0.72rem; padding: 2px 4px; border-radius: 3px; }
 .pie-chart-legend-row.is-hovered { background: rgba(255, 255, 255, 0.05); }
 .pie-chart-swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
 .pie-chart-legend-label { color: var(--text-main); font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

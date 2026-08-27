@@ -132,7 +132,7 @@ export const MechanicsBuilder: React.FC = () => {
               maxWidth: '400px',
               padding: '10px 15px',
               fontSize: '0.9rem',
-              background: '#1a1a1a',
+              background: 'var(--bg-well)',
               borderRadius: '6px'
             }}
           />
@@ -262,7 +262,7 @@ export const MechanicsBuilder: React.FC = () => {
                           const updated = { ...skillGroupNames, [cat]: e.target.value };
                           setBaseStat('skillGroupNames', updated);
                         }}
-                        style={{ height: '24px', fontSize: '0.8rem', width: '280px', borderColor: '#444', background: 'rgba(0,0,0,0.2)' }}
+                        style={{ height: '24px', fontSize: '0.8rem', width: '280px', borderColor: 'var(--border)', background: 'rgba(0,0,0,0.2)' }}
                       />
                     )}
                   </div>

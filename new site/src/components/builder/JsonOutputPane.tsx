@@ -49,7 +49,7 @@ export const JsonOutputPane: React.FC = () => {
 
         while (currentLine) {
           currentLine.classList.add('code-highlighted');
-          currentLine.style.backgroundColor = 'rgba(212, 175, 55, 0.25)';
+          currentLine.style.backgroundColor = 'rgba(220, 165, 76, 0.25)';
           currentLine.style.transition = 'background-color 0.1s ease';
 
           if (currentLine.innerText.includes('{')) depth++;

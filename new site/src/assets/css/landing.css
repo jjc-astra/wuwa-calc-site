@@ -18,7 +18,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 12px;
+    gap: var(--space-4);
 }
 
 .landing-hero h1 {
@@ -39,7 +39,7 @@
 .landing-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 20px;
+    gap: var(--space-6);
     width: 100%;
     max-width: 920px;
 }
@@ -49,7 +49,7 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 12px;
+    gap: var(--space-4);
     padding: 24px;
     background: var(--bg-panel);
     border: 1px solid var(--border);
@@ -87,18 +87,11 @@
     line-height: 1.4;
 }
 
+/* Position only -- size/color come from the shared .coming-soon-badge base rule. */
 .landing-card .coming-soon-badge {
     position: absolute;
     top: 16px;
     right: 16px;
-    font-size: 0.65rem;
-    padding: 3px 8px;
-    border-radius: 10px;
-    background: var(--border);
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    font-weight: bold;
 }
 
 /* --- Coming Soon Page --- */
@@ -116,7 +109,7 @@
 
 .coming-soon-page .coming-soon-icon {
     display: inline-flex;
-    margin-bottom: 8px;
+    margin-bottom: var(--space-3);
     color: var(--accent);
     opacity: 0.6;
 }
@@ -131,14 +124,10 @@
     max-width: 420px;
 }
 
+/* A step larger for a standalone full-page context; color/weight come from the shared
+   .coming-soon-badge base rule. */
 .coming-soon-page .coming-soon-badge {
-    margin-top: 8px;
+    margin-top: var(--space-3);
     font-size: 0.7rem;
     padding: 4px 10px;
-    border-radius: 10px;
-    background: var(--border);
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    font-weight: bold;
 }

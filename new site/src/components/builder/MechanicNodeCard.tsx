@@ -473,7 +473,7 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
             </div>
 
             {data.inputType === 'Release' && (
-              <div className="form-row hold-config-row mt-sm" style={{ display: 'flex', background: 'rgba(212,175,55,0.05)', padding: '8px', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '4px', flexDirection: 'column', gap: '8px' }}>
+              <div className="form-row hold-config-row mt-sm" style={{ display: 'flex', background: 'rgba(220,165,76,0.05)', padding: 'var(--space-3)', border: '1px solid rgba(220,165,76,0.2)', borderRadius: '4px', flexDirection: 'column', gap: 'var(--space-3)' }}>
                 <div className="w-100 text-gold text-bold" style={{ fontSize: '0.8rem' }}>Hold Input Configuration</div>
                 <div className="flex-row gap-sm w-100 flex-wrap">
                   <div className="form-group flex-1">

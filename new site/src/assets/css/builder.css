@@ -10,16 +10,16 @@
 .char-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); 
-    gap: 20px 12px; 
+    gap: var(--space-6) var(--space-4);
     width: 100%; 
     align-content: start; 
-    padding: 20px;
+    padding: var(--space-6);
 }
 
 .char-grid-card {
     display: flex;
     flex-direction: column;
-    background: #1a1a1a;
+    background: var(--bg-well);
     border-radius: 6px;
     cursor: pointer;
     transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), filter 0.2s;
@@ -36,7 +36,7 @@
     width: 100%;
     aspect-ratio: 1 / 1.15;
     border-radius: 6px 6px 0 0;
-    background: #2a2a2a;
+    background: var(--bg-panel);
     position: relative;
     overflow: hidden;
     display: flex;
@@ -68,36 +68,38 @@
     text-align: center;
     font-size: 0.7rem;
     font-weight: bold;
-    color: #eeeeee;
-    padding: 6px 4px;
+    color: var(--text-main);
+    padding: var(--space-2) var(--space-1);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
 /* --- Rarity Colors --- */
-.rarity-5 { border-bottom: 5px solid #ffcc00; }
+.rarity-5 { border-bottom: 5px solid var(--warning); }
 .rarity-4 { border-bottom: 5px solid #b873f9; }
 
 /* --- Editor Split Pane --- */
 .editor-pane { flex: 3; padding: 10px; }
-.output-pane { 
-    flex: 2; 
-    display: flex; 
-    flex-direction: column; 
-    padding: 20px; 
-    background: #111; 
-    margin: 10px; 
-    border-radius: 8px; 
-    border: 1px solid #333; 
+.output-pane {
+    flex: 2;
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-6);
+    /* Same surface as .mechanic-category / .base-stats-card in the editor pane opposite --
+       one consistent card tone across the whole builder view instead of a separate shade. */
+    background: rgba(0, 0, 0, 0.2);
+    margin: 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
 }
 
 /* --- OUTPUT PANE & SYNTAX HIGHLIGHTING --- */
 .code-editor {
-    flex: 1; 
-    width: 100%; 
-    background: #1e1e1e; 
-    border: 1px solid #333; 
+    flex: 1;
+    width: 100%;
+    background: var(--bg-dark);
+    border: 1px solid var(--border);
     border-radius: 6px; 
     box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.6); 
     color: #d4d4d4; 
@@ -143,7 +145,7 @@
 
 /* --- Mechanic GUI Cards --- */
 .builder-view .mechanic-category {
-    background: rgba(0,0,0,0.2); 
+    background: rgba(0, 0, 0, 0.2);
     border: 1px solid var(--border);
     border-radius: 6px; 
     padding: 15px;
@@ -175,7 +177,7 @@
 .builder-view .form-row {
     display: flex;
     gap: 10px;
-    margin-bottom: 12px;
+    margin-bottom: var(--space-4);
     flex-wrap: nowrap; 
     align-items: flex-end;
 }
@@ -193,12 +195,12 @@
     color: var(--text-dim); 
     text-transform: uppercase; 
     font-weight: bold; 
-    margin-bottom: 6px;
+    margin-bottom: var(--space-2);
 }
 
 .builder-view .form-input {
-    background: var(--input-bg);
-    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     color: var(--text-main);
     border-radius: 4px;
     font-family: monospace;
@@ -206,6 +208,12 @@
     height: 28px;
     box-sizing: border-box;
     width: 100%;
+}
+.builder-view .form-input:focus,
+.builder-view .base-select:focus,
+.builder-view .form-textarea:focus {
+    border-color: var(--accent);
+    outline: none;
 }
 
 /* Overlay div renders the colored tokens; the real <input> sits on top, transparent, so it
@@ -250,8 +258,8 @@
     display: none;
     position: absolute;
     z-index: 9999;
-    background: #2a2a2a;
-    border: 1px solid #444;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
     border-radius: 4px;
     max-height: 200px;
     overflow-y: auto;
@@ -264,7 +272,7 @@
 }
 
 .builder-view .autocomplete-item {
-    padding: 6px 12px;
+    padding: var(--space-2) var(--space-4);
     cursor: pointer;
     color: var(--text-main);
     font-size: 0.8rem;
@@ -274,12 +282,12 @@
 
 .builder-view .autocomplete-item:last-child { border-bottom: none; }
 .builder-view .autocomplete-item:hover { background: rgba(220, 165, 76, 0.2); color: var(--accent); }
-.builder-view .autocomplete-item.is-active { background: var(--accent) !important; color: #111 !important; }
+.builder-view .autocomplete-item.is-active { background: var(--accent) !important; color: var(--bg-dark) !important; }
 
 .builder-view .base-select {
-    background: var(--input-bg); 
-    border: 1px solid var(--border);
-    color: var(--text-main); 
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: var(--text-main);
     border-radius: 4px;
     padding: 0 4px;
     height: 28px;
@@ -287,9 +295,9 @@
 }
 
 .builder-view .form-textarea {
-    background: var(--bg-dark); 
-    border: 1px solid var(--border);
-    color: #e6db74; 
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #e6db74;
     padding: 10px; 
     border-radius: 4px; 
     font-family: monospace; 
@@ -305,9 +313,9 @@
 .builder-view .type-tag-container {
     display: flex; 
     flex-wrap: wrap; 
-    gap: 6px;
+    gap: var(--space-2);
     min-height: 28px;
-    padding: 4px; 
+    padding: var(--space-1); 
     background: var(--input-bg); 
     border: 1px solid var(--border); 
     border-radius: 4px; 
@@ -318,7 +326,7 @@
 .builder-view .type-tag {
     display: inline-flex; 
     align-items: center; 
-    gap: 6px;
+    gap: var(--space-2);
     background: rgba(220, 165, 76, 0.15); 
     border: 1px solid var(--accent); 
     color: var(--accent); 
@@ -366,23 +374,23 @@
 .builder-view .w-200px { width: 200px; }
 .builder-view .m-0 { margin: 0; }
 .builder-view .p-0 { padding: 0; }
-.builder-view .mt-4px { margin-top: 4px; }
+.builder-view .mt-4px { margin-top: var(--space-1); }
 .builder-view .mt-14px { margin-top: 14px; }
-.builder-view .mt-20px { margin-top: 20px; }
-.builder-view .mb-4px { margin-bottom: 4px; }
+.builder-view .mt-20px { margin-top: var(--space-6); }
+.builder-view .mb-4px { margin-bottom: var(--space-1); }
 .builder-view .w-105px { width: 105px !important; flex-shrink: 0; }
 .builder-view .relative { position: relative; }
 
 /* --- COMPONENT STYLES --- */
-.builder-view .input-readonly { background: #222; color: var(--accent); border-color: var(--accent); }
-.builder-view .btn-danger { border-color: #ff5555; color: #ff5555; }
+.builder-view .input-readonly { background: var(--bg-well); color: var(--accent); border-color: var(--accent); }
+.builder-view .btn-danger { border-color: var(--danger); color: var(--danger); }
 
 .builder-view .flags-row {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-top: 8px;
-    margin-bottom: 12px;
+    gap: var(--space-4);
+    margin-top: var(--space-3);
+    margin-bottom: var(--space-4);
     padding-left: 2px;
     height: 28px;
 }
@@ -390,24 +398,24 @@
 .builder-view .checkbox-label {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-3);
     cursor: pointer;
     font-size: 0.85rem;
-    color: #bbb;
+    color: var(--text-dim);
     user-select: none;
     transition: color 0.2s;
 }
 
-.builder-view .checkbox-label:hover { color: #fff; }
+.builder-view .checkbox-label:hover { color: var(--text-main); }
 
 .builder-view .checkbox-label input[type="checkbox"] {
     appearance: none;
     -webkit-appearance: none;
     width: 18px;
     height: 18px;
-    border: 2px solid #555;
+    border: 2px solid var(--text-disabled);
     border-radius: 4px;
-    background: #1a1a1a;
+    background: var(--bg-well);
     margin: 0;
     display: grid;
     place-content: center;
@@ -449,12 +457,12 @@
 .builder-view .mechanic-card {
     background: var(--bg-card); 
     border-left: 4px solid var(--accent);
-    padding: 12px; 
+    padding: var(--space-4); 
     border-radius: 6px; 
     margin-top: 15px;
     display: flex; 
     flex-direction: column; 
-    gap: 8px;
+    gap: var(--space-3);
     box-shadow: 0 4px 10px rgba(0,0,0,0.2);
 }
 
@@ -473,8 +481,8 @@
     text-transform: uppercase;
     font-weight: bold;
     letter-spacing: 0.5px;
-    padding-bottom: 6px;
-    margin-bottom: 12px;
+    padding-bottom: var(--space-2);
+    margin-bottom: var(--space-4);
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -485,7 +493,7 @@
 .builder-view .mech-effects-container {
     flex-direction: column;
     align-items: flex-start;
-    gap: 6px;
+    gap: var(--space-2);
     /* Strip the shared .type-tag-container's input-box chrome -- the tags should float
        directly on the panel background, not sit inside their own bordered box. */
     background: transparent;
@@ -542,9 +550,9 @@
 
 .builder-view .mech-banner-tags {
     display: flex;
-    gap: 6px;
+    gap: var(--space-2);
     margin-left: auto;
-    padding-right: 8px;
+    padding-right: var(--space-3);
     flex-wrap: wrap;
     justify-content: flex-end;
 }
@@ -574,9 +582,9 @@
 
 /* --- FUSED SPLIT BOXES & LABELS --- */
 .builder-view .split-label { display: flex; align-items: center; width: 100%; }
-.builder-view .split-label span:first-child { flex: 1; text-align: right; padding-right: 4px; }
+.builder-view .split-label span:first-child { flex: 1; text-align: right; padding-right: var(--space-1); }
 .builder-view .split-label span:nth-child(2) { color: #666; font-weight: normal; flex-shrink: 0; }
-.builder-view .split-label span:last-child { flex: 1; text-align: left; padding-left: 4px; }
+.builder-view .split-label span:last-child { flex: 1; text-align: left; padding-left: var(--space-1); }
 
 .builder-view .timeframe-split-box { display: flex; width: 100%; }
 .builder-view .timeframe-split-box .form-input:first-child {
@@ -599,7 +607,7 @@
     cursor: pointer;
     transition: opacity 0.2s ease-in-out;
     margin-right: -8px; 
-    margin-left: 8px;
+    margin-left: var(--space-3);
 }
 
 .builder-view .form-input[type="number"]:hover::-webkit-inner-spin-button,
@@ -616,7 +624,7 @@
     border-radius: 6px 6px 0 0 !important;
     background: transparent !important;
     aspect-ratio: 1 / 1 !important;
-    padding: 6px;
+    padding: var(--space-2);
 }
 
 .builder-view .echo-set-icon .char-grid-img {
@@ -626,9 +634,12 @@
 /* --- BASE STATS PANEL (matches the mech-table's dense, accent-grouped look) --- */
 .builder-view .base-stats-card {
     flex-direction: row;
-    gap: 12px;
+    gap: var(--space-4);
     align-items: flex-start;
     padding: 10px 12px;
+    /* Same surface as .mechanic-category below it -- both are content cards sitting
+       directly on the editor pane's background, not the lighter flat --bg-card tone. */
+    background: rgba(0, 0, 0, 0.2);
 }
 .builder-view .base-stats-icon {
     width: 130px;
@@ -649,19 +660,19 @@
 .builder-view .base-stats-strip {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-    column-gap: 16px;
-    row-gap: 12px;
+    column-gap: var(--space-5);
+    row-gap: var(--space-4);
     align-items: start;
     background: rgba(0, 0, 0, 0.15);
     border: 1px solid var(--border);
     border-radius: 4px;
-    padding: 6px 16px;
-    margin-top: 6px;
+    padding: var(--space-2) var(--space-5);
+    margin-top: var(--space-2);
 }
 .builder-view .base-stats-group {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--space-2);
 }
 .builder-view .base-stats-group-title {
     font-size: 0.62rem;
@@ -699,7 +710,7 @@
 .builder-view .base-stat-value {
     background: transparent;
     border: none;
-    border-bottom: 1px dashed #666;
+    border-bottom: 1px dashed var(--input-underline);
     color: var(--text-main);
     font-family: monospace;
     font-size: 0.75rem;
@@ -718,7 +729,7 @@
     border-bottom: 1px solid var(--accent);
     outline: none;
 }
-.builder-view .base-stat-value::placeholder { color: #555; font-style: italic; }
+.builder-view .base-stat-value::placeholder { color: var(--text-disabled); font-style: italic; }
 .builder-view select.base-stat-value {
     min-width: 90px;
 }
@@ -777,6 +788,14 @@
 }
 .builder-view .mech-table thead tr.mech-group-row th:last-child {
     border-right: none;
+}
+/* .mech-col-remove's own background tint is for the body rows, where it bookends the table
+   like .mech-col-expand does. Both header rows' remove-column cells are just empty header
+   cells like every other header cell (the expand column's blank cells included) -- keep the
+   sticky positioning (so they stay aligned with the pinned column below during horizontal
+   scroll) but not the tint. */
+.builder-view .mech-table thead th.mech-col-remove {
+    background: transparent;
 }
 
 /* Vertical dividers between column clusters (a named group, or a lone ungrouped column) so
@@ -873,7 +892,7 @@
     box-shadow: none;
 }
 
-.builder-view .mech-col-disabled { color: #444; text-align: center; }
+.builder-view .mech-col-disabled { color: var(--text-disabled); text-align: center; }
 
 /* Sticky to the right edge of the scroll area -- the table can now be wider than the visible
    pane (horizontal scroll), and the delete button needs to stay reachable without having to
@@ -918,7 +937,7 @@
     line-height: 14px;
     padding: 0;
     border-radius: 3px;
-    border: 1px dashed #666;
+    border: 1px dashed var(--input-underline);
     background: transparent;
     color: var(--text-dim);
     font-size: 0.7rem;
@@ -952,7 +971,7 @@
 
 .builder-view .mech-add-row {
     display: flex;
-    gap: 4px;
+    gap: var(--space-1);
     align-items: center;
 }
 .builder-view .mech-mini-select {
@@ -983,7 +1002,7 @@
 .builder-view .cell-value {
     background: transparent;
     border: none;
-    border-bottom: 1px dashed #666;
+    border-bottom: 1px dashed var(--input-underline);
     color: var(--text-main);
     font-family: monospace;
     font-size: 0.72rem;
@@ -1000,7 +1019,7 @@
     border-bottom: 1px solid var(--accent);
     outline: none;
 }
-.builder-view .cell-value::placeholder { color: #555; font-style: italic; }
+.builder-view .cell-value::placeholder { color: var(--text-disabled); font-style: italic; }
 .builder-view .mech-hit-table .cell-value { width: 38px; font-size: 0.68rem; }
 
 /* The detail row's <td> stays a plain table-cell (no display:flex -- that would break the
@@ -1014,7 +1033,7 @@
 .builder-view .mech-timeline-bar {
     position: relative;
     height: 22px;
-    background: #1c1c1c;
+    background: var(--bg-well);
     border: 1px solid var(--border);
     border-radius: 3px;
     margin: 6px 0 10px;
@@ -1026,7 +1045,7 @@
     width: 2px;
     background: var(--accent);
 }
-.builder-view .mech-timeline-tick.is-cancel { background: #888; }
+.builder-view .mech-timeline-tick.is-cancel { background: var(--text-dim); }
 .builder-view .mech-timeline-label {
     position: absolute;
     top: 3px;
@@ -1043,7 +1062,7 @@
     max-width: 100%;
     border-collapse: collapse;
     font-size: 0.7rem;
-    margin-bottom: 12px;
+    margin-bottom: var(--space-4);
 }
 .builder-view .mech-hit-table th {
     text-align: right;
@@ -1068,14 +1087,14 @@
 .builder-view .mech-list {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    margin-bottom: 8px;
+    gap: var(--space-1);
+    margin-bottom: var(--space-3);
 }
 .builder-view .mech-list-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    gap: var(--space-3);
     padding: 6px 10px;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.05);
@@ -1096,4 +1115,4 @@
 }
 .builder-view .mech-list-remove:hover { color: var(--accent); }
 
-.builder-view .dim { color: #555; }
+.builder-view .dim { color: var(--text-disabled); }
