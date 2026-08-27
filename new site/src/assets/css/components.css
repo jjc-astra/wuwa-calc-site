@@ -82,10 +82,14 @@
    3. FORM ELEMENTS
    ========================================= */
 /* --- Selects --- */
+/* Same dashed-underline-to-solid-accent affordance as the Mechanics Builder's dense-grid
+   fields (.cell-value / .base-stat-value) -- no boxed border, so a row of these doesn't
+   read as a wall of form fields. */
 .base-select {
-    background-color: var(--input-bg);
-    border: 1px solid var(--border);
-    border-radius: 4px;
+    background-color: transparent;
+    border: none;
+    border-bottom: 1px dashed var(--input-underline);
+    border-radius: 2px;
     padding: var(--space-1);
     width: 100%;
     cursor: pointer;
@@ -93,29 +97,33 @@
     font-size: 0.9rem;
     color: var(--text-dim);
     font-weight: normal;
-    transition: border-color 0.2s;
+    transition: border-color 0.2s, background-color 0.2s;
 }
+.base-select:hover { background: rgba(220, 165, 76, 0.1); border-bottom-color: var(--accent); }
 .base-select.has-value {
     color: var(--text-main);
     font-weight: bold;
 }
-.base-select:focus { border-color: var(--accent); }
+.base-select:focus { background: rgba(220, 165, 76, 0.15); border-bottom-color: var(--accent); }
 option { color: var(--text-main); background-color: var(--bg-panel); }
 
 /* --- Inputs --- */
 .base-num-box {
     display: flex; justify-content: space-between; align-items: center;
-    background-color: var(--input-bg);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 6px 10px;
+    background-color: transparent;
+    border: none;
+    border-bottom: 1px dashed var(--input-underline);
+    border-radius: 2px;
+    padding: var(--space-1) var(--space-2);
     cursor: text;
+    transition: border-color 0.2s, background-color 0.2s;
 }
-.base-num-box:focus-within { background-color: var(--border); border-color: var(--accent); }
+.base-num-box:hover { background: rgba(220, 165, 76, 0.1); border-bottom-color: var(--accent); }
+.base-num-box:focus-within { background: rgba(220, 165, 76, 0.15); border-bottom-color: var(--accent); }
 
 .num-input {
     background: transparent; border: none; outline: none;
-    color: white; text-align: right; font-weight: bold; font-size: 1rem;
+    color: var(--text-main); text-align: right; font-weight: bold; font-size: 1rem;
     width: 100%; -moz-appearance: textfield;
 }
 .num-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
@@ -249,7 +257,7 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
    5. COMPLEX WIDGETS
    ========================================= */
 
-/* --- Echo Cards (UNTOUCHED) --- */
+/* --- Echo Cards --- */
 .base-card {
     background: var(--bg-card);
     border-radius: 4px;
@@ -259,23 +267,30 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 }
 
 .echo-card-wrap {
-    margin: 0 4px; background: #333; padding: var(--space-2); justify-content: flex-start;
+    margin: 0 4px;
+    /* Nested inside .char-row, which already darkens the page background -- a second
+       black overlay on top would compound into something darker than its parent, so this
+       lightens instead (same rgba(255,255,255,0.03) tint used for .panel-info-item /
+       .chrome-tab elsewhere) to read as one step up from .char-row, not sunken into it. */
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    padding: var(--space-2); justify-content: flex-start;
 }
 
 .echo-header {
-    font-weight: bold; color: var(--accent); font-size: 0.75rem; 
+    font-weight: bold; color: var(--accent); font-size: 0.75rem;
     margin-bottom: var(--space-2); padding-bottom: 2px;
-    border-bottom: 1px solid #555;
+    border-bottom: 2px solid rgba(220, 165, 76, 0.45);
 }
 
 .echo-main-stat-select {
     background: transparent; border: none !important;
     padding: 0; margin: 0; width: 100%;
     color: var(--text-dim); font-weight: bold; font-size: 0.75rem;
-    text-align: left; 
+    text-align: left;
 }
 .echo-main-stat-select.has-value { color: var(--accent); }
-.echo-main-stat-select:hover { color: #fff; }
+.echo-main-stat-select:hover { color: var(--text-main); }
 
 .echo-list {
     display: flex; flex-direction: column; justify-content: flex-start; 
@@ -288,15 +303,21 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 }
 
 .stat-select {
-    width: 70px; height: 100%; flex-shrink: 0; 
-    font-size: 0.7rem; background: transparent; border: none; 
-    color: #ccc; padding: 0; outline: none;
+    width: 70px; height: 100%; flex-shrink: 0;
+    font-size: 0.7rem; background: transparent; border: none;
+    color: var(--text-dim); padding: 0; outline: none;
 }
+/* Stays dim/normal-weight even once a stat is picked -- this is a field label in a dense
+   grid (like the Mechanics Builder's .base-stat-label), not a standalone selection the
+   bold/bright .has-value treatment is meant for. */
+.stat-select.has-value { color: var(--text-dim); font-weight: normal; }
 .stat-num-box {
-    width: 38px; min-width: 38px; height: 100%; flex-shrink: 0; 
+    width: 38px; min-width: 38px; height: 100%; flex-shrink: 0;
     padding: 0; display: flex; align-items: center; justify-content: center;
 }
-.stat-num-box input { font-size: 0.7rem; text-align: center; }
+/* Calmer than the default bold 1rem .num-input -- matches .base-stat-value's weight/size
+   for the same dense-grid reason. */
+.stat-num-box input { font-size: 0.7rem; font-weight: normal; text-align: center; }
 
 /* =========================================
    5. COMPLEX WIDGETS -> ROTATION GAUGES

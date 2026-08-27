@@ -26,7 +26,9 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
-    background: var(--bg-well);
+    /* Same translucent card surface as the Mechanics Builder's .mechanic-category / this
+       page's .char-row and .idle-stat-card, instead of a flat --bg-well fill. */
+    background: rgba(0, 0, 0, 0.2);
     border: 1px solid var(--border);
     border-radius: 8px;
     overflow: hidden;
@@ -119,10 +121,15 @@
 }
 .chrome-tab:hover { color: var(--text-main); background: rgba(255, 255, 255, 0.06); }
 .chrome-tab.is-active {
-    background: var(--bg-well);
+    /* .chrome-tabs already sits on its own rgba(0,0,0,0.4) backdrop, so a plain
+       rgba(0,0,0,0.2) here would stack on top of that and render visibly darker than
+       .results-panel's single 20%-black-over-page overlay. color-mix reconstructs that
+       same 20%-over-page result directly (independent of whatever's behind this tab),
+       so the active tab always matches the panel surface exactly. */
+    background: color-mix(in srgb, black 20%, var(--bg-dark));
     color: var(--accent);
     border-color: var(--border);
-    border-bottom: 1px solid var(--bg-well);
+    border-bottom: 1px solid color-mix(in srgb, black 20%, var(--bg-dark));
 }
 
 /* =========================================
@@ -131,7 +138,7 @@
 .results-tab-grid { display: flex; flex-direction: column; gap: var(--space-4); }
 
 .results-card {
-    background: var(--bg-panel);
+    background: rgba(0, 0, 0, 0.2);
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: var(--space-4);

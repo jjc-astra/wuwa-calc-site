@@ -204,7 +204,7 @@ html, body {
 
 
 /* =========================================
-   2. TEAM ROSTER GRID (UNTOUCHED)
+   2. TEAM ROSTER GRID
    ========================================= */
 .team-container { width: 100%; }
 
@@ -214,9 +214,11 @@ html, body {
     grid-template-columns: 175px 160px 160px 1fr;
     align-items: stretch;
     margin: 10px; padding: 10px;
-    background: var(--bg-panel);
+    /* Same translucent card surface as the Mechanics Builder's .mechanic-category --
+       one consistent "content card on the page" look instead of a flat --bg-panel fill. */
+    background: rgba(0, 0, 0, 0.2);
     border: 1px solid var(--border); border-radius: 8px;
-    overflow-x: auto; min-width: 850px; 
+    overflow-x: auto; min-width: 850px;
 }
 
 /* Sub-panels inside row */
@@ -299,7 +301,10 @@ html, body {
 /* --- Toolbar --- */
 .rotation-toolbar {
     display: flex; align-items: center; gap: 15px;
-    padding: 10px 15px; background: rgba(255, 255, 255, 0.03);
+    padding: 10px 15px;
+    /* Same translucent card surface used across the app (.results-panel, .char-row,
+       .idle-stat-card, etc) instead of a separate lightening tint. */
+    background: rgba(0, 0, 0, 0.2);
     border-bottom: 1px solid var(--border); flex-shrink: 0;
     min-width: 900px; 
 }
@@ -319,7 +324,7 @@ html, body {
 }
 
 .rotation-header-row {
-    background: rgba(0,0,0,0.3); border-bottom: 1px solid var(--border);
+    background: rgba(0, 0, 0, 0.2); border-bottom: 1px solid var(--border);
     font-size: 0.75rem; font-weight: bold; color: var(--text-dim); text-transform: uppercase;
     text-align: center; flex-shrink: 0;
     transition: padding-right 0.1s; 
@@ -332,6 +337,22 @@ html, body {
 /* Header Alignment overrides */
 .rotation-header-row > div:nth-child(2),
 .rotation-header-row > div:nth-child(3) { text-align: left; }
+
+/* Rotation rows keep the original solid-outline boxed look for their selects/number
+   boxes -- unlike the echo cards' dense stat grid, .base-select / .base-num-box's shared
+   dashed-underline default isn't right here, so restore the box explicitly. */
+.rotation-row .base-select,
+.rotation-row .base-num-box {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+}
+.rotation-row .base-select:hover { background: transparent; }
+.rotation-row .base-select:focus,
+.rotation-row .base-num-box:focus-within {
+    background: transparent;
+    border-color: var(--accent);
+}
 
 /* --- Row Wrapper (Stacking Context) --- */
 .rotation-row {
@@ -436,7 +457,8 @@ html, body {
 
 .idle-stat-card {
     flex: 1;
-    background: var(--bg-panel);
+    /* Same translucent card surface as .char-row / the Mechanics Builder's .mechanic-category. */
+    background: rgba(0, 0, 0, 0.2);
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: var(--space-4);
