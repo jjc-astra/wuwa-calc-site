@@ -205,6 +205,26 @@ export const CAST_OPTIONS = [
   'Dodge', 'Jump', 'Echo', 'Utility', 'Heal'
 ];
 
+// Non-elemental tag color-coding for cast types, shown alongside the elemental ELEMENT_COLORS
+// (utils/Common.ts) used for dmg types -- distinct hues so cast-type and dmg-type chips read
+// as two different categories at a glance, not just a random assortment.
+export const CAST_TYPE_COLORS: Record<string, string> = {
+  Basic: '#8fa8c9',
+  Heavy: '#e0a050',
+  Skill: '#5fb0e0',
+  Liberation: '#b083e8',
+  Intro: '#6fcf8f',
+  Outro: '#e06f6f',
+  Coordinated: '#e0c050',
+  TuneBreak: '#e0708f',
+  TuneRupture: '#c94f6f',
+  Dodge: '#9a9a9a',
+  Jump: '#9a9a9a',
+  Echo: '#4fd0c0',
+  Utility: '#9a9a9a',
+  Heal: '#7fd68a'
+};
+
 export const DMG_OPTIONS = [
   'Basic', 'Heavy', 'Skill', 'Liberation', 'Intro', 'Outro', 'Coordinated',
   'Spectro', 'Fusion', 'Glacio', 'Aero', 'Electro', 'Havoc', 'Physical',

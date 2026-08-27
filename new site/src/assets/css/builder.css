@@ -160,10 +160,15 @@
     gap: 10px;
 }
 
-.builder-view .mechanic-header { 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center; 
+.builder-view .mechanic-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.builder-view .nodes-container {
+    margin-top: 10px;
+    overflow-x: auto;
 }
 
 /* FORM ALIGNMENT FIXES SCOPED TO BUILDER ONLY */
@@ -481,6 +486,12 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 6px;
+    /* Strip the shared .type-tag-container's input-box chrome -- the tags should float
+       directly on the panel background, not sit inside their own bordered box. */
+    background: transparent;
+    border: none;
+    padding: 0;
+    min-height: 0;
 }
 
 .builder-view .mech-effects-container .type-tag {
@@ -611,3 +622,478 @@
 .builder-view .echo-set-icon .char-grid-img {
     object-fit: contain !important;
 }
+
+/* --- BASE STATS PANEL (matches the mech-table's dense, accent-grouped look) --- */
+.builder-view .base-stats-card {
+    flex-direction: row;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 10px 12px;
+}
+.builder-view .base-stats-icon {
+    width: 130px;
+    height: auto;
+    flex-shrink: 0;
+    margin: 0;
+}
+.builder-view .base-stats-body {
+    flex: 1;
+    min-width: 0;
+}
+/* One flat, dense strip instead of a stack of separate bordered/backgrounded boxes -- each
+   group is its own COLUMN (Identity | Base Values | Talent Nodes | Resources side by side),
+   with that group's own fields stacked vertically inside it. Grid auto-fit/minmax makes the
+   columns stretch to fill the row's width, wrapping a column down to the next row only once
+   it would otherwise get narrower than the minmax floor -- not content-width flex-wrap, which
+   wraps based on each group's natural (un-stretched) width instead. */
+.builder-view .base-stats-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    column-gap: 16px;
+    row-gap: 12px;
+    align-items: start;
+    background: rgba(0, 0, 0, 0.15);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 6px 16px;
+    margin-top: 6px;
+}
+.builder-view .base-stats-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.builder-view .base-stats-group-title {
+    font-size: 0.62rem;
+    font-weight: bold;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: var(--accent);
+    opacity: 0.85;
+    padding-bottom: 3px;
+    border-bottom: 2px solid rgba(220, 165, 76, 0.45);
+}
+.builder-view .base-stats-group-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding-top: 1px;
+}
+.builder-view .base-stat-field {
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 10px;
+}
+.builder-view .base-stat-label {
+    flex: 0 0 auto;
+    font-size: 0.6rem;
+    font-weight: bold;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    white-space: nowrap;
+}
+/* Same "dashed underline -> tinted hover -> solid accent focus" affordance as the move
+   table's .cell-value, so an editable stat here reads exactly like an editable table cell. */
+.builder-view .base-stat-value {
+    background: transparent;
+    border: none;
+    border-bottom: 1px dashed #666;
+    color: var(--text-main);
+    font-family: monospace;
+    font-size: 0.75rem;
+    padding: 1px 2px;
+    border-radius: 2px;
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+    text-align: right;
+}
+.builder-view .base-stat-value:hover { background: rgba(220, 165, 76, 0.1); border-bottom-color: var(--accent); }
+.builder-view .base-stat-value:focus {
+    background: rgba(220, 165, 76, 0.15);
+    border: 1px solid var(--accent);
+    border-bottom: 1px solid var(--accent);
+    outline: none;
+}
+.builder-view .base-stat-value::placeholder { color: #555; font-style: italic; }
+.builder-view select.base-stat-value {
+    min-width: 90px;
+}
+
+/* --- MOVE TABLE (frame-data style move list) --- */
+/* Column widths are percentages set via <colgroup><col> in MechanicsBuilder.tsx (12 cols
+   summing to 100%) -- colgroup is the one sizing method browsers reliably apply to a
+   colSpan={12} detail row further down the table, which per-cell nth-child width rules
+   didn't. width:100% lets the table actually fill a wide editor pane instead of sitting at
+   a fixed px width with dead space beside it; min-width is the floor (the pixel sum the
+   percentages were computed from) below which columns would get unreadably thin --
+   .nodes-container scrolls horizontally past that point instead of squeezing further. */
+.builder-view .mech-table {
+    width: 100%;
+    min-width: 1057px;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+.builder-view .mech-table thead th {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    text-align: left;
+    font-weight: bold;
+    padding: 3px 6px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+/* Group-label row (Identity / Timing / Resources umbrellas) sits above the per-column
+   header row -- centered, and underlined in accent so each group reads as a clear bracket
+   over exactly its own columns (colSpan on the <th> makes the underline span only that
+   group's width), not just another header row blending into the one below it. */
+.builder-view .mech-table thead tr.mech-group-row th {
+    text-align: center;
+    font-size: 0.62rem;
+    font-weight: bold;
+    letter-spacing: 0.4px;
+    color: var(--accent);
+    opacity: 0.85;
+    padding: 3px 6px 4px;
+    border-bottom: none;
+}
+.builder-view .mech-table thead tr.mech-group-row th:not(:empty) {
+    border-bottom: 2px solid rgba(220, 165, 76, 0.45);
+}
+/* Every group-row <th> owns exactly one true right boundary regardless of its colSpan width
+   (a 3-wide "Identity" cell is still one DOM cell), so a plain per-cell border-right here
+   already lands in the right place -- nth-child would target DOM position, not visual column,
+   and colSpan makes those two disagree in this specific row (unlike the per-column row and
+   body rows below, which have no colSpan and use nth-child further down). */
+.builder-view .mech-table thead tr.mech-group-row th {
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+.builder-view .mech-table thead tr.mech-group-row th:last-child {
+    border-right: none;
+}
+
+/* Vertical dividers between column clusters (a named group, or a lone ungrouped column) so
+   the table itself -- not just the header labels -- visibly separates which columns travel
+   together. Runs down through both header rows and every body row via nth-child, matching
+   the fixed 12-column layout: 1 Expand | 2-5 Identity (Name/Cast/Dmg/Inputs) | 6 Mult |
+   7-8 Timing | 9-10 Resources | 11 CD | 12 Remove. */
+.builder-view .mech-table th:nth-child(1),
+.builder-view .mech-table td:nth-child(1),
+.builder-view .mech-table th:nth-child(5),
+.builder-view .mech-table td:nth-child(5),
+.builder-view .mech-table th:nth-child(6),
+.builder-view .mech-table td:nth-child(6),
+.builder-view .mech-table th:nth-child(8),
+.builder-view .mech-table td:nth-child(8),
+.builder-view .mech-table th:nth-child(10),
+.builder-view .mech-table td:nth-child(10),
+.builder-view .mech-table th:nth-child(11),
+.builder-view .mech-table td:nth-child(11) {
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+/* The detail row's single colSpan cell shouldn't inherit a mid-row divider from whichever
+   nth-child it happens to land on. */
+.builder-view .mech-table td.mech-detail-cell {
+    border-right: none !important;
+}
+.builder-view .mech-row {
+    transition: background 0.1s;
+    height: 30px;
+}
+.builder-view .mech-row:hover { background: rgba(255, 255, 255, 0.03); }
+.builder-view .mech-row td {
+    padding: 3px 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    vertical-align: middle;
+    overflow: hidden;
+}
+.builder-view .mech-col-name { min-width: 0; }
+.builder-view .mech-col-num { text-align: right; white-space: nowrap; }
+
+/* Scoped override of the shared .sub-panel-trigger (used as-is, un-padded, by the rotation
+   table) -- in this dense table its content (tag chips, summary text) sat flush against the
+   hover/active outline with no breathing room. */
+.builder-view .sub-panel-trigger {
+    padding: 3px 5px;
+    box-sizing: border-box;
+}
+
+/* Any summary cell that opens a sub-panel gets its hover/active highlight directly on the
+   <td> itself, not an inner wrapper div. A child with height:100% doesn't reliably fill a
+   table-cell's real (row-stretched) height in this engine -- the cell's own height is always
+   correct without that percentage-resolution step, so styling the <td> is what actually makes
+   the *whole* cell highlight instead of just a box hugging its content. */
+/* No transition, deliberately -- with many small cells packed edge-to-edge, fast mouse
+   movement across them can outrun an animated fade, leaving a cell's highlight caught
+   mid-transition (still partly visible) after the pointer's already moved elsewhere.
+   Instant on/off avoids that entirely. */
+.builder-view .mech-trigger-cell {
+    cursor: pointer;
+}
+.builder-view .mech-trigger-cell:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+}
+.builder-view .mech-trigger-cell.is-active {
+    background-color: rgba(220, 165, 76, 0.12);
+    box-shadow: inset 0 0 0 1px var(--accent), inset 0 0 8px rgba(220, 165, 76, 0.15);
+}
+
+/* The dedicated "default expand" control (Trigger Rule & Effects) -- its own column, styled
+   with a permanent faint border/background rather than only-on-hover, so it reads as a
+   button at rest instead of empty space. */
+.builder-view .mech-col-expand {
+    text-align: center;
+    background: rgba(255, 255, 255, 0.02);
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+}
+.builder-view .mech-col-expand .collapse-icon {
+    display: inline-flex;
+    color: var(--text-dim);
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.builder-view .mech-col-expand.is-active .collapse-icon { color: var(--text-main); }
+/* The rotation calculator's accordion triangle has no box around it -- just the icon itself
+   darkening/rotating. Suppress the shared .mech-trigger-cell active background/box-shadow
+   here specifically so the expand control matches that bare look instead of reading as a
+   bordered button. */
+.builder-view .mech-col-expand.mech-trigger-cell.is-active {
+    background-color: rgba(255, 255, 255, 0.02);
+    box-shadow: none;
+}
+.builder-view .mech-col-expand.mech-trigger-cell:hover {
+    background-color: rgba(255, 255, 255, 0.02);
+    box-shadow: none;
+}
+
+.builder-view .mech-col-disabled { color: #444; text-align: center; }
+
+/* Sticky to the right edge of the scroll area -- the table can now be wider than the visible
+   pane (horizontal scroll), and the delete button needs to stay reachable without having to
+   scroll all the way over to it every time. Same subtle tint as .mech-col-expand (the other
+   "controls" bookend column) instead of a flat opaque grey that stood out from the rest of
+   the table. */
+.builder-view .mech-col-remove {
+    position: sticky;
+    right: 0;
+    z-index: 5;
+    background: rgba(255, 255, 255, 0.02);
+    text-align: center;
+    padding: 0 !important;
+}
+.builder-view .mech-col-remove .icon-btn-sm { width: 18px; height: 18px; }
+.builder-view .mech-col-remove .icon-btn-sm svg { width: 10px; height: 10px; }
+
+/* Read-only display -- the actual rename input now lives in the Identity sub-panel, so
+   clicking anywhere in this cell (not just this text) opens that panel instead of editing
+   inline here. */
+.builder-view .mech-name-display {
+    display: block;
+    color: var(--text-main);
+    font-weight: bold;
+    font-size: 0.85rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.builder-view .mech-tag-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    align-items: center;
+    width: 100%;
+}
+.builder-view .tag-add-btn {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    line-height: 14px;
+    padding: 0;
+    border-radius: 3px;
+    border: 1px dashed #666;
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 0.7rem;
+    cursor: pointer;
+}
+.builder-view .tag-add-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(220, 165, 76, 0.1); }
+.builder-view .tag-add-btn.is-open { border-color: var(--accent); border-style: solid; color: var(--accent); background: rgba(220, 165, 76, 0.15); }
+
+/* Denser chip size inside the move table specifically -- the shared .type-tag styling is
+   sized for the wider identity/effects panels below, which is too big for a 15-column table. */
+.builder-view .mech-table .type-tag {
+    padding: 1px 5px;
+    font-size: 0.62rem;
+    gap: 3px;
+    border-radius: 8px;
+}
+.builder-view .mech-table .type-tag-remove {
+    font-size: 0.85rem;
+}
+
+/* Read-only computed summaries (Mult/Resources/Physics/Priority totals) -- distinct from
+   .cell-value since these aren't directly typeable, just a trigger into their sub-panel. */
+.builder-view .mech-sum-text {
+    font-family: monospace;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.builder-view .mech-add-row {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+.builder-view .mech-mini-select {
+    height: 24px;
+    font-size: 0.7rem;
+    padding: 0 4px;
+    width: auto;
+    max-width: 110px;
+}
+.builder-view .mech-mini-input {
+    height: 24px;
+    font-size: 0.7rem;
+    padding: 0 4px;
+    width: 60px;
+}
+.builder-view .mech-mini-input-wide {
+    height: 24px;
+    font-size: 0.7rem;
+    padding: 0 4px;
+    flex: 1;
+    min-width: 120px;
+}
+
+/* A clear, distinct signal that a table-cell value is directly editable in place: dotted
+   underline at rest, tinted highlight on hover, solid accent border once actually focused --
+   deliberately different from the plain form-input look used in the panels below, since these
+   sit in dense rows where "this text is a button" needs to read at a glance. */
+.builder-view .cell-value {
+    background: transparent;
+    border: none;
+    border-bottom: 1px dashed #666;
+    color: var(--text-main);
+    font-family: monospace;
+    font-size: 0.72rem;
+    padding: 2px 3px;
+    text-align: right;
+    cursor: text;
+    border-radius: 2px;
+    width: 44px;
+}
+.builder-view .cell-value:hover { background: rgba(220, 165, 76, 0.1); border-bottom-color: var(--accent); }
+.builder-view .cell-value:focus {
+    background: rgba(220, 165, 76, 0.15);
+    border: 1px solid var(--accent);
+    border-bottom: 1px solid var(--accent);
+    outline: none;
+}
+.builder-view .cell-value::placeholder { color: #555; font-style: italic; }
+.builder-view .mech-hit-table .cell-value { width: 38px; font-size: 0.68rem; }
+
+/* The detail row's <td> stays a plain table-cell (no display:flex -- that would break the
+   colSpan={15} width-from-colgroup sizing); .sub-panel below supplies all the actual chrome,
+   matching the rotation table's SubPanel look exactly. */
+.builder-view .mech-detail-cell {
+    padding: 0 !important;
+    background: transparent;
+}
+
+.builder-view .mech-timeline-bar {
+    position: relative;
+    height: 22px;
+    background: #1c1c1c;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    margin: 6px 0 10px;
+}
+.builder-view .mech-timeline-tick {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--accent);
+}
+.builder-view .mech-timeline-tick.is-cancel { background: #888; }
+.builder-view .mech-timeline-label {
+    position: absolute;
+    top: 3px;
+    font-size: 0.62rem;
+    color: var(--text-dim);
+}
+
+/* Deliberately NOT width:100% -- the outer .mech-table can now be very wide (it fills the
+   editor pane), and stretching this inner per-hit table to match blows huge gaps between its
+   few short columns and can push the last column past the visible edge. Auto width sizes it
+   to its own content instead; max-width just keeps it from overflowing its panel. */
+.builder-view .mech-hit-table {
+    width: auto;
+    max-width: 100%;
+    border-collapse: collapse;
+    font-size: 0.7rem;
+    margin-bottom: 12px;
+}
+.builder-view .mech-hit-table th {
+    text-align: right;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    font-size: 0.62rem;
+    font-weight: normal;
+    padding: 3px 8px;
+    border-bottom: 1px solid var(--border);
+}
+.builder-view .mech-hit-table th:first-child,
+.builder-view .mech-hit-table td:first-child { text-align: left; }
+.builder-view .mech-hit-table td {
+    text-align: right;
+    padding: 3px 8px;
+    color: var(--text-main);
+}
+.builder-view .mech-hit-table .accent { color: var(--accent); font-weight: bold; }
+
+/* Cancel-timings list inside its sub-panel -- each row is clickable to load it back into the
+   add-form below for editing (including the trigger rule), with its own remove button. */
+.builder-view .mech-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 8px;
+}
+.builder-view .mech-list-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.75rem;
+    cursor: pointer;
+}
+.builder-view .mech-list-row:hover { border-color: var(--accent); background: rgba(220, 165, 76, 0.08); }
+.builder-view .mech-list-remove {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    padding: 0 2px;
+}
+.builder-view .mech-list-remove:hover { color: var(--accent); }
+
+.builder-view .dim { color: #555; }

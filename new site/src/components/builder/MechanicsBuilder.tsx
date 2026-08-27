@@ -284,9 +284,52 @@ export const MechanicsBuilder: React.FC = () => {
                   </div>
                 </div>
                 <div className="nodes-container">
-                  {catMechs.map(([id, node]) => (
-                    <MechanicNodeCard key={id} nodeId={id} data={node} />
-                  ))}
+                  {catMechs.length > 0 && (
+                    <table className="mech-table">
+                      <colgroup>
+                        <col style={{ width: '2.5%' }} />
+                        <col style={{ width: '29%' }} />
+                        <col style={{ width: '8%' }} />
+                        <col style={{ width: '8%' }} />
+                        <col style={{ width: '7%' }} />
+                        <col style={{ width: '6%' }} />
+                        <col style={{ width: '6%' }} />
+                        <col style={{ width: '10%' }} />
+                        <col style={{ width: '8%' }} />
+                        <col style={{ width: '8%' }} />
+                        <col style={{ width: '5%' }} />
+                        <col style={{ width: '2.5%' }} />
+                      </colgroup>
+                      <thead>
+                        <tr className="mech-group-row">
+                          <th></th>
+                          <th colSpan={4}>Identity</th>
+                          <th></th>
+                          <th colSpan={2}>Timing</th>
+                          <th colSpan={2}>Resources</th>
+                          <th></th>
+                          <th className="mech-col-remove"></th>
+                        </tr>
+                        <tr>
+                          <th></th>
+                          <th className="mech-col-name">Name</th>
+                          <th>Cast Types</th>
+                          <th>Dmg Types</th>
+                          <th>Inputs</th>
+                          <th>Mult</th>
+                          <th>Frame #</th>
+                          <th>Time Mods</th>
+                          <th>On Cast</th>
+                          <th>On Hit</th>
+                          <th>CD</th>
+                          <th className="mech-col-remove"></th>
+                        </tr>
+                      </thead>
+                      {catMechs.map(([id, node]) => (
+                        <MechanicNodeCard key={id} nodeId={id} data={node} />
+                      ))}
+                    </table>
+                  )}
                 </div>
               </div>
             );

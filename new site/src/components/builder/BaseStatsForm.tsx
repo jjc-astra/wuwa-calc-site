@@ -22,13 +22,13 @@ export const BaseStatsForm: React.FC = () => {
   const forteCount = parseInt(baseStats.forteCount as any, 10) || 1;
 
   const makeInput = (key: string, label: string, defaultVal: string | number = '', placeholder = '') => (
-    <div key={key} className="form-group flex-1" style={{ minWidth: '120px' }}>
-      <label className="form-label text-dim">{label}</label>
+    <div key={key} className="base-stat-field">
+      <label className="base-stat-label">{label}</label>
       <input
         type="text"
-        className="form-input base-stat-input w-100"
+        className="base-stat-value"
         value={baseStats[key] !== undefined ? baseStats[key] : defaultVal}
-        placeholder={placeholder}
+        placeholder={placeholder || '—'}
         onChange={e => {
           let val: any = e.target.value;
           if (val !== '' && !isNaN(Number(val))) val = parseFloat(val);
@@ -39,10 +39,10 @@ export const BaseStatsForm: React.FC = () => {
   );
 
   const makeSelect = (key: string, label: string) => (
-    <div className="form-group flex-1" style={{ minWidth: '120px' }}>
-      <label className="form-label text-dim">{label}</label>
+    <div className="base-stat-field">
+      <label className="base-stat-label">{label}</label>
       <select
-        className="base-select base-stat-input w-100"
+        className="base-select base-stat-value"
         value={baseStats[key] || ''}
         onChange={e => setBaseStat(key, e.target.value)}
       >
@@ -55,14 +55,12 @@ export const BaseStatsForm: React.FC = () => {
     </div>
   );
 
-  const renderGroupWrapper = (title: string, children: React.ReactNode) => (
-    <div className="node-section mb-sm" style={{ background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
-      <div className="node-section-title text-gold" style={{ padding: '6px 12px', borderBottom: '1px solid var(--border)', background: 'rgba(0,0,0,0.2)', fontWeight: 'bold', textTransform: 'uppercase', fontSize: '0.8rem' }}>
-        {title}
-      </div>
-      <div className="form-row" style={{ flexWrap: 'wrap', padding: '12px' }}>
-        {children}
-      </div>
+  // Mirrors the mechanics table's own grouping language -- a small accent-underlined label
+  // bracketing just its own fields, not a separate bordered/backgrounded box per group.
+  const renderGroup = (title: string, children: React.ReactNode) => (
+    <div className="base-stats-group">
+      <div className="base-stats-group-title">{title}</div>
+      <div className="base-stats-group-fields">{children}</div>
     </div>
   );
 
@@ -72,8 +70,8 @@ export const BaseStatsForm: React.FC = () => {
   }
 
   return (
-    <div className="base-card" style={{ flexDirection: 'row', gap: '20px', alignItems: 'stretch' }}>
-      <div id="editor-char-icon" className={`char-icon rarity-${baseStats.rarity || 5}`} style={{ width: '130px', height: 'auto', flexShrink: 0, margin: 0, alignSelf: 'flex-start' }}>
+    <div className="base-card base-stats-card">
+      <div id="editor-char-icon" className={`char-icon rarity-${baseStats.rarity || 5} base-stats-icon`}>
         {!imgError && (
           <img
             className={`char-grid-img ${imgLoaded ? 'opacity-1' : 'opacity-0'}`}
@@ -88,12 +86,12 @@ export const BaseStatsForm: React.FC = () => {
         )}
       </div>
 
-      <div style={{ flex: 1 }}>
+      <div className="base-stats-body">
         <div className="panel-header-tiny">{isChar ? 'Base Stats (Lvl 90)' : 'Weapon Stats (Lvl 90)'}</div>
-        <div className="panel-content-grid" id="base-stats-form">
+        <div className="base-stats-strip" id="base-stats-form">
           {isChar ? (
             <>
-              {renderGroupWrapper('Identity', (
+              {renderGroup('Identity', (
                 <>
                   {makeInput('weaponType', 'Weapon Type')}
                   {makeInput('element', 'Element')}
@@ -101,7 +99,7 @@ export const BaseStatsForm: React.FC = () => {
                 </>
               ))}
 
-              {renderGroupWrapper('Base Values', (
+              {renderGroup('Base Values', (
                 <>
                   {makeInput('baseAtk', 'Base ATK')}
                   {makeInput('baseHP', 'Base HP')}
@@ -111,7 +109,7 @@ export const BaseStatsForm: React.FC = () => {
                 </>
               ))}
 
-              {renderGroupWrapper('Talent Nodes', (
+              {renderGroup('Talent Nodes', (
                 <>
                   {makeSelect('talentStat1', 'Stat Node 1')}
                   {makeInput('talentVal1', 'Value 1', '', 'e.g. 8%')}
@@ -120,7 +118,7 @@ export const BaseStatsForm: React.FC = () => {
                 </>
               ))}
 
-              {renderGroupWrapper('Resources', (
+              {renderGroup('Resources', (
                 <>
                   {makeInput('maxEnergy', 'Max Energy', 100)}
                   {makeInput('forteCount', 'Forte Count', 1)}
@@ -130,14 +128,14 @@ export const BaseStatsForm: React.FC = () => {
             </>
           ) : (
             <>
-              {renderGroupWrapper('Identity', (
+              {renderGroup('Identity', (
                 <>
                   {makeInput('weaponType', 'Weapon Type')}
                   {makeInput('rarity', 'Rarity', 5)}
                 </>
               ))}
-              {renderGroupWrapper('Base Stats', makeInput('baseAtk', 'Base ATK'))}
-              {renderGroupWrapper('Sub Stat', (
+              {renderGroup('Base Stats', makeInput('baseAtk', 'Base ATK'))}
+              {renderGroup('Sub Stat', (
                 <>
                   {makeInput('subStatType', 'Type', '', 'e.g. CR Rate')}
                   {makeInput('subStatValue', 'Value', '', 'e.g. 24.3%')}
