@@ -151,17 +151,6 @@
     padding: 15px;
 }
 
-.builder-view .mechanic-card {
-    background: var(--bg-card); 
-    border-left: 3px solid var(--accent);
-    padding: 15px; 
-    border-radius: 4px; 
-    margin-top: 10px;
-    display: flex; 
-    flex-direction: column; 
-    gap: 10px;
-}
-
 .builder-view .mechanic-header {
     display: flex;
     justify-content: space-between;
@@ -210,8 +199,7 @@
     width: 100%;
 }
 .builder-view .form-input:focus,
-.builder-view .base-select:focus,
-.builder-view .form-textarea:focus {
+.builder-view .base-select:focus {
     border-color: var(--accent);
     outline: none;
 }
@@ -294,22 +282,7 @@
     box-sizing: border-box;
 }
 
-.builder-view .form-textarea {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: #e6db74;
-    padding: 10px; 
-    border-radius: 4px; 
-    font-family: monospace; 
-    min-height: 80px;
-}
-
 /* --- Type Tags & Chips --- */
-.builder-view .inline-label-row .form-label {
-    margin-bottom: 0;
-    flex-shrink: 0;
-}
-
 .builder-view .type-tag-container {
     display: flex; 
     flex-wrap: wrap; 
@@ -361,22 +334,10 @@
 .builder-view .align-self-start { align-self: flex-start; }
 .builder-view .w-100 { width: 100%; }
 .builder-view .w-auto { width: auto; }
-.builder-view .w-60px { width: 60px; }
-.builder-view .w-80px { width: 80px; }
-.builder-view .w-90px { width: 90px; }
-.builder-view .w-100px { width: 100px; }
-.builder-view .w-110px { width: 110px; }
-.builder-view .w-120px { width: 120px; }
-.builder-view .w-130px { width: 130px; }
-.builder-view .w-140px { width: 140px; }
 .builder-view .w-150px { width: 150px; }
-.builder-view .w-160px { width: 160px; }
-.builder-view .w-200px { width: 200px; }
 .builder-view .m-0 { margin: 0; }
 .builder-view .p-0 { padding: 0; }
 .builder-view .mt-4px { margin-top: var(--space-1); }
-.builder-view .mt-14px { margin-top: 14px; }
-.builder-view .mt-20px { margin-top: var(--space-6); }
 .builder-view .mb-4px { margin-bottom: var(--space-1); }
 .builder-view .w-105px { width: 105px !important; flex-shrink: 0; }
 .builder-view .relative { position: relative; }
@@ -454,39 +415,6 @@
 }
 
 /* --- MECHANIC NODE SECTIONS --- */
-.builder-view .mechanic-card {
-    background: var(--bg-card); 
-    border-left: 4px solid var(--accent);
-    padding: var(--space-4); 
-    border-radius: 6px; 
-    margin-top: 15px;
-    display: flex; 
-    flex-direction: column; 
-    gap: var(--space-3);
-    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-}
-
-.builder-view .node-section {
-    background: rgba(0, 0, 0, 0.15);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 10px 12px;
-    display: flex;
-    flex-direction: column;
-}
-
-.builder-view .node-section-title {
-    font-size: 0.75rem;
-    color: var(--accent);
-    text-transform: uppercase;
-    font-weight: bold;
-    letter-spacing: 0.5px;
-    padding-bottom: var(--space-2);
-    margin-bottom: var(--space-4);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.builder-view .justify-between { justify-content: space-between; }
 .builder-view .align-center { align-items: center; }
 
 /* --- EFFECTS ARRAY LIST STYLE --- */
@@ -513,88 +441,6 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-}
-
-/* --- COLLAPSIBLE UI --- */
-.builder-view .collapsible-header {
-    cursor: pointer;
-    user-select: none;
-    transition: background 0.1s;
-}
-
-.builder-view .collapsible-header:hover { filter: brightness(1.2); }
-
-.builder-view .collapse-icon {
-    font-size: 0.7rem;
-    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    color: rgba(255,255,255,0.4);
-    display: inline-block;
-}
-
-.builder-view .collapsed .collapse-icon { transform: rotate(-90deg); }
-.builder-view .node-section.collapsed .section-content { display: none; }
-
-/* --- TOP-LEVEL CARD BANNER --- */
-.builder-view .mechanic-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 12px;
-    background: var(--surface-card);
-    margin: -12px -12px 12px -12px;
-    border-bottom: 1px solid var(--border);
-    border-radius: 4px 4px 0 0;
-    font-weight: bold;
-    color: var(--accent);
-}
-
-.builder-view .mech-banner-tags {
-    display: flex;
-    gap: var(--space-2);
-    margin-left: auto;
-    padding-right: var(--space-3);
-    flex-wrap: wrap;
-    justify-content: flex-end;
-}
-.builder-view .mech-summary-tag {
-    background: rgba(0, 0, 0, 0.25);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 2px 8px;
-    font-size: 0.68rem;
-    font-weight: normal;
-    font-family: monospace;
-    color: var(--text-dim);
-    white-space: nowrap;
-}
-.builder-view .mech-summary-tag.is-cast-type {
-    border-color: var(--accent);
-    color: var(--accent);
-}
-
-.builder-view .mechanic-card.collapsed .node-section { display: none; }
-.builder-view .mechanic-card.collapsed { padding-bottom: 0; }
-.builder-view .mechanic-card.collapsed .mechanic-card-header {
-    margin-bottom: 0;
-    border-bottom: none;
-    border-radius: 4px;
-}
-
-/* --- FUSED SPLIT BOXES & LABELS --- */
-.builder-view .split-label { display: flex; align-items: center; width: 100%; }
-.builder-view .split-label span:first-child { flex: 1; text-align: right; padding-right: var(--space-1); }
-.builder-view .split-label span:nth-child(2) { color: #666; font-weight: normal; flex-shrink: 0; }
-.builder-view .split-label span:last-child { flex: 1; text-align: left; padding-left: var(--space-1); }
-
-.builder-view .timeframe-split-box { display: flex; width: 100%; }
-.builder-view .timeframe-split-box .form-input:first-child {
-    border-right: 1px dashed #666 !important;
-    border-radius: 4px 0 0 4px !important;
-}
-.builder-view .timeframe-split-box .form-input:last-child {
-    border-left: none !important;
-    border-radius: 0 4px 4px 0 !important;
-    text-align: right;
 }
 
 /* --- POLISHED NUMBER SPINNERS --- */
