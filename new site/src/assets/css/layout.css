@@ -93,11 +93,11 @@ html, body {
 
 .nav-item-btn:hover {
     color: var(--text-main);
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--surface-lighten-strong);
 }
 
 .nav-item-btn.is-active {
-    background: rgba(220, 165, 76, 0.12);
+    background: var(--accent-selected);
     border-color: var(--accent);
     color: var(--accent);
 }
@@ -216,7 +216,7 @@ html, body {
     margin: 10px; padding: 10px;
     /* Same translucent card surface as the Mechanics Builder's .mechanic-category --
        one consistent "content card on the page" look instead of a flat --bg-panel fill. */
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--surface-card);
     border: 1px solid var(--border); border-radius: 8px;
     overflow-x: auto; min-width: 850px;
 }
@@ -304,7 +304,7 @@ html, body {
     padding: 10px 15px;
     /* Same translucent card surface used across the app (.results-panel, .char-row,
        .idle-stat-card, etc) instead of a separate lightening tint. */
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--surface-card);
     border-bottom: 1px solid var(--border); flex-shrink: 0;
     min-width: 900px; 
 }
@@ -324,7 +324,7 @@ html, body {
 }
 
 .rotation-header-row {
-    background: rgba(0, 0, 0, 0.2); border-bottom: 1px solid var(--border);
+    background: var(--surface-card); border-bottom: 1px solid var(--border);
     font-size: 0.75rem; font-weight: bold; color: var(--text-dim); text-transform: uppercase;
     text-align: center; flex-shrink: 0;
     transition: padding-right 0.1s; 
@@ -381,7 +381,7 @@ html, body {
 
 /* Selection Highlight */
 .rotation-row.selected { 
-    background: rgba(220, 165, 76, 0.25) !important;
+    background: var(--accent-row-selected) !important;
     border-bottom: 1px solid var(--accent);
     border-top: 1px solid var(--accent);
 }
@@ -458,7 +458,7 @@ html, body {
 .idle-stat-card {
     flex: 1;
     /* Same translucent card surface as .char-row / the Mechanics Builder's .mechanic-category. */
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--surface-card);
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: var(--space-4);

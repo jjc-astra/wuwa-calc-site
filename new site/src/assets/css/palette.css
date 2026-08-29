@@ -1,0 +1,77 @@
+/* src/assets/css/palette.css
+   Single source of truth for every color used across the app. Change a value here and it
+   updates everywhere that token is referenced -- nothing else in the codebase should declare
+   a raw hex/rgb color unless it's a deliberately one-off case (documented inline where used):
+   the VS Code syntax-highlight palette, per-element theme colors (ELEMENT_COLORS,
+   CATEGORICAL_PALETTE, per-character color-mix theming), and chart-specific accessibility-
+   validated colors all intentionally live outside this system. */
+
+:root {
+    /* --- Surfaces (solid) --- */
+    --bg-dark:   #1e1e1e; /* the app shell / page background */
+    --bg-well:   #1a1a1a; /* one step darker than --bg-dark: cards/panels sitting on the app shell */
+    --bg-deep:   #111111; /* darkest tier, reserved for surfaces that must read as the frame, not content: nav header, output/code wells */
+    --bg-panel:  #2b2b2b;
+    --bg-card:   #333333;
+    --input-bg:  #3a3a3a;
+    --border:    #444444;
+    --divider:   rgba(255, 255, 255, 0.08); /* faint 1px separators inside a panel/table */
+
+    /* --- Text --- */
+    --text-main:     #dddddd;
+    --text-dim:      #888888;
+    --text-disabled: #555555; /* inactive controls, placeholders, scrollbar thumb -- dimmer than --text-dim */
+    --input-underline: #666666; /* idle border for the dashed-underline inline-edit fields (.cell-value / .base-stat-value) */
+
+    /* --- Accent (gold) --- */
+    --accent: #dca54c;
+    /* Tinted accent backgrounds, in increasing strength -- reuse these instead of writing a
+       new rgba(220, 165, 76, N) literal. Named by how they're used, not just by number, so a
+       future change to one role doesn't have to be found by grepping for a percentage. */
+    --accent-hover:     rgba(220, 165, 76, 0.1);  /* hover tint on inputs/buttons */
+    --accent-selected:  rgba(220, 165, 76, 0.12); /* active/selected chip or row background */
+    --accent-focus:     rgba(220, 165, 76, 0.15); /* focus tint on inputs */
+    --accent-strong:    rgba(220, 165, 76, 0.2);  /* stronger hover, e.g. autocomplete item */
+    --accent-row-selected: rgba(220, 165, 76, 0.25); /* a selected row's background (brighter than a chip) */
+    --accent-border:    rgba(220, 165, 76, 0.3);  /* chip border paired with --accent-selected; also used as a glow */
+    --accent-glow:      rgba(220, 165, 76, 0.4);  /* button hover glow */
+    --accent-underline: rgba(220, 165, 76, 0.45); /* the underline beneath an accent-colored group label */
+
+    /* --- Semantic status --- */
+    /* Two-tone reds: -text for emphasized inline text (deltas, values), plain for structural
+       use (borders, icons, buttons). Success/warning are single-tone. */
+    --danger:      #ff5555;
+    --danger-text: #ff6666;
+    --success:     #66ff66;
+    --warning:     #ffcc00;
+    --danger-tint:         rgba(255, 85, 85, 0.1);
+    --danger-tint-border:  rgba(255, 85, 85, 0.3);
+    --warning-tint:        rgba(255, 204, 0, 0.1);
+    --warning-tint-border: rgba(255, 204, 0, 0.3);
+
+    /* --- Translucent overlays (the "card" system) --- */
+    /* Every content card (.char-row, .idle-stat-card, .mechanic-category, .results-panel,
+       .results-card, .landing-card, .rotation-toolbar, .rotation-header-row, ...) sits
+       directly on the page and darkens it by this same amount, rather than each picking its
+       own flat fill. */
+    --surface-card: rgba(0, 0, 0, 0.2);
+    /* Pre-flattened, opaque form of --surface-card (--bg-dark with that same 20% black mixed
+       in). Use this instead of --surface-card in any spot that already sits on top of some
+       other darkening layer (e.g. .chrome-tab.is-active inside .chrome-tabs) -- the plain
+       translucent version would stack on top of that extra layer and come out darker than
+       every other card instead of matching it. */
+    --surface-card-flat: color-mix(in srgb, black 20%, var(--bg-dark));
+    /* A card nested one level inside another --surface-card (e.g. an echo card inside a
+       character row) lightens instead of darkening further, so nesting depth doesn't keep
+       compounding into an ever-darker box. */
+    --surface-lighten:        rgba(255, 255, 255, 0.03);
+    --surface-lighten-strong: rgba(255, 255, 255, 0.06); /* hover intensification of the above */
+
+    /* --- Spacing scale -- snap padding/margin/gap values onto these instead of one-off px. --- */
+    --space-1: 4px;
+    --space-2: 6px;
+    --space-3: 8px;
+    --space-4: 12px;
+    --space-5: 16px;
+    --space-6: 20px;
+}

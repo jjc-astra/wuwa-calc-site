@@ -10,6 +10,7 @@ import { ResultsPanel } from './components/results/ResultsPanel';
 import { DataLoader } from './utils/DataLoader';
 import { NAV_ITEMS } from './config/nav';
 import { useHashRoute } from './hooks/useHashRoute';
+import './assets/css/palette.css';
 import './assets/css/layout.css';
 import './assets/css/components.css';
 import './assets/css/builder.css';

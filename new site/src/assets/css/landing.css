@@ -53,7 +53,7 @@
     padding: 24px;
     /* Same translucent card surface used across the app (Mechanics Builder's
        .mechanic-category, .char-row, .idle-stat-card, etc). */
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--surface-card);
     border: 1px solid var(--border);
     border-radius: 8px;
     cursor: pointer;
@@ -72,7 +72,7 @@
     display: inline-flex;
     padding: 10px;
     color: var(--accent);
-    background: rgba(220, 165, 76, 0.12);
+    background: var(--accent-selected);
     border-radius: 8px;
 }
 

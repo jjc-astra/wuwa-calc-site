@@ -88,7 +88,7 @@
     padding: var(--space-6);
     /* Same surface as .mechanic-category / .base-stats-card in the editor pane opposite --
        one consistent card tone across the whole builder view instead of a separate shade. */
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--surface-card);
     margin: 10px;
     border-radius: 8px;
     border: 1px solid var(--border);
@@ -145,7 +145,7 @@
 
 /* --- Mechanic GUI Cards --- */
 .builder-view .mechanic-category {
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--surface-card);
     border: 1px solid var(--border);
     border-radius: 6px; 
     padding: 15px;
@@ -281,7 +281,7 @@
 }
 
 .builder-view .autocomplete-item:last-child { border-bottom: none; }
-.builder-view .autocomplete-item:hover { background: rgba(220, 165, 76, 0.2); color: var(--accent); }
+.builder-view .autocomplete-item:hover { background: var(--accent-strong); color: var(--accent); }
 .builder-view .autocomplete-item.is-active { background: var(--accent) !important; color: var(--bg-dark) !important; }
 
 .builder-view .base-select {
@@ -327,7 +327,7 @@
     display: inline-flex; 
     align-items: center; 
     gap: var(--space-2);
-    background: rgba(220, 165, 76, 0.15); 
+    background: var(--accent-focus); 
     border: 1px solid var(--accent); 
     color: var(--accent); 
     padding: 2px 8px; 
@@ -425,7 +425,7 @@
 
 .builder-view .checkbox-label input[type="checkbox"]:checked {
     border-color: var(--accent);
-    background: rgba(220, 165, 76, 0.15);
+    background: var(--accent-focus);
 }
 
 .builder-view .checkbox-label input[type="checkbox"]::before {
@@ -540,7 +540,7 @@
     justify-content: space-between;
     align-items: center;
     padding: 8px 12px;
-    background: rgba(0,0,0,0.2);
+    background: var(--surface-card);
     margin: -12px -12px 12px -12px;
     border-bottom: 1px solid var(--border);
     border-radius: 4px 4px 0 0;
@@ -639,7 +639,7 @@
     padding: 10px 12px;
     /* Same surface as .mechanic-category below it -- both are content cards sitting
        directly on the editor pane's background, not the lighter flat --bg-card tone. */
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--surface-card);
 }
 .builder-view .base-stats-icon {
     width: 130px;
@@ -681,7 +681,7 @@
     text-transform: uppercase;
     color: var(--accent);
     padding-bottom: 3px;
-    border-bottom: 2px solid rgba(220, 165, 76, 0.45);
+    border-bottom: 2px solid var(--accent-underline);
 }
 .builder-view .base-stats-group-fields {
     display: flex;
@@ -721,9 +721,9 @@
     box-sizing: border-box;
     text-align: right;
 }
-.builder-view .base-stat-value:hover { background: rgba(220, 165, 76, 0.1); border-bottom-color: var(--accent); }
+.builder-view .base-stat-value:hover { background: var(--accent-hover); border-bottom-color: var(--accent); }
 .builder-view .base-stat-value:focus {
-    background: rgba(220, 165, 76, 0.15);
+    background: var(--accent-focus);
     border: 1px solid var(--accent);
     border-bottom: 1px solid var(--accent);
     outline: none;
@@ -774,7 +774,7 @@
     border-bottom: none;
 }
 .builder-view .mech-table thead tr.mech-group-row th:not(:empty) {
-    border-bottom: 2px solid rgba(220, 165, 76, 0.45);
+    border-bottom: 2px solid var(--accent-underline);
 }
 /* Every group-row <th> owns exactly one true right boundary regardless of its colSpan width
    (a 3-wide "Identity" cell is still one DOM cell), so a plain per-cell border-right here
@@ -824,7 +824,7 @@
     transition: background 0.1s;
     height: 30px;
 }
-.builder-view .mech-row:hover { background: rgba(255, 255, 255, 0.03); }
+.builder-view .mech-row:hover { background: var(--surface-lighten); }
 .builder-view .mech-row td {
     padding: 3px 6px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
@@ -859,8 +859,8 @@
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
 }
 .builder-view .mech-trigger-cell.is-active {
-    background-color: rgba(220, 165, 76, 0.12);
-    box-shadow: inset 0 0 0 1px var(--accent), inset 0 0 8px rgba(220, 165, 76, 0.15);
+    background-color: var(--accent-selected);
+    box-shadow: inset 0 0 0 1px var(--accent), inset 0 0 8px var(--accent-focus);
 }
 
 /* The dedicated "default expand" control (Trigger Rule & Effects) -- its own column, styled
@@ -941,8 +941,8 @@
     font-size: 0.7rem;
     cursor: pointer;
 }
-.builder-view .tag-add-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(220, 165, 76, 0.1); }
-.builder-view .tag-add-btn.is-open { border-color: var(--accent); border-style: solid; color: var(--accent); background: rgba(220, 165, 76, 0.15); }
+.builder-view .tag-add-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-hover); }
+.builder-view .tag-add-btn.is-open { border-color: var(--accent); border-style: solid; color: var(--accent); background: var(--accent-focus); }
 
 /* Denser chip size inside the move table specifically -- the shared .type-tag styling is
    sized for the wider identity/effects panels below, which is too big for a 15-column table. */
@@ -1010,9 +1010,9 @@
     border-radius: 2px;
     width: 44px;
 }
-.builder-view .cell-value:hover { background: rgba(220, 165, 76, 0.1); border-bottom-color: var(--accent); }
+.builder-view .cell-value:hover { background: var(--accent-hover); border-bottom-color: var(--accent); }
 .builder-view .cell-value:focus {
-    background: rgba(220, 165, 76, 0.15);
+    background: var(--accent-focus);
     border: 1px solid var(--accent);
     border-bottom: 1px solid var(--accent);
     outline: none;
@@ -1094,14 +1094,14 @@
     justify-content: space-between;
     gap: var(--space-3);
     padding: 6px 10px;
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--surface-lighten);
     border: 1px solid rgba(255, 255, 255, 0.05);
     border-radius: 4px;
     font-family: monospace;
     font-size: 0.75rem;
     cursor: pointer;
 }
-.builder-view .mech-list-row:hover { border-color: var(--accent); background: rgba(220, 165, 76, 0.08); }
+.builder-view .mech-list-row:hover { border-color: var(--accent); background: var(--accent-hover); }
 .builder-view .mech-list-remove {
     background: none;
     border: none;

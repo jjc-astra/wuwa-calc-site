@@ -28,7 +28,7 @@
     min-height: 0;
     /* Same translucent card surface as the Mechanics Builder's .mechanic-category / this
        page's .char-row and .idle-stat-card, instead of a flat --bg-well fill. */
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--surface-card);
     border: 1px solid var(--border);
     border-radius: 8px;
     overflow: hidden;
@@ -105,7 +105,7 @@
     align-items: center;
     gap: var(--space-2);
     padding: var(--space-3) var(--space-5);
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--surface-lighten);
     border: 1px solid var(--border);
     border-bottom: none;
     border-radius: 8px 8px 0 0;
@@ -119,7 +119,7 @@
     top: 1px;
     transition: 0.15s;
 }
-.chrome-tab:hover { color: var(--text-main); background: rgba(255, 255, 255, 0.06); }
+.chrome-tab:hover { color: var(--text-main); background: var(--surface-lighten-strong); }
 .chrome-tab.is-active {
     /* .chrome-tabs already sits on its own rgba(0,0,0,0.4) backdrop, so a plain
        rgba(0,0,0,0.2) here would stack on top of that and render visibly darker than
@@ -138,7 +138,7 @@
 .results-tab-grid { display: flex; flex-direction: column; gap: var(--space-4); }
 
 .results-card {
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--surface-card);
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: var(--space-4);
@@ -218,7 +218,7 @@
     font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.3px;
     padding: var(--space-2) var(--space-3);
     margin-bottom: var(--space-4);
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--surface-lighten);
     border-radius: 4px;
 }
 .results-legend-item { display: inline-flex; align-items: center; gap: 5px; }
@@ -264,7 +264,7 @@
    (matching .pin-chip) instead of a red/green split. */
 .dps-compare-segment-solo {
     justify-content: flex-start; padding-left: 10px;
-    background-color: rgba(220, 165, 76, 0.12); border-color: var(--accent);
+    background-color: var(--accent-selected); border-color: var(--accent);
 }
 .dps-compare-segment-solo span { color: var(--accent); }
 .dps-compare-segment span { font-weight: bold; font-size: 0.75rem; font-variant-numeric: tabular-nums; }
@@ -287,12 +287,12 @@
     width: 100%; text-align: left; padding: var(--space-3) var(--space-4); background: none; border: none;
     color: var(--text-main); font-size: 0.78rem; cursor: pointer;
 }
-.pin-menu-item:hover:not(:disabled) { background: rgba(255, 255, 255, 0.06); }
+.pin-menu-item:hover:not(:disabled) { background: var(--surface-lighten-strong); }
 .pin-menu-item:disabled { color: var(--text-dim); cursor: not-allowed; }
 
 .pin-chip {
     display: inline-flex; align-items: center; gap: var(--space-2);
-    background: rgba(220, 165, 76, 0.12); border: 1px solid var(--accent); border-radius: 12px;
+    background: var(--accent-selected); border: 1px solid var(--accent); border-radius: 12px;
     padding: 3px 6px 3px 10px; font-size: 0.72rem; color: var(--accent); max-width: 200px;
 }
 .pin-chip-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -334,7 +334,7 @@
    color-mix theming convention .rotation-row uses. */
 .unit-tab {
     --unit-theme: var(--accent);
-    padding: 4px 10px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border);
+    padding: 4px 10px; background: var(--surface-lighten); border: 1px solid var(--border);
     border-radius: 4px; color: var(--text-dim); font-size: 0.72rem; font-weight: bold; cursor: pointer;
     transition: color 0.15s, border-color 0.15s, background-color 0.15s;
 }
@@ -355,7 +355,7 @@
 }
 .segmented-toggle-btn {
     padding: 3px 9px;
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--surface-lighten);
     border: none;
     color: var(--text-dim);
     font-size: 0.72rem;
@@ -394,7 +394,7 @@
     color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .substat-track-col { position: relative; }
-.substat-track { position: relative; display: block; width: 100%; height: 6px; background: rgba(255, 255, 255, 0.06); border-radius: 3px; }
+.substat-track { position: relative; display: block; width: 100%; height: 6px; background: var(--surface-lighten-strong); border-radius: 3px; }
 /* Same two yellows as the echo substat sliders (.base-slider): darker gold accent for the
    range/track fill, lighter gold for the default-value marker/thumb. */
 .substat-range { position: absolute; top: 0; height: 100%; background: var(--accent); border-radius: 3px; }
@@ -407,7 +407,7 @@
     background: #f0d8a8; border-radius: 2px; cursor: pointer;
 }
 .substat-col-value { text-align: right; font-size: 0.72rem; font-variant-numeric: tabular-nums; color: var(--text-main); }
-.substat-row:hover { background: rgba(255, 255, 255, 0.03); }
+.substat-row:hover { background: var(--surface-lighten); }
 
 /* =========================================
    PIE / DONUT CHART
