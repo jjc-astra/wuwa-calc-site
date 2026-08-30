@@ -6,10 +6,13 @@ import { CommonUtils, TRANSPARENT_PIXEL, getCharacterThemeColor } from '../../ut
 import { CHARS_WITH_MODES, SET_LAYOUTS, IMAGE_FOLDERS, isContentImplemented } from '../../data/db';
 import type { ImageFolder } from '../../data/db';
 import { EchoCard } from './EchoCard';
+import { IconSelect } from '../common/IconSelect';
 
 interface CharacterSlotProps {
   index: number;
 }
+
+const NOT_IMPLEMENTED_TIP = 'Not yet implemented';
 
 export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
   const { team, setSlotField, applyRecommendedBuild } = useRosterStore();
@@ -90,10 +93,15 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
         {renderAvatar('char', slot.character, IMAGE_FOLDERS.CHARACTERS, 'avatar-lg avatar-circle mb-sm')}
 
         <div className="flex-col gap-sm" style={{ marginTop: 'auto' }}>
-          <select className={`base-select char-select text-bold ${slot.character ? 'has-value' : ''}`} value={slot.character || ''} onChange={e => setSlotField(index, 'character', e.target.value)}>
-            <option value="" disabled hidden>Character</option>
-            {DataLoader.charList.map(c => <option key={c} value={c} disabled={!isContentImplemented('character', c)}>{c}</option>)}
-          </select>
+          <IconSelect
+            className={`base-select char-select text-bold ${slot.character ? 'has-value' : ''}`}
+            value={slot.character || ''}
+            onChange={v => setSlotField(index, 'character', v)}
+            iconFolder={IMAGE_FOLDERS.CHARACTERS}
+            iconShape="circle"
+            placeholder="Character"
+            options={DataLoader.charList.map(c => ({ value: c, disabled: !isContentImplemented('character', c), disabledTooltip: NOT_IMPLEMENTED_TIP }))}
+          />
           <div className="flex-row gap-sm seq-mode-row">
             <div className="base-num-box seq-box">
               <span className="text-xs text-bold text-dim">SEQ</span>
@@ -114,10 +122,16 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
       <div className="panel-col">
         {renderAvatar('wep', slot.weapon, IMAGE_FOLDERS.WEAPONS, 'avatar-lg avatar-rect mb-sm')}
         <div className="flex-col gap-sm" style={{ marginTop: 'auto' }}>
-          <select className={`base-select wep-select text-bold ${slot.weapon ? 'has-value' : ''}`} value={slot.weapon || ''} disabled={!slot.character} onChange={e => setSlotField(index, 'weapon', e.target.value)}>
-            <option value="" disabled hidden>{slot.character ? 'Weapon' : 'Select Character First'}</option>
-            {validWeapons.map(w => <option key={w} value={w} disabled={!isContentImplemented('weapon', w)}>{w}</option>)}
-          </select>
+          <IconSelect
+            className={`base-select wep-select text-bold ${slot.weapon ? 'has-value' : ''}`}
+            value={slot.weapon || ''}
+            disabled={!slot.character}
+            onChange={v => setSlotField(index, 'weapon', v)}
+            iconFolder={IMAGE_FOLDERS.WEAPONS}
+            iconShape="rect"
+            placeholder={slot.character ? 'Weapon' : 'Select Character First'}
+            options={validWeapons.map(w => ({ value: w, disabled: !isContentImplemented('weapon', w), disabledTooltip: NOT_IMPLEMENTED_TIP }))}
+          />
           <div className="base-num-box">
             <span className="text-xs text-bold text-dim">RANK</span>
             <input type="number" className="num-input rank-input" value={slot.rank} min="1" max="5" onChange={e => setSlotField(index, 'rank', CommonUtils.clampToRange(parseInt(e.target.value) || 1, 1, 5))} />
@@ -137,27 +151,42 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
           </div>
           <div className="flex-row gap-sm">
             {renderAvatar('mainSet', slot.mainSet, IMAGE_FOLDERS.ECHO_SETS, 'avatar-sm')}
-            <select className={`base-select main-set-select ${slot.mainSet ? 'has-value' : ''}`} value={slot.mainSet || ''} onChange={e => setSlotField(index, 'mainSet', e.target.value)}>
-              <option value="" disabled hidden>Main Set</option>
-              {DataLoader.sonataSets.map(s => <option key={s} value={s} disabled={!isContentImplemented('set', s)}>{s}</option>)}
-            </select>
+            <IconSelect
+              className={`base-select main-set-select ${slot.mainSet ? 'has-value' : ''}`}
+              value={slot.mainSet || ''}
+              onChange={v => setSlotField(index, 'mainSet', v)}
+              iconFolder={IMAGE_FOLDERS.ECHO_SETS}
+              iconShape="circle"
+              placeholder="Main Set"
+              options={DataLoader.sonataSets.map(s => ({ value: s, disabled: !isContentImplemented('set', s), disabledTooltip: NOT_IMPLEMENTED_TIP }))}
+            />
           </div>
           {isTriggerSet && (
             <div className="flex-row gap-sm sub-set-row">
               {renderAvatar('subSet', slot.subSet, IMAGE_FOLDERS.ECHO_SETS, 'avatar-sm')}
-              <select className={`base-select sub-set-select ${slot.subSet ? 'has-value' : ''}`} value={slot.subSet || ''} onChange={e => setSlotField(index, 'subSet', e.target.value)}>
-                <option value="" disabled hidden>Sub Set</option>
-                {DataLoader.sonataSets.map(s => <option key={s} value={s} disabled={!isContentImplemented('set', s)}>{s}</option>)}
-              </select>
+              <IconSelect
+                className={`base-select sub-set-select ${slot.subSet ? 'has-value' : ''}`}
+                value={slot.subSet || ''}
+                onChange={v => setSlotField(index, 'subSet', v)}
+                iconFolder={IMAGE_FOLDERS.ECHO_SETS}
+                iconShape="circle"
+                placeholder="Sub Set"
+                options={DataLoader.sonataSets.map(s => ({ value: s, disabled: !isContentImplemented('set', s), disabledTooltip: NOT_IMPLEMENTED_TIP }))}
+              />
             </div>
           )}
           {slot.mainSet && (
             <div className="flex-row gap-sm main-echo-row">
               {renderAvatar('mainEcho', slot.mainEcho, IMAGE_FOLDERS.ECHOES, 'avatar-sm')}
-              <select className={`base-select main-echo-select ${slot.mainEcho ? 'has-value' : ''}`} value={slot.mainEcho || ''} onChange={e => setSlotField(index, 'mainEcho', e.target.value)}>
-                <option value="" disabled hidden>Main Echo</option>
-                {allowedEchoes.map(e => <option key={e} value={e} disabled={!isContentImplemented('echo', e)}>{e}</option>)}
-              </select>
+              <IconSelect
+                className={`base-select main-echo-select ${slot.mainEcho ? 'has-value' : ''}`}
+                value={slot.mainEcho || ''}
+                onChange={v => setSlotField(index, 'mainEcho', v)}
+                iconFolder={IMAGE_FOLDERS.ECHOES}
+                iconShape="circle"
+                placeholder="Main Echo"
+                options={allowedEchoes.map(e => ({ value: e, disabled: !isContentImplemented('echo', e), disabledTooltip: NOT_IMPLEMENTED_TIP }))}
+              />
             </div>
           )}
         </div>

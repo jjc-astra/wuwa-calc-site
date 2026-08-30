@@ -239,12 +239,15 @@ html, body {
 .char-row .base-select:hover,
 .char-row .base-num-box:hover {
     border-bottom-color: var(--row-accent);
-    background: color-mix(in srgb, var(--row-accent) 12%, transparent);
+    /* background-color, not the `background` shorthand -- .base-select draws its dropdown
+       arrow via background-image, and the shorthand would reset that back to none here since
+       this rule outranks .base-select's own :hover/:focus on specificity. */
+    background-color: color-mix(in srgb, var(--row-accent) 12%, transparent);
 }
 .char-row .base-select:focus,
 .char-row .base-num-box:focus-within {
     border-bottom-color: var(--row-accent);
-    background: color-mix(in srgb, var(--row-accent) 15%, transparent);
+    background-color: color-mix(in srgb, var(--row-accent) 15%, transparent);
     box-shadow: 0 0 4px color-mix(in srgb, var(--row-accent) 40%, transparent);
 }
 .char-row .base-select.has-value,
@@ -374,14 +377,16 @@ html, body {
    dashed-underline default isn't right here, so restore the box explicitly. */
 .rotation-row .base-select,
 .rotation-row .base-num-box {
-    background: transparent;
+    /* background-color, not the shorthand -- the shorthand would reset .base-select's
+       background-image arrow back to none since this rule outranks its own :hover/:focus. */
+    background-color: transparent;
     border: 1px solid var(--border);
     border-radius: 4px;
 }
-.rotation-row .base-select:hover { background: transparent; }
+.rotation-row .base-select:hover { background-color: transparent; }
 .rotation-row .base-select:focus,
 .rotation-row .base-num-box:focus-within {
-    background: transparent;
+    background-color: transparent;
     border-color: var(--accent);
 }
 

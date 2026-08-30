@@ -56,12 +56,24 @@
 /* Same dashed-underline-to-solid-accent affordance as the Mechanics Builder's dense-grid
    fields (.cell-value / .base-stat-value) -- no boxed border, so a row of these doesn't
    read as a wall of form fields. */
+/* Native <select>s can't be given a custom dropdown arrow via a real element, so the arrow is
+   a background-image chevron instead -- same shape/size IconSelect's button-based trigger
+   draws, so every dropdown site-wide (native or custom) reads as one consistent control. Colors
+   are baked into the data URI (can't reference CSS vars there); the resting shade mirrors
+   --text-main (bright, not --text-dim) so a small 12px arrow stays legible on its own without
+   needing a hover, and switches to --accent on hover/focus same as the rest of the control. */
 .base-select {
     background-color: transparent;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23dddddd' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 2px center;
+    background-size: 12px;
+    appearance: none; -webkit-appearance: none; -moz-appearance: none;
     border: none;
     border-bottom: 1px dashed var(--input-underline);
     border-radius: 2px;
     padding: var(--space-1);
+    padding-right: 18px;
     width: 100%;
     cursor: pointer;
     outline: none;
@@ -70,12 +82,19 @@
     font-weight: normal;
     transition: border-color 0.2s, background-color 0.2s;
 }
-.base-select:hover { background: var(--accent-hover); border-bottom-color: var(--accent); }
+.base-select:hover, .base-select:focus {
+    background-color: var(--accent-hover);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23dca54c' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 2px center;
+    background-size: 12px;
+    border-bottom-color: var(--accent);
+}
+.base-select:focus { background-color: var(--accent-focus); }
 .base-select.has-value {
     color: var(--text-main);
     font-weight: bold;
 }
-.base-select:focus { background: var(--accent-focus); border-bottom-color: var(--accent); }
 option { color: var(--text-main); background-color: var(--bg-panel); }
 
 /* --- Inputs --- */
@@ -98,6 +117,55 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     width: 100%; -moz-appearance: textfield;
 }
 .num-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* --- Icon Select (a <select> replacement that shows an icon per option -- native <select>
+   can't reliably render images inside its popup, so this is a positioned div list instead).
+   The trigger reuses .base-select for its background/border/theming; only the layout quirks
+   a <button> needs that a <select> didn't (flex row, left-aligned text, inherited font) are
+   added here. --- */
+/* min-width: 0 overrides the flexbox default of min-width: auto -- without it, a flex item
+   refuses to shrink below its own nowrap text's full width, so a long value like "NM Thundering
+   Mephis" would force this item wider than a short one like "Void Thunder" sitting in the exact
+   same flex row (avatar + select), even though both should share the row identically. */
+.icon-select { position: relative; width: 100%; min-width: 0; }
+.icon-select-trigger {
+    display: flex; align-items: center; gap: var(--space-2);
+    text-align: left; font-family: inherit;
+}
+.icon-select-trigger:disabled { cursor: not-allowed; opacity: 0.5; }
+.icon-select-trigger-label {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;
+}
+/* Position (fixed, left/top or bottom, min/max-width, max-height) is computed and set inline
+   per-open since this is portaled to <body> to escape any clipping/scrolling ancestor (e.g.
+   .char-row's overflow-x: auto) the way a native select's OS popup would. Width itself sizes to
+   the longest option label (never narrower than the trigger) rather than being pinned to the
+   trigger's own width, so a name like "NM Thundering Mephis" isn't clipped in a 160px column. */
+.icon-select-popup {
+    width: max-content;
+    z-index: 500;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow-y: auto;
+    box-shadow: 0 8px 20px var(--overlay-b6);
+}
+.icon-select-option {
+    display: flex; align-items: center; gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    cursor: pointer;
+    color: var(--text-main);
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+.icon-select-option .avatar { flex-shrink: 0; }
+.icon-select-option-label {
+    overflow: hidden; text-overflow: ellipsis;
+}
+.icon-select-option:hover:not(.is-disabled),
+.icon-select-option.is-active:not(.is-disabled) { background: var(--accent-hover); }
+.icon-select-option.is-selected { color: var(--accent); font-weight: bold; }
+.icon-select-option.is-disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* --- Sliders --- */
 .base-slider {
@@ -248,20 +316,33 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     padding: var(--space-2); justify-content: flex-start;
 }
 
+/* Same grey-underline "section label" look as .set-header (Sonata Sets), not the gold-tinted
+   underline this used to have -- keeps every card-identity header in the roster row consistent. */
 .echo-header {
     font-weight: bold; color: var(--accent); font-size: 0.75rem;
     margin-bottom: var(--space-2); padding-bottom: 2px;
-    border-bottom: 2px solid var(--accent-underline);
+    border-bottom: 1px solid var(--border);
 }
 
+/* Static gold "section label" look (text + arrow), same idea as .set-header -- this is a card
+   identity element, not a themed input field, so it's exempted (via !important) from
+   .char-row's per-character row-accent tinting of .base-select/.base-select.has-value. */
+.echo-main-stat-select,
+.echo-main-stat-select:hover,
+.echo-main-stat-select:focus {
+    background-color: transparent !important;
+    color: var(--accent) !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23dca54c' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 2px center;
+    background-size: 12px;
+}
 .echo-main-stat-select {
-    background: transparent; border: none !important;
-    padding: 0; margin: 0; width: 100%;
-    color: var(--text-dim); font-weight: bold; font-size: 0.75rem;
+    border: none !important;
+    padding: 0; padding-right: 16px; margin: 0; width: 100%;
+    font-weight: bold; font-size: 0.75rem;
     text-align: left;
 }
-.echo-main-stat-select.has-value { color: var(--accent); }
-.echo-main-stat-select:hover { color: var(--text-main); }
 
 .echo-list {
     display: flex; flex-direction: column; justify-content: flex-start; 
@@ -275,8 +356,8 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 
 .stat-select {
     width: 70px; height: 100%; flex-shrink: 0;
-    font-size: 0.7rem; background: transparent; border: none;
-    color: var(--text-dim); padding: 0; outline: none;
+    font-size: 0.7rem; background-color: transparent; border: none;
+    color: var(--text-dim); padding: 0; padding-right: 14px; outline: none;
 }
 /* Stays dim/normal-weight even once a stat is picked -- this is a field label in a dense
    grid (like the Mechanics Builder's .base-stat-label), not a standalone selection the
