@@ -1,7 +1,8 @@
 // src/components/roster/TeamBuilder.tsx
 import React, { useRef, useState } from 'react';
 import { useRosterStore } from '../../store/useRosterStore';
-import { CommonUtils } from '../../utils/Common';
+import { CommonUtils, getCharacterThemeColor } from '../../utils/Common';
+import { DataLoader } from '../../utils/DataLoader';
 import { IMAGE_FOLDERS } from '../../data/db';
 import type { ImageFolder } from '../../data/db';
 import { CharacterSlot } from './CharacterSlot';
@@ -111,8 +112,10 @@ export const TeamBuilder: React.FC<TeamBuilderProps> = ({ isOpen, onToggle }) =>
 			<button className={`toggle-icon ${isCollapsed ? 'collapsed' : ''}`}>▼</button>
 			<h2 className="section-title">Step 1: Build Team</h2>
 			<div id="header-team-preview" className={`header-preview ${isCollapsed ? 'is-visible' : ''}`}>
-            {team.map((slot, i) => (
-              <div key={i} className="preview-slot">
+            {team.map((slot, i) => {
+              const themeColor = getCharacterThemeColor(slot.character ? DataLoader.characterDB[slot.character] : undefined);
+              return (
+              <div key={i} className="preview-slot" style={{ '--char-theme-raw': themeColor } as React.CSSProperties}>
                 <div className="preview-avatar preview-circle preview-avatar-wrap" title={slot.character || 'No Character'}>
                   {slot.character ? (
                     <PreviewIcon name={slot.character} folder={IMAGE_FOLDERS.CHARACTERS} />
@@ -131,7 +134,8 @@ export const TeamBuilder: React.FC<TeamBuilderProps> = ({ isOpen, onToggle }) =>
                 </div>
                 <span className="preview-badge">R{slot.rank || 1}</span>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
         <div className="header-right">

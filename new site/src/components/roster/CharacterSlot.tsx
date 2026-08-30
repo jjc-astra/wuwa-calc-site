@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRosterStore } from '../../store/useRosterStore';
 import { DataLoader } from '../../utils/DataLoader';
-import { CommonUtils, TRANSPARENT_PIXEL } from '../../utils/Common';
+import { CommonUtils, TRANSPARENT_PIXEL, getCharacterThemeColor } from '../../utils/Common';
 import { CHARS_WITH_MODES, SET_LAYOUTS, IMAGE_FOLDERS, isContentImplemented } from '../../data/db';
 import type { ImageFolder } from '../../data/db';
 import { EchoCard } from './EchoCard';
@@ -27,6 +27,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
   const charData = DataLoader.characterDB[slot.character] || null;
   const validWeapons = charData ? DataLoader.weaponsByType[charData.weaponType] || [] : [];
   const hasMode = CHARS_WITH_MODES.includes(slot.character);
+  const themeColor = getCharacterThemeColor(charData || undefined);
   const isTriggerSet = DataLoader.triggerSets.includes(slot.mainSet);
 
   let allowedEchoes: string[] = [];
@@ -68,7 +69,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
   };
 
   return (
-    <div className={`char-row ${hasMode ? 'has-mode' : ''}`}>
+    <div className={`char-row ${hasMode ? 'has-mode' : ''}`} style={{ '--char-theme-raw': themeColor } as React.CSSProperties}>
       {/* 1. Character Column */}
       <div className="panel-col" style={{ position: 'relative' }}>
         <button
