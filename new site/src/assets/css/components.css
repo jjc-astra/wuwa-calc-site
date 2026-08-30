@@ -116,7 +116,7 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     -webkit-appearance: none;
     width: 10px; height: 10px;
     border-radius: 50%;
-    background: #f0d8a8; border: none;
+    background: var(--accent-light); border: none;
     box-shadow: -405px 0 0 400px var(--accent); 
 }
 
@@ -159,7 +159,7 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 }
 .rotation-toolbar .icon-btn { width: 28px; padding: 0; }
 .rotation-toolbar .icon-btn svg { display: block; width: 16px; height: 16px; }
-.btn-primary { background-color: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-primary { background-color: var(--accent); border-color: var(--accent); color: var(--text-main); }
 .btn-primary:hover { filter: brightness(1.1); }
 
 /* --- Toolbar Toggle Buttons (NEW) --- */
@@ -192,7 +192,7 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     background: var(--accent);
     color: var(--bg-dark);
     border-color: var(--accent);
-    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.5); /* Inner shadow for pressed look */
+    box-shadow: inset 0 2px 6px var(--overlay-b4); /* Inner shadow for pressed look */
 }
 
 /* Hide the actual native checkbox */
@@ -216,7 +216,7 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 .avatar-wrapper {
     position: relative; overflow: hidden;
     display: flex; align-items: center; justify-content: center;
-    color: #888; font-weight: bold; font-size: 1.2rem;
+    color: var(--text-dim); font-weight: bold; font-size: 1.2rem;
 }
 .avatar-img {
     position: absolute; top: 0; left: 0;
@@ -241,8 +241,8 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     margin: 0 4px;
     /* Nested inside .char-row, which already darkens the page background -- a second
        black overlay on top would compound into something darker than its parent, so this
-       lightens instead (same rgba(255,255,255,0.03) tint used for .panel-info-item /
-       .chrome-tab elsewhere) to read as one step up from .char-row, not sunken into it. */
+       lightens instead (same --surface-lighten tint used for .panel-info-item / .chrome-tab
+       elsewhere) to read as one step up from .char-row, not sunken into it. */
     background: var(--surface-lighten);
     border: 1px solid var(--border);
     padding: var(--space-2); justify-content: flex-start;
@@ -315,7 +315,7 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     background-clip: padding-box, border-box;
 
     /* 3. Unclipped outer glow & shadow */
-    box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 0 2px var(--overlay-b4);
     cursor: default;
     opacity: 0.4;
     position: relative;
@@ -329,13 +329,13 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 /* --- Gauge State Rules --- */
 .gauge-dial.is-full {
     opacity: 1; 
-    box-shadow: 0 0 8px 1px #ffaa00, inset 0 0 4px #ffaa00;
+    box-shadow: 0 0 8px 1px var(--gauge-glow), inset 0 0 4px var(--gauge-glow);
 }
 
 
 .gauge-vertical {
     width: 8px; height: 24px; background: var(--bg-card); border-radius: 2px;
-    box-shadow: inset 0 0 2px rgba(0,0,0,0.8);
+    box-shadow: inset 0 0 2px var(--overlay-b7);
     position: relative; cursor: default;
     display: flex; align-items: flex-end; overflow: hidden;
     opacity: 0.4;
@@ -346,7 +346,7 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     background: var(--accent); transition: height 0.3s ease;
 }
 .gauge-vertical.is-full {
-    opacity: 1; box-shadow: 0 0 8px 1px #ffaa00; 
+    opacity: 1; box-shadow: 0 0 8px 1px var(--gauge-glow); 
 }
 
 .multi-gauge-wrap {
@@ -374,7 +374,7 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 }
 .preview-slot {
     display: flex; align-items: center; gap: var(--space-1);
-    background: rgba(0,0,0,0.3); padding: 3px 6px; border-radius: 4px;
+    background: var(--overlay-b3); padding: 3px 6px; border-radius: 4px;
 }
 .preview-avatar-wrap {
     position: relative; overflow: hidden; 
@@ -396,10 +396,10 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 /* --- Tooltip --- */
 .global-tooltip {
     position: fixed; z-index: 100000;
-    background-color: rgba(20, 20, 20, 0.98);
+    background-color: var(--tooltip-bg);
     border: 1px solid var(--accent); color: var(--text-main);
     padding: 6px 10px; border-radius: 4px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    box-shadow: 0 4px 12px var(--overlay-b4);
     font-size: 0.75rem; pointer-events: none; display: none;
     max-width: 280px; line-height: 1.4;
 }
@@ -420,8 +420,8 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 }
 
 .sub-panel-trigger:hover {
-    background-color: rgba(255, 255, 255, 0.08);
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15);
+    background-color: var(--overlay-w3);
+    box-shadow: 0 0 0 1px var(--overlay-w5);
 }
 
 .sub-panel-trigger.is-active {
@@ -433,8 +433,8 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 /* --- THE PANEL CONTAINER --- */
 .sub-panel {
     width: 100%; 
-    background-color: rgba(15, 15, 15, 0.6); /* Slightly deeper for contrast */
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    background-color: var(--sub-panel-bg);
+    border-top: 1px solid var(--overlay-w4);
     display: none; 
     padding: var(--space-4) var(--space-6) var(--space-5) var(--space-6);
     box-sizing: border-box;
@@ -468,7 +468,7 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     content: "";
     flex-grow: 1;
     height: 1px;
-    background: linear-gradient(to right, rgba(255, 255, 255, 0.15), transparent);
+    background: linear-gradient(to right, var(--overlay-w5), transparent);
 }
 
 .panel-header-tiny {
@@ -488,7 +488,7 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     content: "";
     flex-grow: 1;
     height: 1px;
-    background: linear-gradient(to right, rgba(255, 255, 255, 0.1), transparent);
+    background: linear-gradient(to right, var(--overlay-w4), transparent);
 }
 
 /* --- CONTENT GRID & ITEMS --- */
@@ -499,16 +499,16 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 }
 
 .panel-info-item { 
-    background: var(--surface-lighten); 
+    background: var(--overlay-w1); 
     padding: 10px 14px; 
     border-radius: 6px; 
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--overlay-w4);
     transition: border-color 0.2s;
 }
 
 .panel-info-item:hover {
-    border-color: rgba(255, 255, 255, 0.15);
-    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--overlay-w5);
+    background: var(--overlay-w2);
 }
 
 .panel-info-label { 
@@ -537,7 +537,7 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 .dmg-panel-top-row {
     margin-bottom: var(--space-5); 
     padding-bottom: var(--space-5);
-    border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
+    border-bottom: 1px dashed var(--overlay-w4);
 }
 
 .dmg-panel-main-grid {
@@ -558,8 +558,8 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
    ========================================= */
 .table-wrapper {
     /* Removed the dark background to let it sit cleanly on the accordion body */
-    background: rgba(255, 255, 255, 0.02); 
-    border: 1px solid rgba(255, 255, 255, 0.1); /* Brighter, crisper border */
+    background: var(--overlay-w1); 
+    border: 1px solid var(--overlay-w4); /* Brighter, crisper border */
     border-radius: 6px;
     overflow: hidden;
 }
@@ -571,7 +571,7 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 }
 
 .dmg-stat-table tr {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06); /* Stronger dividing lines */
+    border-bottom: 1px solid var(--surface-lighten-strong); /* Stronger dividing lines */
 }
 
 .dmg-stat-table tr:last-child {
@@ -579,7 +579,7 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 }
 
 .dmg-stat-table tr:hover {
-    background: rgba(255, 255, 255, 0.05); /* Brighter hover state */
+    background: var(--overlay-w2); /* Brighter hover state */
 }
 
 .stat-table-label {
@@ -618,7 +618,7 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     font-weight: 800;
     text-align: left; /* Aligned left to match the cards below it */
     padding-bottom: var(--space-3);
-    border-bottom: 2px solid rgba(255, 255, 255, 0.1); /* Thicker, cleaner underline */
+    border-bottom: 2px solid var(--overlay-w4); /* Thicker, cleaner underline */
     margin-bottom: var(--space-1);
     letter-spacing: 0.05rem;
 }
@@ -638,26 +638,26 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     text-align: center;
     color: var(--text-dim);
     background: transparent; /* Removed background to avoid muddying */
-    border: 1px dashed rgba(255, 255, 255, 0.15); /* Stronger dashed line */
+    border: 1px dashed var(--overlay-w5); /* Stronger dashed line */
     border-radius: 6px;
     font-size: 0.85rem;
     opacity: 0.7;
 }
 
 .buff-card {
-    background: rgba(255, 255, 255, 0.05); /* Brighter background */
-    border: 1px solid rgba(255, 255, 255, 0.1); /* Crisper edge */
+    background: var(--overlay-w1); /* Brighter background */
+    border: 1px solid var(--overlay-w4); /* Crisper edge */
     border-left: 3px solid var(--accent); 
     border-radius: 6px; 
     padding: 12px 14px; /* Slightly more internal padding */
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2); /* Shadow to lift it off the page */
+    box-shadow: 0 4px 6px var(--surface-card); /* Shadow to lift it off the page */
     transition: transform 0.1s, background 0.2s, box-shadow 0.2s;
 }
 
 .buff-card:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--overlay-w2);
     transform: translateY(-2px); /* Lift up instead of right for a better tactile feel */
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 6px 12px var(--overlay-b3);
 }
 
 .buff-card-header { 
@@ -675,7 +675,7 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 
 .buff-stacks {
     font-family: monospace;
-    background: rgba(0, 0, 0, 0.3);
+    background: var(--overlay-b3);
     padding: 2px 6px;
     border-radius: 4px;
     font-size: 0.8rem;
@@ -707,8 +707,8 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 }
 
 .buff-val-box { 
-    background: rgba(0, 0, 0, 0.3); 
-    border: 1px solid rgba(255, 255, 255, 0.1); 
+    background: var(--overlay-b3); 
+    border: 1px solid var(--overlay-w4); 
     padding: 2px 6px; 
     border-radius: 4px; 
     font-family: 'JetBrains Mono', 'Roboto Mono', monospace; 
@@ -727,15 +727,18 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 }
 
 .dmg-accordion-section {
-    background: rgba(0, 0, 0, 0.15);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--overlay-b1);
+    border: 1px solid var(--overlay-w3);
+    border-left: 3px solid var(--accent); 
     border-radius: 6px;
     overflow: hidden;
     transition: border-color 0.2s;
 }
 
 .dmg-accordion-section:hover {
-    border-color: rgba(255, 255, 255, 0.15);
+    border-bottom-color: var(--overlay-w5);
+    border-top-color: var(--overlay-w5);
+    border-right-color: var(--overlay-w5);
 }
 
 .dmg-accordion-header {
@@ -743,7 +746,7 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     align-items: center;
     padding: 12px 18px;
     cursor: pointer;
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--overlay-w1);
     transition: background 0.2s;
     user-select: none;
 }
@@ -800,8 +803,8 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 .dmg-accordion-body {
     display: none;
     padding: 18px;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
-    background: rgba(0, 0, 0, 0.25);
+    border-top: 1px solid var(--overlay-w2);
+    background: var(--overlay-b2);
 }
 
 .dmg-accordion-section.is-open .dmg-accordion-body {
@@ -822,13 +825,13 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 /* --- MODAL (NEW) --- */
 .modal-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0, 0, 0, 0.7); z-index: 1000;
+    background: var(--overlay-b6); z-index: 1000;
     display: flex; align-items: center; justify-content: center; backdrop-filter: blur(2px);
 }
 .modal-box {
     background: var(--bg-card); border: 1px solid var(--border);
     border-radius: 8px; padding: var(--space-6); width: 400px; max-width: 90%;
-    position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    position: relative; box-shadow: 0 10px 25px var(--overlay-b4);
 }
 .modal-content h3 { margin-top: 0; margin-bottom: 10px; color: var(--text-main); }
 .modal-close-x {
@@ -842,7 +845,7 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: var(--bg-dark); border-radius: 4px; }
 ::-webkit-scrollbar-thumb { background: var(--text-disabled); border-radius: 4px; border: 2px solid var(--bg-dark); }
-::-webkit-scrollbar-thumb:hover { background: #777; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-disabled-hover); }
 ::-webkit-scrollbar-thumb:active { background: var(--accent); }
 
 /* =========================================
@@ -888,7 +891,7 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     font-size: 0.75rem;
     font-weight: bold;
     font-family: monospace;
-    border-top: 1px solid rgba(0,0,0,0.3);
+    border-top: 1px solid var(--overlay-b3);
     animation: fadeIn 0.2s ease-out;
 }
 
@@ -973,7 +976,7 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 /* Dimmed Damage Value */
 .dmg-dimmed {
     opacity: 0.4;
-    color: #777 !important;
+    color: var(--text-disabled-hover) !important;
     font-style: italic;
     transition: opacity 0.2s, color 0.2s;
 }
@@ -1099,11 +1102,11 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 
 /* 1. Base Row Background and Text Setup */
 .rotation-row {
-    --row-accent: var(--char-theme-raw, #555555);
-    --row-bg-mixed: color-mix(in srgb, var(--row-accent) 15%, #161616);
-    --row-text-dim: color-mix(in srgb, var(--row-accent) 50%, #808085);
-    --row-text-bright: color-mix(in srgb, var(--row-accent) 50%, #ffffff);
-    
+    --row-accent: var(--char-theme-raw, var(--text-disabled));
+    --row-bg-mixed: color-mix(in srgb, var(--row-accent) 15%, var(--row-theme-base));
+    --row-text-dim: color-mix(in srgb, var(--row-accent) 50%, var(--row-theme-neutral));
+    --row-text-bright: color-mix(in srgb, var(--row-accent) 50%, white);
+
     background-color: var(--row-bg-mixed) !important;
     color: var(--row-text-bright) !important;
     transition: background-color 0.2s ease, color 0.2s ease;
@@ -1112,8 +1115,8 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 /* 2. Apply Theme ONLY to Dropdowns and Neutral (0.00) Number Boxes */
 .rotation-row .base-select,
 .rotation-row .base-num-box:not(.offset-pos):not(.offset-neg) {
-    background-color: color-mix(in srgb, var(--row-accent) 30%, #202022) !important;
-    border-color: color-mix(in srgb, var(--row-accent) 50%, #808085) !important;
+    background-color: color-mix(in srgb, var(--row-accent) 30%, var(--row-theme-select-base)) !important;
+    border-color: color-mix(in srgb, var(--row-accent) 50%, var(--row-theme-neutral)) !important;
 }
 
 /* Ensure inner input fields inherit their container's themed container background */

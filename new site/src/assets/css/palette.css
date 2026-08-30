@@ -21,6 +21,7 @@
     --text-main:     #dddddd;
     --text-dim:      #888888;
     --text-disabled: #555555; /* inactive controls, placeholders, scrollbar thumb -- dimmer than --text-dim */
+    --text-disabled-hover: #777777; /* hover-lightened form of --text-disabled */
     --input-underline: #666666; /* idle border for the dashed-underline inline-edit fields (.cell-value / .base-stat-value) */
 
     /* --- Accent (gold) --- */
@@ -66,6 +67,37 @@
        compounding into an ever-darker box. */
     --surface-lighten:        rgba(255, 255, 255, 0.03);
     --surface-lighten-strong: rgba(255, 255, 255, 0.06); /* hover intensification of the above */
+
+    /* --- Overlay scale --- */
+    /* Generic white-on-dark / black-on-dark elevation steps -- most of the "translucent
+       panel" family (.table-wrapper, .buff-card, .dmg-accordion-*, .panel-info-item, modal
+       backdrops, etc) picks one rung of this ladder for a background, border, or divider,
+       rather than each declaring its own one-off rgba(). Named by relative strength since
+       they're a magnitude scale, not a single role -- check the alpha in the value if you
+       need the exact number. */
+    --overlay-w1: rgba(255, 255, 255, 0.02);
+    --overlay-w2: rgba(255, 255, 255, 0.05);
+    --overlay-w3: rgba(255, 255, 255, 0.08);
+    --overlay-w4: rgba(255, 255, 255, 0.1);
+    --overlay-w5: rgba(255, 255, 255, 0.15);
+    --overlay-b1: rgba(0, 0, 0, 0.15);
+    --overlay-b2: rgba(0, 0, 0, 0.25);
+    --overlay-b3: rgba(0, 0, 0, 0.3);
+    --overlay-b4: rgba(0, 0, 0, 0.5);
+    --overlay-b5: rgba(0, 0, 0, 0.6);
+    --overlay-b6: rgba(0, 0, 0, 0.7);
+    --overlay-b7: rgba(0, 0, 0, 0.8);
+
+    /* --- One-off UI colors, still centralized here rather than inlined --- */
+    --tooltip-bg:   rgba(20, 20, 20, 0.98);  /* .global-tooltip backdrop */
+    --gauge-glow:   #ffaa00;                 /* rotation gauge "full" glow -- deliberately distinct from --accent */
+    --accent-light: #f0d8a8;                 /* lighter gold used for slider thumbs / default-value markers */
+    /* Per-character row theming mixes a live JS-provided color (--char-theme-raw) into these
+       bases -- they're the formula's fixed endpoints, not accidental one-off colors. */
+    --row-theme-base:        #161616; /* row background mix base */
+    --row-theme-select-base: #202022; /* themed dropdown/num-box background mix base */
+    --row-theme-neutral:     #808085; /* text/border mix target, shared by both */
+    --sub-panel-bg: rgba(15, 15, 15, 0.6); /* .sub-panel's own backdrop -- slightly deeper than a card for contrast against whatever panel it opens inside */
 
     /* --- Spacing scale -- snap padding/margin/gap values onto these instead of one-off px. --- */
     --space-1: 4px;
