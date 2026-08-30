@@ -42,7 +42,7 @@ worker.onmessage = async (e: MessageEvent) => {
       const { rows, team, options, enemy } = payload;
       const evaluatedRows = TimelineEngine.recalculateState(rows, team, options, enemy);
       const { index: loopStartIndex, isOverride: loopStartIsOverride } = TimelineEngine.findLoopStart(evaluatedRows, team[0]?.character);
-      const { errorMsg: loopErrorMsg, warningMsg: loopWarningMsg } = TimelineEngine.analyzeLoop(
+      const { errors: loopErrors, warnings: loopWarnings } = TimelineEngine.analyzeLoop(
         evaluatedRows, team, options, enemy, loopStartIndex
       );
       worker.postMessage({
@@ -51,8 +51,8 @@ worker.onmessage = async (e: MessageEvent) => {
         evaluatedRows: stripFunctions(evaluatedRows),
         loopStartIndex,
         loopStartIsOverride,
-        loopErrorMsg,
-        loopWarningMsg
+        loopErrors,
+        loopWarnings
       });
     } else if (type === 'calculateDamage') {
       const { rows, team, options, enemy, loopStartIndex } = payload;

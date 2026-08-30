@@ -37,8 +37,8 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     importRotation,
     loopStartIndex,
     loopStartIsOverride,
-    loopErrorMsg,
-    loopWarningMsg,
+    loopErrors,
+    loopWarnings,
     setLoopStartOverride,
     resetLoopStart,
     recalculate
@@ -366,8 +366,8 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
               isLastRow={i === rows.length - 1}
               isLoopStart={i === loopStartIndex && rows.some(r => r.unit)}
               isLoopStartOverride={loopStartIsOverride && i === loopStartIndex}
-              loopErrorMsg={i === loopStartIndex ? loopErrorMsg : null}
-              loopWarningMsg={i === loopStartIndex ? loopWarningMsg : null}
+              loopErrors={i === loopStartIndex ? loopErrors : undefined}
+              loopWarnings={i === loopStartIndex ? loopWarnings : undefined}
               onLoopMarkerDragStart={handleLoopMarkerDragStart}
               onLoopMarkerDragEnd={handleLoopMarkerDragEnd}
               onResetLoopStart={resetLoopStart}

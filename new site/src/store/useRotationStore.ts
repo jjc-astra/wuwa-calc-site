@@ -36,8 +36,8 @@ interface RotationState {
   clipboard: RotationRow[];
   loopStartIndex: number;
   loopStartIsOverride: boolean;
-  loopErrorMsg: string | null;
-  loopWarningMsg: string | null;
+  loopErrors: string[];
+  loopWarnings: string[];
   results: RotationResults | null;
   isCalculating: boolean;
 
@@ -167,8 +167,8 @@ export const useRotationStore = create<RotationState>()(
         clipboard: [],
         loopStartIndex: 0,
         loopStartIsOverride: false,
-        loopErrorMsg: null,
-        loopWarningMsg: null,
+        loopErrors: [],
+        loopWarnings: [],
         results: null,
         isCalculating: false,
 
@@ -336,8 +336,8 @@ export const useRotationStore = create<RotationState>()(
             isStale: true,
             loopStartIndex: data.loopStartIndex,
             loopStartIsOverride: data.loopStartIsOverride,
-            loopErrorMsg: data.loopErrorMsg,
-            loopWarningMsg: data.loopWarningMsg,
+            loopErrors: data.loopErrors,
+            loopWarnings: data.loopWarnings,
             isCalculating: false
           });
         },

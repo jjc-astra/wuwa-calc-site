@@ -26,8 +26,8 @@ interface RotationRowProps {
   isLastRow?: boolean;
   isLoopStart?: boolean;
   isLoopStartOverride?: boolean;
-  loopErrorMsg?: string | null;
-  loopWarningMsg?: string | null;
+  loopErrors?: string[];
+  loopWarnings?: string[];
   onLoopMarkerDragStart?: (e: React.DragEvent) => void;
   onLoopMarkerDragEnd?: (e: React.DragEvent) => void;
   onResetLoopStart?: () => void;
@@ -65,8 +65,8 @@ export const RotationRow: React.FC<RotationRowProps> = ({
   isLastRow,
   isLoopStart,
   isLoopStartOverride,
-  loopErrorMsg,
-  loopWarningMsg,
+  loopErrors,
+  loopWarnings,
   onLoopMarkerDragStart,
   onLoopMarkerDragEnd,
   onResetLoopStart
@@ -222,6 +222,22 @@ export const RotationRow: React.FC<RotationRowProps> = ({
   const hasError = !!row.errorMsg;
   const hasWarning = !!row.warningMsg;
 
+  // Every error/warning analyzeLoop found across the loop's second repetition -- not just the
+  // first one -- so the tag's tooltip gives the full picture instead of hiding all but one
+  // issue behind repeated hover-fix-hover cycles.
+  const loopIssues = [
+    ...(loopErrors || []).map(text => ({ text, isError: true })),
+    ...(loopWarnings || []).map(text => ({ text, isError: false }))
+  ];
+  const loopTagMsg = loopIssues.length > 0
+    ? `${loopIssues[0].text}${loopIssues.length > 1 ? ` (+${loopIssues.length - 1} more)` : ''}`
+    : null;
+  const loopTagTooltip = loopIssues.length > 0
+    ? loopIssues.map(({ text, isError }) =>
+        `<div style="color:${isError ? 'var(--danger-text)' : 'var(--warning)'}">${isError ? '✕' : '⚠'} ${text}</div>`
+      ).join('')
+    : '<div>Loop begins here — drag to move</div>';
+
   let dragClass = '';
   if (dragOverPosition === 'top') dragClass = 'drag-over-top';
   if (dragOverPosition === 'bottom') dragClass = 'drag-over-bottom';
@@ -238,20 +254,22 @@ export const RotationRow: React.FC<RotationRowProps> = ({
     >
       {isLoopStart && (
         <div
-          className={`loop-start-tag ${loopErrorMsg ? 'loop-tag-error' : loopWarningMsg ? 'loop-tag-warning' : ''}`}
+          className={`loop-start-tag ${loopIssues.some(i => i.isError) ? 'loop-tag-error' : loopIssues.length > 0 ? 'loop-tag-warning' : ''}`}
           draggable
           onDragStart={onLoopMarkerDragStart}
           onDragEnd={onLoopMarkerDragEnd}
-          title={loopErrorMsg || loopWarningMsg || 'Loop begins here — drag to move'}
+          onMouseEnter={e => TooltipManager.show(e.currentTarget, loopTagTooltip)}
+          onMouseLeave={() => TooltipManager.hide()}
         >
           <span className="loop-tag-icon">⟳</span>
           <span className="loop-tag-label">LOOP START</span>
-          {(loopErrorMsg || loopWarningMsg) && <span className="loop-tag-msg">{loopErrorMsg || loopWarningMsg}</span>}
+          {loopTagMsg && <span className="loop-tag-msg">{loopTagMsg}</span>}
           {isLoopStartOverride && (
             <button
               className="loop-tag-reset"
               onClick={e => { e.stopPropagation(); onResetLoopStart?.(); }}
-              title="Reset to auto-detected position"
+              onMouseEnter={e => { e.stopPropagation(); TooltipManager.show(e.currentTarget, '<div>Reset to auto-detected position</div>'); }}
+              onMouseLeave={() => TooltipManager.hide()}
             >
               ↺
             </button>

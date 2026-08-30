@@ -449,14 +449,14 @@ export class TimelineEngineClass {
     options: { startEnergy?: boolean; startConcerto?: boolean } = {},
     enemyConfig: { level: number; res: number; hp: number } = ENEMY_DEFAULTS,
     loopStartIndex: number = 0
-  ): { errorMsg: string | null; warningMsg: string | null } {
+  ): { errors: string[]; warnings: string[] } {
     const contentRows = rows.filter(r => r && r.unit);
-    if (contentRows.length === 0) return { errorMsg: null, warningMsg: null };
+    if (contentRows.length === 0) return { errors: [], warnings: [] };
 
     const clampedStart = Math.max(0, Math.min(loopStartIndex, contentRows.length));
     const openerRows = contentRows.slice(0, clampedStart);
     const loopTemplate = contentRows.slice(clampedStart);
-    if (loopTemplate.length === 0) return { errorMsg: null, warningMsg: null };
+    if (loopTemplate.length === 0) return { errors: [], warnings: [] };
 
     // `rows` is this edit's already-recalculated pass, so its timing fields are trustworthy --
     // no need to re-simulate the opener+1-loop from scratch just to read them back.
@@ -467,7 +467,7 @@ export class TimelineEngineClass {
     const loopDuration = loopEndTime - openerEndTime;
 
     if (loopDuration === 0) {
-      return { errorMsg: 'Loop has no duration — cannot repeat.', warningMsg: null };
+      return { errors: ['Loop has no duration — cannot repeat.'], warnings: [] };
     }
 
     // recalculateState's post-loop pass assumes the array's last element is the UI's
@@ -492,38 +492,31 @@ export class TimelineEngineClass {
     const secondRepStart = openerRows.length + loopTemplate.length;
     const contentEnd = extendedContent.length; // excludes the synthetic trailing blank row
 
-    let firstError: string | null = null;
-    let firstWarning: string | null = null;
+    const errors: string[] = [];
+    const warnings: string[] = [];
 
     for (let i = secondRepStart; i < contentEnd; i++) {
       const row = extendedResult[i];
       const moveName = row.moveName || row.action;
 
       if (row.errorMsg) {
-        firstError = `${moveName}: ${row.errorMsg}`;
-        break;
+        errors.push(`${moveName}: ${row.errorMsg}`);
+        continue;
       }
       // A cooldown-blocked move fails its trigger rule the same way a genuine combo-order
       // violation does, but it isn't actually illegal -- the loop is fine, it just needs to
       // wait. Check cdWaitTime first so that case is always a wait-time warning, never
       // promoted to the "illegal loop" error below.
       if (row.cdWaitTime > 3) {
-        if (!firstWarning) {
-          firstWarning = `${moveName} needs ${formatFramesAsSeconds(row.cdWaitTime)} more (on cooldown).`;
-        }
+        warnings.push(`${moveName} needs ${formatFramesAsSeconds(row.cdWaitTime)} more (on cooldown).`);
       } else if (row.warningMsg && /^Combo requirement not met/.test(row.warningMsg)) {
-        firstError = `${moveName}: ${row.warningMsg}`;
-        break;
-      } else if (
-        !firstWarning &&
-        row.warningMsg &&
-        /out of the required .* (Resonance Energy|Forte \d+|Tune)/.test(row.warningMsg)
-      ) {
-        firstWarning = `${moveName}: ${row.warningMsg}`;
+        errors.push(`${moveName}: ${row.warningMsg}`);
+      } else if (row.warningMsg && /out of the required .* (Resonance Energy|Forte \d+|Tune)/.test(row.warningMsg)) {
+        warnings.push(`${moveName}: ${row.warningMsg}`);
       }
     }
 
-    return { errorMsg: firstError, warningMsg: firstError ? null : firstWarning };
+    return { errors, warnings };
   }
 
   _getModifiedMoveData(actionId: string): MechanicNode | null {
