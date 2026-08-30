@@ -3,6 +3,7 @@ import { useBuilderStore } from '../store/useBuilderStore';
 import { NAV_ITEMS } from '../config/nav';
 import type { ViewId } from '../config/nav';
 import { HomeIcon } from './common/icons';
+import { tip } from '../utils/Common';
 
 interface HeaderProps {
   currentView: ViewId;
@@ -26,7 +27,7 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavClick }) => {
               key={item.id}
               className={`nav-item-btn ${currentView === item.id ? 'is-active' : ''}`}
               onClick={() => onNavClick(item.id)}
-              title={item.comingSoon ? `${item.label} (Coming Soon)` : item.label}
+              {...tip(item.comingSoon ? `${item.label} (Coming Soon)` : item.label)}
             >
               <item.icon size={15} />
               <span>{item.label}</span>

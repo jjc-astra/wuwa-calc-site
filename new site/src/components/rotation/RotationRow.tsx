@@ -8,6 +8,8 @@ import { ContextManager } from '../../logic/ContextManager';
 import { DSLParser } from '../../logic/DSLParser';
 import { DialGauge, VerticalGauge, MultiForteGauge } from './Gauge';
 import { SubPanel } from './SubPanel';
+import { Dropdown } from '../common/Dropdown';
+import type { DropdownGroup } from '../common/Dropdown';
 import { TooltipManager, getCharacterThemeColor } from '../../utils/Common';
 import { toFrames, secondsToFrames, framesToSeconds, formatFramesAsSeconds } from '../../utils/Frames';
 
@@ -158,8 +160,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
 
   const actionGroups = getActionGroups();
 
-  const handleUnitChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newUnit = e.target.value;
+  const handleUnitChange = async (newUnit: string) => {
     if (newUnit) {
       await DataLoader.loadMechanic('characters', newUnit);
       const slot = team.find(t => t.character === newUnit);
@@ -176,12 +177,12 @@ export const RotationRow: React.FC<RotationRowProps> = ({
     }
   };
 
-  const handleActionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    updateRowField(index, 'action', e.target.value);
+  const handleActionChange = (newAction: string) => {
+    updateRowField(index, 'action', newAction);
   };
 
-  const handleTimingChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    updateRowField(index, 'timing', e.target.value);
+  const handleTimingChange = (newTiming: string) => {
+    updateRowField(index, 'timing', newTiming);
   };
 
   // Buffered locally instead of committing on every keystroke: a controlled input that
@@ -311,33 +312,28 @@ export const RotationRow: React.FC<RotationRowProps> = ({
         </div>
 
         {/* Unit Select */}
-        <select
+        <Dropdown
           className={`base-select unit-select text-bold ${selectedUnit ? 'has-value' : ''}`}
           value={selectedUnit}
           onChange={handleUnitChange}
-        >
-          <option value="" disabled hidden>-</option>
-          {teamUnits.map(u => (
-            <option key={u} value={u}>{u}</option>
-          ))}
-        </select>
+          placeholder="-"
+          options={teamUnits.map(u => ({ value: u, label: u }))}
+          accentColor={themeColor}
+        />
 
         {/* Categorized Action Select */}
-        <select
+        <Dropdown
           className={`base-select move-select ${row.action ? 'has-value' : ''}`}
           value={row.action || ''}
           disabled={!selectedUnit}
           onChange={handleActionChange}
-        >
-          <option value="" disabled hidden>{selectedUnit ? 'Select Action' : 'Select Unit'}</option>
-          {actionGroups.map(group => (
-            <optgroup key={group.label} label={group.label}>
-              {group.options.map(a => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
+          placeholder={selectedUnit ? 'Select Action' : 'Select Unit'}
+          options={actionGroups.map((group): DropdownGroup => ({
+            label: group.label,
+            options: group.options.map(a => ({ value: a.id, label: a.name }))
+          }))}
+          accentColor={themeColor}
+        />
 
         {/* Time Trigger */}
         <div
@@ -350,15 +346,13 @@ export const RotationRow: React.FC<RotationRowProps> = ({
         </div>
 
         {/* Timing Select */}
-        <select
+        <Dropdown
           className="base-select timing-select text-xs has-value"
           value={row.timing || 'Auto'}
           onChange={handleTimingChange}
-        >
-          {availableTimings.map((t: TimingOption) => (
-            <option key={t.val} value={t.val} title={t.title}>{t.label}</option>
-          ))}
-        </select>
+          options={availableTimings.map((t: TimingOption) => ({ value: t.val, label: t.label, tooltip: t.title }))}
+          accentColor={themeColor}
+        />
 
         {/* Offset Trigger */}
         <div

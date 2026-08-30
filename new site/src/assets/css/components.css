@@ -167,6 +167,83 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 .icon-select-option.is-selected { color: var(--accent); font-weight: bold; }
 .icon-select-option.is-disabled { opacity: 0.4; cursor: not-allowed; }
 
+/* --- Dropdown (a <select> replacement with a fully CSS-styled popup, plain-text sibling of
+   Icon Select above -- a native <select>'s open list is OS-rendered and can't be restyled: e.g.
+   Windows Chrome always highlights the hovered/selected option with its own blue system-accent
+   color no matter what CSS targets .option, and optgroup labels get the OS's own look too. This
+   reimplements the dropdown as a positioned list of divs instead, portaled to <body> so it
+   always escapes any clipping/scrolling ancestor the way a native popup would. --- */
+/* display: contents makes this wrapper invisible to layout -- the trigger button becomes the
+   real flex/grid item in whatever context it sits in (exactly like the native <select> it
+   replaces did), instead of a hardcoded width: 100% wrapper always claiming full space and
+   fighting a compact per-site className (e.g. .results-dps-type-select's width: auto) applied
+   to the trigger inside it. The div still exists in the DOM for the click-outside .contains()
+   check -- display: contents only affects rendering/layout, not the DOM tree. */
+.dropdown { display: contents; }
+.dropdown-trigger {
+    display: flex; align-items: center; gap: var(--space-2);
+    text-align: left; font-family: inherit;
+    min-width: 0;
+    /* The chevron is a real flex child now (see .dropdown-chevron), not a background-image, so
+       none of .base-select's padding-right reservation for its own baked-in chevron is needed
+       here -- keeping it would just double up on space and shrink the trigger unnecessarily. */
+    padding-right: var(--space-1);
+    /* .base-select bakes its resting/hover chevron colors into a background-image data URI, so
+       it can't pick up a per-instance theme color -- suppressed here (in both states, since
+       .base-select:hover/:focus re-declare their own background-image at equal specificity) in
+       favor of the real <svg> chevron below, which can. */
+    background-image: none;
+}
+.dropdown-trigger:hover, .dropdown-trigger:focus { background-image: none; }
+.dropdown-trigger:disabled { cursor: not-allowed; opacity: 0.5; }
+.dropdown-trigger-label {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;
+}
+/* Resting color mirrors --text-main same as the old baked-in chevron; hover/focus switches to
+   --dropdown-accent (e.g. a rotation row's character theme color) instead of always going gold,
+   since this is a real element now instead of a fixed-color background-image. */
+.dropdown-chevron {
+    flex-shrink: 0; width: 12px; height: 12px;
+    color: var(--text-main);
+    transition: color 0.2s;
+}
+.dropdown-trigger:hover .dropdown-chevron,
+.dropdown-trigger:focus .dropdown-chevron { color: var(--dropdown-accent, var(--accent)); }
+/* --dropdown-accent is set inline per-instance (e.g. a rotation row passes its character theme
+   color) to theme the popup's highlight; every other dropdown falls back to the site's gold
+   --accent, same as Icon Select. */
+.dropdown-popup {
+    width: max-content;
+    z-index: 500;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow-y: auto;
+    box-shadow: 0 8px 20px var(--overlay-b6);
+}
+/* Text color matches --row-text-bright's own formula (a rotation row's own value text, e.g.
+   the Action select's label once a move is picked) so a group header reads as the same "brand"
+   of text as the rest of that row instead of a separate, differently-mixed tone. */
+.dropdown-group-label {
+    padding: var(--space-1) var(--space-3);
+    font-size: 0.85rem; font-weight: 800;
+    color: color-mix(in srgb, var(--dropdown-accent, var(--accent)) 50%, white);
+    background: color-mix(in srgb, var(--dropdown-accent, var(--accent)) 35%, var(--bg-panel));
+}
+.dropdown-option {
+    display: flex; align-items: center;
+    padding: var(--space-2) var(--space-3);
+    cursor: pointer;
+    color: var(--text-main);
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+.dropdown-option-label { overflow: hidden; text-overflow: ellipsis; }
+.dropdown-option:hover:not(.is-disabled),
+.dropdown-option.is-active:not(.is-disabled) { background: color-mix(in srgb, var(--dropdown-accent, var(--accent)) 15%, transparent); }
+.dropdown-option.is-selected { color: var(--dropdown-accent, var(--accent)); font-weight: bold; }
+.dropdown-option.is-disabled { opacity: 0.4; cursor: not-allowed; }
+
 /* --- Sliders --- */
 .base-slider {
     -webkit-appearance: none;
@@ -326,20 +403,20 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 
 /* Static gold "section label" look (text + arrow), same idea as .set-header -- this is a card
    identity element, not a themed input field, so it's exempted (via !important) from
-   .char-row's per-character row-accent tinting of .base-select/.base-select.has-value. */
+   .char-row's per-character row-accent tinting of .base-select/.base-select.has-value. The
+   arrow is the real <svg> chevron .dropdown-trigger renders (see components.css's Dropdown
+   block) -- forced gold here always, not just on hover, to match the "static" look; no
+   background-image chevron of its own, or it'd double up with that real element. */
 .echo-main-stat-select,
 .echo-main-stat-select:hover,
 .echo-main-stat-select:focus {
     background-color: transparent !important;
     color: var(--accent) !important;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23dca54c' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 2px center;
-    background-size: 12px;
 }
+.echo-main-stat-select .dropdown-chevron { color: var(--accent); }
 .echo-main-stat-select {
     border: none !important;
-    padding: 0; padding-right: 16px; margin: 0; width: 100%;
+    padding: 0; margin: 0; width: 100%;
     font-weight: bold; font-size: 0.75rem;
     text-align: left;
 }

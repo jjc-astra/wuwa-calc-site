@@ -11,6 +11,7 @@ import type { MechanicNode } from '../../types';
 import type { ImageFolder } from '../../data/db';
 import { tip } from './mechanicNodeHelpers';
 import { TooltipManager } from '../../utils/Common';
+import { Dropdown } from '../common/Dropdown';
 
 // Maps a grid section's image folder to the isContentImplemented() kind it should be checked
 // against -- 'System' (the Generic entry) has no implemented-content notion, so it's always
@@ -290,17 +291,15 @@ export const MechanicsBuilder: React.FC = () => {
                     )}
                   </div>
                   <div className="flex-row gap-sm w-auto">
-                    <select
+                    <Dropdown
                       className="base-select template-select w-150px"
                       value={selectedTemplates[cat] || getDefaultTemplateKey(cat)}
-                      onChange={e => setSelectedTemplates({ ...selectedTemplates, [cat]: e.target.value })}
-                    >
-                      {Object.keys(BuilderState.templates).map(k => (
-                        <option key={k} value={k}>
-                          {(BuilderState.templates as any)[k].name}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={v => setSelectedTemplates({ ...selectedTemplates, [cat]: v })}
+                      options={Object.keys(BuilderState.templates).map(k => ({
+                        value: k,
+                        label: (BuilderState.templates as any)[k].name
+                      }))}
+                    />
                     <button type="button" className="base-btn text-xs add-node-btn" onClick={() => handleAddNode(cat)}>
                       Add Node
                     </button>

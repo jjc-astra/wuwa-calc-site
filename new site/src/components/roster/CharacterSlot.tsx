@@ -2,11 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { useRosterStore } from '../../store/useRosterStore';
 import { DataLoader } from '../../utils/DataLoader';
-import { CommonUtils, TRANSPARENT_PIXEL, getCharacterThemeColor } from '../../utils/Common';
+import { CommonUtils, TRANSPARENT_PIXEL, getCharacterThemeColor, tip } from '../../utils/Common';
 import { CHARS_WITH_MODES, SET_LAYOUTS, IMAGE_FOLDERS, isContentImplemented } from '../../data/db';
 import type { ImageFolder } from '../../data/db';
 import { EchoCard } from './EchoCard';
 import { IconSelect } from '../common/IconSelect';
+import { Dropdown } from '../common/Dropdown';
 
 interface CharacterSlotProps {
   index: number;
@@ -78,7 +79,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
         <button
           type="button"
           className="base-btn icon-btn quick-build-btn"
-          title="Load Recommended Build"
+          {...tip('Load Recommended Build')}
           style={{ position: 'absolute', top: '0px', left: '5px', zIndex: 10 }}
           onClick={(e) => {
             e.preventDefault();
@@ -108,11 +109,16 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
               <input type="number" className="num-input seq-input" value={slot.sequence} min="0" max="6" onChange={e => setSlotField(index, 'sequence', CommonUtils.clampToRange(parseInt(e.target.value) || 0, 0, 6))} />
             </div>
             {hasMode && (
-              <select className="base-select mode-select has-value" value={slot.mode} onChange={e => setSlotField(index, 'mode', e.target.value)}>
-                <option value="None">None</option>
-                <option value="Strain">Strain</option>
-                <option value="Rupture">Rupture</option>
-              </select>
+              <Dropdown
+                className="base-select mode-select has-value"
+                value={slot.mode}
+                onChange={v => setSlotField(index, 'mode', v)}
+                options={[
+                  { value: 'None', label: 'None' },
+                  { value: 'Strain', label: 'Strain' },
+                  { value: 'Rupture', label: 'Rupture' }
+                ]}
+              />
             )}
           </div>
         </div>
@@ -145,9 +151,12 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
         <div className="flex-col gap-sm">
           <div className="flex-row gap-sm">
             <div className="avatar avatar-sm" style={{ visibility: 'hidden' }}></div>
-            <select className="base-select layout-select has-value" value={slot.layout} onChange={e => setSlotField(index, 'layout', e.target.value)}>
-              {SET_LAYOUTS.map(l => <option key={l} value={l}>{l}</option>)}
-            </select>
+            <Dropdown
+              className="base-select layout-select has-value"
+              value={slot.layout}
+              onChange={v => setSlotField(index, 'layout', v)}
+              options={SET_LAYOUTS.map(l => ({ value: l, label: l }))}
+            />
           </div>
           <div className="flex-row gap-sm">
             {renderAvatar('mainSet', slot.mainSet, IMAGE_FOLDERS.ECHO_SETS, 'avatar-sm')}

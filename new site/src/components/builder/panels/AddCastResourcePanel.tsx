@@ -1,6 +1,7 @@
 // src/components/builder/panels/AddCastResourcePanel.tsx
 import React from 'react';
 import type { MechanicNode } from '../../../types';
+import { Dropdown, type DropdownOption } from '../../common/Dropdown';
 
 interface AddCastResourcePanelProps {
   data: MechanicNode;
@@ -9,7 +10,7 @@ interface AddCastResourcePanelProps {
   setCastResType: (v: string) => void;
   castResAmt: string;
   setCastResAmt: (v: string) => void;
-  forteOptions: React.ReactElement[];
+  forteOptions: DropdownOption[];
 }
 
 export const AddCastResourcePanel: React.FC<AddCastResourcePanelProps> = ({
@@ -26,12 +27,17 @@ export const AddCastResourcePanel: React.FC<AddCastResourcePanelProps> = ({
     <div className="sub-panel is-open">
       <div className="panel-header-main">Add On-Cast Resource</div>
       <div className="mech-add-row">
-        <select className="base-select mech-mini-select" value={castResType} onChange={e => setCastResType(e.target.value)}>
-          <option value="energy">Energy</option>
-          <option value="concerto">Concerto</option>
-          {forteOptions}
-          <option value="tune">Tune</option>
-        </select>
+        <Dropdown
+          className="base-select mech-mini-select"
+          value={castResType}
+          onChange={setCastResType}
+          options={[
+            { value: 'energy', label: 'Energy' },
+            { value: 'concerto', label: 'Concerto' },
+            ...forteOptions,
+            { value: 'tune', label: 'Tune' }
+          ]}
+        />
         <input type="text" className="form-input mech-mini-input" value={castResAmt} onChange={e => setCastResAmt(e.target.value)} placeholder="10" />
         <button type="button" className="base-btn text-xs" onClick={handleAddCastResource}>Add</button>
       </div>

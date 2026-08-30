@@ -3,6 +3,7 @@ import { useBuilderStore } from '../../store/useBuilderStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { CommonUtils } from '../../utils/Common';
 import { IMAGE_FOLDERS } from '../../data/db';
+import { Dropdown } from '../common/Dropdown';
 
 export const BaseStatsForm: React.FC = () => {
   const { activeChar, baseStats, setBaseStat } = useBuilderStore();
@@ -41,17 +42,12 @@ export const BaseStatsForm: React.FC = () => {
   const makeSelect = (key: string, label: string) => (
     <div className="base-stat-field">
       <label className="base-stat-label">{label}</label>
-      <select
+      <Dropdown
         className="base-select base-stat-value"
         value={baseStats[key] || ''}
-        onChange={e => setBaseStat(key, e.target.value)}
-      >
-        {talentOpts.map(opt => (
-          <option key={opt} value={opt}>
-            {opt || 'None'}
-          </option>
-        ))}
-      </select>
+        onChange={v => setBaseStat(key, v)}
+        options={talentOpts.map(opt => ({ value: opt, label: opt || 'None' }))}
+      />
     </div>
   );
 

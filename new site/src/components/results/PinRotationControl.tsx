@@ -1,6 +1,7 @@
 // src/components/results/PinRotationControl.tsx
 import React, { useRef, useState } from 'react';
 import { useComparisonStore } from '../../store/useComparisonStore';
+import { tip } from '../../utils/Common';
 
 export const PinRotationControl: React.FC = () => {
   const { pinned, pinFromFile, unpin } = useComparisonStore();
@@ -10,8 +11,8 @@ export const PinRotationControl: React.FC = () => {
   if (pinned) {
     return (
       <div className="pin-chip">
-        <span className="pin-chip-label" title={pinned.label}>{pinned.label}</span>
-        <button type="button" className="pin-chip-remove" onClick={unpin} title="Unpin comparison">×</button>
+        <span className="pin-chip-label" {...tip(pinned.label)}>{pinned.label}</span>
+        <button type="button" className="pin-chip-remove" onClick={unpin} {...tip('Unpin comparison')}>×</button>
       </div>
     );
   }

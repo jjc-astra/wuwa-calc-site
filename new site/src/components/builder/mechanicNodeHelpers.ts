@@ -1,11 +1,12 @@
 // src/components/builder/mechanicNodeHelpers.ts
 // Shared formatting/lookup helpers used across MechanicNodeCard and its split-out sub-panels.
-import type { MouseEvent } from 'react';
 import type { Effect, MechanicNode } from '../../types';
 import { CAST_TYPE_COLORS } from '../../data/db';
-import { ELEMENT_COLORS, TooltipManager } from '../../utils/Common';
+import { ELEMENT_COLORS } from '../../utils/Common';
 import { DSLParser } from '../../logic/DSLParser';
 import { parseTimeInput } from '../../utils/Frames';
+
+export { tip } from '../../utils/Common';
 
 export const flattenDslShorthand = (v: string): string =>
   v.replace(/@([A-Za-z0-9_]+)\(([^)]+)\)/g, (_match, p1, p2) => `${p1}_${p2.trim()}`);
@@ -63,13 +64,6 @@ export function effectLabel(eff: Effect): string {
   if (eff.value !== undefined && eff.value !== '') parts.push(String(eff.value));
   return parts.join(' | ');
 }
-
-// Uses the site's shared TooltipManager (.global-tooltip) instead of a native title
-// attribute -- spread onto an element in place of `title="..."`.
-export const tip = (text: string) => ({
-  onMouseEnter: (e: MouseEvent) => TooltipManager.show(e.currentTarget as Element, text),
-  onMouseLeave: () => TooltipManager.hide()
-});
 
 // Normalizes a timing field's "30f"/"0.5s"/bare-number/DSL-expression text on blur, not on
 // every keystroke -- these fields commit their raw typed string on every onChange (so DSL

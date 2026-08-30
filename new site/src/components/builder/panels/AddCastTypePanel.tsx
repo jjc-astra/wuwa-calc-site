@@ -2,6 +2,7 @@
 import React from 'react';
 import type { MechanicNode } from '../../../types';
 import { BuilderState } from '../../../data/db';
+import { Dropdown } from '../../common/Dropdown';
 
 interface AddCastTypePanelProps {
   data: MechanicNode;
@@ -21,9 +22,12 @@ export const AddCastTypePanel: React.FC<AddCastTypePanelProps> = ({ data, update
     <div className="sub-panel is-open">
       <div className="panel-header-main">Add Cast Type</div>
       <div className="mech-add-row">
-        <select className="base-select mech-mini-select" value={castSelect} onChange={e => setCastSelect(e.target.value)}>
-          {BuilderState.CAST_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-        </select>
+        <Dropdown
+          className="base-select mech-mini-select"
+          value={castSelect}
+          onChange={setCastSelect}
+          options={BuilderState.CAST_OPTIONS.map(o => ({ value: o, label: o }))}
+        />
         <button type="button" className="base-btn text-xs" onClick={handleAddCastTag}>Add</button>
       </div>
     </div>

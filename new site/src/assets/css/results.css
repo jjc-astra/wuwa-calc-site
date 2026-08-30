@@ -279,7 +279,7 @@
 .pin-menu {
     position: absolute; top: calc(100% + 4px); right: 0;
     background: var(--bg-well); border: 1px solid var(--border); border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 4px 12px var(--overlay-b4);
     z-index: 100; min-width: 170px; overflow: hidden;
 }
 .pin-menu-item {
@@ -371,8 +371,11 @@
 }
 
 /* Team Contribution's DPS-type window select, right-aligned in the card header next to the
-   title -- sized down from the default .base-select since it sits inline in a small header. */
-.results-dps-type-select { width: auto; padding: 2px 6px; font-size: 0.7rem; }
+   title -- sized down from the default .base-select since it sits inline in a small header.
+   min-width covers the longest option ("First Loop") plus room for the chevron -- a native
+   <select> auto-sizes to its widest option for free, but this is a custom Dropdown trigger that
+   otherwise only sizes to whichever option is currently selected. */
+.results-dps-type-select { width: auto; min-width: 11ch; padding: 2px 6px; font-size: 0.7rem; }
 
 /* Dmg/DPS Over Time's own window select sits below the chart instead, centered under it. */
 .dmg-time-window-row { display: flex; justify-content: center; margin-top: var(--space-3); }

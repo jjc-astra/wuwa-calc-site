@@ -4,6 +4,7 @@ import type { Frames } from '../../../utils/Frames';
 import type { MechanicNode } from '../../../types';
 import { CommonUtils } from '../../../utils/Common';
 import { displayTimeVal, tip } from '../mechanicNodeHelpers';
+import { Dropdown } from '../../common/Dropdown';
 import { parseTimeInput } from '../../../utils/Frames';
 
 interface HitBreakdownPanelProps {
@@ -70,12 +71,17 @@ export const HitBreakdownPanel: React.FC<HitBreakdownPanelProps> = ({ nodeId, da
       <div className="flex-row gap-sm align-center mb-4px">
         <div className="form-group flex-05" style={{ margin: 0 }}>
           <label className="form-label">Scalar Stat</label>
-          <select className="base-select" value={data.scalar || ''} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => updateNode({ scalar: e.target.value as any })}>
-            <option value="">None</option>
-            <option value="ATK">ATK</option>
-            <option value="DEF">DEF</option>
-            <option value="HP">HP</option>
-          </select>
+          <Dropdown
+            className="base-select"
+            value={data.scalar || ''}
+            onChange={v => updateNode({ scalar: v as any })}
+            options={[
+              { value: '', label: 'None' },
+              { value: 'ATK', label: 'ATK' },
+              { value: 'DEF', label: 'DEF' },
+              { value: 'HP', label: 'HP' }
+            ]}
+          />
         </div>
         <div className="form-group flex-1" style={{ margin: 0 }}>
           <label className="form-label">Multiplier String</label>

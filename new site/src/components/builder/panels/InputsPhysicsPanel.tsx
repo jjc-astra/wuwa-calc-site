@@ -2,6 +2,7 @@
 import React from 'react';
 import type { MechanicNode } from '../../../types';
 import { AutocompleteInput } from '../../common/AutocompleteInput';
+import { Dropdown } from '../../common/Dropdown';
 import { displayTimeVal, makeTimeBlur } from '../mechanicNodeHelpers';
 
 interface InputsPhysicsPanelProps {
@@ -18,42 +19,62 @@ export const InputsPhysicsPanel: React.FC<InputsPhysicsPanelProps> = ({ data, up
       <div className="form-row">
         <div className="form-group">
           <label className="form-label">Input Binding</label>
-          <select className="base-select" value={data.input || ''} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => updateNode({ input: e.target.value })}>
-            <option value="">None</option>
-            <option value="Basic">Basic</option>
-            <option value="Skill">Skill</option>
-            <option value="Jump">Jump</option>
-            <option value="Dodge">Dodge</option>
-            <option value="Liberation">Liberation</option>
-            <option value="Utility">Utility</option>
-            <option value="Echo">Echo</option>
-          </select>
+          <Dropdown
+            className="base-select"
+            value={data.input || ''}
+            onChange={v => updateNode({ input: v })}
+            options={[
+              { value: '', label: 'None' },
+              { value: 'Basic', label: 'Basic' },
+              { value: 'Skill', label: 'Skill' },
+              { value: 'Jump', label: 'Jump' },
+              { value: 'Dodge', label: 'Dodge' },
+              { value: 'Liberation', label: 'Liberation' },
+              { value: 'Utility', label: 'Utility' },
+              { value: 'Echo', label: 'Echo' }
+            ]}
+          />
         </div>
         <div className="form-group">
           <label className="form-label">Input Type</label>
-          <select className="base-select" value={data.inputType || 'Press'} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => updateNode({ inputType: e.target.value as any })}>
-            <option value="Press">Press</option>
-            <option value="Hold">Hold</option>
-            <option value="Release">Release</option>
-          </select>
+          <Dropdown
+            className="base-select"
+            value={data.inputType || 'Press'}
+            onChange={v => updateNode({ inputType: v as any })}
+            options={[
+              { value: 'Press', label: 'Press' },
+              { value: 'Hold', label: 'Hold' },
+              { value: 'Release', label: 'Release' }
+            ]}
+          />
         </div>
         <div className="form-group">
           <label className="form-label">Stance Required</label>
-          <select className="base-select" value={data.stanceReq || 'Any'} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => updateNode({ stanceReq: e.target.value as any })}>
-            <option value="Any">Any</option>
-            <option value="Grounded">Grounded</option>
-            <option value="Midair">Midair</option>
-          </select>
+          <Dropdown
+            className="base-select"
+            value={data.stanceReq || 'Any'}
+            onChange={v => updateNode({ stanceReq: v as any })}
+            options={[
+              { value: 'Any', label: 'Any' },
+              { value: 'Grounded', label: 'Grounded' },
+              { value: 'Midair', label: 'Midair' }
+            ]}
+          />
         </div>
       </div>
       <div className="form-row">
         <div className="form-group">
           <label className="form-label">Stance Result</label>
-          <select className="base-select" value={data.stanceResult || 'Retain'} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => updateNode({ stanceResult: e.target.value as any, stanceTime: e.target.value === 'Retain' ? '' : data.stanceTime })}>
-            <option value="Retain">Retain</option>
-            <option value="Grounded">Grounded</option>
-            <option value="Midair">Midair</option>
-          </select>
+          <Dropdown
+            className="base-select"
+            value={data.stanceResult || 'Retain'}
+            onChange={v => updateNode({ stanceResult: v as any, stanceTime: v === 'Retain' ? '' : data.stanceTime })}
+            options={[
+              { value: 'Retain', label: 'Retain' },
+              { value: 'Grounded', label: 'Grounded' },
+              { value: 'Midair', label: 'Midair' }
+            ]}
+          />
         </div>
         <div className="form-group relative">
           <label className="form-label">Transition Time</label>
@@ -67,11 +88,16 @@ export const InputsPhysicsPanel: React.FC<InputsPhysicsPanelProps> = ({ data, up
           <div className="flex-row gap-sm w-100 flex-wrap">
             <div className="form-group flex-1">
               <label className="form-label">Cursor Mode</label>
-              <select className="base-select" value={holdCfg.cursorMode || 'pingpong'} onChange={e => updateNode({ holdConfig: { ...holdCfg, cursorMode: e.target.value as any } })}>
-                <option value="pingpong">Ping-Pong</option>
-                <option value="clamp">Clamp</option>
-                <option value="loop">Loop</option>
-              </select>
+              <Dropdown
+                className="base-select"
+                value={holdCfg.cursorMode || 'pingpong'}
+                onChange={v => updateNode({ holdConfig: { ...holdCfg, cursorMode: v as any } })}
+                options={[
+                  { value: 'pingpong', label: 'Ping-Pong' },
+                  { value: 'clamp', label: 'Clamp' },
+                  { value: 'loop', label: 'Loop' }
+                ]}
+              />
             </div>
             <div className="form-group flex-1">
               <label className="form-label">Speed</label>

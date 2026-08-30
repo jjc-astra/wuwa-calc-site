@@ -4,6 +4,7 @@ import type { Effect, MechanicNode } from '../../../types';
 import { BuilderState } from '../../../data/db';
 import { AutocompleteInput } from '../../common/AutocompleteInput';
 import { TypeTag } from '../../common/TypeTag';
+import { Dropdown, type DropdownOption } from '../../common/Dropdown';
 import { parseTimeInput } from '../../../utils/Frames';
 import { effectLabel, flattenDslShorthand } from '../mechanicNodeHelpers';
 
@@ -20,7 +21,7 @@ const EffField: React.FC<{ label: string; minWidth: number; children: React.Reac
 interface TriggerRuleEffectsPanelProps {
   data: MechanicNode;
   updateNode: (patch: Partial<MechanicNode>) => void;
-  forteOptions: React.ReactElement[];
+  forteOptions: DropdownOption[];
 }
 
 export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = ({ data, updateNode, forteOptions }) => {
@@ -139,13 +140,18 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
 
       <div className="flex-col gap-sm mt-4px w-100">
         <div className="flex-row gap-sm w-100 align-start">
-          <select className="base-select w-105px" value={effectType} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEffectType(e.target.value)}>
-            <option value="buff">Buff</option>
-            <option value="buffAction">Buff Control</option>
-            <option value="resource">Resource</option>
-            <option value="tracker">Tracker</option>
-            <option value="time_scale">Time Scale</option>
-          </select>
+          <Dropdown
+            className="base-select w-105px"
+            value={effectType}
+            onChange={setEffectType}
+            options={[
+              { value: 'buff', label: 'Buff' },
+              { value: 'buffAction', label: 'Buff Control' },
+              { value: 'resource', label: 'Resource' },
+              { value: 'tracker', label: 'Tracker' },
+              { value: 'time_scale', label: 'Time Scale' }
+            ]}
+          />
 
           <div className="flex-col gap-sm flex-1 flex-wrap">
             {effectType === 'buff' && (
@@ -182,17 +188,27 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
                     <input type="number" step="0.1" className="form-input w-100" value={effDur} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEffDur(e.target.value)} placeholder="Time" />
                   </EffField>
                   <EffField label="Stack Logic" minWidth={100}>
-                    <select className="base-select w-100" value={effStackBeh} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEffStackBeh(e.target.value as any)}>
-                      <option value="resettable">Refresh Timers</option>
-                      <option value="separate">Separate Timers</option>
-                    </select>
+                    <Dropdown
+                      className="base-select w-100"
+                      value={effStackBeh}
+                      onChange={v => setEffStackBeh(v as any)}
+                      options={[
+                        { value: 'resettable', label: 'Refresh Timers' },
+                        { value: 'separate', label: 'Separate Timers' }
+                      ]}
+                    />
                   </EffField>
                   <EffField label="On Expiration" minWidth={100}>
-                    <select className="base-select w-100" value={effExpBeh} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEffExpBeh(e.target.value as any)}>
-                      <option value="clear">Clear All</option>
-                      <option value="drop_one">Drop 1 Stack</option>
-                      <option value="drop_half">Drop Half</option>
-                    </select>
+                    <Dropdown
+                      className="base-select w-100"
+                      value={effExpBeh}
+                      onChange={v => setEffExpBeh(v as any)}
+                      options={[
+                        { value: 'clear', label: 'Clear All' },
+                        { value: 'drop_one', label: 'Drop 1 Stack' },
+                        { value: 'drop_half', label: 'Drop Half' }
+                      ]}
+                    />
                   </EffField>
                   <div className="form-group flex-1" style={{ minWidth: '130px', margin: 0 }}>
                     <label className="form-label text-dim" style={{ opacity: 0, marginBottom: '2px', height: '14px' }}>_</label>
@@ -212,12 +228,17 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
                     <AutocompleteInput mode="eff-name" value={effName} onValueChange={setEffName} placeholder="e.g. Bullets" />
                   </EffField>
                   <EffField label="Action Type" minWidth={100}>
-                    <select className="base-select w-100" value={effAction} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEffAction(e.target.value)}>
-                      <option value="add">Add (+/-)</option>
-                      <option value="set">Set (=)</option>
-                      <option value="consume">Consume (Zero)</option>
-                      <option value="detonate">Detonate</option>
-                    </select>
+                    <Dropdown
+                      className="base-select w-100"
+                      value={effAction}
+                      onChange={setEffAction}
+                      options={[
+                        { value: 'add', label: 'Add (+/-)' },
+                        { value: 'set', label: 'Set (=)' },
+                        { value: 'consume', label: 'Consume (Zero)' },
+                        { value: 'detonate', label: 'Detonate' }
+                      ]}
+                    />
                   </EffField>
                 </div>
                 <div className="flex-row w-100 gap-sm m-0 flex-wrap">
@@ -243,12 +264,17 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
                 </div>
                 <div className="flex-row w-100 gap-sm m-0 flex-wrap">
                   <EffField label="Action Type" minWidth={100}>
-                    <select className="base-select w-100" value={effAction} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEffAction(e.target.value)}>
-                      <option value="remove">Remove / Consume</option>
-                      <option value="pause">Pause Timer</option>
-                      <option value="resume">Resume Timer</option>
-                      <option value="extend">Extend Time</option>
-                    </select>
+                    <Dropdown
+                      className="base-select w-100"
+                      value={effAction}
+                      onChange={setEffAction}
+                      options={[
+                        { value: 'remove', label: 'Remove / Consume' },
+                        { value: 'pause', label: 'Pause Timer' },
+                        { value: 'resume', label: 'Resume Timer' },
+                        { value: 'extend', label: 'Extend Time' }
+                      ]}
+                    />
                   </EffField>
                   <EffField label="Action Value" minWidth={90}>
                     <input type="text" className="form-input w-100" value={effVal} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEffVal(e.target.value)} placeholder="ALL, HALF, or Num" />
@@ -260,12 +286,17 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
             {effectType === 'resource' && (
               <div className="flex-row w-100 gap-sm m-0 flex-wrap">
                 <EffField label="Resource Type" minWidth={100}>
-                  <select className="base-select w-100" value={effName} onChange={e => setEffName(e.target.value)}>
-                    <option value="energy">Energy</option>
-                    <option value="concerto">Concerto</option>
-                    {forteOptions}
-                    <option value="tune">Tune</option>
-                  </select>
+                  <Dropdown
+                    className="base-select w-100"
+                    value={effName}
+                    onChange={setEffName}
+                    options={[
+                      { value: 'energy', label: 'Energy' },
+                      { value: 'concerto', label: 'Concerto' },
+                      ...forteOptions,
+                      { value: 'tune', label: 'Tune' }
+                    ]}
+                  />
                 </EffField>
                 <EffField label="Resource Value" minWidth={90}>
                   <input type="text" className="form-input w-100" value={effVal} onChange={e => setEffVal(e.target.value)} placeholder="Amount (e.g. 10 or -5)" />

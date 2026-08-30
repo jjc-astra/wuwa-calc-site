@@ -1,7 +1,7 @@
 // src/components/roster/TeamBuilder.tsx
 import React, { useRef, useState } from 'react';
 import { useRosterStore } from '../../store/useRosterStore';
-import { CommonUtils, getCharacterThemeColor } from '../../utils/Common';
+import { CommonUtils, getCharacterThemeColor, tip } from '../../utils/Common';
 import { DataLoader } from '../../utils/DataLoader';
 import { IMAGE_FOLDERS } from '../../data/db';
 import type { ImageFolder } from '../../data/db';
@@ -116,7 +116,7 @@ export const TeamBuilder: React.FC<TeamBuilderProps> = ({ isOpen, onToggle }) =>
               const themeColor = getCharacterThemeColor(slot.character ? DataLoader.characterDB[slot.character] : undefined);
               return (
               <div key={i} className="preview-slot" style={{ '--char-theme-raw': themeColor } as React.CSSProperties}>
-                <div className="preview-avatar preview-circle preview-avatar-wrap" title={slot.character || 'No Character'}>
+                <div className="preview-avatar preview-circle preview-avatar-wrap" {...tip(slot.character || 'No Character')}>
                   {slot.character ? (
                     <PreviewIcon name={slot.character} folder={IMAGE_FOLDERS.CHARACTERS} />
                   ) : (
@@ -125,7 +125,7 @@ export const TeamBuilder: React.FC<TeamBuilderProps> = ({ isOpen, onToggle }) =>
                 </div>
                 <span className="preview-badge">S{slot.sequence || 0}</span>
                 <span style={{ color: 'var(--text-disabled)', margin: '0 5px' }}>/</span>
-                <div className="preview-avatar preview-rect preview-avatar-wrap" title={slot.weapon || 'No Weapon'}>
+                <div className="preview-avatar preview-rect preview-avatar-wrap" {...tip(slot.weapon || 'No Weapon')}>
                   {slot.weapon ? (
                     <PreviewIcon name={slot.weapon} folder={IMAGE_FOLDERS.WEAPONS} />
                   ) : (

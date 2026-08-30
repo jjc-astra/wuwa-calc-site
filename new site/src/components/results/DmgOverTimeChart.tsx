@@ -5,7 +5,8 @@ import { useComparisonStore } from '../../store/useComparisonStore';
 import type { DmgOverTimeSeries, DpsWindowKey } from '../../types/results';
 import { PinRotationControl } from './PinRotationControl';
 import { CATEGORICAL_PALETTE, colorForProvider } from './chartPalette';
-import { TooltipManager } from '../../utils/Common';
+import { Dropdown } from '../common/Dropdown';
+import { TooltipManager, tip } from '../../utils/Common';
 import { framesToSeconds } from '../../utils/Frames';
 
 // This chart's whole internal domain is plain display-seconds, converted once at the boundary
@@ -238,7 +239,7 @@ export const DmgOverTimeChart: React.FC = () => {
             <button
               type="button"
               className={`segmented-toggle-btn ${mode === 'dmg' ? 'is-active' : ''}`}
-              title="Total damage accumulated over time"
+              {...tip('Total damage accumulated over time')}
               onClick={() => setMode('dmg')}
             >
               DMG
@@ -246,7 +247,7 @@ export const DmgOverTimeChart: React.FC = () => {
             <button
               type="button"
               className={`segmented-toggle-btn ${mode === 'dps' ? 'is-active' : ''}`}
-              title="Rolling average DPS over the past 1 second"
+              {...tip('Rolling average DPS over the past 1 second')}
               onClick={() => setMode('dps')}
             >
               DPS
@@ -405,15 +406,12 @@ export const DmgOverTimeChart: React.FC = () => {
         </>
       )}
       <div className="dmg-time-window-row">
-        <select
+        <Dropdown
           className="base-select text-xs results-dps-type-select"
           value={dpsType}
-          onChange={e => setDpsType(e.target.value as DpsWindowKey)}
-        >
-          {DPS_TYPE_OPTIONS.map(opt => (
-            <option key={opt.key} value={opt.key}>{opt.label}</option>
-          ))}
-        </select>
+          onChange={v => setDpsType(v as DpsWindowKey)}
+          options={DPS_TYPE_OPTIONS.map(opt => ({ value: opt.key, label: opt.label }))}
+        />
       </div>
     </div>
   );

@@ -3,7 +3,7 @@ import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useRosterStore } from '../../store/useRosterStore';
 import { useRotationStore } from '../../store/useRotationStore';
 import { DataLoader } from '../../utils/DataLoader';
-import { TooltipManager, getCharacterThemeColor } from '../../utils/Common';
+import { TooltipManager, getCharacterThemeColor, tip } from '../../utils/Common';
 
 const formatPct = (v: number) => `${v.toFixed(1)}%`;
 
@@ -67,7 +67,7 @@ export const SubstatWorthChart: React.FC = () => {
             <button
               type="button"
               className={`segmented-toggle-btn ${mode === 'team' ? 'is-active' : ''}`}
-              title="Show % change of the whole team's damage"
+              {...tip("Show % change of the whole team's damage")}
               onClick={() => setMode('team')}
             >
               Team
@@ -75,7 +75,7 @@ export const SubstatWorthChart: React.FC = () => {
             <button
               type="button"
               className={`segmented-toggle-btn ${mode === 'personal' ? 'is-active' : ''}`}
-              title="Show % change of just this unit's own damage"
+              {...tip("Show % change of just this unit's own damage")}
               onClick={() => setMode('personal')}
             >
               Personal
@@ -85,7 +85,7 @@ export const SubstatWorthChart: React.FC = () => {
             <button
               type="button"
               className={`segmented-toggle-btn ${direction === 'minus' ? 'is-active' : ''}`}
-              title="Show what you'd lose without this roll"
+              {...tip("Show what you'd lose without this roll")}
               onClick={() => setDirection('minus')}
             >
               -1
@@ -93,7 +93,7 @@ export const SubstatWorthChart: React.FC = () => {
             <button
               type="button"
               className={`segmented-toggle-btn ${direction === 'plus' ? 'is-active' : ''}`}
-              title="Show what an extra roll would gain"
+              {...tip('Show what an extra roll would gain')}
               onClick={() => setDirection('plus')}
             >
               +1

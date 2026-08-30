@@ -1,3 +1,4 @@
+import type { MouseEvent } from 'react';
 import type { ImageFolder } from '../data/db';
 
 export const EXTENSION = '.webp';
@@ -82,6 +83,13 @@ class TooltipManagerClass {
 }
 
 export const TooltipManager = new TooltipManagerClass();
+
+/** Spread onto an element in place of `title="..."` to use the shared TooltipManager instead
+ * of the browser's default tooltip. */
+export const tip = (text: string) => ({
+  onMouseEnter: (e: MouseEvent) => TooltipManager.show(e.currentTarget as Element, text),
+  onMouseLeave: () => TooltipManager.hide()
+});
 
 export const CommonUtils = {
   debounce: <T extends (...args: any[]) => void>(func: T, delay: number): ((...args: Parameters<T>) => void) => {

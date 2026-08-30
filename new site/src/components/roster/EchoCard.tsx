@@ -1,6 +1,7 @@
 import React from 'react';
 import { useRosterStore } from '../../store/useRosterStore';
 import { MAIN_STATS_4_COST, MAIN_STATS_3_COST, MAIN_STATS_1_COST, STAT_DB, COST_DISTRIBUTION } from '../../data/db';
+import { Dropdown } from '../common/Dropdown';
 
 interface EchoCardProps {
   slotIndex: number;
@@ -17,9 +18,9 @@ export const EchoCard: React.FC<EchoCardProps> = ({ slotIndex, echoIndex }) => {
   const mainStatOptions = cost === 4 ? MAIN_STATS_4_COST : cost === 3 ? MAIN_STATS_3_COST : MAIN_STATS_1_COST;
   const statKeys = Object.keys(STAT_DB);
 
-  const handleMainStatChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleMainStatChange = (value: string) => {
     const newEchoes = [...slot.echoes];
-    newEchoes[echoIndex] = { ...newEchoes[echoIndex], mainStat: e.target.value };
+    newEchoes[echoIndex] = { ...newEchoes[echoIndex], mainStat: value };
     setSlotField(slotIndex, 'echoes', newEchoes);
   };
 
@@ -42,16 +43,13 @@ export const EchoCard: React.FC<EchoCardProps> = ({ slotIndex, echoIndex }) => {
   return (
     <div className="base-card echo-card-wrap" data-echo-index={echoIndex}>
       <div className="echo-header">
-        <select
+        <Dropdown
           className={`base-select echo-main-stat-select ${echo.mainStat ? 'has-value' : ''}`}
           value={echo.mainStat || ''}
           onChange={handleMainStatChange}
-        >
-          <option value="" disabled hidden>Echo {echoIndex + 1} (Cost {cost})</option>
-          {mainStatOptions.map(opt => (
-            <option key={opt} value={opt}>{opt}</option>
-          ))}
-        </select>
+          placeholder={`Echo ${echoIndex + 1} (Cost ${cost})`}
+          options={mainStatOptions.map(opt => ({ value: opt, label: opt }))}
+        />
       </div>
       <ul className="echo-list">
         {echo.substats.map((sub, subIdx) => {
@@ -67,16 +65,12 @@ export const EchoCard: React.FC<EchoCardProps> = ({ slotIndex, echoIndex }) => {
 
           return (
             <li key={subIdx} className="stat-row">
-              <select
+              <Dropdown
                 className={`base-select stat-select ${!isNA ? 'has-value' : ''}`}
                 value={sub.name || 'N/A'}
-                onChange={e => handleSubstatNameChange(subIdx, e.target.value)}
-              >
-                <option value="N/A">N/A</option>
-                {statKeys.map(k => (
-                  <option key={k} value={k}>{k}</option>
-                ))}
-              </select>
+                onChange={v => handleSubstatNameChange(subIdx, v)}
+                options={[{ value: 'N/A', label: 'N/A' }, ...statKeys.map(k => ({ value: k, label: k }))]}
+              />
               <input
                 type="range"
                 className={`base-slider ${isNA ? 'opacity-0' : ''}`}

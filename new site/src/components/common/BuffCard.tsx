@@ -1,5 +1,6 @@
 // src/components/common/BuffCard.tsx
 import React from 'react';
+import { tip } from '../../utils/Common';
 
 export interface BuffEffectItem {
   label: string;
@@ -43,7 +44,7 @@ export const BuffCard: React.FC<BuffCardProps> = ({ source, effects }) => {
               <span
                 className="buff-effect-label"
                 style={{ flex: '1 1 auto', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-                title={e.label}
+                {...tip(e.label)}
               >
                 {e.label}:
               </span>

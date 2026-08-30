@@ -2,6 +2,7 @@
 import React from 'react';
 import type { MechanicNode } from '../../../types';
 import { BuilderState } from '../../../data/db';
+import { Dropdown } from '../../common/Dropdown';
 
 interface AddDmgTypePanelProps {
   data: MechanicNode;
@@ -21,9 +22,12 @@ export const AddDmgTypePanel: React.FC<AddDmgTypePanelProps> = ({ data, updateNo
     <div className="sub-panel is-open">
       <div className="panel-header-main">Add Dmg Type</div>
       <div className="mech-add-row">
-        <select className="base-select mech-mini-select" value={dmgSelect} onChange={e => setDmgSelect(e.target.value)}>
-          {BuilderState.DMG_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-        </select>
+        <Dropdown
+          className="base-select mech-mini-select"
+          value={dmgSelect}
+          onChange={setDmgSelect}
+          options={BuilderState.DMG_OPTIONS.map(o => ({ value: o, label: o }))}
+        />
         <button type="button" className="base-btn text-xs" onClick={handleAddDmgTag}>Add</button>
       </div>
     </div>

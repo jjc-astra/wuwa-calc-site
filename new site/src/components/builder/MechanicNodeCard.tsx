@@ -18,6 +18,7 @@ import { AddCastTypePanel } from './panels/AddCastTypePanel';
 import { AddDmgTypePanel } from './panels/AddDmgTypePanel';
 import { AddCastResourcePanel } from './panels/AddCastResourcePanel';
 import { TriggerRuleEffectsPanel } from './panels/TriggerRuleEffectsPanel';
+import type { DropdownOption } from '../common/Dropdown';
 
 interface MechanicNodeCardProps {
   nodeId: string;
@@ -69,9 +70,9 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
   // Check live baseStats first, fallback to DB. Shared by the Add Cast Resource panel and the
   // Trigger Rule & Effects panel's Resource-type effect (both offer "which forte slot").
   const forteCount = parseInt((baseStats.forteCount as any) || dbC.forteCount || 1, 10);
-  const forteOptions: React.ReactElement[] = [];
+  const forteOptions: DropdownOption[] = [];
   for (let i = 1; i <= forteCount; i++) {
-    forteOptions.push(<option key={i} value={`forte${i}`}>Forte {i}</option>);
+    forteOptions.push({ value: `forte${i}`, label: `Forte ${i}` });
   }
 
   const renderPanel = () => {

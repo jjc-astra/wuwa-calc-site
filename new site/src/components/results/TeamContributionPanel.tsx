@@ -7,6 +7,7 @@ import type { DpsWindowKey } from '../../types/results';
 import { PieChart } from './PieChart';
 import { colorForLabel, OTHER_SLICE_COLOR } from './chartPalette';
 import { getCharacterThemeColor } from '../../utils/Common';
+import { Dropdown } from '../common/Dropdown';
 
 const DPS_TYPE_OPTIONS: Array<{ key: DpsWindowKey; label: string }> = [
   { key: 'opener', label: 'Opener' },
@@ -49,15 +50,12 @@ export const TeamContributionPanel: React.FC = () => {
     <div className="results-card">
       <div className="results-card-header">
         <span>DMG Contribution</span>
-        <select
+        <Dropdown
           className="base-select text-xs results-dps-type-select"
           value={dpsType}
-          onChange={e => setDpsType(e.target.value as DpsWindowKey)}
-        >
-          {DPS_TYPE_OPTIONS.map(opt => (
-            <option key={opt.key} value={opt.key}>{opt.label}</option>
-          ))}
-        </select>
+          onChange={v => setDpsType(v as DpsWindowKey)}
+          options={DPS_TYPE_OPTIONS.map(opt => ({ value: opt.key, label: opt.label }))}
+        />
       </div>
       {!results || units.length === 0 ? (
         <div className="results-empty">Add characters to the team to see contribution.</div>
