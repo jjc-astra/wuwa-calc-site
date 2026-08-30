@@ -30,8 +30,7 @@ export const NAV_ITEMS: NavItem[] = [
     id: 'rankings',
     label: 'Rotation Rankings',
     description: 'Leaderboards comparing optimized rotations across teams and characters.',
-    icon: RankingsIcon,
-    comingSoon: true
+    icon: RankingsIcon
   },
   {
     id: 'guide',

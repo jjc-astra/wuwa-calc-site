@@ -1,5 +1,12 @@
 import { CommonUtils } from './Common';
-import type { CharacterData, WeaponData, MechanicNode } from '../types/index';
+import type { CharacterData, WeaponData, MechanicNode, TeamSlot } from '../types/index';
+
+export interface CharacterResultData {
+  rotation: any[];
+  team: TeamSlot[];
+  settings: { startEnergy?: boolean; startConcerto?: boolean };
+  rotationType: 'linear' | 'quickswap' | null;
+}
 
 export class DataLoaderClass {
   cache = { mechanics: new Set<string>() };
@@ -9,6 +16,10 @@ export class DataLoaderClass {
   mechanicsDB: Record<string, MechanicNode> = {};
   mechanicsIndex: Record<string, string[]> = {};
   charList: string[] = [];
+  // Submitted rotation results for the Rankings page, keyed by filename -- loaded lazily (see
+  // loadCharacterResults below), not as part of initDatabases, since unlike the four fixed
+  // db_*.json files this folder is expected to grow and only the Rankings page needs it.
+  characterResults: Record<string, CharacterResultData> = {};
   weaponsByType: Record<string, string[]> = {
     Broadblade: [], Sword: [], Rectifier: [], Gauntlets: [], Pistols: []
   };
@@ -79,6 +90,26 @@ export class DataLoaderClass {
       }
       this.cache.mechanics.add(cacheKey);
     }
+  }
+
+  // Loads every submitted rotation result for the Rankings page. There's no way to list a
+  // public/ folder's contents at runtime, so a hand-maintained manifest (index.json, just an
+  // array of filenames + an optional rotationType tag) stands in for directory listing --
+  // same shape of problem loadMechanic solves for one named file, just batched over a manifest.
+  // Cached by filename the same way loadMechanic caches by folder/itemName, so re-calling this
+  // (e.g. re-mounting the Rankings page) doesn't re-fetch files already loaded.
+  async loadCharacterResults(): Promise<string[]> {
+    const manifest = await this.loadJSON<Array<{ file: string; rotationType?: 'linear' | 'quickswap' | null }>>(
+      CommonUtils.getData('character_results/index.json')
+    ) || [];
+    for (const entry of manifest) {
+      if (this.characterResults[entry.file]) continue;
+      const data = await this.loadJSON<Omit<CharacterResultData, 'rotationType'>>(
+        CommonUtils.getData(`character_results/${entry.file}`)
+      );
+      if (data) this.characterResults[entry.file] = { ...data, rotationType: entry.rotationType ?? null };
+    }
+    return Object.keys(this.characterResults);
   }
 
   clearMechanicCache(folder: string, itemName: string): void {

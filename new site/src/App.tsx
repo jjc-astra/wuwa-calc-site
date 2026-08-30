@@ -7,6 +7,7 @@ import { MechanicsBuilder } from './components/builder/MechanicsBuilder';
 import { TeamBuilder } from './components/roster/TeamBuilder';
 import { RotationBuilder } from './components/rotation/RotationBuilder';
 import { ResultsPanel } from './components/results/ResultsPanel';
+import { RotationRankingsPage } from './components/rankings/RotationRankingsPage';
 import { DataLoader } from './utils/DataLoader';
 import { NAV_ITEMS } from './config/nav';
 import { useHashRoute } from './hooks/useHashRoute';
@@ -16,6 +17,7 @@ import './assets/css/components.css';
 import './assets/css/builder.css';
 import './assets/css/landing.css';
 import './assets/css/results.css';
+import './assets/css/rankings.css';
 
 export default function App() {
   const [{ view: currentView, step: activeStep }, navigate] = useHashRoute();
@@ -33,7 +35,6 @@ export default function App() {
     );
   }
 
-  const rankingsItem = NAV_ITEMS.find(i => i.id === 'rankings')!;
   const guideItem = NAV_ITEMS.find(i => i.id === 'guide')!;
 
   return (
@@ -60,9 +61,7 @@ export default function App() {
 
       {currentView === 'builder' && <MechanicsBuilder />}
 
-      {currentView === 'rankings' && (
-        <ComingSoonPage title={rankingsItem.label} description={rankingsItem.description} icon={rankingsItem.icon} />
-      )}
+      {currentView === 'rankings' && <RotationRankingsPage />}
 
       {currentView === 'guide' && (
         <ComingSoonPage title={guideItem.label} description={guideItem.description} icon={guideItem.icon} />

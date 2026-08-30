@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import CalcWorker from '../workers/calc.worker.ts?worker';
+import { postToWorker } from '../workers/calcWorkerClient';
 import type { RotationResults } from '../types/results';
 import { useRosterStore } from './useRosterStore';
 import {
@@ -66,69 +66,19 @@ interface RotationState {
 
 const historyManager = new HistoryManager();
 
-// The actual TimelineEngine/CombatCalculator/ResultsCalculator run inside this worker instead
-// of on the main thread, so a long rotation's simulation never freezes the UI while it runs.
-// Created lazily, on the first actual recalculate()/calculateDamage() call, NOT at module load
-// -- this store module gets imported (and its top-level code executed) as part of the app's
-// static import graph regardless of which page is showing, so an eagerly-created worker here
-// used to spin up and start doing work on every single page load, including the landing page.
-let worker: Worker | null = null;
-function getWorker(): Worker {
-  if (!worker) worker = new CalcWorker();
-  return worker;
-}
+// The actual TimelineEngine/CombatCalculator/ResultsCalculator run inside a worker instead of
+// on the main thread (postToWorker, imported above), so a long rotation's simulation never
+// freezes the UI while it runs -- see calcWorkerClient.ts for the worker/queue lifecycle,
+// shared with the Rankings page's batch loader.
 
-if (import.meta.hot) {
-  import.meta.hot.dispose(() => {
-    worker?.terminate();
-    worker = null;
-  });
-}
-
-// Every call gets its own request id, used both to match responses to requests and to detect
-// staleness -- but staleness is tracked per type (recalculate vs calculateDamage), not
-// globally. A recalculate() firing in the background (e.g. from an unrelated edit's
-// triggerRecalc) must never invalidate an explicit calculateDamage() the user just triggered
-// by pressing Calculate -- that's the one result that should always win once it lands, since
-// it's a deliberate action, not an incidental background sync. Each type only checks itself
-// for a newer in-flight/landed request of the *same* type.
-let requestSeq = 0;
+// Every call gets its own request id (returned by postToWorker), used both to match responses
+// to requests and to detect staleness -- but staleness is tracked per type (recalculate vs
+// calculateDamage), not globally. A recalculate() firing in the background (e.g. from an
+// unrelated edit's triggerRecalc) must never invalidate an explicit calculateDamage() the user
+// just triggered by pressing Calculate -- that's the one result that should always win once it
+// lands, since it's a deliberate action, not an incidental background sync. Each type only
+// checks itself for a newer in-flight/landed request of the *same* type.
 const latestSeqByType: Record<'recalculate' | 'calculateDamage', number> = { recalculate: 0, calculateDamage: 0 };
-
-// Requests are sent to the worker one at a time (queued here, not in parallel) even though
-// each call resolves independently. The worker's TimelineEngine/DataLoader hold shared,
-// stateful caches (compiled move data, loaded mechanics) -- two calls racing through them
-// concurrently can interleave mid-load and see a half-populated cache, not just a slow one.
-// Queuing avoids that at essentially no cost: the worker was never able to run two
-// simulations in true parallel anyway (it's one thread), so this doesn't reduce throughput,
-// it just stops requests from overlapping in a way that corrupts shared state.
-let workerQueue: Promise<void> = Promise.resolve();
-
-function postToWorker(type: 'recalculate' | 'calculateDamage', payload: any): { seq: number; result: Promise<any> } {
-  const seq = ++requestSeq;
-  latestSeqByType[type] = seq;
-  const result = workerQueue.then(
-    () =>
-      new Promise<any>((resolve, reject) => {
-        const w = getWorker();
-        const handleMessage = (e: MessageEvent) => {
-          if (e.data.id !== seq) return;
-          w.removeEventListener('message', handleMessage);
-          if (e.data.ok) resolve(e.data);
-          else reject(new Error(e.data.error));
-        };
-        w.addEventListener('message', handleMessage);
-        w.postMessage({ id: seq, type, payload });
-      })
-  );
-  // Chain the queue on this request's settling regardless of outcome, so one failed request
-  // doesn't wedge every request queued after it.
-  workerQueue = result.then(
-    () => undefined,
-    () => undefined
-  );
-  return { seq, result };
-}
 
 export const useRotationStore = create<RotationState>()(
   persist(
@@ -306,6 +256,7 @@ export const useRotationStore = create<RotationState>()(
 
           set({ isCalculating: true });
           const { seq, result } = postToWorker('recalculate', { rows, team, options, enemy });
+          latestSeqByType.recalculate = seq;
           let data: any;
           try {
             data = await result;
@@ -352,6 +303,7 @@ export const useRotationStore = create<RotationState>()(
 
           set({ isCalculating: true });
           const { seq, result } = postToWorker('calculateDamage', { rows, team, options, enemy, loopStartIndex });
+          latestSeqByType.calculateDamage = seq;
           let data: any;
           try {
             data = await result;

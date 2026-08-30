@@ -1,0 +1,288 @@
+/* src/assets/css/rankings.css
+   Rotation Rankings page -- a WoW-Logs-style DPS leaderboard. Reuses the site's existing
+   tokens/components throughout (ChromeTabs, .segmented-toggle, .results-empty, TooltipManager's
+   .tooltip-key/.tooltip-val) rather than introducing a parallel set of one-off styles -- see
+   RotationRankingsPage.tsx for the component wiring. */
+
+.rankings-page {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+}
+
+.rankings-page-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: var(--space-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+/* Search box on the left, filter toolbar floated to the row's far right end. */
+.rankings-controls-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+}
+
+/* Mirrors the Mechanics Builder grid search's own inline-styled recipe (builder.css's
+   .form-input is scoped to .builder-view only, so this page gets its own equivalent rule). */
+.rankings-search-input {
+    width: 320px;
+    max-width: 400px;
+    flex-shrink: 0;
+    padding: 10px 15px;
+    font-size: 0.9rem;
+    background: var(--bg-well);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-main);
+    outline: none;
+    transition: border-color 0.2s;
+}
+.rankings-search-input:focus { border-color: var(--accent); }
+.rankings-search-input::placeholder { color: var(--text-dim); }
+
+/* --- Filter toolbar --- */
+/* Sized to its own content (not the full page width) and left-justified -- .rankings-page-body
+   is a column flex container, whose children stretch full-width by default, so this opts out
+   of that instead of leaving Rotation Type stranded out at the far right of the page. */
+.ranking-toolbar {
+    display: inline-flex;
+    align-self: flex-start;
+    align-items: stretch;
+    gap: var(--space-5);
+    padding: var(--space-3);
+    background: var(--surface-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+.ranking-toolbar-col { display: flex; flex-direction: column; gap: var(--space-2); }
+/* align-self (not align-items on the column) keeps each segmented-toggle its own natural width
+   instead of being stretched to match its widest sibling -- otherwise that reads as a bogus
+   empty extra segment. Scoped to just the toggles (not align-items on the whole column) so the
+   "Rotation Type" .panel-header-tiny above them keeps the column's full stretched width, which
+   its own trailing divider line needs room to grow into. */
+.ranking-toolbar-toggle-col .segmented-toggle { align-self: flex-start; }
+.ranking-toolbar-divider { align-self: stretch; width: 1px; background: var(--border); }
+
+/* The three team-slot filters sit side by side (each its own label-above-slider column)
+   instead of stacked, so the toolbar's height tracks its shortest section instead of being
+   stretched tall by three separate slider rows. */
+.ranking-seq-row-group { display: flex; gap: var(--space-5); }
+.ranking-seq-col { display: flex; flex-direction: column; gap: var(--space-1); }
+.ranking-seq-row-label {
+    font-size: 0.7rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.4px;
+    color: var(--text-dim);
+}
+
+/* --- Dual-handle range slider (RangeSlider.tsx) -- two overlapping native <input type=range>
+   with their own tracks hidden, sitting over one visible static track + a highlighted fill
+   showing the selected span -- styled to match .base-slider (the echo card's own substat
+   sliders) for track/thumb, since this is a filter control for the same 0-6 sequence values
+   those substat rows show elsewhere. Integer tick marks below double as the range's numeric
+   readout (gold inside the selected span, dim outside), so no separate "S0-S6" label is
+   needed beside it. --- */
+.range-slider { position: relative; width: 160px; flex-shrink: 0; }
+.range-slider-track-wrap { position: relative; height: 20px; }
+.range-slider-track {
+    position: absolute; top: 50%; left: 0; right: 0; height: 10px;
+    transform: translateY(-50%);
+    background: var(--border);
+    border-radius: 5px;
+}
+.range-slider-range {
+    position: absolute; top: 50%; height: 10px;
+    transform: translateY(-50%);
+    background: var(--accent);
+    border-radius: 5px;
+}
+.range-slider-input {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 20px; margin: 0;
+    background: transparent;
+    -webkit-appearance: none; appearance: none;
+    pointer-events: none;
+}
+.range-slider-input::-webkit-slider-runnable-track { background: transparent; }
+.range-slider-input::-moz-range-track { background: transparent; border: none; }
+.range-slider-input::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    pointer-events: auto;
+    width: 10px; height: 10px;
+    margin-top: 0;
+    border-radius: 50%;
+    background: var(--accent-light);
+    border: none;
+    cursor: pointer;
+}
+.range-slider-input::-moz-range-thumb {
+    pointer-events: auto;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--accent-light);
+    border: none;
+    cursor: pointer;
+}
+
+.range-slider-ticks { position: relative; height: 14px; margin-top: 2px; }
+.range-slider-tick {
+    position: absolute; top: 0;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    transform: translateX(-50%);
+}
+.range-slider-tick-mark { width: 1px; height: 4px; background: var(--border); }
+.range-slider-tick-label {
+    font-size: 0.62rem; font-weight: bold; line-height: 1;
+    color: var(--text-disabled);
+    transition: color 0.15s;
+}
+.range-slider-tick-label.is-active { color: var(--accent); }
+
+/* --- Tab panel (Opener/First Loop/Avg Loop/2-Min) -- ChromeTabs expects to sit on top of a
+   surface it visually merges into via .chrome-tab.is-active's color-mix background, so this
+   wrapper provides that surface + the rounded/bordered card shell around tabs + body, the same
+   way .results-panel/.results-panel-body do for the Results sidebar's own ChromeTabs. --- */
+.rankings-tab-panel {
+    display: flex;
+    flex-direction: column;
+    background: var(--surface-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+.rankings-tab-panel-body { padding: var(--space-4); }
+
+/* --- Leaderboard rows --- */
+.ranking-list { display: flex; flex-direction: column; gap: var(--space-2); }
+
+.ranking-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    background: var(--surface-lighten);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+.ranking-row-rank {
+    width: 28px; flex-shrink: 0;
+    text-align: center;
+    font-weight: bold; font-size: 0.9rem;
+    color: var(--text-dim);
+}
+.ranking-row-icons { display: flex; align-items: center; gap: var(--space-1); flex-shrink: 0; }
+.ranking-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.ranking-row-label-line { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.ranking-row-label {
+    font-weight: bold; color: var(--text-main); font-size: 0.85rem;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Rotation-style classification (linear vs quickswap) -- not implemented yet upstream, so this
+   only ever renders once a submitted rotation actually carries a rotationType; see
+   character_results/index.json's rotationType field. */
+.ranking-row-type-badge {
+    flex-shrink: 0;
+    display: inline-block;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    font-weight: bold;
+    font-size: 0.65rem;
+    padding: 3px 8px;
+    border-radius: 10px;
+    white-space: nowrap;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    background: var(--surface-lighten);
+}
+.ranking-row-type-linear { color: color-mix(in srgb, #3987e5 70%, white); border-color: color-mix(in srgb, #3987e5 50%, var(--border)); }
+.ranking-row-type-quickswap { color: color-mix(in srgb, #d55181 70%, white); border-color: color-mix(in srgb, #d55181 50%, var(--border)); }
+
+/* Outer track is the full available width; .ranking-bar-fill is scaled to this row's DPS
+   relative to the #1 entry (100% = the top row), and is itself split into per-source colored
+   segments whose widths sum to 100% of the fill -- i.e. a stacked bar within a scaled bar. */
+.ranking-bar-track {
+    position: relative;
+    height: 26px;
+    width: 100%;
+    background: var(--overlay-b3);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.ranking-bar-fill {
+    display: flex;
+    height: 100%;
+    min-width: 2px;
+    /* Thin gap between adjacent segments -- the bar-chart equivalent of PieChart's GAP_DEG
+       spacing between wedges, so a multi-source row still reads as distinct slices. */
+    gap: 2px;
+    transition: width 0.3s ease;
+}
+.ranking-bar-segment {
+    height: 100%;
+    cursor: pointer;
+    /* Same hover rule as PieChart's arcs: the hovered segment stays fully opaque, every other
+       segment on the row dims to 0.45 -- opacity itself is set inline per-segment in JS since
+       it depends on which index (if any) is currently hovered. */
+    transition: opacity 0.15s;
+}
+.ranking-bar-label {
+    position: absolute;
+    left: var(--space-3);
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    pointer-events: none;
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 4px rgba(0, 0, 0, 0.9);
+}
+.ranking-bar-dps-value { font-weight: bold; font-size: 0.85rem; }
+.ranking-bar-dps-unit { font-size: 0.65rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.3px; opacity: 0.85; }
+
+/* This row's DPS relative to the #1 entry (100% = top row) -- sits right at the end of the
+   bar. .is-inside is used once the fill is wide enough to comfortably hold it (right-aligned,
+   same white-on-color treatment as the DPS label); .is-outside sits just past the fill's own
+   right edge instead, in the track's plain background, for a shorter bar. */
+.ranking-bar-pct {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-weight: bold;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    pointer-events: none;
+}
+.ranking-bar-pct.is-inside {
+    right: var(--space-3);
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 4px rgba(0, 0, 0, 0.9);
+}
+.ranking-bar-pct.is-outside {
+    margin-left: var(--space-2);
+    color: var(--text-dim);
+}
+
+/* --- Bar hover tooltip: hovering a unit's segment shows that unit's own cast-type breakdown
+   (swatch + label + %), the same shape as the DMG Contribution panel's per-unit pie-chart
+   legend/center-label -- just rendered as tooltip markup via TooltipManager instead of an
+   always-visible donut + list. --- */
+.ranking-tooltip-unit-label {
+    color: var(--text-dim);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 2px;
+}
+.ranking-tooltip-row { display: flex; align-items: center; gap: var(--space-2); margin-top: 3px; font-size: 0.72rem; }
+.ranking-tooltip-swatch { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+.ranking-tooltip-label { flex: 1; color: var(--text-main); }
+.ranking-tooltip-value { color: var(--text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
