@@ -6,9 +6,21 @@ import { BuilderUtils } from '../../utils/BuilderUtils';
 import { BaseStatsForm } from './BaseStatsForm';
 import { MechanicNodeCard } from './MechanicNodeCard';
 import { JsonOutputPane } from './JsonOutputPane';
-import { BuilderState, IMAGE_FOLDERS } from '../../data/db';
+import { BuilderState, IMAGE_FOLDERS, isContentImplemented, type ImplementedContentKind } from '../../data/db';
 import type { MechanicNode } from '../../types';
 import type { ImageFolder } from '../../data/db';
+import { tip } from './mechanicNodeHelpers';
+import { TooltipManager } from '../../utils/Common';
+
+// Maps a grid section's image folder to the isContentImplemented() kind it should be checked
+// against -- 'System' (the Generic entry) has no implemented-content notion, so it's always
+// treated as implemented.
+const IMPLEMENTED_KIND_BY_FOLDER: Partial<Record<ImageFolder, ImplementedContentKind>> = {
+  [IMAGE_FOLDERS.CHARACTERS]: 'character',
+  [IMAGE_FOLDERS.WEAPONS]: 'weapon',
+  [IMAGE_FOLDERS.ECHO_SETS]: 'set',
+  [IMAGE_FOLDERS.ECHOES]: 'echo'
+};
 
 interface GridCardProps {
   itemName: string;
@@ -34,9 +46,20 @@ const GridCard: React.FC<GridCardProps> = ({ itemName, imgFolder, dbRef, onClick
 
   const fontSize = imgFolder === IMAGE_FOLDERS.CHARACTERS ? '0.8em' : '0.65em';
   const iconPath = CommonUtils.getIconPath(itemName, imgFolder);
+  const implementedKind = IMPLEMENTED_KIND_BY_FOLDER[imgFolder];
+  const isImplemented = !implementedKind || isContentImplemented(implementedKind, itemName);
 
   return (
-    <div className="char-grid-card" onClick={() => onClick(rarity)}>
+    <div
+      className={`char-grid-card ${isImplemented ? '' : 'is-unimplemented'}`}
+      onClick={() => {
+        // The whole grid unmounts on selection, so a hovered card never gets a natural
+        // mouseleave to clear its tooltip -- hide it explicitly before navigating away.
+        TooltipManager.hide();
+        onClick(rarity);
+      }}
+      {...(!isImplemented ? tip('Not yet implemented -- click to start authoring its mechanics') : {})}
+    >
       <div className={`${iconClass} ${rarityClass}`}>
         {!imgError && (
           <img

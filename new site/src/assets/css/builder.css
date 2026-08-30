@@ -32,6 +32,15 @@
     box-shadow: 0 8px 12px rgba(0, 0, 0, 0.5);
 }
 
+/* Not yet implemented (see data/db.ts DISABLE_UNIMPLEMENTED_CONTENT) -- greyed out, but still
+   clickable, since this grid is exactly where you'd go to start authoring its mechanics. */
+.char-grid-card.is-unimplemented {
+    filter: grayscale(0.85) brightness(0.7);
+}
+.char-grid-card.is-unimplemented:hover {
+    filter: grayscale(0.6) brightness(0.85);
+}
+
 .char-icon {
     width: 100%;
     aspect-ratio: 1 / 1.15;

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useRosterStore } from '../../store/useRosterStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { CommonUtils, TRANSPARENT_PIXEL } from '../../utils/Common';
-import { CHARS_WITH_MODES, SET_LAYOUTS, IMAGE_FOLDERS } from '../../data/db';
+import { CHARS_WITH_MODES, SET_LAYOUTS, IMAGE_FOLDERS, isContentImplemented } from '../../data/db';
 import type { ImageFolder } from '../../data/db';
 import { EchoCard } from './EchoCard';
 
@@ -91,7 +91,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
         <div className="flex-col gap-sm" style={{ marginTop: 'auto' }}>
           <select className={`base-select char-select text-bold ${slot.character ? 'has-value' : ''}`} value={slot.character || ''} onChange={e => setSlotField(index, 'character', e.target.value)}>
             <option value="" disabled hidden>Character</option>
-            {DataLoader.charList.map(c => <option key={c} value={c}>{c}</option>)}
+            {DataLoader.charList.map(c => <option key={c} value={c} disabled={!isContentImplemented('character', c)}>{c}</option>)}
           </select>
           <div className="flex-row gap-sm seq-mode-row">
             <div className="base-num-box seq-box">
@@ -115,7 +115,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
         <div className="flex-col gap-sm" style={{ marginTop: 'auto' }}>
           <select className={`base-select wep-select text-bold ${slot.weapon ? 'has-value' : ''}`} value={slot.weapon || ''} disabled={!slot.character} onChange={e => setSlotField(index, 'weapon', e.target.value)}>
             <option value="" disabled hidden>{slot.character ? 'Weapon' : 'Select Character First'}</option>
-            {validWeapons.map(w => <option key={w} value={w}>{w}</option>)}
+            {validWeapons.map(w => <option key={w} value={w} disabled={!isContentImplemented('weapon', w)}>{w}</option>)}
           </select>
           <div className="base-num-box">
             <span className="text-xs text-bold text-dim">RANK</span>
@@ -138,7 +138,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
             {renderAvatar('mainSet', slot.mainSet, IMAGE_FOLDERS.ECHO_SETS, 'avatar-sm')}
             <select className={`base-select main-set-select ${slot.mainSet ? 'has-value' : ''}`} value={slot.mainSet || ''} onChange={e => setSlotField(index, 'mainSet', e.target.value)}>
               <option value="" disabled hidden>Main Set</option>
-              {DataLoader.sonataSets.map(s => <option key={s} value={s}>{s}</option>)}
+              {DataLoader.sonataSets.map(s => <option key={s} value={s} disabled={!isContentImplemented('set', s)}>{s}</option>)}
             </select>
           </div>
           {isTriggerSet && (
@@ -146,7 +146,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
               {renderAvatar('subSet', slot.subSet, IMAGE_FOLDERS.ECHO_SETS, 'avatar-sm')}
               <select className={`base-select sub-set-select ${slot.subSet ? 'has-value' : ''}`} value={slot.subSet || ''} onChange={e => setSlotField(index, 'subSet', e.target.value)}>
                 <option value="" disabled hidden>Sub Set</option>
-                {DataLoader.sonataSets.map(s => <option key={s} value={s}>{s}</option>)}
+                {DataLoader.sonataSets.map(s => <option key={s} value={s} disabled={!isContentImplemented('set', s)}>{s}</option>)}
               </select>
             </div>
           )}
@@ -155,7 +155,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
               {renderAvatar('mainEcho', slot.mainEcho, IMAGE_FOLDERS.ECHOES, 'avatar-sm')}
               <select className={`base-select main-echo-select ${slot.mainEcho ? 'has-value' : ''}`} value={slot.mainEcho || ''} onChange={e => setSlotField(index, 'mainEcho', e.target.value)}>
                 <option value="" disabled hidden>Main Echo</option>
-                {allowedEchoes.map(e => <option key={e} value={e}>{e}</option>)}
+                {allowedEchoes.map(e => <option key={e} value={e} disabled={!isContentImplemented('echo', e)}>{e}</option>)}
               </select>
             </div>
           )}

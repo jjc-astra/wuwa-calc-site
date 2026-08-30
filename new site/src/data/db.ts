@@ -99,6 +99,37 @@ export const STAT_NAME_MAP: Record<string, string> = {
 export const DEFAULT_SUBSTATS = ['CR Rate', 'CR DMG', 'ATK %', 'ER %', 'ATK'];
 export const CHARS_WITH_MODES = ['Lynae', 'Aemeath'];
 
+// Master switch for gating content that doesn't have real mechanics data yet: when true,
+// unimplemented units/weapons/echo sets/echoes are disabled (and greyed out) in the Rotation
+// Calculator's Step 1 dropdowns, and shown greyed out (but still selectable, since that's
+// exactly where you'd go to add them) in the Mechanics Builder's roster grid. Flip to false
+// during content authoring to make everything selectable again.
+export const DISABLE_UNIMPLEMENTED_CONTENT = true;
+
+// Keep these in sync with what actually has a mechanics JSON file under
+// public/data/mechanics/{characters,weapons,sets,echoes}/ -- only consulted while
+// DISABLE_UNIMPLEMENTED_CONTENT is true. Not auto-derived: mechanics files are fetched lazily
+// per-team-slot (see DataLoader.loadTeamMechanics), so there's no cheap way to check "does a
+// file exist" for every roster entry up front.
+export const IMPLEMENTED_CHARACTERS = ['Lumi', 'Sanhua'];
+export const IMPLEMENTED_WEAPONS = ['Radiance Cleaver', 'Emerald of Genesis'];
+export const IMPLEMENTED_SETS = ['Void Thunder', 'Moonlit Clouds'];
+export const IMPLEMENTED_ECHOES = ['NM Thundering Mephis', 'Impermanence Heron'];
+
+export type ImplementedContentKind = 'character' | 'weapon' | 'set' | 'echo';
+
+// Returns true unconditionally when the gate is off, so every call site stays correct without
+// its own if-check -- flipping DISABLE_UNIMPLEMENTED_CONTENT to false is enough on its own.
+export function isContentImplemented(kind: ImplementedContentKind, name: string): boolean {
+  if (!DISABLE_UNIMPLEMENTED_CONTENT) return true;
+  switch (kind) {
+    case 'character': return IMPLEMENTED_CHARACTERS.includes(name);
+    case 'weapon': return IMPLEMENTED_WEAPONS.includes(name);
+    case 'set': return IMPLEMENTED_SETS.includes(name);
+    case 'echo': return IMPLEMENTED_ECHOES.includes(name);
+  }
+}
+
 export const COST_DISTRIBUTION: Record<string, number[]> = {
   '4 3 3 1 1': [4, 3, 3, 1, 1],
   '4 4 1 1 1': [4, 4, 1, 1, 1]
