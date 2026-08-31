@@ -32,14 +32,21 @@
     gap: var(--space-4);
 }
 
-/* Mirrors the Mechanics Builder grid search's own inline-styled recipe (builder.css's
-   .form-input is scoped to .builder-view only, so this page gets its own equivalent rule). */
+/* Same combined recipe as the Mechanics Builder's own #grid-search-input -- .builder-view
+   .form-input's base (border/color/font-family/height/box-sizing, builder.css) plus that
+   input's own inline overrides (padding/background/border-radius/font-size, MechanicsBuilder
+   .tsx) -- reproduced directly here since .form-input itself is scoped to .builder-view and
+   this page sits outside it. Fixed width (rather than Mechanics Builder's 100%-up-to-400px)
+   since this search box shares its row with the filter toolbar instead of having it to itself. */
 .rankings-search-input {
     width: 320px;
     max-width: 400px;
     flex-shrink: 0;
+    height: 28px;
+    box-sizing: border-box;
     padding: 10px 15px;
     font-size: 0.9rem;
+    font-family: monospace;
     background: var(--bg-well);
     border: 1px solid var(--border);
     border-radius: 6px;
