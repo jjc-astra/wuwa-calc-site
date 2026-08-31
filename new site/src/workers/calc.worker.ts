@@ -32,11 +32,60 @@ function stripFunctions(value: any, seen = new WeakMap<object, any>()): any {
 
 const worker = self as any;
 
+// Applies useBuilderStore's cached edits (if any) on top of whatever's currently loaded in
+// this worker's DataLoader -- mirrors useBuilderStore.setActiveChar's own "replay edits after
+// the pristine fetch" step exactly, just against the worker's separate DataLoader instance.
+// A no-op for any entity the builder has no edits for (its overrides simply won't be present).
+function applyBuilderOverrides(payload: any): void {
+  const overrides = payload.builderOverrides;
+  if (!overrides) return;
+  Object.entries(overrides.editedBaseStats || {}).forEach(([name, stats]) => {
+    const target = DataLoader.characterDB[name] || DataLoader.weaponDB[name];
+    if (target) Object.assign(target, stats as object);
+  });
+  Object.entries(overrides.editedMechanics || {}).forEach(([id, node]) => {
+    DataLoader.mechanicsDB[id] = node as any;
+  });
+  (overrides.deletedMechanicIds || []).forEach((id: string) => {
+    delete DataLoader.mechanicsDB[id];
+  });
+}
+
 worker.onmessage = async (e: MessageEvent) => {
   const { id, type, payload } = e.data;
   try {
     await getReady();
+
+    // Only bother forcing a pristine reset (below) when this team actually has *something*
+    // cached in the builder -- otherwise every single Calculate press would pay for 4 extra
+    // JSON fetches plus one per team entity for nothing, even for someone who's never opened
+    // the Mechanics Builder at all.
+    const overrides = payload.builderOverrides;
+    const hasOverrides = !!overrides && (
+      Object.keys(overrides.editedMechanics || {}).length > 0 ||
+      Object.keys(overrides.editedBaseStats || {}).length > 0 ||
+      (overrides.deletedMechanicIds || []).length > 0
+    );
+
+    // A real Calculate press (not the cheap live-preview recalculate) forces every entity the
+    // team actually uses back to a pristine re-fetch first -- otherwise an edit *removed* in
+    // the Mechanics Builder (a Reset Cache, a deleted node) would have no way to un-stick from
+    // this worker's own long-lived mechanicsDB/characterDB, which only ever gets new data
+    // merged in, never reverted. 'Generic' is deliberately skipped here: its cache key is
+    // already correctly populated once at worker startup (getReady() above), and re-clearing
+    // it hits an existing loadMechanic/clearMechanicCache casing mismatch ('Generic' vs the
+    // real lowercase generic.json) that would leave System mechanics missing rather than just
+    // stale -- narrow enough (an edited Generic/System node staying stuck until the page
+    // reloads) that skipping it here is far safer than risking every calculation breaking.
+    if (type === 'calculateDamage' && hasOverrides && payload.builderEntityRefs) {
+      await DataLoader.initDatabases();
+      payload.builderEntityRefs
+        .filter((ref: { folder: string }) => ref.folder !== 'generic')
+        .forEach((ref: { name: string; folder: string }) => DataLoader.clearMechanicCache(ref.folder, ref.name));
+    }
+
     await DataLoader.loadTeamMechanics(payload.team);
+    applyBuilderOverrides(payload);
 
     if (type === 'recalculate') {
       const { rows, team, options, enemy } = payload;

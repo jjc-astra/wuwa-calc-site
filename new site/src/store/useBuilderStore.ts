@@ -30,6 +30,14 @@ interface BuilderState {
   // True if `itemName` (character/weapon/set/echo/'Generic') has any locally-cached edit --
   // drives the "!" dirty badge on its grid card without needing to switch to it first.
   hasChanges: (itemName: string) => boolean;
+  // Slices the full edit log down to just the entities named in `itemNames` -- used to hand
+  // the Rotation Calculator's calc worker only the overrides relevant to whatever's actually
+  // in the current roster (see useRotationStore.ts), not the builder's entire edit history.
+  getTeamOverrides: (itemNames: string[]) => {
+    editedBaseStats: Record<string, BaseStats>;
+    editedMechanics: Record<string, MechanicNode>;
+    deletedMechanicIds: string[];
+  };
 }
 
 // Guards against a stale in-flight setActiveChar call (e.g. a slow character load)
@@ -39,7 +47,7 @@ let activeCharRequestSeq = 0;
 
 // Mirrors the charName+'_' (or 'Generic'->'System_') prefix convention DataLoader.loadMechanic/
 // clearMechanicCache already use for scoping mechanicsDB keys to one entity.
-const nodeIdPrefix = (itemName: string) => (itemName === 'Generic' ? 'System_' : `${itemName}_`);
+export const nodeIdPrefix = (itemName: string) => (itemName === 'Generic' ? 'System_' : `${itemName}_`);
 
 export const useBuilderStore = create<BuilderState>()(
   persist(
@@ -184,6 +192,18 @@ export const useBuilderStore = create<BuilderState>()(
         if (Object.keys(editedMechanics).some(id => id.startsWith(prefix))) return true;
         if (deletedMechanicIds.some(id => id.startsWith(prefix))) return true;
         return false;
+      },
+
+      getTeamOverrides: itemNames => {
+        const { editedBaseStats, editedMechanics, deletedMechanicIds } = get();
+        const names = new Set(itemNames);
+        const prefixes = itemNames.map(nodeIdPrefix);
+        const matchesAny = (id: string) => prefixes.some(p => id.startsWith(p));
+        return {
+          editedBaseStats: Object.fromEntries(Object.entries(editedBaseStats).filter(([name]) => names.has(name))),
+          editedMechanics: Object.fromEntries(Object.entries(editedMechanics).filter(([id]) => matchesAny(id))),
+          deletedMechanicIds: deletedMechanicIds.filter(matchesAny)
+        };
       },
 
       resetCache: async () => {

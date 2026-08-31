@@ -4,6 +4,8 @@ import { postToWorker } from '../workers/calcWorkerClient';
 import type { RotationResults } from '../types/results';
 import { useRosterStore } from './useRosterStore';
 import { useRotationHistoryStore } from './useRotationHistoryStore';
+import { useBuilderStore } from './useBuilderStore';
+import type { TeamSlot } from '../types';
 import {
   HistoryManager,
   AddRowCommand,
@@ -84,6 +86,38 @@ const historyManager = new HistoryManager();
 // lands, since it's a deliberate action, not an incidental background sync. Each type only
 // checks itself for a newer in-flight/landed request of the *same* type.
 const latestSeqByType: Record<'recalculate' | 'calculateDamage', number> = { recalculate: 0, calculateDamage: 0 };
+
+// Every entity a given team actually references (character/weapon/main+sub set/main echo per
+// slot), plus 'Generic' -- always included since System mechanics apply to every rotation
+// regardless of team composition. Same list serves two jobs in the payload the worker gets:
+// which of the Mechanics Builder's cached edits are even relevant here (useBuilderStore's
+// getTeamOverrides), and, for a real Calculate press, exactly which entities' mechanics the
+// worker should force a pristine re-fetch of before reapplying those edits (see calc.worker.ts)
+// -- so a Reset Cache in the builder is reflected here too, not just newly-added edits.
+type EntityRef = { name: string; folder: 'characters' | 'weapons' | 'sets' | 'echoes' | 'generic' };
+function buildEntityRefs(team: TeamSlot[]): EntityRef[] {
+  const refs: EntityRef[] = [{ name: 'Generic', folder: 'generic' }];
+  team.forEach(slot => {
+    if (slot.character) refs.push({ name: slot.character, folder: 'characters' });
+    if (slot.weapon) refs.push({ name: slot.weapon, folder: 'weapons' });
+    if (slot.mainSet) refs.push({ name: slot.mainSet, folder: 'sets' });
+    if (slot.subSet) refs.push({ name: slot.subSet, folder: 'sets' });
+    if (slot.mainEcho) refs.push({ name: slot.mainEcho, folder: 'echoes' });
+  });
+  return refs;
+}
+
+// Attached to every postToWorker call this store makes -- lets the calc worker use the
+// Mechanics Builder's locally-cached edits (if any exist for this team's own characters/
+// weapons/sets/echoes) instead of always the pristine data/mechanics JSON files. Rankings'
+// batch loader (useRankingsStore.ts) deliberately does NOT attach this -- a submitted rotation
+// should stay reproducible from the file alone, not shift based on whoever's browser cache it's
+// recalculated in.
+function buildBuilderPayload(team: TeamSlot[]) {
+  const entityRefs = buildEntityRefs(team);
+  const builderOverrides = useBuilderStore.getState().getTeamOverrides(entityRefs.map(r => r.name));
+  return { builderEntityRefs: entityRefs, builderOverrides };
+}
 
 export const useRotationStore = create<RotationState>()(
   persist(
@@ -260,7 +294,7 @@ export const useRotationStore = create<RotationState>()(
           const options = { startEnergy, startConcerto };
 
           set({ isCalculating: true });
-          const { seq, result } = postToWorker('recalculate', { rows, team, options, enemy });
+          const { seq, result } = postToWorker('recalculate', { rows, team, options, enemy, ...buildBuilderPayload(team) });
           latestSeqByType.recalculate = seq;
           let data: any;
           try {
@@ -307,7 +341,7 @@ export const useRotationStore = create<RotationState>()(
           const options = { startEnergy, startConcerto };
 
           set({ isCalculating: true });
-          const { seq, result } = postToWorker('calculateDamage', { rows, team, options, enemy, loopStartIndex });
+          const { seq, result } = postToWorker('calculateDamage', { rows, team, options, enemy, loopStartIndex, ...buildBuilderPayload(team) });
           latestSeqByType.calculateDamage = seq;
           let data: any;
           try {
