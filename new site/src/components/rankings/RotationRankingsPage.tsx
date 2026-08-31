@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRankingsStore } from '../../store/useRankingsStore';
 import type { RankingEntry } from '../../store/useRankingsStore';
+import { DataLoader } from '../../utils/DataLoader';
 import { ChromeTabs } from '../results/ChromeTabs';
 import type { ChromeTabDef } from '../results/ChromeTabs';
 import { RankingFilterToolbar, DEFAULT_RANKING_FILTERS } from './RankingFilterToolbar';
@@ -49,6 +50,11 @@ export const RotationRankingsPage: React.FC = () => {
     // would've been filtered out anyway.
     let candidates = entries.filter(entry => {
       for (let i = 0; i < 3; i++) {
+        const slotChar = entry.team[i]?.character;
+        // 4-star units are effectively always S6 -- dupes are far easier to acquire than even
+        // S0 of a 5-star, so a sequence range that's meaningful for 5-stars doesn't apply here.
+        const rarity = slotChar ? DataLoader.characterDB[slotChar]?.rarity : undefined;
+        if (rarity === 4) continue;
         const seq = entry.sequences[i] ?? 0;
         const range = filters.sequenceRanges[i];
         if (seq < range.min || seq > range.max) return false;
