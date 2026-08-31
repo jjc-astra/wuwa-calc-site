@@ -13,37 +13,44 @@
     overflow: hidden;
 }
 
+/* Search-and-filter sidebar on the left, Rankings taking the remaining width on the right. */
 .rankings-page-body {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
     padding: var(--space-6);
     display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
+    align-items: flex-start;
+    gap: var(--space-6);
 }
 
-/* Search box on the left, filter toolbar floated to the row's far right end. */
-.rankings-controls-row {
+/* No explicit width -- shrinks to fit its widest child (the filter toolbar's own content-driven
+   width: label + slider + card padding), so the search box's width: 100% below matches that
+   exactly instead of stretching past it into empty space. */
+.rankings-sidebar {
+    flex-shrink: 0;
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: var(--space-4);
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.rankings-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
 }
 
 /* Same combined recipe as the Mechanics Builder's own #grid-search-input -- .builder-view
    .form-input's base (border/color/font-family/height/box-sizing, builder.css) plus that
    input's own inline overrides (padding/background/border-radius/font-size, MechanicsBuilder
    .tsx) -- reproduced directly here since .form-input itself is scoped to .builder-view and
-   this page sits outside it. Fixed width (rather than Mechanics Builder's 100%-up-to-400px)
-   since this search box shares its row with the filter toolbar instead of having it to itself. */
+   this page sits outside it. */
 .rankings-search-input {
-    width: 320px;
-    max-width: 400px;
-    flex-shrink: 0;
-    height: 28px;
+    width: 100%;
     box-sizing: border-box;
+    height: 28px;
     padding: 10px 15px;
     font-size: 0.9rem;
     font-family: monospace;
@@ -57,35 +64,25 @@
 .rankings-search-input:focus { border-color: var(--accent); }
 .rankings-search-input::placeholder { color: var(--text-dim); }
 
-/* --- Filter toolbar --- */
-/* Sized to its own content (not the full page width) and left-justified -- .rankings-page-body
-   is a column flex container, whose children stretch full-width by default, so this opts out
-   of that instead of leaving Rotation Type stranded out at the far right of the page. */
+/* --- Filter toolbar: Sequence Filter (3 stacked slot rows) then Rotation Type below it. --- */
 .ranking-toolbar {
-    display: inline-flex;
-    align-self: flex-start;
-    align-items: stretch;
-    gap: var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
     padding: var(--space-3);
     background: var(--surface-card);
     border: 1px solid var(--border);
     border-radius: 8px;
 }
-.ranking-toolbar-col { display: flex; flex-direction: column; gap: var(--space-2); }
-/* align-self (not align-items on the column) keeps each segmented-toggle its own natural width
-   instead of being stretched to match its widest sibling -- otherwise that reads as a bogus
-   empty extra segment. Scoped to just the toggles (not align-items on the whole column) so the
-   "Rotation Type" .panel-header-tiny above them keeps the column's full stretched width, which
-   its own trailing divider line needs room to grow into. */
-.ranking-toolbar-toggle-col .segmented-toggle { align-self: flex-start; }
-.ranking-toolbar-divider { align-self: stretch; width: 1px; background: var(--border); }
+/* Both toggle rows stretch to the column's full width (the default for a flex-column child) so
+   Rotation Type's 3-button toggle and Best Only's 2-button toggle read as the same width -- the
+   buttons themselves grow to fill that width evenly (flex: 1 below) rather than leaving unfilled
+   dead space in a toggle with fewer buttons. */
+.ranking-toolbar .segmented-toggle-btn { flex: 1; }
 
-/* The three team-slot filters sit side by side (each its own label-above-slider column)
-   instead of stacked, so the toolbar's height tracks its shortest section instead of being
-   stretched tall by three separate slider rows. */
-.ranking-seq-row-group { display: flex; gap: var(--space-5); }
-.ranking-seq-col { display: flex; flex-direction: column; gap: var(--space-1); }
+.ranking-seq-row { display: flex; align-items: center; gap: var(--space-3); }
 .ranking-seq-row-label {
+    width: 68px; flex-shrink: 0;
     font-size: 0.7rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.4px;
     color: var(--text-dim);
 }
@@ -97,7 +94,10 @@
    those substat rows show elsewhere. Integer tick marks below double as the range's numeric
    readout (gold inside the selected span, dim outside), so no separate "S0-S6" label is
    needed beside it. --- */
-.range-slider { position: relative; width: 160px; flex-shrink: 0; }
+/* padding-right (not extra width) so the track/tick children -- sized to fill this box's own
+   content width -- stay at their original 160px and the trailing space lands purely between the
+   "6" tick label and whatever sits to its right (here, the toolbar card's own edge). */
+.range-slider { position: relative; width: 160px; padding-right: var(--space-3); flex-shrink: 0; }
 .range-slider-track-wrap { position: relative; height: 20px; }
 .range-slider-track {
     position: absolute; top: 50%; left: 0; right: 0; height: 10px;

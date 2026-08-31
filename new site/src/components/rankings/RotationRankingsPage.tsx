@@ -83,8 +83,8 @@ export const RotationRankingsPage: React.FC = () => {
   return (
     <div className="rankings-page">
       <div className="rankings-page-body">
-        <div className="panel-header-main">Search and Filter</div>
-        <div className="rankings-controls-row">
+        <div className="rankings-sidebar">
+          <div className="panel-header-main">Search and Filter</div>
           <input
             type="text"
             className="rankings-search-input"
@@ -95,21 +95,23 @@ export const RotationRankingsPage: React.FC = () => {
           <RankingFilterToolbar filters={filters} onChange={setFilters} />
         </div>
 
-        <div className="panel-header-main">Rankings</div>
-        <div className="rankings-tab-panel">
-          <ChromeTabs tabs={WINDOW_TABS} activeId={activeWindow} onSelect={id => setActiveWindow(id as DpsWindowKey)} />
-          <div className="rankings-tab-panel-body">
-            <div className="ranking-list">
-              {status === 'loading' && entries.length === 0 && (
-                <div className="results-empty">Calculating rotations...</div>
-              )}
-              {status === 'error' && <div className="results-empty">Failed to load rankings: {error}</div>}
-              {status === 'ready' && visibleEntries.length === 0 && (
-                <div className="results-empty">No rotations match these filters.</div>
-              )}
-              {visibleEntries.map((entry, i) => (
-                <RankingRow key={entry.id} rank={i + 1} entry={entry} activeWindow={activeWindow} maxDps={maxDps} />
-              ))}
+        <div className="rankings-main">
+          <div className="panel-header-main">Rankings</div>
+          <div className="rankings-tab-panel">
+            <ChromeTabs tabs={WINDOW_TABS} activeId={activeWindow} onSelect={id => setActiveWindow(id as DpsWindowKey)} />
+            <div className="rankings-tab-panel-body">
+              <div className="ranking-list">
+                {status === 'loading' && entries.length === 0 && (
+                  <div className="results-empty">Calculating rotations...</div>
+                )}
+                {status === 'error' && <div className="results-empty">Failed to load rankings: {error}</div>}
+                {status === 'ready' && visibleEntries.length === 0 && (
+                  <div className="results-empty">No rotations match these filters.</div>
+                )}
+                {visibleEntries.map((entry, i) => (
+                  <RankingRow key={entry.id} rank={i + 1} entry={entry} activeWindow={activeWindow} maxDps={maxDps} />
+                ))}
+              </div>
             </div>
           </div>
         </div>
