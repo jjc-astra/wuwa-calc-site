@@ -212,6 +212,30 @@
 .ranking-row-type-linear { color: color-mix(in srgb, #3987e5 70%, white); border-color: color-mix(in srgb, #3987e5 50%, var(--border)); }
 .ranking-row-type-quickswap { color: color-mix(in srgb, #d55181 70%, white); border-color: color-mix(in srgb, #d55181 50%, var(--border)); }
 
+/* Anchors the "..." menu's .pin-menu dropdown (reused as-is from Pin Comparison/History --
+   see results.css) to this row instead of the row list's own scroll container. */
+.ranking-row-menu-wrap { position: relative; flex-shrink: 0; }
+
+/* The "..." trigger itself -- deliberately not .base-btn.icon-btn (a bordered 32x32 square):
+   in a dense leaderboard list that reads as too heavy a control for "show a menu", so this is
+   a slim, borderless strip instead -- just the (larger) dots glyph, with a soft hover tint for
+   feedback instead of an outline. */
+.ranking-row-menu-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 32px;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 4px;
+    color: var(--text-dim);
+    cursor: pointer;
+}
+.ranking-row-menu-btn:hover { color: var(--accent); background: var(--surface-lighten-strong); }
+.ranking-row-menu-btn svg { display: block; }
+
 /* Outer track is the full available width; .ranking-bar-fill is scaled to this row's DPS
    relative to the #1 entry (100% = the top row), and is itself split into per-source colored
    segments whose widths sum to 100% of the fill -- i.e. a stacked bar within a scaled bar. */
