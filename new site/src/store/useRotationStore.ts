@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { postToWorker } from '../workers/calcWorkerClient';
 import type { RotationResults } from '../types/results';
 import { useRosterStore } from './useRosterStore';
+import { useRotationHistoryStore } from './useRotationHistoryStore';
 import {
   HistoryManager,
   AddRowCommand,
@@ -317,6 +318,25 @@ export const useRotationStore = create<RotationState>()(
           if (seq !== latestSeqByType.calculateDamage) return;
 
           set({ rows: data.evaluatedRows, isStale: false, results: data.results, isCalculating: false });
+
+          // One history row per successful Calculate press -- snapshot the exact team/rotation
+          // that produced this result, matching the shape Export Rotation writes (domRef
+          // stripped, same {unit,action,timing,loopStartOverride?} row shape) so a saved entry
+          // can round-trip through Restore Rotation identically.
+          useRotationHistoryStore.getState().addEntry({
+            team: team.map(slot => {
+              const { domRef, ...clean } = slot as any;
+              return clean;
+            }),
+            rotation: rows.map(({ unit, action, timing, loopStartOverride }) => ({
+              unit,
+              action,
+              timing,
+              ...(loopStartOverride === true && { loopStartOverride: true })
+            })),
+            settings: options,
+            results: data.results
+          });
         },
 
         undo: () => {

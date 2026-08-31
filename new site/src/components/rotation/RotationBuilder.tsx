@@ -41,7 +41,9 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     loopWarnings,
     setLoopStartOverride,
     resetLoopStart,
-    recalculate
+    recalculate,
+    results,
+    isStale
   } = useRotationStore();
 
   const { team, importTeam } = useRosterStore();
@@ -223,7 +225,15 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
   const handleExport = () => {
     if (rows.length === 0) return alert('Rotation is empty.');
 
-    const exportObject = {
+    // A rotation/team/settings-only export and History's "Save Results" export were
+    // needlessly separate files for what's usually the same data -- if the current results
+    // still match what's on screen (calculated, not stale from an edit since), fold them in
+    // here too instead of making a Rankings-ready file only reachable via History. Left out
+    // when stale, since bundling results next to a rotation they no longer match would be
+    // actively misleading; dmgOverTimeSeries is left out either way (nothing reads it from a
+    // saved file, and it's cheap to regenerate via a real recalculate).
+    const includeResults = !!results && !isStale;
+    const exportObject: Record<string, unknown> = {
       rotation: rows.map(({ unit, action, timing, loopStartOverride }) => ({
         unit,
         action,
@@ -236,6 +246,10 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
       }),
       settings: { startEnergy, startConcerto }
     };
+    if (includeResults) {
+      const { dmgOverTimeSeries, ...resultsWithoutDmgOverTime } = results!;
+      exportObject.results = resultsWithoutDmgOverTime;
+    }
 
     const names = team
       .filter(s => s.character)
@@ -248,7 +262,8 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
         return id;
       });
 
-    const filename = names.length > 0 ? `Rotation_${names.join('_')}.json` : 'Rotation_Config.json';
+    const suffix = includeResults ? '_Results' : '';
+    const filename = names.length > 0 ? `Rotation_${names.join('_')}${suffix}.json` : `Rotation_Config${suffix}.json`;
     const blob = new Blob([JSON.stringify(exportObject, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

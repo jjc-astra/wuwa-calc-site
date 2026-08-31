@@ -44,26 +44,35 @@ export const useRankingsStore = create<RankingsState>((set, get) => ({
         if (!data) continue;
 
         try {
-          const options = data.settings || {};
-          // 'recalculate' runs TimelineEngine.recalculateState + findLoopStart -- its
-          // loopStartIndex is a required input to 'calculateDamage' below (mirrors the two-step
-          // round trip useRotationStore's own Calculate button makes).
-          const { result: recalcResult } = postToWorker('recalculate', {
-            rows: data.rotation,
-            team: data.team,
-            options,
-            enemy: ENEMY_DEFAULTS
-          });
-          const { loopStartIndex } = await recalcResult;
+          // Omit<..., 'dmgOverTimeSeries'> -- a saved-results file's results never carry it
+          // (see DataLoader.CharacterResultData), and this store never reads it either way.
+          let results: Omit<RotationResults, 'dmgOverTimeSeries'>;
+          if (data.results) {
+            // Already computed (History's "Save Results" wrote this file) -- skip the worker
+            // entirely instead of re-running the simulation for a known answer.
+            results = data.results;
+          } else {
+            const options = data.settings || {};
+            // 'recalculate' runs TimelineEngine.recalculateState + findLoopStart -- its
+            // loopStartIndex is a required input to 'calculateDamage' below (mirrors the
+            // two-step round trip useRotationStore's own Calculate button makes).
+            const { result: recalcResult } = postToWorker('recalculate', {
+              rows: data.rotation,
+              team: data.team,
+              options,
+              enemy: ENEMY_DEFAULTS
+            });
+            const { loopStartIndex } = await recalcResult;
 
-          const { result: calcResult } = postToWorker('calculateDamage', {
-            rows: data.rotation,
-            team: data.team,
-            options,
-            enemy: ENEMY_DEFAULTS,
-            loopStartIndex
-          });
-          const { results } = (await calcResult) as { results: RotationResults };
+            const { result: calcResult } = postToWorker('calculateDamage', {
+              rows: data.rotation,
+              team: data.team,
+              options,
+              enemy: ENEMY_DEFAULTS,
+              loopStartIndex
+            });
+            ({ results } = (await calcResult) as { results: RotationResults });
+          }
 
           const entry: RankingEntry = {
             id: filename,

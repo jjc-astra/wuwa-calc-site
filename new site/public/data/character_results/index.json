@@ -1,6 +1,6 @@
 [
   {
-    "file": "Rotation_Lumi-RC_Sanhua-EOG opener and loop.json",
-    "rotationType": null
+    "file": "Rotation_Lumi-RC_Sanhua-EOG_Results.json",
+    "rotationType": "linear"
   }
 ]

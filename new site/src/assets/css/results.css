@@ -288,6 +288,11 @@
     color: var(--text-main); font-size: 0.78rem; cursor: pointer;
 }
 .pin-menu-item:hover:not(:disabled) { background: var(--surface-lighten-strong); }
+/* History's "Remove" entry -- only destructive item currently in any .pin-menu, so it's called
+   out in the same red used elsewhere for irreversible actions rather than reading identically
+   to Save Results/Restore Rotation above it. */
+.pin-menu-item-danger { color: var(--danger-text); }
+.pin-menu-item-danger:hover:not(:disabled) { background: var(--danger-tint); }
 .pin-menu-item:disabled { color: var(--text-dim); cursor: not-allowed; }
 
 .pin-chip {
@@ -425,3 +430,44 @@
 .pie-chart-swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
 .pie-chart-legend-label { color: var(--text-main); font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pie-chart-legend-value { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+
+/* =========================================
+   HISTORY TAB
+   ========================================= */
+.history-list { display: flex; flex-direction: column; gap: var(--space-2); }
+
+/* Two rows: icons + favorite toggle on top, the dmg contribution bar + "..." menu below it --
+   everything (including the menu button) stays inside this one bordered card. */
+.history-row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    background: var(--surface-lighten);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+.history-row-top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.history-row-bottom { display: flex; align-items: center; gap: var(--space-3); }
+
+.history-row-icons { display: flex; align-items: center; gap: var(--space-1); }
+/* Same star glyph as .quick-build-btn (CharacterSlot's "Load Recommended Build"), but a
+   persistent toggle here instead of a one-shot action -- is-active fills it solid gold instead
+   of relying on :hover, so a favorited entry still reads as favorited once the cursor moves on. */
+.history-favorite-btn { flex-shrink: 0; }
+.history-favorite-btn.is-active {
+    background: var(--accent);
+    color: var(--bg-dark);
+    box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.history-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.history-row-label-line { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.history-row-label {
+    font-weight: bold; color: var(--text-main); font-size: 0.85rem;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.history-row-timestamp { flex-shrink: 0; font-size: 0.68rem; color: var(--text-dim); white-space: nowrap; }
+/* Anchors the "..." menu's .pin-menu dropdown (reused as-is from Pin Comparison) to this
+   button rather than the whole row. */
+.history-row-menu-wrap { position: relative; flex-shrink: 0; }

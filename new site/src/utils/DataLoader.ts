@@ -1,11 +1,19 @@
 import { CommonUtils } from './Common';
 import type { CharacterData, WeaponData, MechanicNode, TeamSlot } from '../types/index';
+import type { RotationResults } from '../types/results';
 
 export interface CharacterResultData {
   rotation: any[];
   team: TeamSlot[];
   settings: { startEnergy?: boolean; startConcerto?: boolean };
   rotationType: 'linear' | 'quickswap' | null;
+  // Present when the file was produced by History's "Save Results" -- lets the Rankings loader
+  // skip re-running the calc worker for this entry entirely. Absent for a plain Export Rotation
+  // file, which only ever has rotation/team/settings. dmgOverTimeSeries is deliberately left
+  // out of what Save Results writes (nothing reads it from a saved file, and it's cheap to
+  // regenerate via a real recalculate if it's ever needed), so it isn't guaranteed to be here
+  // even when the rest of results is.
+  results?: Omit<RotationResults, 'dmgOverTimeSeries'>;
 }
 
 export class DataLoaderClass {

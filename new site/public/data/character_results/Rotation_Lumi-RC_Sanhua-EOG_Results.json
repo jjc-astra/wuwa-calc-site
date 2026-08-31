@@ -1,0 +1,1870 @@
+{
+  "rotation": [
+    {
+      "unit": "Sanhua",
+      "action": "Sanhua_Basic Attack 2",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Sanhua",
+      "action": "Sanhua_Basic Attack 3",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Sanhua",
+      "action": "Sanhua_Forte Hold Press",
+      "timing": "Simultaneous"
+    },
+    {
+      "unit": "Sanhua",
+      "action": "Sanhua_Resonance Skill",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Sanhua",
+      "action": "Sanhua_Glacial Gaze",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Sanhua",
+      "action": "Sanhua_Forte Hold Release",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Sanhua",
+      "action": "Impermanence Heron_Attack",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Sanhua",
+      "action": "Sanhua_Outro",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Intro",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Energized Pounce",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Squeakie Express",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Red Spotlight: Heavy Attack",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Red Spotlight: Basic Attack 1",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Red Spotlight: Basic Attack 2",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Red Spotlight: Basic Attack 3",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Energized Rebound",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "System_Dodge",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Yellow Spotlight: Glare",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Yellow Spotlight: Glare",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Yellow Spotlight: Glare",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Yellow Spotlight: Glare",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Yellow Spotlight: Glare",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Yellow Spotlight: Glare",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Energized Pounce",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Red Spotlight: Basic Attack 1",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Red Spotlight: Basic Attack 2",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Red Spotlight: Basic Attack 3",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Energized Rebound",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "System_Dodge",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Yellow Spotlight: Glare",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Yellow Spotlight: Glare",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Yellow Spotlight: Glare",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Yellow Spotlight: Glare",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Yellow Spotlight: Glare",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Yellow Spotlight: Glare",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "NM Thundering Mephis_Attack",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Outro",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Sanhua",
+      "action": "Sanhua_Intro Skill",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Sanhua",
+      "action": "Sanhua_Forte Hold Press",
+      "timing": "Simultaneous"
+    },
+    {
+      "unit": "Sanhua",
+      "action": "Sanhua_Resonance Skill",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Sanhua",
+      "action": "Sanhua_Glacial Gaze",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Sanhua",
+      "action": "Sanhua_Forte Hold Release",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Sanhua",
+      "action": "Impermanence Heron_Attack",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Sanhua",
+      "action": "Sanhua_Outro",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Intro",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Energized Pounce",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Squeakie Express",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Red Spotlight: Heavy Attack",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Red Spotlight: Basic Attack 1",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Red Spotlight: Basic Attack 2",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Red Spotlight: Basic Attack 3",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Energized Rebound",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "System_Dodge",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Yellow Spotlight: Glare",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Yellow Spotlight: Glare",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Yellow Spotlight: Glare",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Yellow Spotlight: Glare",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Yellow Spotlight: Glare",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Yellow Spotlight: Glare",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Energized Pounce",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Red Spotlight: Basic Attack 1",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Red Spotlight: Basic Attack 2",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Red Spotlight: Basic Attack 3",
+      "timing": "Full"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Energized Rebound",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "System_Dodge",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Yellow Spotlight: Glare",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Yellow Spotlight: Glare",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Yellow Spotlight: Glare",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Yellow Spotlight: Glare",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Yellow Spotlight: Glare",
+      "timing": "Auto"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Yellow Spotlight: Glare",
+      "timing": "Full"
+    },
+    {
+      "unit": "Lumi",
+      "action": "Lumi_Outro",
+      "timing": "Auto"
+    },
+    {
+      "unit": "",
+      "action": "",
+      "timing": "Auto"
+    }
+  ],
+  "team": [
+    {
+      "index": 0,
+      "character": "Lumi",
+      "sequence": "6",
+      "mode": "None",
+      "weapon": "Radiance Cleaver",
+      "rank": 5,
+      "layout": "4 3 3 1 1",
+      "mainSet": "Void Thunder",
+      "subSet": "",
+      "mainEcho": "NM Thundering Mephis",
+      "echoes": [
+        {
+          "mainStat": "CR Rate",
+          "substats": [
+            {
+              "name": "CR Rate",
+              "value": 8.1
+            },
+            {
+              "name": "CR DMG",
+              "value": 15
+            },
+            {
+              "name": "ATK %",
+              "value": 9.4
+            },
+            {
+              "name": "HP %",
+              "value": 10.1
+            },
+            {
+              "name": "Basic DMG",
+              "value": 7.1
+            }
+          ]
+        },
+        {
+          "mainStat": "Electro DMG",
+          "substats": [
+            {
+              "name": "CR Rate",
+              "value": 8.1
+            },
+            {
+              "name": "CR DMG",
+              "value": 13.8
+            },
+            {
+              "name": "ATK %",
+              "value": 7.9
+            },
+            {
+              "name": "ER %",
+              "value": 7.6
+            },
+            {
+              "name": "DEF %",
+              "value": 12.8
+            }
+          ]
+        },
+        {
+          "mainStat": "Electro DMG",
+          "substats": [
+            {
+              "name": "CR Rate",
+              "value": 10.5
+            },
+            {
+              "name": "CR DMG",
+              "value": 15
+            },
+            {
+              "name": "Basic DMG",
+              "value": 9.4
+            },
+            {
+              "name": "ATK %",
+              "value": 6.4
+            },
+            {
+              "name": "DEF %",
+              "value": 11.8
+            }
+          ]
+        },
+        {
+          "mainStat": "ATK %",
+          "substats": [
+            {
+              "name": "CR Rate",
+              "value": 8.7
+            },
+            {
+              "name": "CR DMG",
+              "value": 15
+            },
+            {
+              "name": "ATK %",
+              "value": 9.4
+            },
+            {
+              "name": "ATK",
+              "value": 40
+            },
+            {
+              "name": "DEF",
+              "value": 60
+            }
+          ]
+        },
+        {
+          "mainStat": "ATK %",
+          "substats": [
+            {
+              "name": "CR Rate",
+              "value": 6.9
+            },
+            {
+              "name": "CR DMG",
+              "value": 15
+            },
+            {
+              "name": "ATK",
+              "value": 40
+            },
+            {
+              "name": "Basic DMG",
+              "value": 9.4
+            },
+            {
+              "name": "ER %",
+              "value": 9.2
+            }
+          ]
+        }
+      ],
+      "echoStats": {
+        "flatHP": 4560,
+        "percentHP": 10.1,
+        "flatAtk": 430,
+        "percentAtk": 69.1,
+        "flatDef": 60,
+        "percentDef": 24.6,
+        "critRate": 64.30000000000001,
+        "critDamage": 73.8,
+        "energyRegen": 16.799999999999997,
+        "healingBonus": 0,
+        "skillDmgBonus": 0,
+        "basicDmgBonus": 25.9,
+        "heavyDmgBonus": 0,
+        "libDmgBonus": 0,
+        "glacioDmgBonus": 0,
+        "fusionDmgBonus": 0,
+        "electroDmgBonus": 60,
+        "aeroDmgBonus": 0,
+        "spectroDmgBonus": 0,
+        "havocDmgBonus": 0
+      }
+    },
+    {
+      "index": 1,
+      "character": "Sanhua",
+      "sequence": 0,
+      "mode": "None",
+      "weapon": "Emerald of Genesis",
+      "rank": 1,
+      "layout": "4 3 3 1 1",
+      "mainSet": "Moonlit Clouds",
+      "subSet": "",
+      "mainEcho": "Impermanence Heron",
+      "echoes": [
+        {
+          "mainStat": "CR Rate",
+          "substats": [
+            {
+              "name": "CR Rate",
+              "value": 7.5
+            },
+            {
+              "name": "CR DMG",
+              "value": 15
+            },
+            {
+              "name": "ER %",
+              "value": 9.2
+            },
+            {
+              "name": "ATK %",
+              "value": 8.6
+            },
+            {
+              "name": "Lib DMG",
+              "value": 8.6
+            }
+          ]
+        },
+        {
+          "mainStat": "Glacio DMG",
+          "substats": [
+            {
+              "name": "CR Rate",
+              "value": 7.5
+            },
+            {
+              "name": "CR DMG",
+              "value": 15
+            },
+            {
+              "name": "ER %",
+              "value": 9.2
+            },
+            {
+              "name": "ATK %",
+              "value": 8.6
+            },
+            {
+              "name": "Lib DMG",
+              "value": 8.6
+            }
+          ]
+        },
+        {
+          "mainStat": "Glacio DMG",
+          "substats": [
+            {
+              "name": "CR Rate",
+              "value": 7.5
+            },
+            {
+              "name": "CR DMG",
+              "value": 15
+            },
+            {
+              "name": "N/A",
+              "value": ""
+            },
+            {
+              "name": "N/A",
+              "value": ""
+            },
+            {
+              "name": "N/A",
+              "value": ""
+            }
+          ]
+        },
+        {
+          "mainStat": "ATK %",
+          "substats": [
+            {
+              "name": "CR Rate",
+              "value": 7.5
+            },
+            {
+              "name": "CR DMG",
+              "value": 15
+            },
+            {
+              "name": "N/A",
+              "value": ""
+            },
+            {
+              "name": "N/A",
+              "value": ""
+            },
+            {
+              "name": "N/A",
+              "value": ""
+            }
+          ]
+        },
+        {
+          "mainStat": "ATK %",
+          "substats": [
+            {
+              "name": "CR Rate",
+              "value": 7.5
+            },
+            {
+              "name": "CR DMG",
+              "value": 15
+            },
+            {
+              "name": "N/A",
+              "value": ""
+            },
+            {
+              "name": "N/A",
+              "value": ""
+            },
+            {
+              "name": "N/A",
+              "value": ""
+            }
+          ]
+        }
+      ],
+      "echoStats": {
+        "flatHP": 4560,
+        "percentHP": 0,
+        "flatAtk": 350,
+        "percentAtk": 53.2,
+        "flatDef": 0,
+        "percentDef": 0,
+        "critRate": 59.5,
+        "critDamage": 75,
+        "energyRegen": 18.4,
+        "healingBonus": 0,
+        "skillDmgBonus": 0,
+        "basicDmgBonus": 0,
+        "heavyDmgBonus": 0,
+        "libDmgBonus": 17.2,
+        "glacioDmgBonus": 60,
+        "fusionDmgBonus": 0,
+        "electroDmgBonus": 0,
+        "aeroDmgBonus": 0,
+        "spectroDmgBonus": 0,
+        "havocDmgBonus": 0
+      }
+    },
+    {
+      "index": 2,
+      "character": "",
+      "sequence": 0,
+      "mode": "None",
+      "weapon": "",
+      "rank": 1,
+      "layout": "4 3 3 1 1",
+      "mainSet": "",
+      "subSet": "",
+      "mainEcho": "",
+      "echoes": [
+        {
+          "mainStat": "CR Rate",
+          "substats": [
+            {
+              "name": "CR Rate",
+              "value": ""
+            },
+            {
+              "name": "CR DMG",
+              "value": ""
+            },
+            {
+              "name": "ATK %",
+              "value": ""
+            },
+            {
+              "name": "ER %",
+              "value": ""
+            },
+            {
+              "name": "ATK",
+              "value": ""
+            }
+          ]
+        },
+        {
+          "mainStat": "Fusion DMG",
+          "substats": [
+            {
+              "name": "CR Rate",
+              "value": ""
+            },
+            {
+              "name": "CR DMG",
+              "value": ""
+            },
+            {
+              "name": "ATK %",
+              "value": ""
+            },
+            {
+              "name": "ER %",
+              "value": ""
+            },
+            {
+              "name": "ATK",
+              "value": ""
+            }
+          ]
+        },
+        {
+          "mainStat": "Fusion DMG",
+          "substats": [
+            {
+              "name": "CR Rate",
+              "value": ""
+            },
+            {
+              "name": "CR DMG",
+              "value": ""
+            },
+            {
+              "name": "ATK %",
+              "value": ""
+            },
+            {
+              "name": "ER %",
+              "value": ""
+            },
+            {
+              "name": "ATK",
+              "value": ""
+            }
+          ]
+        },
+        {
+          "mainStat": "ATK %",
+          "substats": [
+            {
+              "name": "CR Rate",
+              "value": ""
+            },
+            {
+              "name": "CR DMG",
+              "value": ""
+            },
+            {
+              "name": "ATK %",
+              "value": ""
+            },
+            {
+              "name": "ER %",
+              "value": ""
+            },
+            {
+              "name": "ATK",
+              "value": ""
+            }
+          ]
+        },
+        {
+          "mainStat": "ATK %",
+          "substats": [
+            {
+              "name": "CR Rate",
+              "value": ""
+            },
+            {
+              "name": "CR DMG",
+              "value": ""
+            },
+            {
+              "name": "ATK %",
+              "value": ""
+            },
+            {
+              "name": "ER %",
+              "value": ""
+            },
+            {
+              "name": "ATK",
+              "value": ""
+            }
+          ]
+        }
+      ],
+      "echoStats": {
+        "flatHP": 4560,
+        "percentHP": 0,
+        "flatAtk": 350,
+        "percentAtk": 36,
+        "flatDef": 0,
+        "percentDef": 0,
+        "critRate": 22,
+        "critDamage": 0,
+        "energyRegen": 0,
+        "skillDmgBonus": 0,
+        "basicDmgBonus": 0,
+        "heavyDmgBonus": 0,
+        "libDmgBonus": 0,
+        "glacioDmgBonus": 0,
+        "fusionDmgBonus": 60,
+        "electroDmgBonus": 0,
+        "aeroDmgBonus": 0,
+        "spectroDmgBonus": 0,
+        "havocDmgBonus": 0,
+        "healingBonus": 0
+      }
+    }
+  ],
+  "settings": {
+    "startEnergy": true,
+    "startConcerto": false
+  },
+  "results": {
+    "dpsStats": {
+      "openerDps": 27044.635416666668,
+      "firstLoopDps": 28355.291139240508,
+      "avgLoopDps": 26991.510548523205,
+      "twoMinDps": 27043.566666666666
+    },
+    "contribution": {
+      "opener": {
+        "team": [
+          {
+            "label": "Sanhua",
+            "dmg": 56485
+          },
+          {
+            "label": "Lumi",
+            "dmg": 462772
+          }
+        ],
+        "units": {
+          "Lumi": [
+            {
+              "castType": "Intro",
+              "dmg": 6084
+            },
+            {
+              "castType": "Basic",
+              "dmg": 391486
+            },
+            {
+              "castType": "Liberation",
+              "dmg": 65202
+            }
+          ],
+          "Sanhua": [
+            {
+              "castType": "Basic",
+              "dmg": 4022
+            },
+            {
+              "castType": "Skill",
+              "dmg": 9312
+            },
+            {
+              "castType": "Liberation",
+              "dmg": 23044
+            },
+            {
+              "castType": "Heavy",
+              "dmg": 15301
+            },
+            {
+              "castType": "Echo",
+              "dmg": 4806
+            }
+          ]
+        }
+      },
+      "firstLoop": {
+        "team": [
+          {
+            "label": "Sanhua",
+            "dmg": 74988
+          },
+          {
+            "label": "Lumi",
+            "dmg": 485029
+          }
+        ],
+        "units": {
+          "Lumi": [
+            {
+              "castType": "Intro",
+              "dmg": 6246
+            },
+            {
+              "castType": "Echo",
+              "dmg": 19635
+            },
+            {
+              "castType": "Basic",
+              "dmg": 393946
+            },
+            {
+              "castType": "Liberation",
+              "dmg": 65202
+            }
+          ],
+          "Sanhua": [
+            {
+              "castType": "Intro",
+              "dmg": 4426
+            },
+            {
+              "castType": "Skill",
+              "dmg": 15795
+            },
+            {
+              "castType": "Liberation",
+              "dmg": 28322
+            },
+            {
+              "castType": "Heavy",
+              "dmg": 20702
+            },
+            {
+              "castType": "Echo",
+              "dmg": 5743
+            }
+          ]
+        }
+      },
+      "avgLoop": {
+        "team": [
+          {
+            "label": "Sanhua",
+            "dmg": 74988
+          },
+          {
+            "label": "Lumi",
+            "dmg": 458094.3333333333
+          }
+        ],
+        "units": {
+          "Lumi": [
+            {
+              "castType": "Intro",
+              "dmg": 6246
+            },
+            {
+              "castType": "Echo",
+              "dmg": 6545
+            },
+            {
+              "castType": "Basic",
+              "dmg": 380101.3333333333
+            },
+            {
+              "castType": "Liberation",
+              "dmg": 65202
+            }
+          ],
+          "Sanhua": [
+            {
+              "castType": "Intro",
+              "dmg": 4426
+            },
+            {
+              "castType": "Skill",
+              "dmg": 15795
+            },
+            {
+              "castType": "Liberation",
+              "dmg": 28322
+            },
+            {
+              "castType": "Heavy",
+              "dmg": 20702
+            },
+            {
+              "castType": "Echo",
+              "dmg": 5743
+            }
+          ]
+        }
+      },
+      "twoMin": {
+        "team": [
+          {
+            "label": "Sanhua",
+            "dmg": 435851
+          },
+          {
+            "label": "Lumi",
+            "dmg": 2809377
+          }
+        ],
+        "units": {
+          "Lumi": [
+            {
+              "castType": "Intro",
+              "dmg": 37314
+            },
+            {
+              "castType": "Basic",
+              "dmg": 2361216
+            },
+            {
+              "castType": "Liberation",
+              "dmg": 391212
+            },
+            {
+              "castType": "Echo",
+              "dmg": 19635
+            }
+          ],
+          "Sanhua": [
+            {
+              "castType": "Basic",
+              "dmg": 4022
+            },
+            {
+              "castType": "Skill",
+              "dmg": 88287
+            },
+            {
+              "castType": "Liberation",
+              "dmg": 164654
+            },
+            {
+              "castType": "Heavy",
+              "dmg": 118811
+            },
+            {
+              "castType": "Echo",
+              "dmg": 33521
+            },
+            {
+              "castType": "Intro",
+              "dmg": 26556
+            }
+          ]
+        }
+      }
+    },
+    "substatWorth": {
+      "Lumi": [
+        {
+          "substat": "CR Rate",
+          "min": 6.3,
+          "max": 10.5,
+          "default": 7.5,
+          "minus": {
+            "team": {
+              "min": 4.03099566501953,
+              "max": 6.718849954456204,
+              "default": 4.798830775526404
+            },
+            "personal": {
+              "min": 4.656370433729613,
+              "max": 7.761222505915012,
+              "default": 5.543328645461253
+            }
+          },
+          "plus": {
+            "team": {
+              "min": 4.0302869320738015,
+              "max": 6.7178330767514645,
+              "default": 4.7998476532311445
+            },
+            "personal": {
+              "min": 4.65555174688196,
+              "max": 7.760047868264032,
+              "default": 5.544503283112235
+            }
+          }
+        },
+        {
+          "substat": "CR DMG",
+          "min": 12.6,
+          "max": 21,
+          "default": 15,
+          "minus": {
+            "team": {
+              "min": 3.6157089732986405,
+              "max": 6.0248771426845815,
+              "default": 4.302933414847893
+            },
+            "personal": {
+              "min": 4.176655536085047,
+              "max": 6.95958570174099,
+              "default": 4.970497017666195
+            }
+          },
+          "plus": {
+            "team": {
+              "min": 3.6134903310337516,
+              "max": 6.025031215064089,
+              "default": 4.3039194780767325
+            },
+            "personal": {
+              "min": 4.174092690301088,
+              "max": 6.959763677142655,
+              "default": 4.971636060236842
+            }
+          }
+        },
+        {
+          "substat": "ATK %",
+          "min": 6.4,
+          "max": 11.6,
+          "default": 8.6,
+          "minus": {
+            "team": {
+              "min": 1.9056904476357286,
+              "max": 3.4513753733173753,
+              "default": 2.5500827676822704
+            },
+            "personal": {
+              "min": 2.201342148099027,
+              "max": 3.9868269726704533,
+              "default": 2.9457064680176424
+            }
+          },
+          "plus": {
+            "team": {
+              "min": 1.9274762820978988,
+              "max": 3.4750408908095207,
+              "default": 2.572947108800984
+            },
+            "personal": {
+              "min": 2.226507869894286,
+              "max": 4.014163994366011,
+              "default": 2.972118017624548
+            }
+          }
+        },
+        {
+          "substat": "HP %",
+          "min": 6.4,
+          "max": 11.6,
+          "default": 8.6,
+          "minus": {
+            "team": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            },
+            "personal": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            }
+          },
+          "plus": {
+            "team": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            },
+            "personal": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            }
+          }
+        },
+        {
+          "substat": "DEF %",
+          "min": 8.1,
+          "max": 14.7,
+          "default": 10.9,
+          "minus": {
+            "team": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            },
+            "personal": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            }
+          },
+          "plus": {
+            "team": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            },
+            "personal": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            }
+          }
+        },
+        {
+          "substat": "ER %",
+          "min": 6.8,
+          "max": 12.4,
+          "default": 9.2,
+          "minus": {
+            "team": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            },
+            "personal": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            }
+          },
+          "plus": {
+            "team": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            },
+            "personal": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            }
+          }
+        },
+        {
+          "substat": "Skill DMG",
+          "min": 6.4,
+          "max": 11.6,
+          "default": 8.6,
+          "minus": {
+            "team": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            },
+            "personal": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            }
+          },
+          "plus": {
+            "team": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            },
+            "personal": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            }
+          }
+        },
+        {
+          "substat": "Basic DMG",
+          "min": 6.4,
+          "max": 11.6,
+          "default": 8.6,
+          "minus": {
+            "team": {
+              "min": 1.641178986499562,
+              "max": 2.9721794585773327,
+              "default": 2.2018175610465582
+            },
+            "personal": {
+              "min": 1.8957939785226405,
+              "max": 3.4332878784157486,
+              "default": 2.5434108700968223
+            }
+          },
+          "plus": {
+            "team": {
+              "min": 1.6393917468972903,
+              "max": 2.9739666981796042,
+              "default": 2.2041594612150517
+            },
+            "personal": {
+              "min": 1.8937294638633406,
+              "max": 3.435352393075048,
+              "default": 2.5461160962021117
+            }
+          }
+        },
+        {
+          "substat": "Heavy DMG",
+          "min": 6.4,
+          "max": 11.6,
+          "default": 8.6,
+          "minus": {
+            "team": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            },
+            "personal": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            }
+          },
+          "plus": {
+            "team": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            },
+            "personal": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            }
+          }
+        },
+        {
+          "substat": "Lib DMG",
+          "min": 6.4,
+          "max": 11.6,
+          "default": 8.6,
+          "minus": {
+            "team": {
+              "min": 0.2795489253759674,
+              "max": 0.5067748706716446,
+              "default": 0.3756900901878081
+            },
+            "personal": {
+              "min": 0.32291856877877195,
+              "max": 0.5853966911525225,
+              "default": 0.4339752194169739
+            }
+          },
+          "plus": {
+            "team": {
+              "min": 0.2795489253759674,
+              "max": 0.5065899838162372,
+              "default": 0.3756900901878081
+            },
+            "personal": {
+              "min": 0.32291856877877195,
+              "max": 0.5851831206705259,
+              "default": 0.4339752194169739
+            }
+          }
+        },
+        {
+          "substat": "HP",
+          "min": 320,
+          "max": 580,
+          "default": 430,
+          "minus": {
+            "team": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            },
+            "personal": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            }
+          },
+          "plus": {
+            "team": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            },
+            "personal": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            }
+          }
+        },
+        {
+          "substat": "ATK",
+          "min": 30,
+          "max": 60,
+          "default": 40,
+          "minus": {
+            "team": {
+              "min": 0.9658797471240851,
+              "max": 1.9342246523202684,
+              "default": 1.2872131018221216
+            },
+            "personal": {
+              "min": 1.1157277930302696,
+              "max": 2.2343031924871597,
+              "default": 1.4869132907402602
+            }
+          },
+          "plus": {
+            "team": {
+              "min": 0.9668349958770232,
+              "max": 1.932283340338491,
+              "default": 1.2872131018221216
+            },
+            "personal": {
+              "min": 1.1168312405205851,
+              "max": 2.2320607024261965,
+              "default": 1.4869132907402602
+            }
+          }
+        },
+        {
+          "substat": "DEF",
+          "min": 40,
+          "max": 70,
+          "default": 50,
+          "minus": {
+            "team": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            },
+            "personal": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            }
+          },
+          "plus": {
+            "team": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            },
+            "personal": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            }
+          }
+        }
+      ],
+      "Sanhua": [
+        {
+          "substat": "CR Rate",
+          "min": 6.3,
+          "max": 10.5,
+          "default": 7.5,
+          "minus": {
+            "team": {
+              "min": 0.5011050071058182,
+              "max": 0.8355036995859768,
+              "default": 0.5964141810683256
+            },
+            "personal": {
+              "min": 3.731091588639237,
+              "max": 6.220933300600435,
+              "default": 4.440737775065332
+            }
+          },
+          "plus": {
+            "team": {
+              "min": 0.5012898939612255,
+              "max": 0.8359967312003964,
+              "default": 0.5967223258273379
+            },
+            "personal": {
+              "min": 3.7324682058776966,
+              "max": 6.224604279902994,
+              "default": 4.443032137129432
+            }
+          }
+        },
+        {
+          "substat": "CR DMG",
+          "min": 12.6,
+          "max": 21,
+          "default": 15,
+          "minus": {
+            "team": {
+              "min": 0.7124614973123614,
+              "max": 1.187096869619022,
+              "default": 0.8478603044223704
+            },
+            "personal": {
+              "min": 5.30479452840535,
+              "max": 8.838800415738406,
+              "default": 6.3129372193708395
+            }
+          },
+          "plus": {
+            "team": {
+              "min": 0.7120917236015467,
+              "max": 1.1871276840949234,
+              "default": 0.8480143768018764
+            },
+            "personal": {
+              "min": 5.30204129392843,
+              "max": 8.839029851944815,
+              "default": 6.314084400402891
+            }
+          }
+        },
+        {
+          "substat": "ATK %",
+          "min": 6.4,
+          "max": 11.6,
+          "default": 8.6,
+          "minus": {
+            "team": {
+              "min": 0.3389284204376395,
+              "max": 0.6165668483077307,
+              "default": 0.45654727495263814
+            },
+            "personal": {
+              "min": 2.5235688343034663,
+              "max": 4.590789054057465,
+              "default": 3.399326834170393
+            }
+          },
+          "plus": {
+            "team": {
+              "min": 0.338990049389442,
+              "max": 0.6167825496390392,
+              "default": 0.45590017095871227
+            },
+            "personal": {
+              "min": 2.524027706716286,
+              "max": 4.592395107502335,
+              "default": 3.3945086738357833
+            }
+          }
+        },
+        {
+          "substat": "HP %",
+          "min": 6.4,
+          "max": 11.6,
+          "default": 8.6,
+          "minus": {
+            "team": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            },
+            "personal": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            }
+          },
+          "plus": {
+            "team": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            },
+            "personal": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            }
+          }
+        },
+        {
+          "substat": "DEF %",
+          "min": 8.1,
+          "max": 14.7,
+          "default": 10.9,
+          "minus": {
+            "team": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            },
+            "personal": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            }
+          },
+          "plus": {
+            "team": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            },
+            "personal": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            }
+          }
+        },
+        {
+          "substat": "ER %",
+          "min": 6.8,
+          "max": 12.4,
+          "default": 9.2,
+          "minus": {
+            "team": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            },
+            "personal": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            }
+          },
+          "plus": {
+            "team": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            },
+            "personal": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            }
+          }
+        },
+        {
+          "substat": "Skill DMG",
+          "min": 6.4,
+          "max": 11.6,
+          "default": 8.6,
+          "minus": {
+            "team": {
+              "min": 0.101256367811445,
+              "max": 0.183438575040028,
+              "default": 0.13604591110393477
+            },
+            "personal": {
+              "min": 0.753927374263223,
+              "max": 1.3658337367586628,
+              "default": 1.0129608513001003
+            }
+          },
+          "plus": {
+            "team": {
+              "min": 0.1012871822873462,
+              "max": 0.18346938951592923,
+              "default": 0.136076725579836
+            },
+            "personal": {
+              "min": 0.754156810469633,
+              "max": 1.366063172965073,
+              "default": 1.0131902875065102
+            }
+          }
+        },
+        {
+          "substat": "Basic DMG",
+          "min": 6.4,
+          "max": 11.6,
+          "default": 8.6,
+          "minus": {
+            "team": {
+              "min": 0.0045913569092834155,
+              "max": 0.008412351921036057,
+              "default": 0.006193709656147426
+            },
+            "personal": {
+              "min": 0.03418599475508832,
+              "max": 0.06263608434992692,
+              "default": 0.04611667748840774
+            }
+          },
+          "plus": {
+            "team": {
+              "min": 0.0045913569092834155,
+              "max": 0.008412351921036057,
+              "default": 0.006193709656147426
+            },
+            "personal": {
+              "min": 0.03418599475508832,
+              "max": 0.06263608434992692,
+              "default": 0.04611667748840774
+            }
+          }
+        },
+        {
+          "substat": "Heavy DMG",
+          "min": 6.4,
+          "max": 11.6,
+          "default": 8.6,
+          "minus": {
+            "team": {
+              "min": 0.13653894271835446,
+              "max": 0.2468855809206626,
+              "default": 0.18288391447380584
+            },
+            "personal": {
+              "min": 1.01663183060266,
+              "max": 1.8382428857568296,
+              "default": 1.3617038850432832
+            }
+          },
+          "plus": {
+            "team": {
+              "min": 0.1359842821521323,
+              "max": 0.24719372567967487,
+              "default": 0.18319205923281817
+            },
+            "personal": {
+              "min": 1.0125019788872802,
+              "max": 1.8405372478209294,
+              "default": 1.363998247107383
+            }
+          }
+        },
+        {
+          "substat": "Lib DMG",
+          "min": 6.4,
+          "max": 11.6,
+          "default": 8.6,
+          "minus": {
+            "team": {
+              "min": 0.17163663076985655,
+              "max": 0.3110105052711243,
+              "default": 0.23058472316891138
+            },
+            "personal": {
+              "min": 1.2779596697036373,
+              "max": 2.3156996312960163,
+              "default": 1.7168711325659458
+            }
+          },
+          "plus": {
+            "team": {
+              "min": 0.1716058162939553,
+              "max": 0.3111645776506304,
+              "default": 0.23055390869301018
+            },
+            "personal": {
+              "min": 1.2777302334972274,
+              "max": 2.316846812328066,
+              "default": 1.7166416963595357
+            }
+          }
+        },
+        {
+          "substat": "HP",
+          "min": 320,
+          "max": 580,
+          "default": 430,
+          "minus": {
+            "team": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            },
+            "personal": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            }
+          },
+          "plus": {
+            "team": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            },
+            "personal": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            }
+          }
+        },
+        {
+          "substat": "ATK",
+          "min": 30,
+          "max": 60,
+          "default": 40,
+          "minus": {
+            "team": {
+              "min": 0.18497929883508957,
+              "max": 0.3699277831942779,
+              "default": 0.2468855809206626
+            },
+            "personal": {
+              "min": 1.3773055470791624,
+              "max": 2.7543816579519147,
+              "default": 1.8382428857568296
+            }
+          },
+          "plus": {
+            "team": {
+              "min": 0.18460952512427478,
+              "max": 0.3700510410978828,
+              "default": 0.24666987958935396
+            },
+            "personal": {
+              "min": 1.3745523126022425,
+              "max": 2.755299402777555,
+              "default": 1.8366368323119597
+            }
+          }
+        },
+        {
+          "substat": "DEF",
+          "min": 40,
+          "max": 70,
+          "default": 50,
+          "minus": {
+            "team": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            },
+            "personal": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            }
+          },
+          "plus": {
+            "team": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            },
+            "personal": {
+              "min": 0,
+              "max": 0,
+              "default": 0
+            }
+          }
+        }
+      ]
+    }
+  }
+}

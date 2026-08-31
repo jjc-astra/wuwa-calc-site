@@ -4,11 +4,12 @@ import { ChromeTabs } from './ChromeTabs';
 import type { ChromeTabDef } from './ChromeTabs';
 import { ResultsTab } from './ResultsTab';
 import { ComingSoonTab } from './ComingSoonTab';
+import { HistoryTab } from './HistoryTab';
 
 const TABS: ChromeTabDef[] = [
   { id: 'results', label: 'Results' },
   { id: 'timeline', label: 'Timeline', comingSoon: true },
-  { id: 'history', label: 'History', comingSoon: true }
+  { id: 'history', label: 'History' }
 ];
 
 interface ResultsPanelProps {
@@ -32,9 +33,7 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({ collapsed }) => {
               description="A video-editor style timeline of character moves, buff lifetimes, and negative status stacks."
             />
           )}
-          {activeTab === 'history' && (
-            <ComingSoonTab title="History" description="Snapshots of rotations you've previously run, ready to revisit or compare." />
-          )}
+          {activeTab === 'history' && <HistoryTab />}
         </div>
       </div>
     </div>

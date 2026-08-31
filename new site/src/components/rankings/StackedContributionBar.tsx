@@ -30,6 +30,11 @@ interface StackedContributionBarProps {
   /** This row's bar length as a % of the top-ranked entry's, e.g. 100 for the #1 row. */
   widthPct: number;
   dpsValue: number;
+  /** The %-of-top-entry label only means something when there's an actual leaderboard to be a
+   * percentage of (Rankings); History has no such reference point (its bar is always drawn at
+   * a fixed 100% just to fill the row), so it passes false here to suppress a "100%" that
+   * wouldn't be measuring anything. Defaults to true for Rankings' own usage. */
+  showPercentage?: boolean;
 }
 
 const formatValue = (v: number) => Math.round(v).toLocaleString();
@@ -40,7 +45,7 @@ const formatValue = (v: number) => Math.round(v).toLocaleString();
 const PCT_INSIDE_THRESHOLD = 90;
 
 export const StackedContributionBar: React.FC<StackedContributionBarProps> = ({
-  segments, unitNames, unitBreakdowns, widthPct, dpsValue
+  segments, unitNames, unitBreakdowns, widthPct, dpsValue, showPercentage = true
 }) => {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const slices = segments.filter(s => s.dmg > 0);
@@ -118,12 +123,14 @@ export const StackedContributionBar: React.FC<StackedContributionBarProps> = ({
         <span className="ranking-bar-dps-value">{formatValue(dpsValue)}</span>
         <span className="ranking-bar-dps-unit">DPS</span>
       </div>
-      <div
-        className={`ranking-bar-pct ${pctInside ? 'is-inside' : 'is-outside'}`}
-        style={pctInside ? undefined : { left: `${clampedWidth}%` }}
-      >
-        {clampedWidth.toFixed(clampedWidth >= 99.95 ? 0 : 2)}%
-      </div>
+      {showPercentage && (
+        <div
+          className={`ranking-bar-pct ${pctInside ? 'is-inside' : 'is-outside'}`}
+          style={pctInside ? undefined : { left: `${clampedWidth}%` }}
+        >
+          {clampedWidth.toFixed(clampedWidth >= 99.95 ? 0 : 2)}%
+        </div>
+      )}
     </div>
   );
 };
