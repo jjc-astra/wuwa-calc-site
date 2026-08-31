@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 
-const TRANSITION_MS = 300; // matches .collapsible-content's transition duration in layout.css
+const TRANSITION_MS = 300; // matches .collapsible-content's transition duration in calculator.css
 const OPEN_CAP_PX = 9999; // comfortably larger than any real panel content
 
 // Animates an accordion panel's height via max-height rather than display:none, so it can
