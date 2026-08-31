@@ -134,9 +134,6 @@ html, body {
     scrollbar-color: var(--text-disabled) var(--bg-dark);
 }
 
-.d-none { display: none !important; }
-.d-flex { display: flex !important; }
-.d-block { display: block !important; }
 
 .opacity-0 { opacity: 0 !important; }
 .opacity-1 { opacity: 1 !important; }
@@ -149,7 +146,6 @@ html, body {
 .gap-md      { gap: 10px; }
 
 .text-bold   { font-weight: bold; }
-.text-sm     { font-size: 0.8rem; }
 .text-xs     { font-size: 0.7rem; }
 .text-dim    { color: var(--text-dim); }
 .text-gold   { color: var(--accent); }

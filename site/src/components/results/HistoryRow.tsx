@@ -3,44 +3,25 @@ import React, { useState } from 'react';
 import { TeamPreview } from '../common/TeamPreview';
 import { StackedContributionBar } from '../rankings/StackedContributionBar';
 import { ConfirmDialog } from '../common/ConfirmDialog';
+import { ActionsMenuButton } from '../common/ActionsMenuButton';
 import { useRotationHistoryStore } from '../../store/useRotationHistoryStore';
 import type { HistoryEntry } from '../../store/useRotationHistoryStore';
 import { useRotationStore } from '../../store/useRotationStore';
 import { useRosterStore } from '../../store/useRosterStore';
-import { tip } from '../../utils/Common';
+import { tip, CommonUtils } from '../../utils/Common';
 
 interface HistoryRowProps {
   entry: HistoryEntry;
 }
 
 function buildFilename(entry: HistoryEntry, suffix: string): string {
-  const names = entry.team
-    .filter(s => s.character)
-    .map(s => {
-      let id = s.character.replace(/\s+/g, '');
-      if (s.weapon) {
-        const initials = s.weapon.match(/\b\w/g) || [];
-        id += `-${initials.join('').toUpperCase()}`;
-      }
-      return id;
-    });
+  const names = CommonUtils.buildTeamIds(entry.team);
   return names.length > 0 ? `Rotation_${names.join('_')}${suffix}.json` : `Rotation_Config${suffix}.json`;
-}
-
-function downloadJson(data: unknown, filename: string) {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
 }
 
 export const HistoryRow: React.FC<HistoryRowProps> = ({ entry }) => {
   const toggleFavorite = useRotationHistoryStore(s => s.toggleFavorite);
   const removeEntry = useRotationHistoryStore(s => s.removeEntry);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const unitNames = entry.team.filter(s => s.character).map(s => s.character);
@@ -59,11 +40,10 @@ export const HistoryRow: React.FC<HistoryRowProps> = ({ entry }) => {
     // substatWorth stays in even though nothing reads it yet -- it's what a future Character
     // Guide page would need this file to carry.
     const { dmgOverTimeSeries, ...resultsWithoutDmgOverTime } = entry.results;
-    downloadJson(
+    CommonUtils.downloadJson(
       { rotation: entry.rotation, team: entry.team, settings: entry.settings, results: resultsWithoutDmgOverTime },
       buildFilename(entry, '_Results')
     );
-    setMenuOpen(false);
   };
 
   const handleRestoreConfirm = async () => {
@@ -107,43 +87,15 @@ export const HistoryRow: React.FC<HistoryRowProps> = ({ entry }) => {
         </div>
 
         <div className="history-row-menu-wrap">
-          <button type="button" className="base-btn icon-btn" onClick={() => setMenuOpen(o => !o)} {...tip('More actions')}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <circle cx="12" cy="5" r="2"></circle>
-              <circle cx="12" cy="12" r="2"></circle>
-              <circle cx="12" cy="19" r="2"></circle>
-            </svg>
-          </button>
-          {menuOpen && (
-            <>
-              <div className="pin-menu-backdrop" onClick={() => setMenuOpen(false)} />
-              <div className="pin-menu">
-                <button type="button" className="pin-menu-item" onClick={handleSaveResults}>
-                  Save Results
-                </button>
-                <button
-                  type="button"
-                  className="pin-menu-item"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setConfirmOpen(true);
-                  }}
-                >
-                  Restore Rotation
-                </button>
-                <button
-                  type="button"
-                  className="pin-menu-item pin-menu-item-danger"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    removeEntry(entry.id);
-                  }}
-                >
-                  Remove
-                </button>
-              </div>
-            </>
-          )}
+          <ActionsMenuButton
+            triggerClassName="base-btn icon-btn"
+            iconSize={14}
+            items={[
+              { label: 'Save Results', onClick: handleSaveResults },
+              { label: 'Restore Rotation', onClick: () => setConfirmOpen(true) },
+              { label: 'Remove', onClick: () => removeEntry(entry.id), danger: true }
+            ]}
+          />
         </div>
       </div>
 

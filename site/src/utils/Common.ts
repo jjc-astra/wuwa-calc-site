@@ -153,6 +153,34 @@ export const CommonUtils = {
   },
 
   /**
+   * Builds the "Name-WI" id fragments used in exported rotation/team filenames and labels,
+   * one per team slot that has a character (weapon initials appended if a weapon is set).
+   */
+  buildTeamIds: (team: Array<{ character?: string; weapon?: string }>): string[] => {
+    return team
+      .filter(s => !!s.character)
+      .map(s => {
+        let id = String(s.character).replace(/\s+/g, '');
+        if (s.weapon) {
+          const initials = s.weapon.match(/\b\w/g) || [];
+          id += `-${initials.join('').toUpperCase()}`;
+        }
+        return id;
+      });
+  },
+
+  /** Triggers a browser download of `data` as a pretty-printed JSON file named `filename`. */
+  downloadJson: (data: unknown, filename: string): void => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+
+  /**
    * Parses multiplier strings ("150%", "[50%, 100%]", "120") into an array of numbers.
    */
   parseMultiplierString: (raw: any): number[] | undefined => {

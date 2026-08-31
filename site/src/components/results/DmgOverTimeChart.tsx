@@ -4,7 +4,8 @@ import { useRotationStore } from '../../store/useRotationStore';
 import { useComparisonStore } from '../../store/useComparisonStore';
 import type { DmgOverTimeSeries, DpsWindowKey } from '../../types/results';
 import { PinRotationControl } from './PinRotationControl';
-import { CATEGORICAL_PALETTE, colorForProvider } from './chartPalette';
+import { ResultsLegend } from './ResultsLegend';
+import { CATEGORICAL_PALETTE, colorForProvider, DPS_WINDOW_OPTIONS } from './chartPalette';
 import { Dropdown } from '../common/Dropdown';
 import { TooltipManager, tip } from '../../utils/Common';
 import { framesToSeconds } from '../../utils/Frames';
@@ -41,15 +42,6 @@ const SNAP_PX = 8;
 // Safe placeholder so every hook below can run unconditionally even before results exist --
 // the component still bails to `null` after the hooks, per the Rules of Hooks.
 const EMPTY_SERIES: DisplaySeries = { label: '', points: [{ t: 0, dmg: 0 }], bossMaxHp: 1, killTime: null, windowEnd: 0 };
-
-// Same 4 windows/labels as TeamContributionPanel's dropdown, so picking "First Loop" here means
-// the same thing it does there.
-const DPS_TYPE_OPTIONS: Array<{ key: DpsWindowKey; label: string }> = [
-  { key: 'opener', label: 'Opener' },
-  { key: 'firstLoop', label: 'First Loop' },
-  { key: 'avgLoop', label: 'Avg Loop' },
-  { key: 'twoMin', label: '2-Min' }
-];
 
 type ViewMode = 'dmg' | 'dps';
 // "Rolling avg of the past 1 second" per spec.
@@ -263,14 +255,7 @@ export const DmgOverTimeChart: React.FC = () => {
       ) : (
         <>
       {series.length > 1 && (
-        <div className="results-legend">
-          {series.map((s, i) => (
-            <span key={s.label} className="results-legend-item">
-              <span className="results-legend-swatch" style={{ background: CATEGORICAL_PALETTE[i] }} />
-              <span className="text-dim">{s.label}</span>
-            </span>
-          ))}
-        </div>
+        <ResultsLegend items={series.map((s, i) => ({ label: s.label, color: CATEGORICAL_PALETTE[i] }))} />
       )}
       <svg
         ref={svgRef}
@@ -410,7 +395,7 @@ export const DmgOverTimeChart: React.FC = () => {
           className="base-select text-xs results-dps-type-select"
           value={dpsType}
           onChange={v => setDpsType(v as DpsWindowKey)}
-          options={DPS_TYPE_OPTIONS.map(opt => ({ value: opt.key, label: opt.label }))}
+          options={DPS_WINDOW_OPTIONS.map(opt => ({ value: opt.key, label: opt.label }))}
         />
       </div>
     </div>

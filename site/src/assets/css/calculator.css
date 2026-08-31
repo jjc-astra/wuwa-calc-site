@@ -525,10 +525,6 @@
 }
 
 /* Drag and drop indicators */
-.rotation-row.is-dragging {
-    opacity: 0.5;
-    background-color: var(--accent-hover);
-}
 .rotation-row.drag-over-top {
     box-shadow: inset 0 2px 0 var(--accent);
 }
@@ -687,8 +683,6 @@
 .multi-gauge-wrap[data-count="1"] { grid-template-columns: 1fr; }
 .multi-gauge-wrap[data-count="2"] { grid-template-columns: repeat(2, 1fr); }
 .multi-gauge-wrap[data-count="3"] { grid-template-columns: repeat(3, 1fr); }
-
-.gauge-disabled { display: none !important; pointer-events: none; }
 
 /* =========================================
    5. SUB PANEL TRIGGER (row cell -> expandable damage/gauge breakdown)
@@ -871,14 +865,6 @@
     text-transform: none;
     white-space: nowrap;
     flex-shrink: 0;
-}
-
-.dmg-accordion-total {
-    font-family: 'JetBrains Mono', 'Roboto Mono', monospace;
-    font-size: 1.05rem; /* Scaled down from 1.25rem */
-    font-weight: bold;
-    color: var(--accent);
-    text-shadow: 0 0 10px var(--accent-strong);
 }
 
 .dmg-accordion-body {

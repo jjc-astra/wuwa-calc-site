@@ -16,6 +16,7 @@ import {
 import { DataLoader } from '../utils/DataLoader';
 import { CombatCalculator } from '../logic/CombatCalculator';
 import { useRotationStore } from './useRotationStore';
+import { CommonUtils } from '../utils/Common';
 
 const defaultLayoutMainStats = (layout: string): string[] => {
   const costs = COST_DISTRIBUTION[layout] || [4, 3, 3, 1, 1];
@@ -281,7 +282,10 @@ export const useRosterStore = create<RosterState>()(
         const activeBuffs: any[] = [];
         const mechanicsDB = DataLoader.mechanicsDB;
 
-        const applyBuffsFromSource = (sourceName: string, isSelf: boolean) => {
+        // `rank` is only passed for weapon sources -- when present, slash-delimited values
+        // (e.g. weapon-rank-scaled buffs like "12/15/18/21/24%") are resolved to that rank
+        // via CommonUtils.parseRankValue; character/set/echo sources never carry that syntax.
+        const applyBuffsFromSource = (sourceName: string, isSelf: boolean, rank?: number) => {
           if (!sourceName) return;
           Object.keys(mechanicsDB)
             .filter(k => k.startsWith(sourceName))
@@ -300,48 +304,10 @@ export const useRosterStore = create<RosterState>()(
                     const appliesToTeam = eff.target === '@Team';
                     const appliesToOthers = eff.target === '@TeamOthers' && !isSelf;
                     if (appliesToSelf || appliesToTeam || appliesToOthers) {
+                      const value = rank !== undefined ? CommonUtils.parseRankValue(eff.value, rank) : eff.value;
                       activeBuffs.push({
                         stat: eff.stat,
-                        value: eff.value,
-                        stacks: eff.maxStacks || 1
-                      });
-                    }
-                  }
-                });
-              }
-            });
-        };
-
-        const applyWeaponBuffs = (sourceName: string, isSelf: boolean, rank: number) => {
-          if (!sourceName) return;
-          const rIdx = Math.max(0, (rank || 1) - 1);
-          Object.keys(mechanicsDB)
-            .filter(k => k.startsWith(sourceName))
-            .forEach(mechId => {
-              const mech = mechanicsDB[mechId];
-              const hasNoRule = !mech.triggerRule || mech.triggerRule.trim() === '';
-              const isAlways =
-                (!hasNoRule && mech.triggerRule!.trim().startsWith('ALWAYS')) ||
-                (hasNoRule && mech.isPassive);
-
-              if (isAlways && mech.effects) {
-                mech.effects.forEach(eff => {
-                  if (eff.type === 'buff' && eff.stat) {
-                    const appliesToSelf =
-                      (eff.target === '@Self' || eff.target === '@Equipper') && isSelf;
-                    const appliesToTeam = eff.target === '@Team';
-                    const appliesToOthers = eff.target === '@TeamOthers' && !isSelf;
-                    if (appliesToSelf || appliesToTeam || appliesToOthers) {
-                      let finalVal = eff.value;
-                      if (typeof finalVal === 'string' && finalVal.includes('/')) {
-                        const hasPercent = finalVal.includes('%');
-                        const p = finalVal.split('/');
-                        finalVal = p[Math.min(rIdx, p.length - 1)].trim();
-                        if (hasPercent && !finalVal.includes('%')) finalVal += '%';
-                      }
-                      activeBuffs.push({
-                        stat: eff.stat,
-                        value: finalVal,
+                        value,
                         stacks: eff.maxStacks || 1
                       });
                     }
@@ -354,7 +320,7 @@ export const useRosterStore = create<RosterState>()(
         team.forEach((tSlot, tIndex) => {
           if (tIndex !== slotIndex && tSlot.character) {
             applyBuffsFromSource(tSlot.character, false);
-            applyWeaponBuffs(tSlot.weapon, false, tSlot.rank);
+            applyBuffsFromSource(tSlot.weapon, false, tSlot.rank);
             applyBuffsFromSource(tSlot.mainSet, false);
             applyBuffsFromSource(tSlot.subSet, false);
             applyBuffsFromSource(tSlot.mainEcho, false);
@@ -362,7 +328,7 @@ export const useRosterStore = create<RosterState>()(
         });
 
         applyBuffsFromSource(slot.character, true);
-        applyWeaponBuffs(slot.weapon, true, slot.rank);
+        applyBuffsFromSource(slot.weapon, true, slot.rank);
         applyBuffsFromSource(slot.mainSet, true);
         applyBuffsFromSource(slot.subSet, true);
         applyBuffsFromSource(slot.mainEcho, true);

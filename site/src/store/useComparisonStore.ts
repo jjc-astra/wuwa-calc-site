@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { generateMockDpsStats, generateMockAllDmgOverTime } from '../data/mockResults';
 import type { DpsStats, DmgOverTimeSeries } from '../data/mockResults';
 import type { DpsWindowKey } from '../types/results';
+import { CommonUtils } from '../utils/Common';
 
 export interface PinnedRotation {
   label: string;
@@ -20,16 +21,7 @@ interface ComparisonState {
 // reads the same way it would if re-exported.
 function labelFromTeam(team: Array<{ character?: string; weapon?: string }> | undefined): string {
   if (!team) return 'Imported Rotation';
-  const names = team
-    .filter(s => s.character)
-    .map(s => {
-      let id = String(s.character).replace(/\s+/g, '');
-      if (s.weapon) {
-        const initials = s.weapon.match(/\b\w/g) || [];
-        id += `-${initials.join('').toUpperCase()}`;
-      }
-      return id;
-    });
+  const names = CommonUtils.buildTeamIds(team);
   return names.length > 0 ? names.join(' / ') : 'Imported Rotation';
 }
 

@@ -1,4 +1,4 @@
-import type { WeaponType, MechanicNode } from '../types';
+import type { MechanicNode } from '../types';
 import { toFrames } from '../utils/Frames';
 
 // Public/images subfolder names, single-sourced so every icon path builder and
@@ -26,16 +26,6 @@ export const MECHANICS_NOTATION = {
   GAUGES: {
     DEFAULT_MAX: 100
   }
-};
-
-export const INPUT_BINDINGS: Record<string, string> = {
-  'Basic': 'Left Click',
-  'Skill': 'E',
-  'Jump': 'Space',
-  'Dodge': 'Right Click / Shift',
-  'Liberation': 'R',
-  'Utility': 'T',
-  'Echo': 'Q'
 };
 
 export const SET_LAYOUTS = ['4 3 3 1 1', '4 4 1 1 1'];
@@ -185,14 +175,6 @@ export const ENEMY_DEFAULTS = {
   hp: 3000000,
   maxTune: 40,
   statusBaseDmg: 3674
-};
-
-export const WEAPONS_BY_TYPE: Record<WeaponType, string[]> = {
-  Broadblade: [],
-  Sword: [],
-  Rectifier: [],
-  Gauntlets: [],
-  Pistols: []
 };
 
 export const DSL_SCHEMA = {

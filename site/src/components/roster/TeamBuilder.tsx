@@ -6,6 +6,7 @@ import { IdleStats } from './IdleStats';
 import { TeamPreview } from '../common/TeamPreview';
 import { useAccordionAnimDone } from '../../hooks/useAccordionAnimDone';
 import { useCollapseMaxHeight } from '../../hooks/useCollapseMaxHeight';
+import { CommonUtils } from '../../utils/Common';
 
 interface TeamBuilderProps {
   isOpen: boolean;
@@ -27,25 +28,9 @@ export const TeamBuilder: React.FC<TeamBuilderProps> = ({ isOpen, onToggle }) =>
       return cleanData;
     });
     
-    const names = dataToExport
-      .filter(s => s.character)
-      .map(s => {
-        let id = s.character.replace(/\s+/g, '');
-        if (s.weapon) {
-          const initials = s.weapon.match(/\b\w/g) || [];
-          id += `-${initials.join('').toUpperCase()}`;
-        }
-        return id;
-      });
-
+    const names = CommonUtils.buildTeamIds(dataToExport);
     const filename = names.length > 0 ? `Team_${names.join('_')}.json` : 'Team_Config.json';
-    const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
+    CommonUtils.downloadJson(dataToExport, filename);
   };
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {

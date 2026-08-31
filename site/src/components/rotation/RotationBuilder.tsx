@@ -6,6 +6,7 @@ import { RotationToolbar } from './RotationToolbar';
 import { RotationRow } from './RotationRow';
 import { useAccordionAnimDone } from '../../hooks/useAccordionAnimDone';
 import { useCollapseMaxHeight } from '../../hooks/useCollapseMaxHeight';
+import { CommonUtils } from '../../utils/Common';
 
 interface RotationBuilderProps {
   isOpen: boolean;
@@ -254,26 +255,10 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
       exportObject.results = resultsWithoutDmgOverTime;
     }
 
-    const names = team
-      .filter(s => s.character)
-      .map(s => {
-        let id = s.character.replace(/\s+/g, '');
-        if (s.weapon) {
-          const initials = s.weapon.match(/\b\w/g) || [];
-          id += `-${initials.join('').toUpperCase()}`;
-        }
-        return id;
-      });
-
+    const names = CommonUtils.buildTeamIds(team);
     const suffix = includeResults ? '_Results' : '';
     const filename = names.length > 0 ? `Rotation_${names.join('_')}${suffix}.json` : `Rotation_Config${suffix}.json`;
-    const blob = new Blob([JSON.stringify(exportObject, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
+    CommonUtils.downloadJson(exportObject, filename);
   };
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {

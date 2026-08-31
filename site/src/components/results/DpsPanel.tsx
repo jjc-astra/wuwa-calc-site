@@ -4,6 +4,7 @@ import { useRotationStore } from '../../store/useRotationStore';
 import { useComparisonStore } from '../../store/useComparisonStore';
 import type { DpsStats } from '../../types/results';
 import { PinRotationControl } from './PinRotationControl';
+import { ResultsLegend } from './ResultsLegend';
 import { CATEGORICAL_PALETTE } from './chartPalette';
 
 const formatDps = (v: number, shorten: boolean) => {
@@ -47,16 +48,12 @@ export const DpsPanel: React.FC = () => {
       </div>
 
       {pinned && (
-        <div className="results-legend">
-          <span className="results-legend-item">
-            <span className="results-legend-swatch" style={{ background: CATEGORICAL_PALETTE[0] }} />
-            <span className="text-dim">Current Rotation</span>
-          </span>
-          <span className="results-legend-item">
-            <span className="results-legend-swatch" style={{ background: CATEGORICAL_PALETTE[1] }} />
-            <span className="text-dim">{pinned.label}</span>
-          </span>
-        </div>
+        <ResultsLegend
+          items={[
+            { label: 'Current Rotation', color: CATEGORICAL_PALETTE[0] },
+            { label: pinned.label, color: CATEGORICAL_PALETTE[1] }
+          ]}
+        />
       )}
 
       <div className="dps-compare-list">

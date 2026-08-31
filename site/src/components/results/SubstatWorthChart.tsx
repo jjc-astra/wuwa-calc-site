@@ -2,8 +2,8 @@
 import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useRosterStore } from '../../store/useRosterStore';
 import { useRotationStore } from '../../store/useRotationStore';
-import { DataLoader } from '../../utils/DataLoader';
-import { TooltipManager, getCharacterThemeColor, tip } from '../../utils/Common';
+import { TooltipManager, tip } from '../../utils/Common';
+import { UnitTabs } from '../common/UnitTabs';
 
 const formatPct = (v: number) => `${v.toFixed(1)}%`;
 
@@ -105,19 +105,7 @@ export const SubstatWorthChart: React.FC = () => {
         <div className="results-empty">Add characters to the team to see substat worth.</div>
       ) : (
         <>
-          <div className="unit-tabs">
-            {units.map(u => (
-              <button
-                key={u}
-                type="button"
-                className={`unit-tab ${u === unit ? 'is-active' : ''}`}
-                style={{ '--unit-theme': getCharacterThemeColor(DataLoader.characterDB[u]) } as React.CSSProperties}
-                onClick={() => setActiveUnit(u)}
-              >
-                {u}
-              </button>
-            ))}
-          </div>
+          <UnitTabs tabs={units} active={unit} onSelect={setActiveUnit} />
           <div className="substat-chart">
             <div className="substat-chart-headrow">
               <span className="substat-label-col" />

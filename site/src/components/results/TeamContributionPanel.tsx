@@ -5,16 +5,10 @@ import { useRotationStore } from '../../store/useRotationStore';
 import { DataLoader } from '../../utils/DataLoader';
 import type { DpsWindowKey } from '../../types/results';
 import { PieChart } from './PieChart';
-import { colorForLabel, OTHER_SLICE_COLOR } from './chartPalette';
+import { colorForLabel, OTHER_SLICE_COLOR, DPS_WINDOW_OPTIONS } from './chartPalette';
 import { getCharacterThemeColor } from '../../utils/Common';
 import { Dropdown } from '../common/Dropdown';
-
-const DPS_TYPE_OPTIONS: Array<{ key: DpsWindowKey; label: string }> = [
-  { key: 'opener', label: 'Opener' },
-  { key: 'firstLoop', label: 'First Loop' },
-  { key: 'avgLoop', label: 'Avg Loop' },
-  { key: 'twoMin', label: '2-Min' }
-];
+import { UnitTabs } from '../common/UnitTabs';
 
 export const TeamContributionPanel: React.FC = () => {
   const team = useRosterStore(s => s.team);
@@ -54,26 +48,14 @@ export const TeamContributionPanel: React.FC = () => {
           className="base-select text-xs results-dps-type-select"
           value={dpsType}
           onChange={v => setDpsType(v as DpsWindowKey)}
-          options={DPS_TYPE_OPTIONS.map(opt => ({ value: opt.key, label: opt.label }))}
+          options={DPS_WINDOW_OPTIONS.map(opt => ({ value: opt.key, label: opt.label }))}
         />
       </div>
       {!results || units.length === 0 ? (
         <div className="results-empty">Add characters to the team to see contribution.</div>
       ) : (
         <>
-          <div className="unit-tabs">
-            {tabs.map(t => (
-              <button
-                key={t}
-                type="button"
-                className={`unit-tab ${t === tab ? 'is-active' : ''}`}
-                style={t === 'Team' ? undefined : ({ '--unit-theme': getCharacterThemeColor(DataLoader.characterDB[t]) } as React.CSSProperties)}
-                onClick={() => setActiveTab(t)}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
+          <UnitTabs tabs={tabs} active={tab} onSelect={setActiveTab} unthemed={['Team']} />
           {data.length === 0 ? (
             <div className="results-empty">No damage in this window.</div>
           ) : (
