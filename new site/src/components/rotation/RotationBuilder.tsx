@@ -52,8 +52,11 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
   // rotation was rehydrated from a previous session but never recalculated since. This is the
   // only place recalculate() runs on load -- it used to run app-wide (even on the landing page)
   // from the store's persist rehydration hook, since the store module loads regardless of route.
+  // markStale=false: results/isStale are now cached too (see useRotationStore's partialize), so
+  // this refresh shouldn't itself stamp a freshly-rehydrated "still fresh" result as stale --
+  // only an actual edit (triggerRecalc, setStartEnergy/Concerto, importRotation) should do that.
   useEffect(() => {
-    recalculate();
+    recalculate(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

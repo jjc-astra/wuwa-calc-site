@@ -1,12 +1,11 @@
 // src/components/rankings/RotationRankingsPage.tsx
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useRankingsStore } from '../../store/useRankingsStore';
 import type { RankingEntry } from '../../store/useRankingsStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { ChromeTabs } from '../results/ChromeTabs';
 import type { ChromeTabDef } from '../results/ChromeTabs';
-import { RankingFilterToolbar, DEFAULT_RANKING_FILTERS } from './RankingFilterToolbar';
-import type { RankingFilters } from './RankingFilterToolbar';
+import { RankingFilterToolbar } from './RankingFilterToolbar';
 import { RankingRow } from './RankingRow';
 import type { DpsWindowKey } from '../../types/results';
 
@@ -32,10 +31,12 @@ function rotationGroupKey(entry: RankingEntry): string {
 }
 
 export const RotationRankingsPage: React.FC = () => {
-  const { status, entries, error, load } = useRankingsStore();
-  const [activeWindow, setActiveWindow] = useState<DpsWindowKey>('twoMin');
-  const [search, setSearch] = useState('');
-  const [filters, setFilters] = useState<RankingFilters>(DEFAULT_RANKING_FILTERS);
+  const {
+    status, entries, error, load,
+    activeWindow, setActiveWindow,
+    search, setSearch,
+    filters, setFilters
+  } = useRankingsStore();
 
   useEffect(() => {
     load();

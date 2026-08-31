@@ -11,6 +11,15 @@ interface BuilderState {
   baseStats: BaseStats;
   mechanics: Record<string, MechanicNode>;
   highlightedNodeId: string | null;
+  // Persisted across EVERY character/weapon/set/echo ever edited in the builder, not just the
+  // currently active one -- setActiveChar replays whatever's here (keyed by that entity's own
+  // name/nodeId prefix) on top of a fresh pristine fetch each time it's opened, so switching
+  // between several edited entities and reloading the page no longer loses anything but the
+  // most-recently-active one. `mechanics`/`baseStats` above stay as the current entity's live
+  // working copy (what the editor/JsonOutputPane actually render) -- these are the durable log.
+  editedBaseStats: Record<string, BaseStats>;
+  editedMechanics: Record<string, MechanicNode>;
+  deletedMechanicIds: string[];
   setHighlightedNodeId: (nodeId: string | null) => void;
   setActiveChar: (charName: string | null, folder?: string, rarity?: number) => Promise<void>;
   setBaseStat: (key: string, value: any) => void;
@@ -18,12 +27,19 @@ interface BuilderState {
   renameMechanicNode: (oldId: string, newId: string, node: MechanicNode) => void;
   removeMechanicNode: (nodeId: string) => void;
   resetCache: () => void;
+  // True if `itemName` (character/weapon/set/echo/'Generic') has any locally-cached edit --
+  // drives the "!" dirty badge on its grid card without needing to switch to it first.
+  hasChanges: (itemName: string) => boolean;
 }
 
 // Guards against a stale in-flight setActiveChar call (e.g. a slow character load)
 // resolving after the user has already navigated elsewhere (or hit "Back to Library")
 // and clobbering whatever the more recent call decided.
 let activeCharRequestSeq = 0;
+
+// Mirrors the charName+'_' (or 'Generic'->'System_') prefix convention DataLoader.loadMechanic/
+// clearMechanicCache already use for scoping mechanicsDB keys to one entity.
+const nodeIdPrefix = (itemName: string) => (itemName === 'Generic' ? 'System_' : `${itemName}_`);
 
 export const useBuilderStore = create<BuilderState>()(
   persist(
@@ -34,6 +50,9 @@ export const useBuilderStore = create<BuilderState>()(
       baseStats: {},
       mechanics: {},
       highlightedNodeId: null,
+      editedBaseStats: {},
+      editedMechanics: {},
+      deletedMechanicIds: [],
       setHighlightedNodeId: (nodeId) => set({ highlightedNodeId: nodeId }),
 
       setActiveChar: async (charName, folder = IMAGE_FOLDERS.CHARACTERS, rarity = 5) => {
@@ -57,11 +76,28 @@ export const useBuilderStore = create<BuilderState>()(
         // this load was in flight -- let it win instead of snapping back over it.
         if (requestId !== activeCharRequestSeq) return;
 
+        // Replay this entity's own cached edits on top of the just-fetched pristine data --
+        // loadMechanic above always overwrites mechanicsDB with pristine JSON, so this has to
+        // run after it (merging edits in before the fetch would just get clobbered by it).
+        const { editedBaseStats, editedMechanics, deletedMechanicIds } = get();
+        const prefix = nodeIdPrefix(charName);
+        const charEdits = editedBaseStats[charName];
+        if (charEdits) {
+          const target = DataLoader.characterDB[charName] || DataLoader.weaponDB[charName];
+          if (target) Object.assign(target, charEdits);
+        }
+        Object.entries(editedMechanics).forEach(([id, node]) => {
+          if (id.startsWith(prefix)) DataLoader.mechanicsDB[id] = node;
+        });
+        deletedMechanicIds.forEach(id => {
+          if (id.startsWith(prefix)) delete DataLoader.mechanicsDB[id];
+        });
+
         const loadedStats = DataLoader.characterDB[charName] || DataLoader.weaponDB[charName] || {};
         const loadedMechs: Record<string, MechanicNode> = {};
 
         Object.keys(DataLoader.mechanicsDB).forEach(key => {
-          if (key.startsWith(charName + '_') || (charName === 'Generic' && key.startsWith('System_'))) {
+          if (key.startsWith(prefix)) {
             loadedMechs[key] = DataLoader.mechanicsDB[key];
           }
         });
@@ -76,16 +112,25 @@ export const useBuilderStore = create<BuilderState>()(
       },
 
       setBaseStat: (key, value) => {
-        set(state => ({
-          baseStats: { ...state.baseStats, [key]: value }
-        }));
+        set(state => {
+          if (!state.activeChar) return { baseStats: { ...state.baseStats, [key]: value } };
+          const nextBaseStats = { ...state.baseStats, [key]: value };
+          return {
+            baseStats: nextBaseStats,
+            editedBaseStats: { ...state.editedBaseStats, [state.activeChar]: nextBaseStats }
+          };
+        });
       },
 
       setMechanicNode: (nodeId, node) => {
         set(state => {
           const updated = { ...state.mechanics, [nodeId]: node };
           DataLoader.mechanicsDB[nodeId] = node;
-          return { mechanics: updated };
+          return {
+            mechanics: updated,
+            editedMechanics: { ...state.editedMechanics, [nodeId]: node },
+            deletedMechanicIds: state.deletedMechanicIds.filter(id => id !== nodeId)
+          };
         });
       },
 
@@ -100,7 +145,18 @@ export const useBuilderStore = create<BuilderState>()(
           updated[newId] = node;
           delete DataLoader.mechanicsDB[oldId];
           DataLoader.mechanicsDB[newId] = node;
-          return { mechanics: updated };
+
+          const updatedEdits = { ...state.editedMechanics };
+          delete updatedEdits[oldId];
+          updatedEdits[newId] = node;
+
+          return {
+            mechanics: updated,
+            editedMechanics: updatedEdits,
+            // Pristine data may still have oldId -- record it as deleted so a future re-fetch
+            // (a fresh setActiveChar call, possibly next session) doesn't resurrect it.
+            deletedMechanicIds: [...state.deletedMechanicIds.filter(id => id !== oldId && id !== newId), oldId]
+          };
         });
       },
 
@@ -109,8 +165,25 @@ export const useBuilderStore = create<BuilderState>()(
           const updated = { ...state.mechanics };
           delete updated[nodeId];
           delete DataLoader.mechanicsDB[nodeId];
-          return { mechanics: updated };
+
+          const updatedEdits = { ...state.editedMechanics };
+          delete updatedEdits[nodeId];
+
+          return {
+            mechanics: updated,
+            editedMechanics: updatedEdits,
+            deletedMechanicIds: [...state.deletedMechanicIds.filter(id => id !== nodeId), nodeId]
+          };
         });
+      },
+
+      hasChanges: itemName => {
+        const { editedBaseStats, editedMechanics, deletedMechanicIds } = get();
+        if (editedBaseStats[itemName]) return true;
+        const prefix = nodeIdPrefix(itemName);
+        if (Object.keys(editedMechanics).some(id => id.startsWith(prefix))) return true;
+        if (deletedMechanicIds.some(id => id.startsWith(prefix))) return true;
+        return false;
       },
 
       resetCache: async () => {
@@ -130,8 +203,24 @@ export const useBuilderStore = create<BuilderState>()(
         // 2. Re-fetch core character & weapon base stats JSON
         await DataLoader.initDatabases();
 
-        // 3. Clear store state and re-initialize from fresh JSON
-        set({ baseStats: {}, mechanics: {} });
+        // 3. Clear store state, including this entity's cached edit log -- otherwise the
+        // setActiveChar call below would just replay the same edits right back on top of the
+        // freshly-refetched pristine data.
+        const prefix = nodeIdPrefix(activeChar);
+        set(state => {
+          const nextEditedBaseStats = { ...state.editedBaseStats };
+          delete nextEditedBaseStats[activeChar];
+          const nextEditedMechanics = Object.fromEntries(
+            Object.entries(state.editedMechanics).filter(([id]) => !id.startsWith(prefix))
+          );
+          return {
+            baseStats: {},
+            mechanics: {},
+            editedBaseStats: nextEditedBaseStats,
+            editedMechanics: nextEditedMechanics,
+            deletedMechanicIds: state.deletedMechanicIds.filter(id => !id.startsWith(prefix))
+          };
+        });
         await get().setActiveChar(activeChar, activeFolder, activeRarity);
       }
     }),

@@ -1026,6 +1026,10 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     position: absolute;
     z-index: 2; /* Above number, below checkbox */
     pointer-events: none; /* Let clicks pass through to the row/checkbox */
+    /* icon-warn's "!" dot is a near-zero-length <line> -- without round caps it has no length
+       to render at all (same issue .calc-warning-msg svg had). */
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 /* Error State (Illegal) */
@@ -1180,6 +1184,10 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     display: block;
     stroke: currentColor;
     stroke-width: 2;
+    /* The "!" dot is drawn as a near-zero-length <line> -- without round caps it has no
+       length to render at all, so the mark reads as an incomplete "!" (just the stem). */
+    stroke-linecap: round;
+    stroke-linejoin: round;
     fill: none;
     margin-left: var(--space-4);
     animation: flash 1s infinite ease-in-out;

@@ -1,10 +1,14 @@
 // src/store/useRankingsStore.ts
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { DataLoader } from '../utils/DataLoader';
 import { postToWorker } from '../workers/calcWorkerClient';
 import { ENEMY_DEFAULTS } from '../data/db';
 import type { TeamSlot } from '../types/index';
 import type { RotationResults } from '../types/results';
+import type { DpsWindowKey } from '../types/results';
+import { DEFAULT_RANKING_FILTERS } from '../components/rankings/RankingFilterToolbar';
+import type { RankingFilters } from '../components/rankings/RankingFilterToolbar';
 
 export interface RankingEntry {
   id: string;
@@ -22,12 +26,31 @@ interface RankingsState {
   error: string | null;
   // No-op if already loading/ready -- safe to call from every mount of the Rankings page.
   load: () => Promise<void>;
+
+  // Search/filter UI state -- persisted (see partialize below) so leaving the Rankings page
+  // and coming back (or reloading) doesn't reset a filter setup you were mid-comparison with.
+  // `entries`/`status`/`error` deliberately aren't persisted here, same reasoning as before:
+  // they're cheap to recompute and could go stale if the underlying result files change.
+  activeWindow: DpsWindowKey;
+  search: string;
+  filters: RankingFilters;
+  setActiveWindow: (window: DpsWindowKey) => void;
+  setSearch: (search: string) => void;
+  setFilters: (filters: RankingFilters) => void;
 }
 
-export const useRankingsStore = create<RankingsState>((set, get) => ({
+export const useRankingsStore = create<RankingsState>()(
+  persist(
+    (set, get) => ({
   status: 'idle',
   entries: [],
   error: null,
+  activeWindow: 'twoMin',
+  search: '',
+  filters: DEFAULT_RANKING_FILTERS,
+  setActiveWindow: (activeWindow) => set({ activeWindow }),
+  setSearch: (search) => set({ search }),
+  setFilters: (filters) => set({ filters }),
 
   load: async () => {
     if (get().status === 'loading' || get().status === 'ready') return;
@@ -93,4 +116,14 @@ export const useRankingsStore = create<RankingsState>((set, get) => ({
       set({ status: 'error', error: err?.message || String(err) });
     }
   }
-}));
+    }),
+    {
+      name: 'wuwa_rankings_ui_cache',
+      partialize: (state) => ({
+        activeWindow: state.activeWindow,
+        search: state.search,
+        filters: state.filters
+      })
+    }
+  )
+);

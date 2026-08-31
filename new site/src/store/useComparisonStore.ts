@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { generateMockDpsStats, generateMockAllDmgOverTime } from '../data/mockResults';
 import type { DpsStats, DmgOverTimeSeries } from '../data/mockResults';
 import type { DpsWindowKey } from '../types/results';
@@ -32,31 +33,36 @@ function labelFromTeam(team: Array<{ character?: string; weapon?: string }> | un
   return names.length > 0 ? names.join(' / ') : 'Imported Rotation';
 }
 
-export const useComparisonStore = create<ComparisonState>()((set) => ({
-  pinned: null,
+export const useComparisonStore = create<ComparisonState>()(
+  persist(
+    (set) => ({
+      pinned: null,
 
-  // The imported rotation's own DPS/dmg-over-time isn't actually recalculated yet -- only its
-  // label is real, seeded off the file's content so the same file always renders the same
-  // mock numbers.
-  pinFromFile: async (file: File) => {
-    const text = await file.text();
-    let label = file.name.replace(/\.json$/i, '');
-    try {
-      const parsed = JSON.parse(text);
-      label = labelFromTeam(parsed.team);
-    } catch {
-      // Keep the filename-derived label if the file isn't valid/expected JSON.
-    }
+      // The imported rotation's own DPS/dmg-over-time isn't actually recalculated yet -- only its
+      // label is real, seeded off the file's content so the same file always renders the same
+      // mock numbers.
+      pinFromFile: async (file: File) => {
+        const text = await file.text();
+        let label = file.name.replace(/\.json$/i, '');
+        try {
+          const parsed = JSON.parse(text);
+          label = labelFromTeam(parsed.team);
+        } catch {
+          // Keep the filename-derived label if the file isn't valid/expected JSON.
+        }
 
-    const seed = `${label}:${text.length}`;
-    set({
-      pinned: {
-        label,
-        dpsStats: generateMockDpsStats(seed),
-        dmgOverTimeSeries: generateMockAllDmgOverTime(seed, label)
-      }
-    });
-  },
+        const seed = `${label}:${text.length}`;
+        set({
+          pinned: {
+            label,
+            dpsStats: generateMockDpsStats(seed),
+            dmgOverTimeSeries: generateMockAllDmgOverTime(seed, label)
+          }
+        });
+      },
 
-  unpin: () => set({ pinned: null })
-}));
+      unpin: () => set({ pinned: null })
+    }),
+    { name: 'wuwa_calc_pinned_comparison' }
+  )
+);

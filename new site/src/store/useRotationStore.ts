@@ -58,7 +58,11 @@ interface RotationState {
   resetLoopStart: () => void;
 
   executeCommand: (cmd: Command) => void;
-  recalculate: () => Promise<void>;
+  // markStale defaults true (a real edit always invalidates the last Calculate) -- pass false
+  // for a purely informational refresh (e.g. the Calculator's mount effect re-deriving
+  // gauges/loop info for a rehydrated-but-unedited rotation) that shouldn't itself flip a
+  // freshly-restored `isStale: false` back to stale with nothing having actually changed.
+  recalculate: (markStale?: boolean) => Promise<void>;
   calculateDamage: () => Promise<void>;
   undo: () => void;
   redo: () => void;
@@ -249,7 +253,7 @@ export const useRotationStore = create<RotationState>()(
 
         // Timeline/Gauges/Timings Recalculation (Only marks stale, does NOT run combat damage)
         // -- runs in the calc worker (see postToWorker above) so it never blocks the UI thread.
-        recalculate: async () => {
+        recalculate: async (markStale: boolean = true) => {
           const team = useRosterStore.getState().team;
           const enemy = useRosterStore.getState().enemy;
           const { startEnergy, startConcerto, rows } = get();
@@ -285,7 +289,7 @@ export const useRotationStore = create<RotationState>()(
 
           set({
             rows: evaluatedRows,
-            isStale: true,
+            isStale: markStale ? true : get().isStale,
             loopStartIndex: data.loopStartIndex,
             loopStartIsOverride: data.loopStartIsOverride,
             loopErrors: data.loopErrors,
@@ -375,7 +379,18 @@ export const useRotationStore = create<RotationState>()(
           ...(loopStartOverride === true && { loopStartOverride: true })
         })),
         startEnergy: state.startEnergy,
-        startConcerto: state.startConcerto
+        startConcerto: state.startConcerto,
+        // The last Calculate press's output -- so reopening the Calculator (or reloading the
+        // page) still shows the Results tab instead of "No Results Yet" until something
+        // actually changes. isStale/loop* travel with it since they describe that same result
+        // (isStale in particular has to survive the reload too, or a result computed against
+        // an earlier rotation would silently look fresh).
+        results: state.results,
+        isStale: state.isStale,
+        loopStartIndex: state.loopStartIndex,
+        loopStartIsOverride: state.loopStartIsOverride,
+        loopErrors: state.loopErrors,
+        loopWarnings: state.loopWarnings
       }),
       // No auto-recalculate here on purpose -- this fires on every page load app-wide (this
       // store module is in the static import graph regardless of route), so triggering the

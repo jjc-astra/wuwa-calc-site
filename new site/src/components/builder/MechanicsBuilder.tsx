@@ -28,9 +28,10 @@ interface GridCardProps {
   imgFolder: ImageFolder;
   dbRef?: Record<string, any>;
   onClick: (rarity: number) => void;
+  hasChanges: boolean;
 }
 
-const GridCard: React.FC<GridCardProps> = ({ itemName, imgFolder, dbRef, onClick }) => {
+const GridCard: React.FC<GridCardProps> = ({ itemName, imgFolder, dbRef, onClick, hasChanges }) => {
   const [imgError, setImgError] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
 
@@ -61,6 +62,18 @@ const GridCard: React.FC<GridCardProps> = ({ itemName, imgFolder, dbRef, onClick
       }}
       {...(!isImplemented ? tip('Not yet implemented -- click to start authoring its mechanics') : {})}
     >
+      {hasChanges && (
+        // Rendered as a sibling of .char-icon (which clips via overflow:hidden for its rounded
+        // top corners), not a child of it -- so the badge can hang half outside the icon's own
+        // corner like a real app notification badge instead of being clipped to sit inside it.
+        <span className="char-grid-dirty-badge" {...tip('Has locally cached changes')}>
+          <svg viewBox="0 0 24 24">
+            <path className="dirty-badge-shape" d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+            <line className="dirty-badge-mark" x1="12" y1="9" x2="12" y2="13" />
+            <line className="dirty-badge-mark" x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+        </span>
+      )}
       <div className={`${iconClass} ${rarityClass}`}>
         {!imgError && (
           <img
@@ -93,7 +106,7 @@ const GridCard: React.FC<GridCardProps> = ({ itemName, imgFolder, dbRef, onClick
 };
 
 export const MechanicsBuilder: React.FC = () => {
-  const { activeChar, setActiveChar, mechanics, setMechanicNode, baseStats, setBaseStat } = useBuilderStore();
+  const { activeChar, setActiveChar, mechanics, setMechanicNode, baseStats, setBaseStat, hasChanges } = useBuilderStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTemplates, setSelectedTemplates] = useState<Record<string, string>>({});
 
@@ -134,6 +147,7 @@ export const MechanicsBuilder: React.FC = () => {
                 imgFolder={imgFolder}
                 dbRef={dbRef}
                 onClick={rarity => setActiveChar(itemName, imgFolder, rarity)}
+                hasChanges={hasChanges(itemName)}
               />
             ))}
           </div>

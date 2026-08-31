@@ -5,9 +5,10 @@ import { DataLoader } from '../../utils/DataLoader';
 import { BuilderUtils } from '../../utils/BuilderUtils';
 
 export const JsonOutputPane: React.FC = () => {
-  const { activeChar, baseStats, mechanics, resetCache, highlightedNodeId } = useBuilderStore();
+  const { activeChar, baseStats, mechanics, resetCache, highlightedNodeId, hasChanges } = useBuilderStore();
   const codeEditorRef = useRef<HTMLPreElement>(null);
   const isWeapon = activeChar ? !!DataLoader.weaponDB[activeChar] : false;
+  const isDirty = activeChar ? hasChanges(activeChar) : false;
 
   // 1. Local state for formatted JSON output
   const [formatted, setFormatted] = useState(() =>
@@ -89,18 +90,11 @@ export const JsonOutputPane: React.FC = () => {
   };
 
   return (
-    <div className="output-pane">
-      <div className="panel-header-tiny flex-row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-        <span>Outputs</span>
+    <div className="output-pane-wrapper">
+      <div className="panel-header-main">Outputs</div>
+      <div className="output-pane">
+      <div className="flex-row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
         <div className="flex-row gap-sm" style={{ width: 'auto' }}>
-          <button
-            id="reset-builder-cache-btn"
-            className="base-btn text-xs btn-danger"
-            onClick={handleResetCache}
-            disabled={!activeChar}
-          >
-            Reset Cache
-          </button>
           <button
             id="copy-char-btn"
             className="base-btn text-xs"
@@ -118,6 +112,22 @@ export const JsonOutputPane: React.FC = () => {
             Copy Mechanics JSON
           </button>
         </div>
+        <div className="flex-row gap-sm" style={{ width: 'auto', alignItems: 'center' }}>
+          {isDirty && (
+            <span className="calc-warning-msg" style={{ display: 'flex' }}>
+              <span>MECHANICS CHANGED</span>
+              <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            </span>
+          )}
+          <button
+            id="reset-builder-cache-btn"
+            className="base-btn text-xs btn-danger"
+            onClick={handleResetCache}
+            disabled={!activeChar}
+          >
+            Reset Cache
+          </button>
+        </div>
       </div>
       <pre
         ref={codeEditorRef}
@@ -125,6 +135,7 @@ export const JsonOutputPane: React.FC = () => {
         className="code-editor"
         dangerouslySetInnerHTML={{ __html: formatted.highlightedHTML }}
       />
+      </div>
     </div>
   );
 };

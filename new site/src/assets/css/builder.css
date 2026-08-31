@@ -24,6 +24,9 @@
     cursor: pointer;
     transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), filter 0.2s;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    /* Anchors .char-grid-dirty-badge, which needs to hang outside .char-icon's own
+       overflow:hidden bounds to overlap the card's corner. */
+    position: relative;
 }
 
 .char-grid-card:hover {
@@ -72,6 +75,47 @@
     z-index: 1;
 }
 
+/* Warning-triangle badge on a grid card whose entity has locally-cached builder edits (see
+   useBuilderStore's editedMechanics/editedBaseStats) -- styled like a phone app's notification
+   badge: a solid shape (here, the triangle itself, not a generic circle) sitting on the icon's
+   corner with its own drop shadow, rather than a translucent outline that can wash out against
+   a light/busy character portrait. */
+.char-grid-dirty-badge {
+    position: absolute;
+    /* Negative offsets -- deliberately overlaps the card's top-right corner (half on the icon,
+       half hanging off it) instead of sitting fully inside, matching a phone app's own
+       notification-badge placement. */
+    top: -6px;
+    right: -6px;
+    z-index: 3;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.7));
+    animation: flash 1s infinite ease-in-out;
+}
+.char-grid-dirty-badge svg {
+    width: 100%;
+    height: 100%;
+}
+/* The triangle itself is the badge's "background" -- solid warning-yellow with a thin dark
+   outline so it still reads as a distinct shape against a similarly-colored icon. */
+.char-grid-dirty-badge .dirty-badge-shape {
+    fill: var(--warning);
+    stroke: var(--bg-dark);
+    stroke-width: 1.5;
+    stroke-linejoin: round;
+}
+/* The "!" sits on top in the same dark tone as the outline, for contrast against the solid
+   fill (matches the app-notification-badge look: dark glyph on a bright solid shape). */
+.char-grid-dirty-badge .dirty-badge-mark {
+    stroke: var(--bg-dark);
+    stroke-width: 2.25;
+    stroke-linecap: round;
+}
+
 .char-name-label {
     width: 100%;
     text-align: center;
@@ -90,15 +134,25 @@
 
 /* --- Editor Split Pane --- */
 .editor-pane { flex: 3; padding: 10px; }
-.output-pane {
+/* Holds the "Outputs" header above the card, matching .editor-pane's own header-sits-on-the-
+   page (no surrounding box) treatment -- same 10px padding .editor-pane uses, so both panes'
+   content lines up. */
+.output-pane-wrapper {
     flex: 2;
     display: flex;
     flex-direction: column;
+    min-height: 0;
+    padding: 10px;
+}
+.output-pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
     padding: var(--space-6);
     /* Same surface as .mechanic-category / .base-stats-card in the editor pane opposite --
        one consistent card tone across the whole builder view instead of a separate shade. */
     background: var(--surface-card);
-    margin: 10px;
     border-radius: 8px;
     border: 1px solid var(--border);
 }
