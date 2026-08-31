@@ -8,6 +8,7 @@ import { useRotationHistoryStore } from '../../store/useRotationHistoryStore';
 import type { HistoryEntry } from '../../store/useRotationHistoryStore';
 import { useRotationStore } from '../../store/useRotationStore';
 import { useRosterStore } from '../../store/useRosterStore';
+import { useComparisonStore } from '../../store/useComparisonStore';
 import { tip, CommonUtils } from '../../utils/Common';
 
 interface HistoryRowProps {
@@ -93,6 +94,9 @@ export const HistoryRow: React.FC<HistoryRowProps> = ({ entry }) => {
             items={[
               { label: 'Save Results', onClick: handleSaveResults },
               { label: 'Restore Rotation', onClick: () => setConfirmOpen(true) },
+              // Instant -- this entry already carries a full RotationResults (dmgOverTimeSeries
+              // included) from the live Calculate press that produced it.
+              { label: 'Pin to Comparison', onClick: () => useComparisonStore.getState().pinFromHistoryEntry(entry.team, entry.results) },
               { label: 'Remove', onClick: () => removeEntry(entry.id), danger: true }
             ]}
           />

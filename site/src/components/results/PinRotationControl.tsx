@@ -1,11 +1,13 @@
 // src/components/results/PinRotationControl.tsx
 import React, { useRef, useState } from 'react';
 import { useComparisonStore } from '../../store/useComparisonStore';
+import { PinComparisonPicker } from './PinComparisonPicker';
 import { tip } from '../../utils/Common';
 
 export const PinRotationControl: React.FC = () => {
-  const { pinned, pinFromFile, unpin } = useComparisonStore();
+  const { pinned, status, pinFromFile, unpin } = useComparisonStore();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [pickerSource, setPickerSource] = useState<'history' | 'rankings' | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (pinned) {
@@ -31,8 +33,13 @@ export const PinRotationControl: React.FC = () => {
           if (fileInputRef.current) fileInputRef.current.value = '';
         }}
       />
-      <button type="button" className="base-btn text-xs" onClick={() => setMenuOpen(o => !o)}>
-        Pin Comparison
+      <button
+        type="button"
+        className="base-btn text-xs"
+        disabled={status === 'loading'}
+        onClick={() => setMenuOpen(o => !o)}
+      >
+        {status === 'loading' ? 'Calculating…' : 'Pin Comparison'}
       </button>
       {menuOpen && (
         <>
@@ -41,15 +48,24 @@ export const PinRotationControl: React.FC = () => {
             <button type="button" className="pin-menu-item" onClick={() => fileInputRef.current?.click()}>
               Import JSON…
             </button>
-            <button type="button" className="pin-menu-item" disabled>
-              From History <span className="coming-soon-badge">Soon</span>
+            <button
+              type="button"
+              className="pin-menu-item"
+              onClick={() => { setMenuOpen(false); setPickerSource('history'); }}
+            >
+              From History
             </button>
-            <button type="button" className="pin-menu-item" disabled>
-              From Rankings <span className="coming-soon-badge">Soon</span>
+            <button
+              type="button"
+              className="pin-menu-item"
+              onClick={() => { setMenuOpen(false); setPickerSource('rankings'); }}
+            >
+              From Rankings
             </button>
           </div>
         </>
       )}
+      {pickerSource && <PinComparisonPicker source={pickerSource} onClose={() => setPickerSource(null)} />}
     </div>
   );
 };

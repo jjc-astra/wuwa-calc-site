@@ -50,7 +50,7 @@ export const DpsPanel: React.FC = () => {
       {pinned && (
         <ResultsLegend
           items={[
-            { label: 'Current Rotation', color: CATEGORICAL_PALETTE[0] },
+            { label: 'Current', color: CATEGORICAL_PALETTE[0] },
             { label: pinned.label, color: CATEGORICAL_PALETTE[1] }
           ]}
         />

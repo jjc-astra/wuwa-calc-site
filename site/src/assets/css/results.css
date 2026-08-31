@@ -212,7 +212,7 @@
 
 /* A distinct chip-styled bar (its own background/radius) rather than plain text, so it
    reads as UI chrome labeling the series below -- not as a caption glued to content.
-   Shared across any results panel comparing "Current Rotation" against a pinned one. */
+   Shared across any results panel comparing "Current" against a pinned rotation. */
 .results-legend {
     display: flex; justify-content: space-between; align-items: center;
     font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.3px;
@@ -305,6 +305,47 @@
     background: none; border: none; color: var(--accent); cursor: pointer; font-size: 0.9rem;
     line-height: 1; padding: 2px;
 }
+
+/* --- Pin Comparison: "From History"/"From Rankings" picker panel --- */
+/* Invisible click-catcher covering the full viewport, same pattern as .pin-menu-backdrop --
+   the panel itself (below) is what's visually bounded to Step 1/2's own footprint. */
+.pin-picker-backdrop { position: fixed; inset: 0; z-index: 900; }
+.pin-picker-panel {
+    position: fixed;
+    z-index: 901;
+    display: flex;
+    flex-direction: column;
+    /* Same visual tone as .results-panel/.results-card/.rankings-page's own --surface-card, but
+       the pre-flattened opaque form -- this panel floats *over* Step 1/2's own busy content
+       (not the plain page background those other cards sit on), so the plain translucent
+       version would let that content show through underneath instead of reading as a card. */
+    background: var(--surface-card-flat);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 10px 25px var(--overlay-b4);
+    overflow: hidden;
+}
+/* Same treatment as .section-header (Step 1/2's own collapsible headers, calculator.css) --
+   darker well than the card body, gold title/icon -- so this reads as the same "section header"
+   chrome instead of a plain generic dialog title. */
+.pin-picker-header {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+    padding: 10px 15px;
+    background: rgba(0, 0, 0, 0.4);
+    border-bottom: 1px solid var(--border);
+    font-weight: bold; color: var(--accent); font-size: 1.1rem;
+}
+/* .modal-close-x is normally absolutely-positioned inside a position:relative .modal-box, and
+   dim by default (var(--text-dim)) -- this header lays it out inline in a flex row instead, gold
+   like .toggle-icon to match the rest of this header's chrome. */
+.pin-picker-header .modal-close-x { position: static; color: var(--accent); }
+.pin-picker-header .modal-close-x:hover { color: var(--accent); background: var(--accent-hover); border-radius: 4px; }
+.pin-picker-body { flex: 1; min-height: 0; overflow-y: auto; padding: var(--space-4); }
+/* Applied alongside .history-row/.ranking-row -- the whole row is the only interactive control
+   left once the favorite button/"..." menu are stripped out for picking. */
+.pin-picker-row { cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; }
+.pin-picker-row:hover { background: var(--surface-lighten-strong); border-color: var(--accent); }
 
 /* =========================================
    DMG OVER TIME CHART

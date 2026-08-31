@@ -5,6 +5,7 @@ import { StackedContributionBar } from './StackedContributionBar';
 import { ActionsMenuButton } from '../common/ActionsMenuButton';
 import { useRosterStore } from '../../store/useRosterStore';
 import { useRotationStore } from '../../store/useRotationStore';
+import { useComparisonStore } from '../../store/useComparisonStore';
 import { DataLoader } from '../../utils/DataLoader';
 import type { RankingEntry } from '../../store/useRankingsStore';
 import type { DpsWindowKey } from '../../types/results';
@@ -46,6 +47,16 @@ export const RankingRow: React.FC<RankingRowProps> = ({ rank, entry, activeWindo
     window.location.hash = '#/calculator/step-2';
   };
 
+  // A RankingEntry never carries dmgOverTimeSeries, so this recalculates through the worker
+  // (see useComparisonStore.pinFromRankingEntry) the same way Import JSON does. Rankings has no
+  // DPS/Dmg Over Time panel of its own to show the result in, so this also jumps to the
+  // Calculator page (same hash-route trick as handleOpenInCalculator above) instead of leaving
+  // the pin invisible until the user happens to navigate there themselves.
+  const handlePinToComparison = () => {
+    useComparisonStore.getState().pinFromRankingEntry(entry.id);
+    window.location.hash = '#/calculator/step-2';
+  };
+
   const handleOpenGuide = () => {
     // Character Guide has no per-character route yet (still "Soon" in nav.ts) -- lands on its
     // coming-soon page for now rather than a dead link, and starts working for real the moment
@@ -81,6 +92,7 @@ export const RankingRow: React.FC<RankingRowProps> = ({ rank, entry, activeWindo
           portal
           items={[
             { key: 'open-in-calculator', label: 'Open in Rotation Calculator', onClick: handleOpenInCalculator },
+            { key: 'pin-to-comparison', label: 'Pin to Comparison', onClick: handlePinToComparison },
             ...unitNames.map(name => ({ key: `guide-${name}`, label: `Open ${name} Guide`, onClick: handleOpenGuide }))
           ]}
         />

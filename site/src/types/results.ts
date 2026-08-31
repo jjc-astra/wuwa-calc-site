@@ -1,7 +1,8 @@
 // src/types/results.ts
 // Shared shapes for the Rotation Calculator's Results panel, used by both the real
-// calculation path (logic/ResultsCalculator.ts) and the still-mocked comparison-pin path
-// (data/mockResults.ts, store/useComparisonStore.ts) so the two stay interchangeable.
+// calculation path (logic/ResultsCalculator.ts) and the comparison-pin path
+// (store/useComparisonStore.ts), which recalculates a pinned file through the same worker
+// pipeline and stores its output in these exact shapes.
 
 import type { Frames } from '../utils/Frames';
 

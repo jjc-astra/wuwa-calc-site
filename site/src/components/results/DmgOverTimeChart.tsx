@@ -124,7 +124,15 @@ export const DmgOverTimeChart: React.FC = () => {
   const [WIDTH, setWidth] = useState(DEFAULT_WIDTH);
 
   const primarydmg = results ? toDisplaySeries(results.dmgOverTimeSeries[dpsType]) : EMPTY_SERIES;
-  const dmgSeries: DisplaySeries[] = pinned ? [primarydmg, toDisplaySeries(pinned.dmgOverTimeSeries[dpsType])] : [primarydmg];
+  // A solo series keeps its real per-window label from the engine (e.g. "Opener") -- shown in
+  // its own tooltip row. Once a comparison is pinned, both series need a name that identifies
+  // *which rotation* instead (the window is already implied by dpsType), so this overrides both
+  // to the same "Current" / pinned.label convention DpsPanel's legend already uses -- the
+  // engine's own dmgOverTimeSeries[window].label isn't that identity (e.g. it's literally the
+  // string "Current Rotation" for the 2-Min window on *every* rotation, current or pinned).
+  const dmgSeries: DisplaySeries[] = pinned
+    ? [{ ...primarydmg, label: 'Current' }, { ...toDisplaySeries(pinned.dmgOverTimeSeries[dpsType]), label: pinned.label }]
+    : [primarydmg];
   const domainMaxT = primarydmg.windowEnd;
   const hasChart = domainMaxT > 0;
 
