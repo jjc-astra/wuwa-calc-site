@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useBuilderStore } from '../../store/useBuilderStore';
+import { useBuilderStore, mechFolderFor } from '../../store/useBuilderStore';
+import { checkBuilderItemFreshness } from '../../utils/dataFreshness';
 import { DataLoader } from '../../utils/DataLoader';
 import { CommonUtils } from '../../utils/Common';
 import { BuilderUtils } from '../../utils/BuilderUtils';
@@ -146,7 +147,14 @@ export const MechanicsBuilder: React.FC = () => {
                 itemName={itemName}
                 imgFolder={imgFolder}
                 dbRef={dbRef}
-                onClick={rarity => setActiveChar(itemName, imgFolder, rarity)}
+                onClick={async rarity => {
+                  // Before opening this entity for editing, make sure its cached mechanic JSON
+                  // isn't stale relative to the server -- silently evicted (and re-fetched by
+                  // setActiveChar below) unless the user has unsaved local edits to it, in which
+                  // case a conflict dialog is raised instead (see useFreshnessConflictStore).
+                  await checkBuilderItemFreshness(mechFolderFor(imgFolder), itemName);
+                  setActiveChar(itemName, imgFolder, rarity);
+                }}
                 hasChanges={hasChanges(itemName)}
               />
             ))}

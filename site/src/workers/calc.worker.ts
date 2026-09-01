@@ -84,6 +84,15 @@ worker.onmessage = async (e: MessageEvent) => {
         .forEach((ref: { name: string; folder: string }) => DataLoader.clearMechanicCache(ref.folder, ref.name));
     }
 
+    // Mirrors whatever the main thread's own dataFreshness.ts check already evicted from *its*
+    // DataLoader -- this worker has a completely separate instance (see the file header comment)
+    // that never saw that eviction, and would otherwise keep simulating against whatever it
+    // happened to fetch at its own first use for the rest of this worker's lifetime.
+    if (Array.isArray(payload.staleRefs) && payload.staleRefs.length > 0) {
+      payload.staleRefs.forEach((ref: { folder: string; itemName: string }) =>
+        DataLoader.clearMechanicCache(ref.folder, ref.itemName));
+    }
+
     await DataLoader.loadTeamMechanics(payload.team);
     applyBuilderOverrides(payload);
 

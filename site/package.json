@@ -4,8 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev": "npm run gen:manifest && vite",
+    "build": "npm run gen:manifest && tsc -b && vite build",
+    "gen:manifest": "node scripts/generate-data-manifest.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },

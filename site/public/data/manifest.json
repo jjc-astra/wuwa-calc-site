@@ -1,0 +1,17 @@
+{
+  "character_results/index.json": "f006e040581d6dc4",
+  "character_results/Rotation_Lumi-RC_Sanhua-EOG_Results.json": "a65cce3cba250a0e",
+  "db_builds.json": "ec9262eb153a6dc7",
+  "db_characters.json": "4417f2656baaa96c",
+  "db_echoes.json": "592e53c004ddcecc",
+  "db_weapons.json": "8f084df4ed54a91f",
+  "mechanics/characters/Lumi.json": "28fa280c3df937d3",
+  "mechanics/characters/Sanhua.json": "9ee24cb450188a2d",
+  "mechanics/echoes/Impermanence_Heron.json": "d75f9317b9e590d3",
+  "mechanics/echoes/NM_Thundering_Mephis.json": "ba9d2f65d1020456",
+  "mechanics/generic/generic.json": "bf2722a855026e39",
+  "mechanics/sets/Moonlit_Clouds.json": "a9a6d8789b6f6fcc",
+  "mechanics/sets/Void_Thunder.json": "23c9e804cb1224c3",
+  "mechanics/weapons/Emerald_of_Genesis.json": "d2feacbdea20220b",
+  "mechanics/weapons/Radiance_Cleaver.json": "7f914ea4056dee1c"
+}

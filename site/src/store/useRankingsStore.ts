@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { DataLoader } from '../utils/DataLoader';
+import { checkResultsFreshness } from '../utils/dataFreshness';
 import { postToWorker } from '../workers/calcWorkerClient';
 import { ENEMY_DEFAULTS } from '../data/db';
 import type { TeamSlot } from '../types/index';
@@ -118,6 +119,11 @@ export const useRankingsStore = create<RankingsState>()(
   setFilters: (filters) => set({ filters }),
 
   load: async () => {
+    // Silently evicts any character_results file that changed on the server since it was last
+    // loaded -- if that touched anything already 'ready', force a real reload instead of
+    // returning the now-stale entries list below.
+    if (await checkResultsFreshness()) set({ status: 'idle', entries: [] });
+
     if (get().status === 'loading' || get().status === 'ready') return;
     set({ status: 'loading', error: null, entries: [] });
 

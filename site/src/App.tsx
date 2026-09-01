@@ -8,7 +8,11 @@ import { TeamBuilder } from './components/roster/TeamBuilder';
 import { RotationBuilder } from './components/rotation/RotationBuilder';
 import { ResultsPanel } from './components/results/ResultsPanel';
 import { RotationRankingsPage } from './components/rankings/RotationRankingsPage';
+import { FreshnessConflictDialog } from './components/common/FreshnessConflictDialog';
 import { DataLoader } from './utils/DataLoader';
+import { checkTeamFreshness } from './utils/dataFreshness';
+import { useRosterStore } from './store/useRosterStore';
+import { useRankingsStore } from './store/useRankingsStore';
 import { NAV_ITEMS } from './config/nav';
 import { useHashRoute } from './hooks/useHashRoute';
 import './assets/css/palette.css';
@@ -27,6 +31,24 @@ export default function App() {
   useEffect(() => {
     DataLoader.initDatabases().then(() => setIsLoaded(true));
   }, []);
+
+  // "Tab regains focus" freshness check, scoped to whatever the active page actually has
+  // loaded -- the Calculator checks the current roster's mechanic JSONs (silently evicting or,
+  // if locally edited, raising a conflict via useFreshnessConflictStore); Rankings just
+  // re-invokes load(), which now does its own freshness check internally and only actually
+  // re-fetches if something changed. Other views have nothing worth checking on focus alone.
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (currentView === 'calculator') {
+        checkTeamFreshness(useRosterStore.getState().team);
+      } else if (currentView === 'rankings') {
+        useRankingsStore.getState().load();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [currentView]);
 
   if (!isLoaded) {
     return (
@@ -67,6 +89,8 @@ export default function App() {
       {currentView === 'guide' && (
         <ComingSoonPage title={guideItem.label} description={guideItem.description} icon={guideItem.icon} />
       )}
+
+      <FreshnessConflictDialog />
     </div>
   );
 }

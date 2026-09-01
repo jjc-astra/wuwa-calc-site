@@ -4,6 +4,7 @@ import { postToWorker } from '../workers/calcWorkerClient';
 import { buildBuilderPayload } from '../workers/builderOverridePayload';
 import type { RotationResults } from '../types/results';
 import { useRosterStore } from './useRosterStore';
+import { checkTeamFreshness } from '../utils/dataFreshness';
 import { useRotationHistoryStore } from './useRotationHistoryStore';
 import type { TeamSlot } from '../types';
 import {
@@ -317,8 +318,19 @@ export const useRotationStore = create<RotationState>()(
           const { startEnergy, startConcerto, rows, loopStartIndex } = get();
           const options = { startEnergy, startConcerto };
 
+          // Silently evicts (or, if locally edited, flags) any of this team's mechanic JSONs
+          // that changed on the server since they were loaded -- so a Calculate press always
+          // runs against current data instead of whatever happened to be cached at page-load
+          // time. Throttled internally (DataLoader.refreshManifest), so repeated presses don't
+          // spam requests. The evicted list is also handed to the worker below (staleRefs) so
+          // its own *separate* DataLoader instance drops the same entries -- otherwise only the
+          // main thread's copy would ever notice the change, and the actual simulation (which
+          // runs in the worker) would keep using whatever it happened to fetch at its own first
+          // use.
+          const staleRefs = await checkTeamFreshness(team);
+
           set({ isCalculating: true });
-          const { seq, result } = postToWorker('calculateDamage', { rows, team, options, enemy, loopStartIndex, ...buildBuilderPayload(team) });
+          const { seq, result } = postToWorker('calculateDamage', { rows, team, options, enemy, loopStartIndex, staleRefs, ...buildBuilderPayload(team) });
           latestSeqByType.calculateDamage = seq;
           let data: any;
           try {

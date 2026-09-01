@@ -30,6 +30,12 @@ interface BuilderState {
   // True if `itemName` (character/weapon/set/echo/'Generic') has any locally-cached edit --
   // drives the "!" dirty badge on its grid card without needing to switch to it first.
   hasChanges: (itemName: string) => boolean;
+  // Drops itemName's local edit log (baseStats + mechanics + deletions) without touching
+  // DataLoader -- used by src/utils/dataFreshness.ts when a manifest staleness check finds the
+  // underlying JSON changed on the server *and* the user chose to discard local edits in favor
+  // of the new version. If itemName is the currently-open entity, also clears the live working
+  // copy so the Builder UI doesn't keep showing the discarded edits.
+  discardChanges: (itemName: string) => void;
   // Slices the full edit log down to just the entities named in `itemNames` -- used to hand
   // the Rotation Calculator's calc worker only the overrides relevant to whatever's actually
   // in the current roster (see useRotationStore.ts), not the builder's entire edit history.
@@ -48,6 +54,18 @@ let activeCharRequestSeq = 0;
 // Mirrors the charName+'_' (or 'Generic'->'System_') prefix convention DataLoader.loadMechanic/
 // clearMechanicCache already use for scoping mechanicsDB keys to one entity.
 export const nodeIdPrefix = (itemName: string) => (itemName === 'Generic' ? 'System_' : `${itemName}_`);
+
+// Maps a builder grid section's image folder (IMAGE_FOLDERS.* / the 'System' entry) to the
+// DataLoader.loadMechanic/clearMechanicCache folder name -- shared by setActiveChar, resetCache
+// below, and dataFreshness.ts's pre-open staleness check, which all need the exact same mapping.
+export const mechFolderFor = (folder: string): string => {
+  const lower = folder.toLowerCase();
+  if (lower === 'weapons') return 'weapons';
+  if (lower === 'echo sets' || lower === 'sets') return 'sets';
+  if (lower === 'echoes') return 'echoes';
+  if (lower === 'system' || lower === 'generic') return 'generic';
+  return 'characters';
+};
 
 export const useBuilderStore = create<BuilderState>()(
   persist(
@@ -71,12 +89,7 @@ export const useBuilderStore = create<BuilderState>()(
           return;
         }
 
-        let mechFolder = 'characters';
-        const lowerFolder = folder.toLowerCase();
-        if (lowerFolder === 'weapons') mechFolder = 'weapons';
-        else if (lowerFolder === 'echo sets' || lowerFolder === 'sets') mechFolder = 'sets';
-        else if (lowerFolder === 'echoes') mechFolder = 'echoes';
-        else if (lowerFolder === 'system' || lowerFolder === 'generic') mechFolder = 'generic';
+        const mechFolder = mechFolderFor(folder);
 
         await DataLoader.loadMechanic(mechFolder, charName);
 
@@ -194,6 +207,25 @@ export const useBuilderStore = create<BuilderState>()(
         return false;
       },
 
+      discardChanges: itemName => {
+        const prefix = nodeIdPrefix(itemName);
+        set(state => {
+          const nextEditedBaseStats = { ...state.editedBaseStats };
+          delete nextEditedBaseStats[itemName];
+          const nextEditedMechanics = Object.fromEntries(
+            Object.entries(state.editedMechanics).filter(([id]) => !id.startsWith(prefix))
+          );
+          const nextDeletedMechanicIds = state.deletedMechanicIds.filter(id => !id.startsWith(prefix));
+          const isActive = state.activeChar === itemName;
+          return {
+            editedBaseStats: nextEditedBaseStats,
+            editedMechanics: nextEditedMechanics,
+            deletedMechanicIds: nextDeletedMechanicIds,
+            ...(isActive ? { baseStats: {}, mechanics: {} } : {})
+          };
+        });
+      },
+
       getTeamOverrides: itemNames => {
         const { editedBaseStats, editedMechanics, deletedMechanicIds } = get();
         const names = new Set(itemNames);
@@ -210,12 +242,7 @@ export const useBuilderStore = create<BuilderState>()(
         const { activeChar, activeFolder, activeRarity } = get();
         if (!activeChar) return;
 
-        let mechFolder = 'characters';
-        const lowerFolder = activeFolder.toLowerCase();
-        if (lowerFolder === 'weapons') mechFolder = 'weapons';
-        else if (lowerFolder === 'echo sets' || lowerFolder === 'sets') mechFolder = 'sets';
-        else if (lowerFolder === 'echoes') mechFolder = 'echoes';
-        else if (lowerFolder === 'system' || lowerFolder === 'generic') mechFolder = 'generic';
+        const mechFolder = mechFolderFor(activeFolder);
 
         // 1. Evict item entries from DataLoader cache
         DataLoader.clearMechanicCache(mechFolder, activeChar);
