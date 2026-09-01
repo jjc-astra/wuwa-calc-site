@@ -178,7 +178,21 @@
     background: var(--surface-lighten);
     border: 1px solid var(--border);
     border-radius: 8px;
+    cursor: pointer;
 }
+/* Flattened bottom corners while its Timeline panel is open below, so the two read as one
+   continuous card instead of two separate ones. */
+.ranking-row.is-expanded {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+.ranking-row-expand-icon {
+    flex-shrink: 0;
+    color: var(--text-dim);
+    font-size: 0.6rem;
+    transition: transform 0.15s ease, color 0.15s ease;
+}
+.ranking-row-expand-icon.is-open { transform: rotate(90deg); color: var(--accent); }
 .ranking-row-rank {
     width: 28px; flex-shrink: 0;
     text-align: center;
@@ -211,6 +225,22 @@
 }
 .ranking-row-type-linear { color: color-mix(in srgb, #3987e5 70%, white); border-color: color-mix(in srgb, #3987e5 50%, var(--border)); }
 .ranking-row-type-quickswap { color: color-mix(in srgb, #d55181 70%, white); border-color: color-mix(in srgb, #d55181 50%, var(--border)); }
+
+/* Wraps RotationTimeline (src/assets/css/timeline.css) when a row is expanded -- owns the card
+   chrome here (Rankings-specific) so the timeline component itself stays page-agnostic. */
+.ranking-timeline-panel {
+    margin-top: -1px;
+    padding: var(--space-3);
+    background: var(--surface-card-flat);
+    border: 1px solid var(--border);
+    border-top: none;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    animation: rankingTimelineFadeIn 0.15s ease-out;
+}
+@keyframes rankingTimelineFadeIn {
+    from { opacity: 0; } to { opacity: 1; }
+}
 
 /* Anchors the "..." menu's .pin-menu dropdown (reused as-is from Pin Comparison/History --
    see results.css) to this row instead of the row list's own scroll container. */

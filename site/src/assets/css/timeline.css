@@ -1,0 +1,180 @@
+/* src/assets/css/timeline.css
+   The reusable "video editor" rotation Timeline (src/components/timeline/*) -- page-agnostic,
+   used for now only from Rankings' RankingTimelinePanel (rankings.css owns that wrapper's own
+   card chrome), but not scoped to any one page so later reuse elsewhere needs no new CSS. */
+
+.timeline-root { width: 100%; }
+
+.timeline-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+    position: relative;
+}
+
+.timeline-content {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+/* =========================================
+   UNIT ROWS (clip tracks)
+   ========================================= */
+.timeline-row {
+    display: flex;
+    align-items: stretch;
+    border-bottom: 1px solid var(--border);
+}
+
+.timeline-row-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 0 var(--space-3);
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: var(--surface-card-flat);
+    overflow: hidden;
+}
+.timeline-row-icon { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+.timeline-row-name {
+    font-size: 0.72rem; font-weight: bold; color: var(--text-main);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.timeline-row-track { flex: 1; min-width: 0; position: relative; }
+
+/* True time-boundary hit target -- unmodified left/width, so the gap below never eats into
+   real clip boundaries (hover/tooltip still cover the exact segment). */
+.timeline-clip-hit {
+    position: absolute;
+    top: 6px; bottom: 6px;
+}
+/* The visible fill -- its left/width (device-pixel-snapped, TimelineClip.tsx) leave a thin gap
+   from its neighbor, the same idea as StackedContributionBar's .ranking-bar-fill `gap: 2px`. */
+.timeline-clip {
+    position: absolute;
+    top: 0; bottom: 0;
+    border-radius: 3px;
+    box-sizing: border-box;
+}
+.timeline-clip-onfield { background: var(--char-theme-raw); }
+.timeline-clip-offfield {
+    background: color-mix(in srgb, var(--char-theme-raw) 35%, transparent);
+    border: 1px dashed var(--char-theme-raw);
+}
+.timeline-clip-wait {
+    background: var(--danger-tint);
+    border: 1px dashed var(--danger);
+}
+
+/* Additive indicator for a Simultaneous-timed action -- drawn alongside (not instead of) its
+   own clip above, since that clip may itself overlap the tail of the previous action on this
+   same row. Spans until the action's own animation ends, or (for a Hold) until its matching
+   Release row fires. */
+.timeline-simultaneous-line {
+    position: absolute;
+    bottom: 0;
+    border-radius: 2px;
+    background: var(--char-theme-raw);
+}
+
+/* =========================================
+   RULER (bottom time axis, game time)
+   ========================================= */
+.timeline-ruler {
+    display: flex;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.timeline-ruler-spacer { flex-shrink: 0; }
+.timeline-ruler-track { flex: 1; min-width: 0; position: relative; height: 100%; }
+
+/* Marks hang from the top of the ruler (flush against the border shared with the last unit
+   row) and grow downward; labels sit below the marks -- ticks read as "pushed up against the
+   rows," with the numeric labels underneath them, not the other way around. */
+.timeline-ruler-tick { position: absolute; top: 0; }
+.timeline-ruler-tick-mark { display: block; background: var(--border); }
+.timeline-ruler-tick-major .timeline-ruler-tick-mark { height: 10px; }
+.timeline-ruler-tick-secondary .timeline-ruler-tick-mark { height: 6px; }
+.timeline-ruler-tick-minor .timeline-ruler-tick-mark { height: 3px; }
+.timeline-ruler-tick-label {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.6rem;
+    font-weight: bold;
+    color: var(--text-disabled);
+    white-space: nowrap;
+}
+
+/* =========================================
+   FLAG TRACK (top marker lane -- player inputs + swaps)
+   ========================================= */
+.timeline-flag-track {
+    display: flex;
+    align-items: stretch;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    flex-shrink: 0;
+    /* Above .timeline-flag-pole (z-index: 1) -- poles are later siblings under .timeline-content
+       and would otherwise win the DOM-order tiebreak and paint over these labels. */
+    z-index: 2;
+}
+.timeline-flag-track-lanes { flex: 1; min-width: 0; position: relative; }
+
+/* border-color/color are set inline per flag (RotationTimeline.tsx/TimelineFlagTrack.tsx) to
+   the acting unit's own theme color -- whichever character is being swapped to or is pressing
+   the input -- so the flag track visually ties back to that unit's row below it. */
+.timeline-flag-label {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6rem;
+    font-weight: 800;
+    line-height: 1.3;
+    padding: 2px 3px;
+    /* Height set inline from timelineLayout.ts's FLAG_LABEL_HEIGHT_PX (TimelineFlagTrack.tsx) --
+       keep these vertical metrics (padding + border) within that budget if either changes. */
+    /* Square on the left, rounded only on the right -- a rounded bottom-left corner would curve
+       away from the exact point (this label's left edge) its own pole connects at below, leaving
+       a visible gap between the straight pole and the arc instead of a flush join. */
+    border-radius: 0 3px 3px 0;
+    /* Opaque, not var(--surface-lighten) directly -- with .timeline-flag-track stacked above the
+       poles (see its z-index), a translucent fill would still let a pole show through underneath
+       and cut across the text. Pre-mixed against the panel's own --surface-card-flat backdrop so
+       the *visible* color still matches --surface-lighten's usual translucent look everywhere
+       else, just opaque here. */
+    background: color-mix(in srgb, white 3%, var(--surface-card-flat));
+    border: 1px solid var(--border);
+    white-space: nowrap;
+    text-align: center;
+    box-sizing: border-box;
+    pointer-events: none;
+}
+.timeline-flag-label svg { flex-shrink: 0; }
+
+/* Rendered by RotationTimeline.tsx directly (not TimelineFlagTrack), which computes each
+   flag's own top/height -- starting right below its own label (not above it, into another
+   flag's lane) and stopping at the bottom of the last row, before the ruler. Background is set
+   inline to the same per-flag theme color as its label. */
+.timeline-flag-pole {
+    position: absolute;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* =========================================
+   LOOP START INDICATOR
+   ========================================= */
+.timeline-loop-start-line {
+    position: absolute;
+    top: 0; bottom: 0;
+    background: var(--accent);
+    z-index: 3;
+    pointer-events: none;
+}

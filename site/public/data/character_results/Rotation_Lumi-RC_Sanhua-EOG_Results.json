@@ -370,7 +370,7 @@
     {
       "index": 0,
       "character": "Lumi",
-      "sequence": "6",
+      "sequence": 6,
       "mode": "None",
       "weapon": "Radiance Cleaver",
       "rank": 5,
@@ -857,7 +857,7 @@
   },
   "results": {
     "dpsStats": {
-      "openerDps": 27044.635416666668,
+      "openerDps": 27257.58530183727,
       "firstLoopDps": 28355.291139240508,
       "avgLoopDps": 26991.510548523205,
       "twoMinDps": 27043.566666666666

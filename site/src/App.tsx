@@ -18,6 +18,7 @@ import './assets/css/builder.css';
 import './assets/css/landing.css';
 import './assets/css/results.css';
 import './assets/css/rankings.css';
+import './assets/css/timeline.css';
 
 export default function App() {
   const [{ view: currentView, step: activeStep }, navigate] = useHashRoute();

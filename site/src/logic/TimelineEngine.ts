@@ -110,6 +110,10 @@ export class TimelineEngineClass {
       currentData.moveName = dbMove.name || currentData.action;
       currentData.castTypes = dbMove.castTypes || (currentData.action ? [currentData.action] : []);
       currentData.dmgTypes = dbMove.dmgTypes || [];
+      // Surfaced for the rotation Timeline's input-press flags (which key/hold this move
+      // corresponds to) -- pure metadata, never read by any damage-calculation logic below.
+      currentData.input = dbMove.input;
+      currentData.inputType = dbMove.inputType;
 
       this._applyInheritance(currentData, prevData, accumulatedGameTime, team);
 
