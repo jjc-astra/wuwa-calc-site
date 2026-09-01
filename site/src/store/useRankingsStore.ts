@@ -8,8 +8,8 @@ import { ENEMY_DEFAULTS } from '../data/db';
 import type { TeamSlot } from '../types/index';
 import type { RotationResults } from '../types/results';
 import type { DpsWindowKey } from '../types/results';
-import { DEFAULT_RANKING_FILTERS } from '../components/rankings/RankingFilterToolbar';
-import type { RankingFilters } from '../components/rankings/RankingFilterToolbar';
+import { DEFAULT_RANKING_FILTERS, RANKING_ELEMENTS, RANKING_DMG_CATEGORIES } from '../components/rankings/RankingFilterToolbar';
+import type { RankingFilters, RankingElement, RankingDmgCategory } from '../components/rankings/RankingFilterToolbar';
 
 export interface RankingEntry {
   id: string;
@@ -35,6 +35,50 @@ function rotationGroupKey(entry: RankingEntry): string {
   return entry.team.map((slot, i) => `${slot.character || ''}@S${entry.sequences[i] ?? 0}`).join('|');
 }
 
+// Which single element / which single Basic-Heavy-Skill-Liberation-Echo category this entry's
+// team dealt the most damage as, for the given window -- the DMG Type filter's basis. Element is
+// attributed wholesale to each unit's own assigned element (DataLoader.characterDB[name].
+// element), weighted by that unit's own total contribution for the window -- so e.g. a Fusion
+// main DPS + Aero sub DPS reads as a "Fusion team", not a 50/50 split. Category is instead
+// summed from each unit's own per-castType breakdown (contribution.units), since a single
+// character's own hits already mix several categories together (a Basic-Attack-heavy kit still
+// throws out Skill/Liberation hits too). Either can come back null if the team dealt no damage
+// at all, or none of it falls into a tracked element/category.
+function majorityDmgTypes(entry: RankingEntry, window: DpsWindowKey): { element: string | null; category: RankingDmgCategory | null } {
+  const c = entry.contribution[window];
+  const teamNames = new Set(entry.team.map(s => s.character).filter(Boolean));
+
+  const elementTotals: Record<string, number> = {};
+  c.team.forEach(slice => {
+    if (!teamNames.has(slice.label)) return; // a status-effect tick's own label, not a team member
+    const element = DataLoader.characterDB[slice.label]?.element;
+    if (!element) return;
+    elementTotals[element] = (elementTotals[element] || 0) + slice.dmg;
+  });
+
+  const categoryTotals: Record<string, number> = {};
+  teamNames.forEach(unit => {
+    (c.units[unit] || []).forEach(slice => {
+      if (!(RANKING_DMG_CATEGORIES as readonly string[]).includes(slice.castType)) return;
+      categoryTotals[slice.castType] = (categoryTotals[slice.castType] || 0) + slice.dmg;
+    });
+  });
+
+  const pickMax = (totals: Record<string, number>): string | null => {
+    let best: string | null = null;
+    let bestDmg = 0;
+    for (const [key, dmg] of Object.entries(totals)) {
+      if (dmg > bestDmg) { best = key; bestDmg = dmg; }
+    }
+    return best;
+  };
+
+  return {
+    element: pickMax(elementTotals),
+    category: pickMax(categoryTotals) as RankingDmgCategory | null
+  };
+}
+
 /** Applies the Rankings page's sequence/style/search filters, then (last) the Best Only dedupe
  * and DPS-descending sort -- shared by the full Rankings page and the Pin Comparison picker so
  * both apply identical rules to the exact same underlying entries. */
@@ -45,8 +89,13 @@ export function filterRankingEntries(
   activeWindow: DpsWindowKey
 ): RankingEntry[] {
   const searchLower = search.trim().toLowerCase();
+  // Faceted-checkbox convention (see RankingFilterToolbar's DEFAULT_RANKING_FILTERS): every box
+  // checked means the facet is inactive (don't even bother computing majorityDmgTypes for every
+  // entry when nothing's been narrowed), not "only pass entries matching all 6/5".
+  const elementFilterActive = filters.elements.length < RANKING_ELEMENTS.length;
+  const categoryFilterActive = filters.dmgCategories.length < RANKING_DMG_CATEGORIES.length;
 
-  // Sequence range, rotation style, and search text narrow the candidate set first --
+  // Sequence range, rotation style, search text, and DMG Type narrow the candidate set first --
   // "Best Only" (below) only ever dedupes *within* whatever survives these, so a rotation
   // that's the best of its group never gets silently hidden by a duplicate that itself
   // would've been filtered out anyway.
@@ -65,6 +114,11 @@ export function filterRankingEntries(
     if (searchLower) {
       const label = entry.team.filter(s => s.character).map(s => s.character).join(' · ').toLowerCase();
       if (!label.includes(searchLower)) return false;
+    }
+    if (elementFilterActive || categoryFilterActive) {
+      const { element, category } = majorityDmgTypes(entry, activeWindow);
+      if (elementFilterActive && (!element || !filters.elements.includes(element as RankingElement))) return false;
+      if (categoryFilterActive && (!category || !filters.dmgCategories.includes(category))) return false;
     }
     return true;
   });
@@ -103,6 +157,23 @@ interface RankingsState {
   setActiveWindow: (window: DpsWindowKey) => void;
   setSearch: (search: string) => void;
   setFilters: (filters: RankingFilters) => void;
+
+  // Pagination -- both persisted (see partialize below), so a reload lands back on the same
+  // page. RotationRankingsPage still resets page to 1 whenever search/filters/activeWindow
+  // change, so switching *those* never leaves you stranded deep in a now-different result set --
+  // this is purely about a plain reload/revisit preserving where you were.
+  page: number;
+  pageSize: number;
+  setPage: (page: number) => void;
+  setPageSize: (pageSize: number) => void;
+
+  // True once zustand's persist middleware has finished restoring localStorage into this store.
+  // Rehydration is asynchronous and swaps in new (if deeply-equal) object references for
+  // search/filters/activeWindow *after* the first render -- RotationRankingsPage's
+  // reset-page-on-filter-change effect needs this to tell "rehydration just landed, ignore it"
+  // apart from "the user actually changed something", or it would stomp a restored page number
+  // straight back to 1 on every load.
+  hasHydrated: boolean;
 }
 
 export const useRankingsStore = create<RankingsState>()(
@@ -117,6 +188,15 @@ export const useRankingsStore = create<RankingsState>()(
   setActiveWindow: (activeWindow) => set({ activeWindow }),
   setSearch: (search) => set({ search }),
   setFilters: (filters) => set({ filters }),
+
+  page: 1,
+  pageSize: 20,
+  setPage: (page) => set({ page }),
+  // Changing how many rows fit a page shifts what "page 2" even means -- reset to page 1 rather
+  // than risk landing on a now-out-of-range or just-plain-different slice of entries.
+  setPageSize: (pageSize) => set({ pageSize, page: 1 }),
+
+  hasHydrated: false,
 
   load: async () => {
     // Silently evicts any character_results file that changed on the server since it was last
@@ -193,8 +273,29 @@ export const useRankingsStore = create<RankingsState>()(
       partialize: (state) => ({
         activeWindow: state.activeWindow,
         search: state.search,
-        filters: state.filters
-      })
+        filters: state.filters,
+        page: state.page,
+        pageSize: state.pageSize
+      }),
+      // zustand's default merge is `{...currentState, ...persistedState}` -- a shallow merge at
+      // the TOP level only, so a persisted `filters` object (from before the DMG Type filter
+      // existed) would replace the in-code default `filters` *wholesale*, leaving
+      // elements/dmgCategories `undefined` and crashing the first render (`.length`/`.includes`
+      // on undefined) instead of quietly defaulting to "all checked, no filtering" like a fresh
+      // install gets. Deep-merging `filters` specifically -- defaults first, persisted values
+      // overlaid on top -- means any field older localStorage doesn't have just falls back to
+      // its default instead of vanishing.
+      merge: (persistedState, currentState) => {
+        const persisted = (persistedState || {}) as Partial<RankingsState>;
+        return {
+          ...currentState,
+          ...persisted,
+          filters: { ...currentState.filters, ...(persisted.filters || {}) }
+        };
+      },
+      onRehydrateStorage: () => () => {
+        useRankingsStore.setState({ hasHydrated: true });
+      }
     }
   )
 );

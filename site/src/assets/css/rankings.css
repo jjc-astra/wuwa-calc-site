@@ -87,6 +87,69 @@
     color: var(--text-dim);
 }
 
+/* --- DMG Type filter: two independent checkbox facets (Element, Category) side by side. --- */
+.ranking-dmgtype-columns { display: flex; gap: var(--space-3); }
+.ranking-dmgtype-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ranking-dmgtype-col-header {
+    display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
+    margin-bottom: 2px;
+}
+.ranking-dmgtype-col-title {
+    font-size: 0.65rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.3px;
+    color: var(--text-dim);
+}
+/* Select All / Hide All is a momentary action, not a persistent 2-state toggle like every other
+   .segmented-toggle on this page -- deliberately never gets .is-active, and shrinks to fit its
+   own short "All"/"None" labels instead of inheriting .ranking-toolbar's stretch-to-fill rule. */
+.ranking-dmgtype-col-header .segmented-toggle-btn { flex: none; padding: 2px 6px; font-size: 0.62rem; }
+.ranking-dmgtype-checkbox-row {
+    display: flex; align-items: center; gap: var(--space-2);
+    padding: 2px 0;
+    cursor: pointer;
+    /* Per-row color (element or category), read by both the checked-box fill below and
+       .ranking-dmgtype-tag -- set inline per option (RankingFilterToolbar.tsx). */
+}
+
+/* Same hidden-native-input + custom box pattern as calculator.css's .check-wrap/.check-visual
+   (the Rotation Row's own row-select checkbox), just not absolutely positioned -- this isn't
+   overlaying a row index -- and tinted per row via --tag-color instead of always --accent. */
+.ranking-dmgtype-check-wrap {
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+.ranking-dmgtype-check-wrap input {
+    position: absolute; opacity: 0; margin: 0; height: 0; width: 0; cursor: pointer;
+}
+.ranking-dmgtype-check-visual {
+    width: 14px; height: 14px;
+    border: 1px solid var(--text-disabled); border-radius: 2px;
+    background-color: rgba(0, 0, 0, 0.5);
+    transition: all 0.15s;
+    pointer-events: none;
+}
+.ranking-dmgtype-check-wrap input:checked ~ .ranking-dmgtype-check-visual {
+    background-color: var(--tag-color, var(--accent)); border-color: var(--tag-color, var(--accent));
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.3);
+}
+
+/* Same small-pill idiom as .ranking-row-type-badge (Linear/Quickswap), just parameterized by
+   --tag-color instead of two hardcoded classes, since this covers 11 different options. */
+.ranking-dmgtype-tag {
+    display: inline-block;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    font-weight: bold;
+    font-size: 0.62rem;
+    padding: 2px 7px;
+    border-radius: 10px;
+    background: var(--surface-lighten);
+    border: 1px solid color-mix(in srgb, var(--tag-color, var(--border)) 50%, var(--border));
+    color: color-mix(in srgb, var(--tag-color, var(--text-dim)) 70%, white);
+}
+
 /* --- Dual-handle range slider (RangeSlider.tsx) -- two overlapping native <input type=range>
    with their own tracks hidden, sitting over one visible static track + a highlighted fill
    showing the selected span -- styled to match .base-slider (the echo card's own substat
@@ -169,6 +232,18 @@
 
 /* --- Leaderboard rows --- */
 .ranking-list { display: flex; flex-direction: column; gap: var(--space-2); }
+
+.ranking-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-top: var(--space-4);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--border);
+}
+.ranking-pagination-nav { display: flex; align-items: center; gap: var(--space-3); }
+.ranking-pagination-status { font-size: 0.72rem; color: var(--text-dim); white-space: nowrap; }
 
 .ranking-row {
     display: flex;
