@@ -382,6 +382,15 @@ export class TimelineEngineClass {
 
       this._evaluateMechanics(currentData, activeTeam, activeRows, i, team, dbMove);
       this._resolveComboWindows(currentData, dbMove, prevData, team);
+      // Surfaced for the rotation Timeline's spam-click indicator (comparing this row's priority
+      // against the previous row's) -- resolved the same DSL-or-number way _resolveComboWindows
+      // resolves comboWindow/actionDuration, deferred until here so @Self/@Move context reflects
+      // this row's own fully-computed state rather than whatever was set before inheritance ran.
+      currentData.priority = dbMove.priority === undefined
+        ? 0
+        : (typeof dbMove.priority === 'string' && (dbMove.priority.includes('@') || /[+\-*/]/.test(dbMove.priority)))
+          ? Number(this._resolveDynamicMath(dbMove.priority, currentData, currentData.unit, team))
+          : parseFloat(String(dbMove.priority));
     }
 
     const emptyRow = activeRows[activeRows.length - 1];

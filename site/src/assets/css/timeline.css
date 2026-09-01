@@ -9,6 +9,10 @@
     overflow-x: auto;
     overflow-y: hidden;
     position: relative;
+    /* The top lane's spam/wait corner dot (.timeline-flag-label-spam/-wait::after) pokes a few
+       px above its own flag label -- without this, the lane-0 dots get clipped flush against
+       this container's own top edge by overflow-y: hidden. */
+    padding-top: 4px;
 }
 
 .timeline-content {
@@ -157,6 +161,25 @@
     pointer-events: none;
 }
 .timeline-flag-label svg { flex-shrink: 0; }
+
+/* Spam-click indicator -- a small corner dot on an input flag showing whether mashing that key
+   early is safe ('spam', can't cut short whatever's currently playing) or has to actually be
+   waited for ('wait', pressing early risks interrupting the current move). See timelineLayout.ts's
+   describeSpamState for the priority comparison this comes from. Positioned outside the label's
+   own rounded corner rather than overlapping its text. */
+.timeline-flag-label-spam::after,
+.timeline-flag-label-wait::after {
+    content: '';
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    border: 1px solid var(--surface-card-flat);
+}
+.timeline-flag-label-spam::after { background: var(--success); }
+.timeline-flag-label-wait::after { background: var(--warning); }
 
 /* Rendered by RotationTimeline.tsx directly (not TimelineFlagTrack), which computes each
    flag's own top/height -- starting right below its own label (not above it, into another

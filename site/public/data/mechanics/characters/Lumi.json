@@ -171,6 +171,17 @@
       "concerto": [4.8],
       "tune": [0.768]
     },
+    "effects": [
+      {
+        "type": "buffAction",
+        "action": "remove",
+        "name": "Lumi_Yellow Light Form"
+      },
+      {
+        "type": "buff",
+        "name": "Lumi_Red Light Form"
+      }
+    ],
     "hitMults": ["181.32%"],
     "input": "Skill",
     "stanceReq": "Grounded",
@@ -190,6 +201,17 @@
       "concerto": [4.6],
       "tune": [0.736]
     },
+    "effects": [
+      {
+        "type": "buffAction",
+        "action": "remove",
+        "name": "Lumi_Red Light Form"
+      },
+      {
+        "type": "buff",
+        "name": "Lumi_Yellow Light Form"
+      }
+    ],
     "hitMults": ["173.76%"],
     "input": "Skill",
     "stanceReq": "Grounded",

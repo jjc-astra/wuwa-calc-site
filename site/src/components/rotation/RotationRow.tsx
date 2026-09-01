@@ -88,7 +88,6 @@ export const RotationRow: React.FC<RotationRowProps> = ({
   const getActionGroups = (): ActionGroup[] => {
     if (!selectedUnit) return [];
     const ctx = ContextManager.buildContext(row, selectedUnit, team);
-    const groupsMap: Record<string, ActionOption[]> = {};
     const skillGroupNames = dbChar.skillGroupNames || {};
 
     const checkValid = (k: string, m: any) => {
@@ -105,6 +104,12 @@ export const RotationRow: React.FC<RotationRowProps> = ({
       return true;
     };
 
+    const resolvePriority = (m: any) =>
+      typeof m.priority === 'number' ? m.priority : (m.priority ? DSLParser.evaluateMath(String(m.priority), ctx, selectedUnit) : 0);
+
+    interface Candidate { id: string; m: any; groupLabel: string }
+    const candidates: Candidate[] = [];
+
     // 1. Character Mechanics
     const charKeys = DataLoader.mechanicsIndex[selectedUnit] || [];
     charKeys.forEach(k => {
@@ -113,8 +118,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
         const cat = m.category || BuilderUtils.guessCategory(m);
         const groupName = skillGroupNames[cat];
         const groupLabel = groupName ? `${cat}: ${groupName}` : cat;
-        if (!groupsMap[groupLabel]) groupsMap[groupLabel] = [];
-        groupsMap[groupLabel].push({ id: k, name: m.name || k, priority: m.priority });
+        candidates.push({ id: k, m, groupLabel });
       }
     });
 
@@ -124,11 +128,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
       const echoKeys = DataLoader.mechanicsIndex[slot.mainEcho] || [];
       echoKeys.forEach(k => {
         const m = DataLoader.mechanicsDB[k];
-        if (checkValid(k, m)) {
-          const groupLabel = 'Echo Skill';
-          if (!groupsMap[groupLabel]) groupsMap[groupLabel] = [];
-          groupsMap[groupLabel].push({ id: k, name: m.name || k, priority: m.priority });
-        }
+        if (checkValid(k, m)) candidates.push({ id: k, m, groupLabel: 'Echo Skill' });
       });
     }
 
@@ -136,11 +136,40 @@ export const RotationRow: React.FC<RotationRowProps> = ({
     const sysKeys = DataLoader.mechanicsIndex['System'] || [];
     sysKeys.forEach(k => {
       const m = DataLoader.mechanicsDB[k];
-      if (checkValid(k, m)) {
-        const groupLabel = 'Uncategorized (System)';
-        if (!groupsMap[groupLabel]) groupsMap[groupLabel] = [];
-        groupsMap[groupLabel].push({ id: k, name: m.name || k, priority: m.priority });
-      }
+      if (checkValid(k, m)) candidates.push({ id: k, m, groupLabel: 'Uncategorized (System)' });
+    });
+
+    // --- COLLAPSE CANDIDATES THAT SHARE THE SAME INPUT ---
+    // Only one resolved mechanic can actually fire when a given input is pressed, so when several
+    // valid candidates share the same (input, inputType), only the highest-priority one is real --
+    // e.g. Lumi's Red Spotlight Basic Attack 1/2/3 all bind to a plain Basic press while the
+    // Spotlight tracker has charges left, and their priority ladder (BasicPriority+10/11/12)
+    // exists specifically to say which one actually resolves. stanceReq (Grounded vs Midair) is
+    // excluded from the collapse key since this simulator only *estimates* airborne state rather
+    // than truly tracking it -- both variants have to stay selectable so the author can pick
+    // manually. A row's already-selected action is never collapsed away (mirrors checkValid's own
+    // "always retain currently selected" rule above), even if it's no longer the priority winner.
+    const byInputKey = new Map<string, Candidate[]>();
+    const finalCandidates: Candidate[] = [];
+    candidates.forEach(c => {
+      if (!c.m.input) { finalCandidates.push(c); return; }
+      const key = `${c.m.input}|${c.m.inputType || 'Press'}|${c.m.stanceReq || ''}`;
+      if (!byInputKey.has(key)) byInputKey.set(key, []);
+      byInputKey.get(key)!.push(c);
+    });
+    byInputKey.forEach(group => {
+      if (group.length === 1) { finalCandidates.push(group[0]); return; }
+      const winner = group.reduce((best, cur) => (resolvePriority(cur.m) > resolvePriority(best.m) ? cur : best));
+      finalCandidates.push(winner);
+      const current = group.find(c => c.id === row.action && c.id !== winner.id);
+      if (current) finalCandidates.push(current);
+    });
+
+    // --- BUILD GROUPS ---
+    const groupsMap: Record<string, ActionOption[]> = {};
+    finalCandidates.forEach(({ id, m, groupLabel }) => {
+      if (!groupsMap[groupLabel]) groupsMap[groupLabel] = [];
+      groupsMap[groupLabel].push({ id, name: m.name || id, priority: m.priority });
     });
 
     // --- SORT OPTIONS WITHIN EACH GROUP BY PRIORITY (Highest First) ---

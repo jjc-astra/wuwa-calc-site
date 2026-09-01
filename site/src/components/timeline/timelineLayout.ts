@@ -170,6 +170,10 @@ export function buildUnitRows(evaluatedRows: any[], team: TeamSlot[]): UnitRowDa
 
 export type FlagType = 'swap' | 'input';
 
+// Whether this row's own input can be safely mashed ahead of time ('spam') or has to actually be
+// waited for ('wait') -- see describeSpamState below for the priority comparison this comes from.
+export type SpamState = 'spam' | 'wait';
+
 export interface TimelineFlag {
   type: FlagType;
   timeFrames: number;
@@ -181,6 +185,8 @@ export interface TimelineFlag {
   // When set, the flag renders this glyph instead of writing the key out (e.g. a mouse icon
   // instead of the text "Left Click").
   icon?: 'mouse-left';
+  // Only set for 'input' flags with a previous row to compare against -- see describeSpamState.
+  spamState?: SpamState;
   row: any;
   // Whichever unit is acting when this input/swap happens -- e.g. for a swap flag, the
   // character being swapped *to*, since that's who the "Press N" belongs to.
@@ -201,9 +207,38 @@ export interface LaidOutFlag extends TimelineFlag {
 // independently by assignFlagLanes below. A default swap-in move (e.g. an Intro cast) naturally
 // produces no input flag of its own, since those mechanics carry no `input` tag in the first
 // place -- no special-casing needed here.
+// Whether mashing this row's key ahead of time is safe, based on comparing this row's own
+// (TimelineEngine-resolved) cancel priority against the immediately preceding row's. Priority is
+// a per-category cancel tier (Basic < Heavy < Skill < Echo < Dodge/Jump < Liberation < Intro <
+// Outro, see GAME_DEFAULTS in db.ts) -- a strictly higher-tier action can always cut off whatever
+// is currently playing, which is a real DPS risk if it's thrown out too early (e.g. spamming
+// Dodge mid-Basic-Attack can cancel that Basic Attack's remaining hits before they land), so:
+//  - prev priority > this priority -> the currently-playing move outranks this row's own action,
+//    which therefore *can't* preempt it -- pressing/mashing this key early costs nothing (it'll
+//    simply fire the instant the higher-tier move naturally ends), safe to spam ('spam').
+//  - prev priority <= this priority -> this row's own action is at least as high tier as what's
+//    playing, so it's capable of cutting it short the moment it's pressed -- mash it too early
+//    and you risk losing whatever's left of the current move's damage, so the player should
+//    actually wait for it ('wait').
+// Exception: a row that shares its (input, inputType) with the immediately preceding row is a
+// same-string combo continuation (e.g. a Basic Attack's own hit 2 following hit 1), not a real
+// cross-category cancel contest -- priority still increments across a combo string's own hits,
+// but purely to break ties in the rotation dropdown when several are valid at once (see
+// RotationRow.tsx's getActionGroups), not to signal early-cancel risk between them. Those are
+// always safe to mash forward through, regardless of the raw priority numbers.
+// No previous row (the rotation's first action) has nothing to compare against.
+function describeSpamState(prevRow: any, row: any): SpamState | undefined {
+  if (!prevRow) return undefined;
+  if (prevRow.input === row.input && (prevRow.inputType || 'Press') === (row.inputType || 'Press')) return 'spam';
+  const prevPriority = Number(prevRow.priority) || 0;
+  const priority = Number(row.priority) || 0;
+  return prevPriority > priority ? 'spam' : 'wait';
+}
+
 export function buildFlags(evaluatedRows: any[], team: TeamSlot[]): TimelineFlag[] {
   const flags: TimelineFlag[] = [];
   let prevUnit: string | null = null;
+  let prevRow: any = null;
 
   for (const row of evaluatedRows) {
     if (!row.unit) continue;
@@ -224,10 +259,12 @@ export function buildFlags(evaluatedRows: any[], team: TeamSlot[]): TimelineFlag
       // "Left Click" out -- see MouseClickIcon.tsx -- since it's by far the most frequent input
       // and the text version ate the most flag-track width.
       const icon = row.input === 'Basic' ? 'mouse-left' : undefined;
-      flags.push({ type: 'input', timeFrames: row.gameTimeStart, label, prefix, icon, row, themeColor });
+      const spamState = describeSpamState(prevRow, row);
+      flags.push({ type: 'input', timeFrames: row.gameTimeStart, label, prefix, icon, spamState, row, themeColor });
     }
 
     prevUnit = row.unit;
+    prevRow = row;
   }
 
   return flags;
