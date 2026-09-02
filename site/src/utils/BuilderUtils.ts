@@ -118,7 +118,8 @@ export const BuilderUtils = {
     activeChar: string | null,
     baseStats: Record<string, any>,
     mechanicsObj: Record<string, any>,
-    isWeapon = false
+    isWeapon = false,
+    mechFolder = 'characters'
   ) => {
     if (!activeChar) return { charJsonString: '', mechJsonString: '', highlightedHTML: '' };
     let charStr = '';
@@ -147,7 +148,7 @@ export const BuilderUtils = {
         return '[' + inner.replace(/\s*\n\s*/g, ' ').trim() + ']';
       });
 
-      visualOutput += `// Save this exact JSON to: data/mechanics/[folder]/${activeChar.replace(/\s+/g, '_')}.json\n${mechStr}`;
+      visualOutput += `// Save this exact JSON to: data/mechanics/${mechFolder}/${activeChar.replace(/\s+/g, '_')}.json\n${mechStr}`;
     } else if (!hasBaseStats) {
       visualOutput += `// Add mechanic nodes to generate output!`;
     }

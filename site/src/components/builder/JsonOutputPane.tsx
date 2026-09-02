@@ -1,28 +1,32 @@
 // components/builder/JsonOutputPane.tsx
 import React, { useState, useEffect, useRef } from 'react';
-import { useBuilderStore } from '../../store/useBuilderStore';
+import { useBuilderStore, mechFolderFor } from '../../store/useBuilderStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { BuilderUtils } from '../../utils/BuilderUtils';
 
 export const JsonOutputPane: React.FC = () => {
-  const { activeChar, baseStats, mechanics, resetCache, highlightedNodeId, hasChanges } = useBuilderStore();
+  const { activeChar, activeFolder, baseStats, mechanics, resetCache, highlightedNodeId, hasChanges } = useBuilderStore();
   const codeEditorRef = useRef<HTMLPreElement>(null);
   const isWeapon = activeChar ? !!DataLoader.weaponDB[activeChar] : false;
   const isDirty = activeChar ? hasChanges(activeChar) : false;
+  // Same folder DataLoader.loadMechanic/clearMechanicCache actually use -- 'characters',
+  // 'weapons', 'sets', 'echoes', or 'generic' -- so the "Save this exact JSON to" comment names
+  // the real path instead of a literal, never-substituted "[folder]" placeholder.
+  const mechFolder = mechFolderFor(activeFolder);
 
   // 1. Local state for formatted JSON output
   const [formatted, setFormatted] = useState(() =>
-    BuilderUtils.formatJSONOutput(activeChar, baseStats, mechanics, isWeapon)
+    BuilderUtils.formatJSONOutput(activeChar, baseStats, mechanics, isWeapon, mechFolder)
   );
 
   // 2. 250ms Debounce effect for JSON stringification and syntax highlighting
   useEffect(() => {
     const timer = setTimeout(() => {
-      setFormatted(BuilderUtils.formatJSONOutput(activeChar, baseStats, mechanics, isWeapon));
+      setFormatted(BuilderUtils.formatJSONOutput(activeChar, baseStats, mechanics, isWeapon, mechFolder));
     }, 50);
 
     return () => clearTimeout(timer);
-  }, [activeChar, baseStats, mechanics, isWeapon]);
+  }, [activeChar, baseStats, mechanics, isWeapon, mechFolder]);
 
   // 3. Highlight full node block on hover
   useEffect(() => {
