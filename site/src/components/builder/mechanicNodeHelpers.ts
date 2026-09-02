@@ -53,15 +53,33 @@ export const displayTimeVal = (v: number | string | undefined, unit: 'f' | 's'):
   return typeof v === 'number' ? `${v}${unit}` : v;
 };
 
-// Effects Array chip label -- was type|name|stat, which silently dropped the actual value
-// (e.g. a resource effect's amount, or a buff's percentage), leaving chips like
-// "RESOURCE | FORTE1 |" with no number at all. Only includes segments that are actually set.
+// Effects Array chip label -- was type|name|stat, which silently dropped everything else the
+// panel below actually lets you set (target, stacks, duration, stack/expire behavior, etc.),
+// leaving chips that looked identical even when the effects behind them were configured very
+// differently. Now surfaces every field the effect actually has set, in roughly the same order
+// TriggerRuleEffectsPanel's own fields read top-to-bottom, so the chip is a real summary instead
+// of just an identifier. Only includes segments that are actually set -- an unset field (e.g.
+// most effects have no stacks/duration at all) doesn't pad every chip with empty noise.
 export function effectLabel(eff: Effect): string {
   const parts: string[] = [String(eff.type || '').toUpperCase()];
   if (eff.name) parts.push(eff.name);
-  if (eff.stat) parts.push(eff.stat);
   if (eff.action) parts.push(eff.action);
+  if (eff.target) parts.push(eff.target);
+  if (eff.stat) parts.push(eff.stat);
   if (eff.value !== undefined && eff.value !== '') parts.push(String(eff.value));
+  if (eff.stacks !== undefined) parts.push(`Stacks: ${eff.stacks}`);
+  if (eff.maxStacks !== undefined) parts.push(`Max: ${eff.maxStacks}`);
+  if (eff.duration !== undefined && eff.duration !== '') parts.push(`Dur: ${displayTimeVal(eff.duration, 's')}`);
+  if (eff.stackBehavior) parts.push(eff.stackBehavior === 'resettable' ? 'Refresh Timers' : 'Separate Stacks');
+  if (eff.expireBehavior) {
+    parts.push(eff.expireBehavior === 'clear' ? 'Clear All' : eff.expireBehavior === 'drop_one' ? 'Drop 1' : 'Drop Half');
+  }
+  if (eff.removeOnSwap) parts.push('Clear on Swap');
+  if (eff.applyTo) parts.push(`Tags: ${Array.isArray(eff.applyTo) ? eff.applyTo.join(', ') : eff.applyTo}`);
+  if (eff.provider) parts.push(`from ${eff.provider}`);
+  if (eff.source) parts.push(`src: ${eff.source}`);
+  if (eff.linkedTracker) parts.push(`Tracker: ${eff.linkedTracker}`);
+  if (eff.maxDuration !== undefined) parts.push(`Max Dur: ${eff.maxDuration}s`);
   return parts.join(' | ');
 }
 
