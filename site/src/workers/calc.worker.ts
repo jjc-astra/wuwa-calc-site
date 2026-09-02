@@ -90,17 +90,14 @@ worker.onmessage = async (e: MessageEvent) => {
     // team actually uses back to a pristine re-fetch first -- otherwise an edit *removed* in
     // the Mechanics Builder (a Reset Cache, a deleted node) would have no way to un-stick from
     // this worker's own long-lived mechanicsDB/characterDB, which only ever gets new data
-    // merged in, never reverted. 'Generic' is deliberately skipped here: its cache key is
-    // already correctly populated once at worker startup (getReady() above), and re-clearing
-    // it hits an existing loadMechanic/clearMechanicCache casing mismatch ('Generic' vs the
-    // real lowercase generic.json) that would leave System mechanics missing rather than just
-    // stale -- narrow enough (an edited Generic/System node staying stuck until the page
-    // reloads) that skipping it here is far safer than risking every calculation breaking.
+    // merged in, never reverted. Includes 'generic'/System mechanics same as everything else --
+    // DataLoader.mechanicFileName is the one place that translates 'Generic' to the real
+    // lowercase generic.json filename, so clearMechanicCache/loadMechanic already agree on the
+    // same cache-Set key regardless of which casing a caller passes in.
     if (type === 'calculateDamage' && hasOverrides && payload.builderEntityRefs) {
       await DataLoader.initDatabases();
-      payload.builderEntityRefs
-        .filter((ref: { folder: string }) => ref.folder !== 'generic')
-        .forEach((ref: { name: string; folder: string }) => DataLoader.clearMechanicCache(ref.folder, ref.name));
+      payload.builderEntityRefs.forEach((ref: { name: string; folder: string }) =>
+        DataLoader.clearMechanicCache(ref.folder, ref.name));
     }
 
     // Mirrors whatever the main thread's own dataFreshness.ts check already evicted from *its*

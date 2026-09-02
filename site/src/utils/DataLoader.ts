@@ -65,11 +65,23 @@ export class DataLoaderClass {
     }
   }
 
-  // Same relPath -> URL convention loadMechanic already uses internally, exposed so callers
+  // The on-disk filename for a mechanic entity. Every part of this app *except* the actual file
+  // on disk refers to the Generic/System entity as 'Generic' (nodeIdPrefix, the Builder's own
+  // grid entry, clearMechanicCache's mechanicsDB/-Index special cases, etc.) -- the real file is
+  // lowercase mechanics/generic/generic.json (see initDatabases' own loadMechanic call), so this
+  // is the one place that has to know to translate between the two, rather than each caller
+  // remembering to (or, worse, not remembering to -- a mismatched key here is exactly what let
+  // Reset Cache on Generic silently fail to restore anything: clearMechanicCache evicted the
+  // wrong cache-Set key, so the re-fetch right after it saw a cache "hit" and skipped entirely).
+  private mechanicFileName(itemName: string): string {
+    return itemName === 'Generic' ? 'generic' : itemName.replace(/\s+/g, '_');
+  }
+
+  // Same relPath -> URL convention loadMechanic uses internally, exposed so callers
   // (dataFreshness.ts) can ask "what path would loadMechanic use for this (folder,itemName)"
-  // without duplicating the filename-sanitizing rule.
+  // without duplicating the filename rule.
   mechanicPath(folder: string, itemName: string): string {
-    return `mechanics/${folder}/${itemName.replace(/\s+/g, '_')}.json`;
+    return `mechanics/${folder}/${this.mechanicFileName(itemName)}.json`;
   }
 
   // Throttled (5s) so a burst of near-simultaneous callers (tab-focus + an in-flight Calculate,
@@ -142,7 +154,7 @@ export class DataLoaderClass {
 
   async loadMechanic(folder: string, itemName: string): Promise<void> {
     if (!itemName) return;
-    const fileName = itemName.replace(/\s+/g, '_');
+    const fileName = this.mechanicFileName(itemName);
     const cacheKey = `${folder}/${fileName}`;
     if (this.cache.mechanics.has(cacheKey)) return;
     const data = await this.loadJSON<Record<string, MechanicNode>>(CommonUtils.getData(`mechanics/${folder}/${fileName}.json`));
@@ -179,8 +191,13 @@ export class DataLoaderClass {
 
   clearMechanicCache(folder: string, itemName: string): void {
     if (!itemName) return;
-    const fileName = itemName.replace(/\s+/g, '_');
-    const cacheKey = `${folder}/${fileName}`;
+    // mechanicFileName's Generic->'generic' translation matters here specifically: get this
+    // cache-Set key wrong and this eviction silently misses the entry loadMechanic actually
+    // inserted. Left un-evicted, the very next loadMechanic call (initDatabases, right after
+    // this in useBuilderStore's resetCache) sees its cache-Set entry still present and skips
+    // re-fetching entirely -- so mechanicsDB's System_* entries, wiped just below, never get
+    // restored, instead of the pristine data resetCache is meant to restore.
+    const cacheKey = `${folder}/${this.mechanicFileName(itemName)}`;
 
     // 1. Evict from cache Set so loadMechanic will re-fetch the JSON file
     this.cache.mechanics.delete(cacheKey);

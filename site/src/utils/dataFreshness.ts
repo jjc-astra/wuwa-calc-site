@@ -117,19 +117,18 @@ async function checkItems(items: FreshnessItem[]): Promise<FreshnessItem[]> {
   return evicted;
 }
 
-// Every mechanic currently loaded for a team's characters/weapons/sets/echoes -- the "any loaded
-// jsons for this page" scope for the Rotation Calculator's tab-focus and pre-Calculate checks.
-// Deliberately excludes 'generic'/System mechanics: DataLoader.clearMechanicCache's own
-// itemName === 'Generic' special case (see its own comment) only matches the capitalized name
-// the Mechanics Builder uses, while initDatabases() loads it lowercase -- same pre-existing
-// casing mismatch builderOverridePayload.ts's own eviction already routes around, so this does
-// too rather than risk leaving System mechanics missing instead of just occasionally stale.
-// Returns whichever were evicted (see checkItems) so a Calculate press can also tell the calc
-// worker's own separate DataLoader instance to drop the same entries -- otherwise the worker
-// would keep simulating against whatever it happened to fetch at its own first use, unaffected
-// by anything evicted here on the main thread.
+// Every mechanic currently loaded for a team's characters/weapons/sets/echoes, plus the
+// always-loaded 'generic' system mechanics -- the "any loaded jsons for this page" scope for the
+// Rotation Calculator's tab-focus and pre-Calculate checks. ('Generic', capitalized, is the name
+// every part of this app *except* the real on-disk filename uses for this entity --
+// DataLoader.mechanicFileName is the one place that translates between the two, so folder
+// 'generic' + itemName 'Generic' here resolves to the same cache-Set key loadMechanic/
+// clearMechanicCache already agree on.) Returns whichever were evicted (see checkItems) so a
+// Calculate press can also tell the calc worker's own separate DataLoader instance to drop the
+// same entries -- otherwise the worker would keep simulating against whatever it happened to
+// fetch at its own first use, unaffected by anything evicted here on the main thread.
 export async function checkTeamFreshness(team: TeamSlot[]): Promise<FreshnessItem[]> {
-  const items: FreshnessItem[] = [];
+  const items: FreshnessItem[] = [{ folder: 'generic', itemName: 'Generic' }];
   team.forEach(slot => {
     if (slot.character) items.push({ folder: 'characters', itemName: slot.character });
     if (slot.weapon) items.push({ folder: 'weapons', itemName: slot.weapon });
