@@ -270,7 +270,7 @@
 .stat-select {
     width: 70px; height: 100%; flex-shrink: 0;
     font-size: 0.7rem; background-color: transparent; border: none;
-    color: var(--text-dim); padding: 0; padding-right: 14px; outline: none;
+    color: var(--text-dim); padding: 0; outline: none;
 }
 /* Stays dim/normal-weight even once a stat is picked -- this is a field label in a dense
    grid (like the Mechanics Builder's .base-stat-label), not a standalone selection the
