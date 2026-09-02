@@ -34,8 +34,13 @@ function parseHash(): Route {
   const view = VALID_VIEWS.includes(parts[0] as ViewId) ? (parts[0] as ViewId) : 'landing';
   if (view !== 'calculator') return { view, step: 1 };
 
-  // "step-2"/"step-1" are explicit; anything else (most commonly no second segment at all, from
-  // a plain nav-link click) falls back to whichever step was last actually viewed.
+  // "step-2"/"step-1" are both explicit -- routeToHash below always writes one or the other, so
+  // in practice this hits only a hand-typed/bookmarked bare "#/calculator" with no second
+  // segment at all, which falls back to whichever step was last actually viewed. Only *that*
+  // truly-ambiguous case should defer to getLastStep() -- treating a bare "#/calculator" as
+  // equivalent to explicit step-1 (as an earlier version of this function did) makes the two
+  // indistinguishable, so navigating to step 1 would immediately get silently overridden back to
+  // whatever step-2 had last been remembered.
   const step: 1 | 2 = parts[1] === 'step-2' ? 2 : parts[1] === 'step-1' ? 1 : getLastStep();
   setLastStep(step);
   return { view, step };
@@ -43,7 +48,9 @@ function parseHash(): Route {
 
 function routeToHash(view: ViewId, step: 1 | 2): string {
   if (view === 'landing') return '#/';
-  if (view === 'calculator' && step === 2) return '#/calculator/step-2';
+  // Both steps get their own explicit segment -- see parseHash's comment on why step 1 can't
+  // just be "the bare #/calculator path" without becoming ambiguous with "no step specified".
+  if (view === 'calculator') return `#/calculator/step-${step}`;
   return `#/${view}`;
 }
 
