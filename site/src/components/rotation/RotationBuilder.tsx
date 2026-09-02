@@ -49,15 +49,18 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
 
   const { team, importTeam } = useRosterStore();
 
-  // Refreshes gauges/timings once when the calculator page is actually opened, in case a
-  // rotation was rehydrated from a previous session but never recalculated since. This is the
-  // only place recalculate() runs on load -- it used to run app-wide (even on the landing page)
-  // from the store's persist rehydration hook, since the store module loads regardless of route.
-  // markStale=false: results/isStale are now cached too (see useRotationStore's partialize), so
-  // this refresh shouldn't itself stamp a freshly-rehydrated "still fresh" result as stale --
-  // only an actual edit (triggerRecalc, setStartEnergy/Concerto, importRotation) should do that.
+  // Refreshes gauges/timings/per-row DMG once when the calculator page is actually opened, in
+  // case a rotation was rehydrated from a previous session but never recalculated since. This is
+  // the only place recalculate() runs on load -- it used to run app-wide (even on the landing
+  // page) from the store's persist rehydration hook, since the store module loads regardless of
+  // route. markStale=false: results/isStale are now cached too (see useRotationStore's
+  // partialize), so this refresh shouldn't itself stamp a freshly-rehydrated "still fresh"
+  // result as stale -- only an actual edit (triggerRecalc, setStartEnergy/Concerto,
+  // importRotation) should do that. includeDamage=true: row.damageInstances isn't persisted
+  // either, so without this the rotation table's own DMG column would sit blank/0 after every
+  // reload despite the Results panel above it looking fully cached.
   useEffect(() => {
-    recalculate(false);
+    recalculate(false, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

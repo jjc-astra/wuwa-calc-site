@@ -30,6 +30,25 @@ function stripFunctions(value: any, seen = new WeakMap<object, any>()): any {
   return clone;
 }
 
+// Short pass over the literal authored rows -- feeds the per-row damage-breakdown dropdown in
+// the rotation table, independent of the Results panel's own extended (opener + N-loop) pass.
+// Mutates each row in place (row.damageInstances), same convention TimelineEngine.
+// recalculateState itself already uses.
+function populateDamageInstances(evaluatedRows: any[], enemy: any, team: any[]): void {
+  let runningEnemyHp = enemy.hp;
+  evaluatedRows.forEach((row: any) => {
+    row.damageInstances = [];
+    if (row._pendingHits && row._pendingHits.length > 0) {
+      row._pendingHits.forEach((hit: any) => {
+        hit.context.enemyHp = runningEnemyHp;
+        const result = CombatCalculator.calculateDamageInstance(hit.config, hit.context, team);
+        runningEnemyHp = Math.max(0, runningEnemyHp - result.total);
+        row.damageInstances.push(result);
+      });
+    }
+  });
+}
+
 const worker = self as any;
 
 // Applies useBuilderStore's cached edits (if any) on top of whatever's currently loaded in
@@ -99,6 +118,12 @@ worker.onmessage = async (e: MessageEvent) => {
     if (type === 'recalculate') {
       const { rows, team, options, enemy } = payload;
       const evaluatedRows = TimelineEngine.recalculateState(rows, team, options, enemy);
+      // Optional -- a plain live-preview recalculate (every rotation edit) skips this to stay
+      // cheap, but the one-time refresh RotationBuilder's mount effect fires (restoring a
+      // rehydrated-but-never-recalculated rotation) asks for it, so the per-row DMG column comes
+      // back populated on page load too, not just the Results panel (which persists its own
+      // last-computed `results` separately -- see useRotationStore's partialize).
+      if (payload.includeDamage) populateDamageInstances(evaluatedRows, enemy, team);
       const { index: loopStartIndex, isOverride: loopStartIsOverride } = TimelineEngine.findLoopStart(evaluatedRows, team[0]?.character);
       const { errors: loopErrors, warnings: loopWarnings } = TimelineEngine.analyzeLoop(
         evaluatedRows, team, options, enemy, loopStartIndex
@@ -115,21 +140,8 @@ worker.onmessage = async (e: MessageEvent) => {
     } else if (type === 'calculateDamage') {
       const { rows, team, options, enemy, loopStartIndex } = payload;
 
-      // Short pass over the literal authored rows -- feeds the per-row damage-breakdown
-      // dropdown in the rotation table, independent of the Results panel below.
       const evaluatedRows = TimelineEngine.recalculateState(rows, team, options, enemy);
-      let runningEnemyHp = enemy.hp;
-      evaluatedRows.forEach((row: any) => {
-        row.damageInstances = [];
-        if (row._pendingHits && row._pendingHits.length > 0) {
-          row._pendingHits.forEach((hit: any) => {
-            hit.context.enemyHp = runningEnemyHp;
-            const result = CombatCalculator.calculateDamageInstance(hit.config, hit.context, team);
-            runningEnemyHp = Math.max(0, runningEnemyHp - result.total);
-            row.damageInstances.push(result);
-          });
-        }
-      });
+      populateDamageInstances(evaluatedRows, enemy, team);
 
       // Separate extended (opener + N-loop-repetition) pass -- feeds the Results panel.
       const results = buildRotationResults(rows, team, options, enemy, loopStartIndex);

@@ -65,7 +65,11 @@ interface RotationState {
   // for a purely informational refresh (e.g. the Calculator's mount effect re-deriving
   // gauges/loop info for a rehydrated-but-unedited rotation) that shouldn't itself flip a
   // freshly-restored `isStale: false` back to stale with nothing having actually changed.
-  recalculate: (markStale?: boolean) => Promise<void>;
+  // includeDamage defaults false (every live-preview recalculate() on a rotation edit skips the
+  // extra per-row damage pass to stay cheap) -- pass true for the one-time mount refresh, so a
+  // rehydrated rotation's DMG column comes back populated instead of blank until the next
+  // Calculate press (damageInstances isn't persisted -- see partialize below).
+  recalculate: (markStale?: boolean, includeDamage?: boolean) => Promise<void>;
   calculateDamage: () => Promise<void>;
   undo: () => void;
   redo: () => void;
@@ -265,14 +269,14 @@ export const useRotationStore = create<RotationState>()(
 
         // Timeline/Gauges/Timings Recalculation (Only marks stale, does NOT run combat damage)
         // -- runs in the calc worker (see postToWorker above) so it never blocks the UI thread.
-        recalculate: async (markStale: boolean = true) => {
+        recalculate: async (markStale: boolean = true, includeDamage: boolean = false) => {
           const team = useRosterStore.getState().team;
           const enemy = useRosterStore.getState().enemy;
           const { startEnergy, startConcerto, rows } = get();
           const options = { startEnergy, startConcerto };
 
           set({ isCalculating: true });
-          const { seq, result } = postToWorker('recalculate', { rows, team, options, enemy, ...buildBuilderPayload(team) });
+          const { seq, result } = postToWorker('recalculate', { rows, team, options, enemy, includeDamage, ...buildBuilderPayload(team) });
           latestSeqByType.recalculate = seq;
           let data: any;
           try {
@@ -292,11 +296,13 @@ export const useRotationStore = create<RotationState>()(
           // before this request was sent -- a calculateDamage() (or another recalculate())
           // could easily have finished and populated fresher per-row damage in the meantime,
           // and stomping that with whatever existed when this request started would silently
-          // undo it.
+          // undo it. row.damageInstances itself takes priority when present -- that only
+          // happens when this call passed includeDamage:true, in which case it's a fresh worker
+          // result and should win over whatever was already there.
           const existingDamageMap = new Map(get().rows.map((r, i) => [i, r.damageInstances]));
           const evaluatedRows = data.evaluatedRows;
           evaluatedRows.forEach((row: any, i: number) => {
-            row.damageInstances = existingDamageMap.get(i) || row.damageInstances || [];
+            row.damageInstances = row.damageInstances || existingDamageMap.get(i) || [];
           });
 
           set({
