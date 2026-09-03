@@ -292,9 +292,10 @@ export const CombatCalculator = {
       // needed so a stat literally named "Skill DMG Amp" can still be scoped to Basic Attacks
       // (e.g. "for 5s after Liberation, +Skill DMG Bonus on Basic Attacks") without the stat
       // name's own "skill" wording forcing a skill-tagged hit regardless of applyTo.
-      const hasExplicitApplyTo = Array.isArray(buff.applyTo) && buff.applyTo.length > 0;
+      const applyToList = Array.isArray(buff.applyTo) ? buff.applyTo : (buff.applyTo ? [buff.applyTo] : []);
+      const hasExplicitApplyTo = applyToList.length > 0;
       if (hasExplicitApplyTo) {
-        if (!buff.applyTo!.some(reqTag => modsSet.has(String(reqTag).toLowerCase().trim()))) continue;
+        if (!applyToList.some(reqTag => modsSet.has(String(reqTag).toLowerCase().trim()))) continue;
       }
 
       const sLower = buff.stat.toLowerCase().trim();

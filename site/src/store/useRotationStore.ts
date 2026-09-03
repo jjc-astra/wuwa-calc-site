@@ -6,7 +6,6 @@ import type { RotationResults } from '../types/results';
 import { useRosterStore } from './useRosterStore';
 import { checkTeamFreshness } from '../utils/dataFreshness';
 import { useRotationHistoryStore } from './useRotationHistoryStore';
-import type { TeamSlot } from '../types';
 import {
   HistoryManager,
   AddRowCommand,

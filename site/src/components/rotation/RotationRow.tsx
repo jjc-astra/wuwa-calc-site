@@ -94,7 +94,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
     // separately below (per-candidate isValid + the group collapse step), not baked in here,
     // since folding it into this check made the currently-selected action look like a real
     // contender when picking each input group's winner (see the collapse step's comment).
-    const checkValid = (k: string, m: any) => {
+    const checkValid = (m: any) => {
       if (!m || m.isPassive) return false;
       if (m.triggerRule && m.triggerRule.trim() !== '') {
         if (!m._compiledRule || typeof m._compiledRule.evaluate !== 'function') {
@@ -118,7 +118,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
     charKeys.forEach(k => {
       const m = DataLoader.mechanicsDB[k];
       if (!m || m.isPassive) return;
-      const isValid = checkValid(k, m);
+      const isValid = checkValid(m);
       if (isValid || k === row.action) {
         const cat = m.category || BuilderUtils.guessCategory(m);
         const groupName = skillGroupNames[cat];
@@ -134,7 +134,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
       echoKeys.forEach(k => {
         const m = DataLoader.mechanicsDB[k];
         if (!m || m.isPassive) return;
-        const isValid = checkValid(k, m);
+        const isValid = checkValid(m);
         if (isValid || k === row.action) candidates.push({ id: k, m, groupLabel: 'Echo Skill', isValid });
       });
     }
@@ -144,7 +144,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
     sysKeys.forEach(k => {
       const m = DataLoader.mechanicsDB[k];
       if (!m || m.isPassive) return;
-      const isValid = checkValid(k, m);
+      const isValid = checkValid(m);
       if (isValid || k === row.action) candidates.push({ id: k, m, groupLabel: 'Uncategorized (System)', isValid });
     });
 
