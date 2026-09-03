@@ -633,10 +633,14 @@
     border: 3px solid transparent;
     border-radius: 50%;
 
-    /* 2. Layer 1 (top): inner cutout | Layer 2 (bottom): conic ring */
+    /* 2. Layer 1 (top): inner cutout | Layer 2 (bottom): conic ring. In-game gauges fill
+       starting at 3 o'clock and sweep counterclockwise -- conic-gradient always sweeps
+       clockwise, so "from 90deg" (3 o'clock) anchors the filled arc's end at 100% back to that
+       same start point, and its growing edge (the last calc(100% - p) of the sweep) is what
+       moves counterclockwise away from it as --p increases. */
     background-image:
         linear-gradient(var(--bg-panel), var(--bg-panel)),
-        conic-gradient(var(--accent) var(--p, 0%), var(--input-bg) 0%);
+        conic-gradient(from 90deg, var(--input-bg) 0%, var(--input-bg) calc(100% - var(--p, 0%)), var(--accent) calc(100% - var(--p, 0%)), var(--accent) 100%);
     background-origin: padding-box, border-box;
     background-clip: padding-box, border-box;
 
