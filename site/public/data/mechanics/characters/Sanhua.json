@@ -497,11 +497,11 @@
       }
     ]
   },
-  "Sanhua_Sequence 5: Bonus Glacier Concerto": {
-    "name": "Sequence 5 Effect: Bonus Glacier Concerto",
+  "Sanhua_Sequence 5: Bonus Detonate Concerto": {
+    "name": "Sequence 5 Effect: Bonus Detonate Concerto",
     "category": "Resonance Chain",
     "isPassive": true,
-    "triggerRule": "OnHit[Self, @Sanhua(Forte Detonate Base))] IF (@Self.Sequence >= 5 && @Move.IsInHoldWindow == true)",
+    "triggerRule": "OnHit[Self, @Sanhua(Forte Detonate Base)] IF (@Self.Sequence >= 5)",
     "effects": [
       {
         "type": "resource",

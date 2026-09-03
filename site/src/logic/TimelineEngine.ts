@@ -1120,7 +1120,15 @@ export class TimelineEngineClass {
   _queueProccedMechanic(currentData: any, proc: any, executeAt: number, team: any[]): void {
     const mData = proc.mechanicData;
     const rawProcMults = Array.isArray(mData.hitMults) ? mData.hitMults : [];
-    const procModifiers = new Set([...(mData.dmgTypes || []), ...(mData.castTypes || [])].map((m: any) => String(m).toLowerCase()));
+    // Same move-name/pointer addition as the main action's hitModifiers above -- lets an
+    // OnHit[...] rule target a specific proc'd mechanic by name (e.g. Sanhua's Forte Detonate
+    // Base, itself only ever fired as a proc), not just its dmgTypes/castTypes tags.
+    const procModifiers = new Set([
+      ...(mData.dmgTypes || []),
+      ...(mData.castTypes || []),
+      mData.name,
+      `@${proc.provider}(${mData.name})`
+    ].map((m: any) => String(m).toLowerCase()));
     if (rawProcMults.length > 0) {
       // A passive/proc'd mechanic (e.g. Lumi's laser-beam passives) can carry its own
       // damageTimeframe -- the hit lands some frames after whatever triggered it, not
@@ -1238,7 +1246,16 @@ export class TimelineEngineClass {
       currentData.cooldowns[`${unitName}_${currentData.moveName}`] = parseFloat(String(moveData.cooldown));
     }
 
-    const hitModifiers = new Set([...(moveData.dmgTypes || [])]);
+    // Plain dmgTypes (e.g. "Glacio", "Heavy") plus the move's own name/pointer -- the same two
+    // extra entries castModifiers below adds for OnCast -- so an OnHit[...] rule can target one
+    // specific move (OnHit[Self, @Sanhua(Forte Detonate Base)]) instead of only being able to
+    // filter by damage type, which a mechanic can share with unrelated moves (e.g. Sanhua's
+    // Heavy Attack has the same ["Glacio","Heavy"] tags as Forte Detonate Base).
+    const hitModifiers = new Set([
+      ...(moveData.dmgTypes || []),
+      moveData.name,
+      `@${unitName}(${moveData.name})`
+    ].map(m => String(m).toLowerCase()));
     const elements = ['Glacio', 'Aero', 'Electro', 'Fusion', 'Spectro', 'Havoc', 'Physical'];
     const moveElements = (moveData.dmgTypes || []).filter(t => elements.includes(t));
     const castModifiers = new Set([

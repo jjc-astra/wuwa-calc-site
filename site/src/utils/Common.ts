@@ -153,10 +153,15 @@ export const CommonUtils = {
   },
 
   /**
-   * Builds the "Name-WI" id fragments used in exported rotation/team filenames and labels,
-   * one per team slot that has a character (weapon initials appended if a weapon is set).
+   * Builds the "Name-WI-S#" id fragments used in exported rotation/team filenames and labels,
+   * one per team slot that has a character (weapon initials appended if a weapon is set, then
+   * the sequence if it's above S0 -- omitted at S0 the same way a blank weapon is, since that's
+   * the common/base case and every fragment staying short matters more there than completeness).
+   * Sequence materially changes a build's damage output (see Sanhua's resonance chain passives),
+   * so a saved file's own name should be enough to tell two exports of the same character/weapon
+   * apart without having to open the file.
    */
-  buildTeamIds: (team: Array<{ character?: string; weapon?: string }>): string[] => {
+  buildTeamIds: (team: Array<{ character?: string; weapon?: string; sequence?: number }>): string[] => {
     return team
       .filter(s => !!s.character)
       .map(s => {
@@ -165,6 +170,7 @@ export const CommonUtils = {
           const initials = s.weapon.match(/\b\w/g) || [];
           id += `-${initials.join('').toUpperCase()}`;
         }
+        if (s.sequence) id += `-S${s.sequence}`;
         return id;
       });
   },
