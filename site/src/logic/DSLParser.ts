@@ -62,7 +62,11 @@ export const DSLParser = {
     if (modMatch) {
       modifiers = modMatch[1].split(',').map(s => {
         let mStr = s.trim();
-        mStr = mStr.replace(/@([A-Za-z0-9_]+)\(((?:[^)(]+|\([^)(]*\))*)\)/g, (_, p1, p2) => p1 + '_' + p2.trim());
+        // Keep the @Namespace(Move Name) shape intact (just lowercased/whitespace-trimmed)
+        // rather than flattening to Namespace_MoveName -- TimelineEngine.ts's castModifiers
+        // set (what this is matched against for OnCast/etc.) carries the cast move as
+        // `@${unit}(${moveName})`.toLowerCase()`, not an underscore-joined form.
+        mStr = mStr.replace(/@([A-Za-z0-9_]+)\(((?:[^)(]+|\([^)(]*\))*)\)/g, (_, p1, p2) => `@${p1}(${p2.trim()})`);
         return mStr.toLowerCase();
       });
     }

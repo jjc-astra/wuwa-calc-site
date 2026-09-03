@@ -1046,7 +1046,9 @@ export class TimelineEngineClass {
     if (expiringBuffs.length > 0) {
       expiringBuffs.forEach(buff => {
         const provider = buff.provider || currentData.unit;
-        const payloads = EventManager.emit('OnBuffExpire', new Set([buff.name || '']), currentData, provider, team);
+        // Modifier brackets (e.g. OnBuffExpire[Fusion Burst]) are lowercased at DSL-parse time
+        // (see DSLParser.ts's _parseTrigger), so the emitted modifier set has to match that case.
+        const payloads = EventManager.emit('OnBuffExpire', new Set([(buff.name || '').toLowerCase()]), currentData, provider, team);
         if (payloads.length > 0) {
           this._executeEffectsStream(payloads, currentData, activeTeam, activeRows, this.currentGlobalRealTime, provider, team);
         }
@@ -1119,7 +1121,19 @@ export class TimelineEngineClass {
     const mData = proc.mechanicData;
     const rawProcMults = Array.isArray(mData.hitMults) ? mData.hitMults : [];
     const procModifiers = new Set([...(mData.dmgTypes || []), ...(mData.castTypes || [])].map((m: any) => String(m).toLowerCase()));
-    if (rawProcMults.length > 0) this._scheduleHits(currentData, mData, proc.provider, rawProcMults, executeAt, executeAt, true, procModifiers, team);
+    if (rawProcMults.length > 0) {
+      // A passive/proc'd mechanic (e.g. Lumi's laser-beam passives) can carry its own
+      // damageTimeframe -- the hit lands some frames after whatever triggered it, not
+      // instantly -- offset from executeAt the same way _resolveTimings resolves a normal
+      // action's own damageTimeframe. Left unset, both default to executeAt (today's
+      // instant-fire behavior), so every other existing proc is unaffected.
+      const resolveOffset = (val: any): Frames => (typeof val === 'string' && (val.includes('@') || /[+\-*/]/.test(val)))
+        ? roundFrames(parseFloat(String(this._resolveDynamicMath(val, currentData, proc.provider, team))))
+        : roundFrames(parseFloat(val));
+      const tfStart = mData.damageTimeframe?.start !== undefined ? resolveOffset(mData.damageTimeframe.start) : toFrames(0);
+      const tfEnd = mData.damageTimeframe?.end !== undefined ? resolveOffset(mData.damageTimeframe.end) : tfStart;
+      this._scheduleHits(currentData, mData, proc.provider, rawProcMults, executeAt + tfStart, executeAt + tfEnd, true, procModifiers, team);
+    }
     this.damageQueue.sort((a, b) => a.executeAt - b.executeAt);
   }
 
@@ -1468,7 +1482,7 @@ export class TimelineEngineClass {
           }
           if (removed) {
             const provider = effect.provider || currentData.unit;
-            const payloads = EventManager.emit('OnBuffRemove', new Set([effect.name || '']), currentData, provider, team);
+            const payloads = EventManager.emit('OnBuffRemove', new Set([(effect.name || '').toLowerCase()]), currentData, provider, team);
             if (payloads.length > 0) this._executeEffectsStream(payloads, currentData, activeTeam, activeRows, this.currentGlobalRealTime, provider, team);
           }
         }
@@ -1480,7 +1494,10 @@ export class TimelineEngineClass {
     if (targetStr === '@Self') return [unitName];
     if (targetStr === '@Team') return [...activeTeam];
     if (targetStr === '@TeamOthers') return activeTeam.filter(c => c !== unitName);
-    if (targetStr === '@Target') return ['Enemy'];
+    // @Enemy is the pointer DSL_SCHEMA/autocomplete actually surfaces (db.ts's DSL_SCHEMA.pointers)
+    // for the unit taking damage; @Target predates it and was never wired into the autocomplete
+    // suggestions, but is kept resolving the same way in case anything already authored uses it.
+    if (targetStr === '@Enemy' || targetStr === '@Target') return ['Enemy'];
     if (targetStr === '@Active') return ['Active'];
     if (targetStr === '@Next') {
       if (activeRows && currentIndex + 1 < activeRows.length) return [activeRows[currentIndex + 1].unit];
@@ -1624,7 +1641,7 @@ export class TimelineEngineClass {
 
       if (actuallyAddedStacks > 0) {
         const provider = buffDef.provider || currentData.unit;
-        const payloads = EventManager.emit('OnBuffAdd', new Set([buffDef.name || '']), currentData, provider, team);
+        const payloads = EventManager.emit('OnBuffAdd', new Set([(buffDef.name || '').toLowerCase()]), currentData, provider, team);
         if (payloads.length > 0) {
           this._executeEffectsStream(payloads, currentData, activeTeam, activeRows, this.currentGlobalRealTime, provider, team);
         }

@@ -195,9 +195,17 @@
     pointer-events: none; 
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='14 12 19 17 14 22'/%3E%3Cpath d='M5 2v11a4 4 0 0 0 4 4h10'/%3E%3C/svg%3E"); 
     background-size: 1.8ch 1.5em; 
-    background-repeat: repeat-y; 
+    background-repeat: repeat-y;
     background-position: center top;
 }
+
+/* Node-level (hover) and field-level (open sub-panel) highlights in JsonOutputPane -- CSS
+   classes only, background-color never set inline. Both JsonOutputPane effects toggle only
+   their own class; if either wrote element.style.backgroundColor directly, the other's cleanup
+   pass (which blanks that same inline property for every line it un-highlights) would wipe out
+   a highlight it doesn't own whenever the two overlap on the same line. */
+.code-highlighted { background-color: rgba(220, 165, 76, 0.25); transition: background-color 0.1s ease; }
+.code-field-highlighted { background-color: rgba(220, 165, 76, 0.55); transition: background-color 0.1s ease; }
 
 /* VS Code Theme Colors */
 .syntax-key { color: #9cdcfe; }
@@ -304,25 +312,22 @@
     opacity: 1;
 }
 
-/* --- Autocomplete Dropdown --- */
-.builder-view .autocomplete-popup {
-    display: none;
-    position: absolute;
+/* --- Autocomplete Dropdown ---
+   Portaled to <body> and positioned in fixed coordinates (see AutocompleteInput.tsx's
+   positionPopup) so it always escapes the node sub-panel's clipping/scrolling ancestors, the
+   same approach Dropdown.tsx's popup uses -- position/top/bottom/left/width all come from that
+   inline style, not from here. */
+.autocomplete-popup {
     z-index: 9999;
     background: var(--bg-panel);
     border: 1px solid var(--border);
     border-radius: 4px;
-    max-height: 200px;
     overflow-y: auto;
     width: max-content;
-    min-width: 100%;
-    top: 100%;
-    left: 0;
-    margin-top: 2px;
     box-shadow: 0 4px 6px var(--overlay-b4);
 }
 
-.builder-view .autocomplete-item {
+.autocomplete-item {
     padding: var(--space-2) var(--space-4);
     cursor: pointer;
     color: var(--text-main);
@@ -331,9 +336,9 @@
     border-bottom: 1px solid var(--border);
 }
 
-.builder-view .autocomplete-item:last-child { border-bottom: none; }
-.builder-view .autocomplete-item:hover { background: var(--accent-strong); color: var(--accent); }
-.builder-view .autocomplete-item.is-active { background: var(--accent) !important; color: var(--bg-dark) !important; }
+.autocomplete-item:last-child { border-bottom: none; }
+.autocomplete-item:hover { background: var(--accent-strong); color: var(--accent); }
+.autocomplete-item.is-active { background: var(--accent) !important; color: var(--bg-dark) !important; }
 
 .builder-view .base-select {
     background: transparent;

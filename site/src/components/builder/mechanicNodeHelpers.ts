@@ -75,7 +75,7 @@ export function effectLabel(eff: Effect): string {
     parts.push(eff.expireBehavior === 'clear' ? 'Clear All' : eff.expireBehavior === 'drop_one' ? 'Drop 1' : 'Drop Half');
   }
   if (eff.removeOnSwap) parts.push('Clear on Swap');
-  if (eff.applyTo) parts.push(`Tags: ${Array.isArray(eff.applyTo) ? eff.applyTo.join(', ') : eff.applyTo}`);
+  if (eff.applyTo) parts.push(`During: ${Array.isArray(eff.applyTo) ? eff.applyTo.join(', ') : eff.applyTo}`);
   if (eff.provider) parts.push(`from ${eff.provider}`);
   if (eff.source) parts.push(`src: ${eff.source}`);
   if (eff.linkedTracker) parts.push(`Tracker: ${eff.linkedTracker}`);

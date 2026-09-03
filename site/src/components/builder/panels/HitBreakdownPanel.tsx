@@ -4,21 +4,37 @@ import type { Frames } from '../../../utils/Frames';
 import type { MechanicNode } from '../../../types';
 import { CommonUtils } from '../../../utils/Common';
 import { displayTimeVal, tip } from '../mechanicNodeHelpers';
-import { Dropdown } from '../../common/Dropdown';
+import { Dropdown, type DropdownOption } from '../../common/Dropdown';
 import { parseTimeInput } from '../../../utils/Frames';
 
 interface HitBreakdownPanelProps {
   nodeId: string;
   data: MechanicNode;
   updateNode: (patch: Partial<MechanicNode>) => void;
+  forteOptions: DropdownOption[];
 }
 
-export const HitBreakdownPanel: React.FC<HitBreakdownPanelProps> = ({ nodeId, data, updateNode }) => {
+export const HitBreakdownPanel: React.FC<HitBreakdownPanelProps> = ({ nodeId, data, updateNode, forteOptions }) => {
+  // Which resource type "Add Hit Resource" will add next -- there was previously no way to add a
+  // *new* hitResources key at all (only edit an already-existing one's per-hit values), for any
+  // mechanic, passive or scheduled -- castResources had AddCastResourcePanel's equivalent control,
+  // hitResources never got one.
+  const [newHitResType, setNewHitResType] = useState('energy');
   // Raw text mirror of hitMults — kept separate from the parsed store value so
   // typing (e.g. "[50%, 100%]") isn't clobbered by the round-tripped parse on every keystroke.
   const [multText, setMultText] = useState<string>(() => (data.hitMults ? JSON.stringify(data.hitMults) : ''));
   useEffect(() => {
     setMultText(data.hitMults ? JSON.stringify(data.hitMults) : '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodeId]);
+
+  // Same raw-text-mirror trick, per hit-resource cell (keyed "resKey_hitIndex") -- each cell's
+  // onChange parses immediately (so calculation and other open views stay live), but the cell
+  // itself displays this raw string, not the round-tripped number, so a mid-typed "1." isn't
+  // snapped back to "1" before the user can type the digits after the decimal point.
+  const [hitResRaw, setHitResRaw] = useState<Record<string, string>>({});
+  useEffect(() => {
+    setHitResRaw({});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodeId]);
 
@@ -29,6 +45,10 @@ export const HitBreakdownPanel: React.FC<HitBreakdownPanelProps> = ({ nodeId, da
   // set) is damageTimeframe.end -- there's no separate dmg-window input anymore.
   const hitMultsArr = Array.isArray(data.hitMults) ? data.hitMults : [];
   const hitCount = hitMultsArr.length;
+  // actionDuration is only the dmg-window's fallback end when damageTimeframe.end isn't set
+  // directly -- a passive/proc'd mechanic (no actionDuration at all, since it's never a
+  // scheduled action) still needs to be able to set damageTimeframe on its own, so this no
+  // longer gates whether the panel renders at all (see the render condition below).
   const durationFrames = typeof data.actionDuration === 'number' ? data.actionDuration : null;
   const tfStart = typeof data.damageTimeframe?.start === 'number' ? data.damageTimeframe.start : 0;
   const tfEnd = typeof data.damageTimeframe?.end === 'number' ? data.damageTimeframe.end : (durationFrames ?? 0);
@@ -65,6 +85,31 @@ export const HitBreakdownPanel: React.FC<HitBreakdownPanelProps> = ({ nodeId, da
     updateNode({ hitResources: { ...(data.hitResources || {}), [key]: arr } });
   };
 
+  const removeHitResource = (key: string) => {
+    const hitResources = { ...(data.hitResources || {}) };
+    delete hitResources[key];
+    updateNode({ hitResources });
+  };
+
+  const availableHitResTypes = [
+    { value: 'energy', label: 'Energy' },
+    { value: 'concerto', label: 'Concerto' },
+    ...forteOptions,
+    { value: 'tune', label: 'Tune' }
+  ].filter(o => data.hitResources?.[o.value] === undefined);
+  // The dropdown's own selection can go stale once its current value is added/removed
+  // elsewhere -- fall back to the first still-available option rather than a value that no
+  // longer appears in the list, and use that same resolved value when actually adding.
+  const effectiveNewHitResType = availableHitResTypes.some(o => o.value === newHitResType)
+    ? newHitResType
+    : availableHitResTypes[0]?.value;
+
+  const handleAddHitResource = () => {
+    if (!effectiveNewHitResType || data.hitResources?.[effectiveNewHitResType] !== undefined) return;
+    const hitResources = { ...(data.hitResources || {}), [effectiveNewHitResType]: new Array(hitCount).fill(0) };
+    updateNode({ hitResources });
+  };
+
   return (
     <div className="sub-panel is-open">
       <div className="panel-header-main">Hit Breakdown</div>
@@ -98,7 +143,7 @@ export const HitBreakdownPanel: React.FC<HitBreakdownPanelProps> = ({ nodeId, da
         </div>
       </div>
 
-      {hitCount > 0 && durationFrames !== null && (
+      {hitCount > 0 && (
         <>
           <div className="mech-timeline-bar">
             {hitOffsets.map((off, i) => (
@@ -116,7 +161,12 @@ export const HitBreakdownPanel: React.FC<HitBreakdownPanelProps> = ({ nodeId, da
                 <th>Hit</th>
                 <th>Frame</th>
                 <th>Mv</th>
-                {hitResourceKeys.map(k => <th key={k}>{k}</th>)}
+                {hitResourceKeys.map(k => (
+                  <th key={k}>
+                    {k}
+                    <button type="button" className="mech-list-remove" onClick={() => removeHitResource(k)} {...tip(`Remove ${k}`)}>×</button>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -144,13 +194,18 @@ export const HitBreakdownPanel: React.FC<HitBreakdownPanelProps> = ({ nodeId, da
                     {hitResourceKeys.map(k => {
                       const arr = data.hitResources?.[k];
                       const val = Array.isArray(arr) ? arr[i] : undefined;
+                      const cellKey = `${k}_${i}`;
                       return (
                         <td key={k}>
                           <input
                             type="text"
                             className="cell-value"
-                            value={val ?? ''}
-                            onChange={e => updateHitResourceValue(k, i, e.target.value)}
+                            value={hitResRaw[cellKey] ?? (val ?? '')}
+                            onChange={e => {
+                              setHitResRaw(prev => ({ ...prev, [cellKey]: e.target.value }));
+                              updateHitResourceValue(k, i, e.target.value);
+                            }}
+                            onBlur={() => setHitResRaw(prev => { const next = { ...prev }; delete next[cellKey]; return next; })}
                             placeholder="—"
                           />
                         </td>
@@ -161,6 +216,17 @@ export const HitBreakdownPanel: React.FC<HitBreakdownPanelProps> = ({ nodeId, da
               })}
             </tbody>
           </table>
+          {availableHitResTypes.length > 0 && (
+            <div className="mech-add-row mt-sm">
+              <Dropdown
+                className="base-select mech-mini-select"
+                value={effectiveNewHitResType}
+                onChange={setNewHitResType}
+                options={availableHitResTypes}
+              />
+              <button type="button" className="base-btn text-xs" onClick={handleAddHitResource}>Add Hit Resource</button>
+            </div>
+          )}
         </>
       )}
     </div>

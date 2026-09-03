@@ -66,7 +66,7 @@
         "maxStacks": 3,
         "stackBehavior": "resettable",
         "expireBehavior": "clear",
-        "stat": "reduceDef",
+        "stat": "Reduce DEF",
         "value": 0.02
       },
       {
@@ -116,10 +116,11 @@
     "dmgTypes": ["Fusion"],
     "effects": [
       {
-        "type": "remove_buff_stacks",
+        "type": "buffAction",
+        "action": "remove",
         "name": "Fusion Burst",
         "target": "@Enemy",
-        "stacks": "ALL"
+        "value": "ALL"
       }
     ]
   },
@@ -136,10 +137,11 @@
     "dmgTypes": ["Electro"],
     "effects": [
       {
-        "type": "remove_buff_stacks",
+        "type": "buffAction",
+        "action": "remove",
         "name": "Electro Rage",
         "target": "@Enemy",
-        "stacks": "ALL"
+        "value": "ALL"
       }
     ]
   },

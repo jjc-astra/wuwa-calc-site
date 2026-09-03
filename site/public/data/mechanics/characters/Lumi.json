@@ -524,7 +524,10 @@
         "value": -100
       }
     ],
-    "hitMults": ["(@Self.Forte1 >= 25 ? 74.56 : 0)%", "(@Self.Forte1 >= 50 ? 74.56 : 0)%", "(@Self.Forte1 >= 75 ? 74.56 : 0)%", "(@Self.Forte1 >= 100 ? 74.56 : 0)%"]
+    "hitMults": ["(@Self.Forte1 >= 25 ? 74.56 : 0)%", "(@Self.Forte1 >= 50 ? 74.56 : 0)%", "(@Self.Forte1 >= 75 ? 74.56 : 0)%", "(@Self.Forte1 >= 100 ? 74.56 : 0)%"],
+    "damageTimeframe": {
+      "end": 60
+    }
   },
   "Lumi_Laser Beam (Red Form)": {
     "name": "Laser Beam (Red Form)",
@@ -539,7 +542,10 @@
         "value": -100
       }
     ],
-    "hitMults": ["(@Self.Forte2 >= 25 ? 74.56 : 0)%", "(@Self.Forte2 >= 50 ? 74.56 : 0)%", "(@Self.Forte2 >= 75 ? 74.56 : 0)%", "(@Self.Forte2 >= 100 ? 74.56 : 0)%"]
+    "hitMults": ["(@Self.Forte2 >= 25 ? 74.56 : 0)%", "(@Self.Forte2 >= 50 ? 74.56 : 0)%", "(@Self.Forte2 >= 75 ? 74.56 : 0)%", "(@Self.Forte2 >= 100 ? 74.56 : 0)%"],
+    "damageTimeframe": {
+      "end": 60
+    }
   },
   "Lumi_Form Initialization": {
     "name": "Form Initialization",
@@ -573,7 +579,7 @@
     "name": "Inherent Skill: Expediting",
     "category": "Inherent Skill",
     "isPassive": true,
-    "triggerRule": "OnCast[Self] IF (@Move.Id == @Lumi(Energized Pounce) || @Move.Id == @Lumi(Energized Rebound))",
+    "triggerRule": "ANY(OnCast[Self, @Lumi(Energized Pounce)], OnCast[Self, @Lumi(Energized Rebound)])",
     "effects": [
       {
         "type": "buff",
@@ -588,14 +594,15 @@
     "name": "Sequence 2: Lollo Logistics, Ready to Help",
     "category": "Resonance Chain",
     "isPassive": true,
-    "triggerRule": "OnCast[Self] IF ((@Move.Id == @Lumi(Energized Pounce) || @Move.Id == @Lumi(Energized Rebound)) && @Self.Sequence >= 2)",
+    "triggerRule": "ANY(OnCast[Self, @Lumi(Energized Pounce)], OnCast[Self, @Lumi(Energized Rebound)]) IF (@Self.Sequence >= 2)",
     "effects": [
       {
         "type": "buff",
         "name": "Lumi_S2 DEF Ignore",
         "duration": "@Default.PermanentDuration",
         "stat": "Ignore DEF",
-        "value": "20%"
+        "value": "20%",
+        "applyTo": ["@Lumi(Energized Pounce)", "@Lumi(Energized Rebound)"]
       }
     ]
   },

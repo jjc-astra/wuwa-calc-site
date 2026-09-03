@@ -4,7 +4,7 @@
 // chips and their matching sub-panel, and renders the summary row plus whichever panel is
 // active. Each panel's own fields (effects array, cancel timings, hit breakdown, etc.) are
 // fully self-contained in their own component under ./panels -- see there to edit one.
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import type { MechanicNode } from '../../types';
 import { useBuilderStore } from '../../store/useBuilderStore';
 import { DataLoader } from '../../utils/DataLoader';
@@ -27,16 +27,37 @@ interface MechanicNodeCardProps {
 
 export type PanelKey = 'identity' | 'inputs' | 'timeMods' | 'hits' | 'castTags' | 'dmgTags' | 'castRes' | 'default';
 
+// Which JSON fields each sub-panel actually edits -- drives JsonOutputPane's field-level
+// highlight while that panel is open, so the reader can see exactly what a click will touch
+// without hunting for it in the raw JSON. Keep in sync with each panel's own updateNode calls.
+const PANEL_FIELDS: Record<PanelKey, string[]> = {
+  identity: ['name', 'provider'],
+  inputs: ['input', 'inputType', 'stanceReq', 'stanceResult', 'stanceTime', 'holdConfig'],
+  timeMods: ['freezeTime', 'swapTiming', 'priority', 'comboWindow', 'cancelTimings'],
+  hits: ['scalar', 'hitMults', 'damageTimeframe', 'hitResources'],
+  castTags: ['castTypes'],
+  dmgTags: ['dmgTypes'],
+  castRes: ['castResources'],
+  default: ['triggerRule', 'isPassive', 'isSwapInDefault', 'effects']
+};
+
 export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data }) => {
-  const { setMechanicNode, removeMechanicNode, activeChar, baseStats, setHighlightedNodeId } = useBuilderStore();
+  const { setMechanicNode, removeMechanicNode, activeChar, baseStats, setHighlightedNodeId, setActivePanelHighlight, setHoveredPanelNodeId } = useBuilderStore();
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const panelHoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Which column's sub-panel is open, if any -- exactly one at a time, mirroring the rotation
   // table's activeTrigger/SubPanel pattern instead of a floating popover.
   const [activeTrigger, setActiveTrigger] = useState<PanelKey | null>(null);
   const toggleTrigger = (key: PanelKey) => (e: React.MouseEvent) => {
     e.stopPropagation();
-    setActiveTrigger(prev => (prev === key ? null : key));
+    // Both setters run directly in this handler, not nested inside setActiveTrigger's updater --
+    // that form runs during React's render phase, where updating a different store/component
+    // (setActivePanelHighlight touches JsonOutputPane too) throws "Cannot update a component
+    // while rendering a different component".
+    const next = activeTrigger === key ? null : key;
+    setActiveTrigger(next);
+    setActivePanelHighlight(next ? { nodeId, fields: PANEL_FIELDS[next] } : null);
   };
 
   // These 4 fields are shared between the summary row (clicking a chip seeds them back in for
@@ -47,6 +68,15 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
   const [castResType, setCastResType] = useState('energy');
   const [castResAmt, setCastResAmt] = useState('');
 
+  // Removing this node (or navigating away entirely) while its panel was open would otherwise
+  // leave a stale field-highlight pointing at a node no longer in the tree.
+  useEffect(() => () => {
+    if (useBuilderStore.getState().activePanelHighlight?.nodeId === nodeId) setActivePanelHighlight(null);
+    if (useBuilderStore.getState().hoveredPanelNodeId === nodeId) setHoveredPanelNodeId(null);
+  }, [nodeId]);
+
+  // Whole-node highlight -- summary row only, so it doesn't also light up while the mouse is
+  // just resting inside the open sub-panel's own inputs below.
   const handleMouseEnter = () => {
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
     hoverTimeoutRef.current = setTimeout(() => {
@@ -57,6 +87,21 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
   const handleMouseLeave = () => {
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
     setHighlightedNodeId(null);
+  };
+
+  // Field highlight -- summary row *or* the open sub-panel, since that's the field-level detail
+  // the user is actively working with either way. Attached to both <tr>s below, separate from
+  // the whole-node handlers above so the two highlights can respond to different hover regions.
+  const handlePanelAreaMouseEnter = () => {
+    if (panelHoverTimeoutRef.current) clearTimeout(panelHoverTimeoutRef.current);
+    panelHoverTimeoutRef.current = setTimeout(() => {
+      setHoveredPanelNodeId(nodeId);
+    }, 50);
+  };
+
+  const handlePanelAreaMouseLeave = () => {
+    if (panelHoverTimeoutRef.current) clearTimeout(panelHoverTimeoutRef.current);
+    setHoveredPanelNodeId(null);
   };
 
   const updateNode = (patch: Partial<MechanicNode>) => {
@@ -84,7 +129,7 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
       case 'timeMods':
         return <TimingModsPanel data={data} updateNode={updateNode} />;
       case 'hits':
-        return <HitBreakdownPanel nodeId={nodeId} data={data} updateNode={updateNode} />;
+        return <HitBreakdownPanel nodeId={nodeId} data={data} updateNode={updateNode} forteOptions={forteOptions} />;
       case 'castTags':
         return <AddCastTypePanel data={data} updateNode={updateNode} castSelect={castSelect} setCastSelect={setCastSelect} />;
       case 'dmgTags':
@@ -117,8 +162,8 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
         toggleTrigger={toggleTrigger}
         setActiveTrigger={(key) => setActiveTrigger(key)}
         removeMechanicNode={removeMechanicNode}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
+        onMouseEnter={() => { handleMouseEnter(); handlePanelAreaMouseEnter(); }}
+        onMouseLeave={() => { handleMouseLeave(); handlePanelAreaMouseLeave(); }}
         setCastSelect={setCastSelect}
         setDmgSelect={setDmgSelect}
         setCastResType={setCastResType}
@@ -126,7 +171,7 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
       />
 
       {activeTrigger && (
-        <tr>
+        <tr onMouseEnter={handlePanelAreaMouseEnter} onMouseLeave={handlePanelAreaMouseLeave}>
           <td colSpan={12} className="mech-detail-cell">
             {renderPanel()}
           </td>

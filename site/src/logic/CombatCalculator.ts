@@ -286,27 +286,39 @@ export const CombatCalculator = {
 
       if (!(appliesToSelf || appliesToTeam || appliesToActive)) continue;
 
-      if (buff.applyTo && Array.isArray(buff.applyTo) && buff.applyTo.length > 0) {
-        if (!buff.applyTo.some(reqTag => modsSet.has(String(reqTag).toLowerCase().trim()))) continue;
+      // Applies During (applyTo) is the explicit, authoritative gate on which hits a buff's stat
+      // applies to, checked against this hit's own castTypes/dmgTypes/move identity (modsSet,
+      // built above from hitConfig). When it's set, it fully replaces the inference below --
+      // needed so a stat literally named "Skill DMG Amp" can still be scoped to Basic Attacks
+      // (e.g. "for 5s after Liberation, +Skill DMG Bonus on Basic Attacks") without the stat
+      // name's own "skill" wording forcing a skill-tagged hit regardless of applyTo.
+      const hasExplicitApplyTo = Array.isArray(buff.applyTo) && buff.applyTo.length > 0;
+      if (hasExplicitApplyTo) {
+        if (!buff.applyTo!.some(reqTag => modsSet.has(String(reqTag).toLowerCase().trim()))) continue;
       }
 
       const sLower = buff.stat.toLowerCase().trim();
-      let requiredTagFound = false;
-      let tagMatched = true;
 
-      for (const spec of tagSpecs) {
-        if (sLower.includes(spec.key)) {
-          requiredTagFound = true;
-          if (spec.tags.some(t => modsSet.has(t))) {
-            tagMatched = true;
-            break;
-          } else {
-            tagMatched = false;
+      // Fallback only -- most existing buffs (basically all pre-dating Applies During) were
+      // never given an explicit applyTo and rely entirely on this name-based inference for
+      // correct cast/dmg-type scoping (e.g. "Liberation DMG Bonus" must not also buff Basics).
+      // Skipped whenever applyTo is explicitly set, so it can never override an explicit choice.
+      if (!hasExplicitApplyTo) {
+        let requiredTagFound = false;
+        let tagMatched = true;
+        for (const spec of tagSpecs) {
+          if (sLower.includes(spec.key)) {
+            requiredTagFound = true;
+            if (spec.tags.some(t => modsSet.has(t))) {
+              tagMatched = true;
+              break;
+            } else {
+              tagMatched = false;
+            }
           }
         }
+        if (requiredTagFound && !tagMatched) continue;
       }
-
-      if (requiredTagFound && !tagMatched) continue;
 
       appliedBuffs[key] = buff;
 

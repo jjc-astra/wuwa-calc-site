@@ -1,12 +1,14 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { DSL_SCHEMA, DSL_TOOLTIPS, BuilderState } from '../../data/db';
+import { createPortal } from 'react-dom';
+import { DSL_SCHEMA, DSL_TOOLTIPS, BuilderState, CAST_TYPE_COLORS } from '../../data/db';
 import { useBuilderStore } from '../../store/useBuilderStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { tokenizeDSL } from '../../utils/DSLHighlight';
 import { TooltipManager } from '../../utils/Common';
+import type { MechanicNode } from '../../types';
 
 interface AutocompleteInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  mode?: 'general' | 'eff-name' | 'eff-stat' | 'eff-target';
+  mode?: 'general' | 'eff-name' | 'eff-stat' | 'eff-target' | 'eff-applies-during' | 'dsl-value';
   value: string;
   onValueChange: (val: string) => void;
   statOptions?: string[];
@@ -58,8 +60,13 @@ interface MatchRule {
   prefix?: string;
   append?: string;
   dynamicAppend?: (val: string) => string | null;
-  /** Marks a bracket-style rule (e.g. On Hit[...]) where multiple comma-separated values can be typed. */
+  /** Marks a rule where multiple comma-separated values can be typed (e.g. On Hit[...]'s
+   *  modifiers, or Applies During's bare tag list). */
   commaList?: boolean;
+  /** The bracket-close character a commaList rule's "Continue" prompt should also offer (e.g.
+   *  ']' for On Hit[...]) -- omitted for a commaList rule with no enclosing bracket syntax
+   *  (Applies During), where "add another" is the only continue action. */
+  commaCloses?: string;
 }
 
 // For a commaList rule's captured bracket content, splits on ',' to find the segment currently
@@ -74,6 +81,58 @@ function getCommaSegmentInfo(fullCaptured: string): { currentTerm: string; repla
   return { currentTerm, replaceLength, chosenTerms };
 }
 
+// Every mechanic node's own key already carries its namespace as a Folder_ prefix (e.g.
+// "System_Dodge", "Lumi_Outro"), but the *effects* it defines don't consistently follow the same
+// rule: a character-specific buff often repeats its own namespace in the name ("Lumi_Outro Skill
+// DMG Amp"), while the shared Negative Status Dictionary's own effects (System_
+// NegativeStatus_Dictionary) are just bare, globally-unique names ("Fusion Burst", "Glacio
+// Chafe") with no "System_" prefix at all -- there's nothing globally ambiguous about them, so
+// they were never given one. Deriving the namespace from the *node* an effect is defined in
+// (not from the effect's own name) is the one rule that covers both conventions: an explicit
+// self-prefix on the name gets stripped for display (so "Lumi_Outro Skill DMG Amp" still shows
+// as "Outro Skill DMG Amp" under Lumi), and a bare name is kept exactly as authored.
+function collectEffectNamesByNamespace(builderMechanics: Record<string, MechanicNode>): Record<string, Set<string>> {
+  const byNamespace: Record<string, Set<string>> = {};
+  const addFrom = (mechanicsByKey: Record<string, MechanicNode>) => {
+    Object.entries(mechanicsByKey).forEach(([key, mech]) => {
+      const namespace = key.startsWith('System_') ? 'System' : key.split('_')[0];
+      (mech.effects || []).forEach(e => {
+        if (!e.name) return;
+        if (!byNamespace[namespace]) byNamespace[namespace] = new Set();
+        const bare = e.name.startsWith(namespace + '_') ? e.name.slice(namespace.length + 1) : e.name;
+        byNamespace[namespace].add(bare);
+      });
+    });
+  };
+  addFrom(DataLoader.mechanicsDB);
+  addFrom(builderMechanics);
+  return byNamespace;
+}
+
+// Every mechanic node as an @Namespace(Move Name) reference -- Applies During's "specific move"
+// suggestions. Uses the node's own `.name` (its display name, e.g. "Pounce"), not the raw key,
+// since that's exactly what CombatCalculator.ts's hitModifiers set carries as `moveName` for
+// runtime matching -- suggesting anything else would silently never match a real hit.
+// Restricted to System + the currently-open unit -- a buff can only ever fire on hits from its
+// own owner or a shared System mechanic, so every other character/weapon/echo/set's moves are
+// never valid here and would just be noise.
+function collectMechanicReferences(builderMechanics: Record<string, MechanicNode>, currentNamespace: string | null): SuggestionItem[] {
+  const seen = new Set<string>();
+  const results: SuggestionItem[] = [];
+  const addFrom = (mechanicsByKey: Record<string, MechanicNode>) => {
+    Object.entries(mechanicsByKey).forEach(([key, mech]) => {
+      if (seen.has(key) || !mech.name) return;
+      const namespace = key.startsWith('System_') ? 'System' : key.split('_')[0];
+      if (namespace !== 'System' && namespace !== currentNamespace) return;
+      seen.add(key);
+      results.push({ val: `@${namespace}(${mech.name})`, group: namespace === 'System' ? 'System Mechanics' : `${namespace} Mechanics` });
+    });
+  };
+  addFrom(DataLoader.mechanicsDB);
+  addFrom(builderMechanics);
+  return results;
+}
+
 export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
   mode = 'general',
   value,
@@ -82,6 +141,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
   dmgOptions = [],
   className = '',
   placeholder,
+  onBlur,
   ...rest
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -89,10 +149,51 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
   const [flatSuggestions, setFlatSuggestions] = useState<Array<{ item: SuggestionItem; rule: MatchRule; match: RegExpMatchArray }>>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
+  const [popupPos, setPopupPos] = useState<React.CSSProperties>({});
 
   const inputRef = useRef<HTMLInputElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
-  const { mechanics, baseStats } = useBuilderStore();
+  const { mechanics, baseStats, activeChar } = useBuilderStore();
+
+  // Popup is portaled to <body> (see the render below) so it always escapes the node sub-panel's
+  // clipping/scrolling, the way Dropdown.tsx's popup does -- computed in fixed coordinates from
+  // the real input's own rect, not the small relative-positioned wrapper div, since the wrapper
+  // is what the old position:absolute popup used to (wrongly) anchor to.
+  const POPUP_MAX_HEIGHT = 260;
+  const positionPopup = () => {
+    const input = inputRef.current;
+    if (!input) return;
+    const rect = input.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const openUpward = spaceBelow < POPUP_MAX_HEIGHT && spaceAbove > spaceBelow;
+    setPopupPos({
+      position: 'fixed',
+      left: rect.left,
+      minWidth: rect.width,
+      maxWidth: Math.max(rect.width, window.innerWidth - rect.left - 8),
+      ...(openUpward
+        ? { bottom: window.innerHeight - rect.top + 2, maxHeight: Math.min(POPUP_MAX_HEIGHT, spaceAbove - 8) }
+        : { top: rect.bottom + 2, maxHeight: Math.min(POPUP_MAX_HEIGHT, spaceBelow - 8) })
+    });
+  };
+
+  // A portaled popup can't cheaply track every scrollable ancestor's scroll offset -- close
+  // instead of drifting off-anchor, same tradeoff Dropdown.tsx's usePositionedSelectPopup makes.
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleScroll = (e: Event) => {
+      if (popupRef.current && e.target instanceof Node && popupRef.current.contains(e.target)) return;
+      setIsOpen(false);
+    };
+    const close = () => setIsOpen(false);
+    window.addEventListener('scroll', handleScroll, true);
+    window.addEventListener('resize', close);
+    return () => {
+      window.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [isOpen]);
 
   const tokens = useMemo(() => tokenizeDSL(value), [value]);
   const syncScroll = () => {
@@ -130,23 +231,12 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
           matchGroup: 2,
           options: (match) => {
             const namespace = match[1];
-            const effKeys = new Set<string>();
-            Object.values(DataLoader.mechanicsDB).forEach(mech => {
-              (mech.effects || []).forEach(e => {
-                if (e.name) effKeys.add(e.name);
-              });
-            });
-            Object.values(mechanics).forEach(mech => {
-              (mech.effects || []).forEach(e => {
-                if (e.name) effKeys.add(e.name);
-              });
-            });
-            return Array.from(effKeys)
-              .filter(k => k.startsWith(namespace + '_'))
-              .map(k => ({
-                val: k.replace(namespace + '_', ''),
-                group: namespace === 'System' ? 'System Effects' : `${namespace} Effects`
-              }));
+            const byNamespace = collectEffectNamesByNamespace(mechanics);
+            const names = byNamespace[namespace] ? Array.from(byNamespace[namespace]) : [];
+            return names.map(name => ({
+              val: name,
+              group: namespace === 'System' ? 'System Effects' : `${namespace} Effects`
+            }));
           },
           prefix: '',
           append: ')'
@@ -204,13 +294,77 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
       }];
     }
 
-    // General DSL Input Rules
-    return [
-      {
-        trigger: /\b(?:On|After|Detonate)[a-zA-Z]*\[([^\]]*)$/i,
-        options: DSL_SCHEMA.modifiers.map(v => ({ val: v, group: 'Modifiers' })),
+    if (mode === 'eff-applies-during') {
+      // Cast Type (Basic/Heavy/Skill/...) or a specific move (@Provider(Move Name)) -- never a
+      // dmg type/element, which a Stat Modifier like "Fusion DMG Bonus" already scopes to on its
+      // own (see CombatCalculator.ts's baseDmgBonus, a separate mechanism from this field).
+      const castTypes = Object.keys(CAST_TYPE_COLORS).map(ct => ({ val: ct, group: 'Cast Type' }));
+      const currentNamespace = activeChar === 'Generic' ? 'System' : activeChar;
+      const mechanicRefs = collectMechanicReferences(mechanics, currentNamespace);
+      return [{
+        trigger: /(.*)/,
+        options: [...castTypes, ...mechanicRefs],
         prefix: '',
         commaList: true
+      }];
+    }
+
+    if (mode === 'dsl-value') {
+      // Plain DSL math-expression fields (Priority, Combo Window, Freeze/Swap Time) -- just
+      // pointer + pointer-property completion (@Default, then @Default.HeavyPriority etc.), no
+      // event/bracket suggestions since these fields never hold a trigger rule.
+      return [
+        {
+          trigger: /@([a-zA-Z]*)$/,
+          options: () => {
+            const base = DSL_SCHEMA.pointers.map(p => ({
+              val: p + (p === 'System' ? '(' : '.'),
+              group: 'Pointers',
+              tooltipKey: p
+            }));
+            const chars = Object.keys(DataLoader.characterDB).map(c => ({
+              val: c.replace(/[^a-zA-Z0-9]/g, '') + '(',
+              group: 'Characters'
+            }));
+            return [...base, ...chars];
+          },
+          prefix: '@'
+        },
+        {
+          trigger: /@([a-zA-Z]+)\.([a-zA-Z]*)$/,
+          matchGroup: 2,
+          options: (match) => {
+            const pointer = match[1];
+            const propsMap = DSL_SCHEMA.properties as Record<string, string[]>;
+            if (!propsMap[pointer]) return [];
+            const props = propsMap[pointer].map(p => ({ val: p, group: 'Properties', pointer }));
+            if (pointer === 'Self') {
+              const fCount = parseInt((baseStats.forteCount as any) || '1', 10);
+              for (let i = 1; i <= fCount; i++) props.push({ val: `Forte${i}`, group: 'Properties', pointer });
+            }
+            return props;
+          },
+          prefix: '.'
+        }
+      ];
+    }
+
+    // General DSL Input Rules
+    const currentNamespace = activeChar === 'Generic' ? 'System' : activeChar;
+    return [
+      {
+        // OnCast[Self, ...] etc. -- static cast/dmg-type modifiers plus a specific move
+        // reference (@Lumi(Move Name)), matching how TimelineEngine.ts's castModifiers set
+        // actually carries a cast move (see DSLParser.ts's _parseTrigger). Scoped to System +
+        // the currently-open unit for the same reason as Applies During's mechanic list.
+        trigger: /\b(?:On|After|Detonate)[a-zA-Z]*\[([^\]]*)$/i,
+        options: () => [
+          ...DSL_SCHEMA.modifiers.map(v => ({ val: v, group: 'Modifiers' })),
+          ...collectMechanicReferences(mechanics, currentNamespace)
+        ],
+        prefix: '',
+        commaList: true,
+        commaCloses: ']'
       },
       {
         trigger: /@([a-zA-Z]*)$/,
@@ -234,17 +388,8 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
         options: (match) => {
           const namespace = match[1];
           const mechKeys = new Set<string>();
-          const effKeys = new Set<string>();
-
           Object.keys(DataLoader.mechanicsDB).forEach(k => mechKeys.add(k));
           Object.keys(mechanics).forEach(k => mechKeys.add(k));
-
-          Object.values(DataLoader.mechanicsDB).forEach(m => {
-            (m.effects || []).forEach(e => { if (e.name) effKeys.add(e.name); });
-          });
-          Object.values(mechanics).forEach(m => {
-            (m.effects || []).forEach(e => { if (e.name) effKeys.add(e.name); });
-          });
 
           const results: SuggestionItem[] = [];
           mechKeys.forEach(k => {
@@ -255,13 +400,13 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
               });
             }
           });
-          effKeys.forEach(k => {
-            if (k.startsWith(namespace + '_')) {
-              results.push({
-                val: k.replace(namespace + '_', ''),
-                group: namespace === 'System' ? 'System Effects' : `${namespace} Effects`
-              });
-            }
+
+          const byNamespace = collectEffectNamesByNamespace(mechanics);
+          (byNamespace[namespace] ? Array.from(byNamespace[namespace]) : []).forEach(name => {
+            results.push({
+              val: name,
+              group: namespace === 'System' ? 'System Effects' : `${namespace} Effects`
+            });
           });
           return results;
         },
@@ -359,6 +504,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
           setFlatSuggestions(flatList);
           setActiveIndex(0);
           setIsOpen(true);
+          positionPopup();
           matched = true;
           break;
         }
@@ -369,18 +515,19 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
   };
 
   // After finishing one comma-list entry (e.g. a modifier inside On Hit[...]), offer to add
-  // another or close the bracket, instead of guessing which one the user wants.
-  const showContinueOptions = () => {
-    const items: SuggestionItem[] = [
-      { val: ',', group: 'Continue', label: ',  (add another)' },
-      { val: ']', group: 'Continue', label: ']  (close)' }
-    ];
+  // another or close the bracket, instead of guessing which one the user wants. closeChar is the
+  // rule's own commaCloses -- omitted entirely for a bracket-less commaList field (Applies
+  // During), where "add another" is the only continue action.
+  const showContinueOptions = (closeChar?: string) => {
+    const items: SuggestionItem[] = [{ val: ',', group: 'Continue', label: ',  (add another)' }];
+    if (closeChar) items.push({ val: closeChar, group: 'Continue', label: `${closeChar}  (close)` });
     const dummyRule: MatchRule = { trigger: /(?:)/, options: items, prefix: '' };
     const flatList = items.map(item => ({ item, rule: dummyRule, match: [''] as unknown as RegExpMatchArray }));
     setPopupHtml([{ group: 'Continue', items }]);
     setFlatSuggestions(flatList);
     setActiveIndex(0);
     setIsOpen(true);
+    positionPopup();
   };
 
   const handleSelect = (entry: { item: SuggestionItem; rule: MatchRule; match: RegExpMatchArray }) => {
@@ -392,7 +539,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
     if (item.group === 'Continue') {
       const val = input.value;
       const cursorPos = input.selectionStart || 0;
-      const insertText = item.val === ',' ? ', ' : ']';
+      const insertText = item.val === ',' ? ', ' : item.val;
       const newVal = val.slice(0, cursorPos) + insertText + val.slice(cursorPos);
       const newCursorPos = cursorPos + insertText.length;
 
@@ -431,8 +578,18 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
       const matchLength = match[groupIdx] !== undefined ? match[groupIdx].length : match[0].length;
       const replaceStart = cursorPos - matchLength;
 
-      newVal = val.slice(0, replaceStart) + completion;
-      newCursorPos = replaceStart + completion.length;
+      // rule.prefix (e.g. '@') is only actually present in `val` when the trigger regex matched
+      // it as part of the full match but *outside* the captured group (e.g. the optional '@?' in
+      // eff-name's namespace rule) -- match[0] is longer than the captured group in that case.
+      // When nothing beyond the captured group matched (an empty/no-'@'-yet field), that prefix
+      // was never typed and has to be inserted here, or a selection like "System(" would land
+      // without its leading '@' at all.
+      const matchedExtra = match[0].length - matchLength;
+      const needsPrefix = !!rule.prefix && matchedExtra < rule.prefix.length;
+      const insertedPrefix = needsPrefix ? rule.prefix! : '';
+
+      newVal = val.slice(0, replaceStart) + insertedPrefix + completion;
+      newCursorPos = replaceStart + insertedPrefix.length + completion.length;
 
       const appendStr = rule.append !== undefined
         ? rule.append
@@ -461,7 +618,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
         inputRef.current.focus();
         inputRef.current.selectionStart = inputRef.current.selectionEnd = newCursorPos;
         if (rule.commaList) {
-          showContinueOptions();
+          showContinueOptions(rule.commaCloses);
         } else {
           handleAutocomplete();
         }
@@ -506,14 +663,14 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
         }}
         onFocus={handleAutocomplete}
         onClick={handleAutocomplete}
-        onBlur={() => setTimeout(() => setIsOpen(false), 200)}
+        onBlur={e => { onBlur?.(e); setTimeout(() => setIsOpen(false), 200); }}
         onKeyDown={handleKeyDown}
         onScroll={syncScroll}
         placeholder={placeholder}
         {...rest}
       />
-      {isOpen && popupHtml.length > 0 && (
-        <div ref={popupRef} className="autocomplete-popup" style={{ display: 'block' }}>
+      {isOpen && popupHtml.length > 0 && createPortal(
+        <div ref={popupRef} className="autocomplete-popup" style={{ display: 'block', ...popupPos }}>
           {(() => {
             let globalIdx = 0;
             return popupHtml.map(g => (
@@ -560,7 +717,8 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
               </React.Fragment>
             ));
           })()}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

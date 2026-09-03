@@ -2,23 +2,21 @@
   "Sanhua_Basic Attack 1": {
     "name": "Basic Attack 1",
     "category": "Basic Attack",
-    "provider": "Sanhua",
     "castTypes": ["Basic"],
     "dmgTypes": ["Glacio", "Basic"],
-    "scalar": "ATK",
-    "hitMults": ["48.71%"],
     "hitResources": {
       "energy": [0.87],
       "concerto": [2],
       "tune": [0.28]
     },
-    "actionDuration": 28,
-    "swapTiming": "@Default.SwapTime",
-    "comboWindow": "@Default.ComboWindow",
+    "hitMults": ["48.71%"],
+    "scalar": "ATK",
     "input": "Basic",
-    "inputType": "Press",
     "stanceReq": "Grounded",
-    "priority": "@Default.BasicPriority"
+    "priority": "@Default.BasicPriority",
+    "comboWindow": "@Default.ComboWindow",
+    "actionDuration": 28,
+    "swapTiming": "@Default.SwapTime"
   },
   "Sanhua_Basic Attack 2": {
     "name": "Basic Attack 2",
@@ -34,122 +32,112 @@
     },
     "hitMults": ["73.76%"],
     "scalar": "ATK",
-    "actionDuration": 30,
-    "swapTiming": "@Default.SwapTime",
-    "comboWindow": "@Default.ComboWindow",
     "input": "Basic",
-    "inputType": "Press",
     "stanceReq": "Grounded",
-    "priority": "@Default.BasicPriority + 1"
+    "priority": "@Default.BasicPriority + 1",
+    "comboWindow": "@Default.ComboWindow",
+    "actionDuration": 30,
+    "swapTiming": "@Default.SwapTime"
   },
   "Sanhua_Basic Attack 3": {
     "name": "Basic Attack 3",
     "category": "Basic Attack",
-    "provider": "Sanhua",
+    "triggerRule": "IF (@Self.PrevAction == @Sanhua(Basic Attack 2))",
     "castTypes": ["Basic"],
     "dmgTypes": ["Glacio", "Basic"],
-    "scalar": "ATK",
-    "hitMults": ["21.58%", "21.58%", "21.58%", "21.58%"],
     "hitResources": {
       "energy": [0.38, 0.38, 0.38, 0.38],
       "concerto": [2, 2, 2, 2],
       "tune": [0.124, 0.124, 0.124, 0.124]
     },
-    "actionDuration": 30,
-    "swapTiming": "@Default.SwapTime",
-    "comboWindow": "@Default.ComboWindow",
-    "triggerRule": "IF (@Self.PrevAction == @Sanhua(Basic Attack 2))",
+    "hitMults": ["21.58%", "21.58%", "21.58%", "21.58%"],
+    "scalar": "ATK",
     "input": "Basic",
-    "inputType": "Press",
     "stanceReq": "Grounded",
-    "priority": "@Default.BasicPriority + 2"
+    "priority": "@Default.BasicPriority + 2",
+    "comboWindow": "@Default.ComboWindow",
+    "actionDuration": 30,
+    "swapTiming": "@Default.SwapTime"
   },
   "Sanhua_Basic Attack 4": {
     "name": "Basic Attack 4",
     "category": "Basic Attack",
-    "provider": "Sanhua",
+    "triggerRule": "IF (@Self.PrevAction == @Sanhua(Basic Attack 3) || @Self.PrevAction == @Sanhua(Heavy Attack))",
     "castTypes": ["Basic"],
     "dmgTypes": ["Glacio", "Basic"],
-    "scalar": "ATK",
-    "hitMults": ["39.67%", "39.67%"],
     "hitResources": {
       "energy": [0.71, 0.71],
       "concerto": [4, 4],
       "tune": [0.228, 0.228]
     },
-    "actionDuration": 33,
-    "swapTiming": "@Default.SwapTime",
-    "comboWindow": "@Default.ComboWindow",
-    "triggerRule": "IF (@Self.PrevAction == @Sanhua(Basic Attack 3) || @Self.PrevAction == @Sanhua(Heavy Attack))",
+    "hitMults": ["39.67%", "39.67%"],
+    "scalar": "ATK",
     "input": "Basic",
-    "inputType": "Press",
     "stanceReq": "Grounded",
-    "priority": "@Default.BasicPriority + 3"
+    "priority": "@Default.BasicPriority + 3",
+    "comboWindow": "@Default.ComboWindow",
+    "actionDuration": 33,
+    "swapTiming": "@Default.SwapTime"
   },
   "Sanhua_Basic Attack 5": {
     "name": "Basic Attack 5",
     "category": "Basic Attack",
-    "provider": "Sanhua",
+    "triggerRule": "IF (@Self.PrevAction == @Sanhua(Basic Attack 4))",
     "castTypes": ["Basic"],
     "dmgTypes": ["Glacio", "Basic"],
-    "scalar": "ATK",
-    "hitMults": ["233.81%"],
     "hitResources": {
       "energy": [4.2],
       "concerto": [10],
       "tune": [1.344]
     },
-    "actionDuration": 54,
-    "swapTiming": "@Default.SwapTime",
-    "comboWindow": "@Default.ComboWindow",
-    "triggerRule": "IF (@Self.PrevAction == @Sanhua(Basic Attack 4))",
+    "hitMults": ["233.81%"],
+    "scalar": "ATK",
     "input": "Basic",
-    "inputType": "Press",
     "stanceReq": "Grounded",
-    "priority": "@Default.BasicPriority + 4"
+    "priority": "@Default.BasicPriority + 4",
+    "comboWindow": "@Default.ComboWindow",
+    "actionDuration": 54,
+    "swapTiming": "@Default.SwapTime"
   },
   "Sanhua_Heavy Attack": {
     "name": "Heavy Attack",
     "category": "Basic Attack",
-    "provider": "Sanhua",
     "castTypes": ["Heavy"],
     "dmgTypes": ["Glacio", "Heavy"],
-    "scalar": "ATK",
-    "hitMults": ["22.27%", "22.27%", "22.27%", "22.27%", "22.27%"],
     "hitResources": {
       "energy": [0.4, 0.4, 0.4, 0.4, 0.4],
       "concerto": [1.6, 1.6, 1.6, 1.6, 1.6],
       "tune": [0.16, 0.16, 0.16, 0.16, 0.16]
     },
-    "actionDuration": 48,
-    "swapTiming": "@Default.SwapTime",
-    "comboWindow": "@Default.ComboWindow",
+    "hitMults": ["22.27%", "22.27%", "22.27%", "22.27%", "22.27%"],
+    "scalar": "ATK",
     "input": "Basic",
     "inputType": "Hold",
     "stanceReq": "Grounded",
-    "priority": "@Default.HeavyPriority"
+    "priority": "@Default.HeavyPriority",
+    "comboWindow": "@Default.ComboWindow",
+    "actionDuration": 48,
+    "swapTiming": "@Default.SwapTime"
   },
   "Sanhua_Mid-air Attack": {
     "name": "Mid-air Attack",
     "category": "Basic Attack",
-    "provider": "Sanhua",
     "castTypes": ["Basic"],
     "dmgTypes": ["Glacio", "Basic"],
-    "scalar": "ATK",
-    "hitMults": ["86.29%"],
     "hitResources": {
       "energy": [0.51],
       "concerto": [1],
       "tune": [0.952]
     },
-    "actionDuration": 30,
-    "swapTiming": "@Default.SwapTime",
-    "comboWindow": "@Default.ComboWindow",
+    "hitMults": ["86.29%"],
+    "scalar": "ATK",
     "input": "Basic",
-    "inputType": "Press",
     "stanceReq": "Midair",
     "stanceResult": "Grounded",
-    "priority": "@Default.BasicPriority"
+    "priority": "@Default.BasicPriority",
+    "comboWindow": "@Default.ComboWindow",
+    "actionDuration": 30,
+    "swapTiming": "@Default.SwapTime"
   },
   "Sanhua_Resonance Skill": {
     "name": "Resonance Skill",
@@ -163,112 +151,188 @@
       "energy": [10],
       "tune": [0.8]
     },
+    "effects": [
+      {
+        "type": "buff",
+        "name": "Clarity",
+        "label": "Clarity Tier",
+        "target": "@Self",
+        "duration": 5,
+        "maxStacks": 2
+      },
+      {
+        "type": "buff",
+        "name": "Ice_Prism",
+        "label": "Ice Prism Field Pool",
+        "target": "@Self",
+        "duration": 5,
+        "maxStacks": 1
+      }
+    ],
     "hitMults": ["359.85%"],
     "scalar": "ATK",
-    "actionDuration": 60,
-    "cooldown": 10,
-    "comboWindow": "@Default.ComboWindow",
     "input": "Skill",
     "stanceReq": "Grounded",
     "priority": "@Default.SkillPriority",
-    "effects": [
-      { "type": "buff", "name": "Clarity", "label": "Clarity Tier", "target": "@Self", "duration": 5, "maxStacks": 2 },
-      { "type": "buff", "name": "Ice_Prism", "label": "Ice Prism Field Pool", "target": "@Self", "duration": 5, "maxStacks": 1 }
-    ]
+    "comboWindow": "@Default.ComboWindow",
+    "actionDuration": 60,
+    "cooldown": 10
   },
   "Sanhua_Forte Hold Press": {
     "name": "Forte Hold Press",
     "category": "Forte Circuit",
-    "provider": "Sanhua",
-    "castTypes": ["Heavy"],
-    "dmgTypes": [],
-    "actionDuration": 6,
     "triggerRule": "IF (NOT(@Self.HasBuff(Forte_Holding)))",
+    "castTypes": ["Heavy"],
+    "effects": [
+      {
+        "type": "buff",
+        "name": "Forte_Holding",
+        "label": "Forte Aiming",
+        "target": "@Self",
+        "duration": "@Default.PermanentDuration",
+        "maxStacks": 1
+      },
+      {
+        "type": "tracker",
+        "name": "Hold_Start",
+        "action": "set",
+        "value": "@Move.GameTimeStart"
+      }
+    ],
     "input": "Basic",
     "inputType": "Hold",
     "priority": "@Default.HeavyPriority + 10",
-    "effects": [
-      { "type": "buff", "name": "Forte_Holding", "label": "Forte Aiming", "target": "@Self", "duration": "@Default.PermanentDuration", "maxStacks": 1 },
-      { "type": "tracker", "name": "Hold_Start", "action": "set", "value": "@Move.GameTimeStart" }
-    ]
+    "actionDuration": 6
   },
   "Sanhua_Forte Hold Release": {
     "name": "Forte Hold Release",
     "category": "Forte Circuit",
-    "provider": "Sanhua",
-    "castTypes": ["Heavy"],
-    "dmgTypes": [],
-    "actionDuration": 18,
     "triggerRule": "IF (@Self.HasBuff(Forte_Holding))",
+    "castTypes": ["Heavy"],
+    "effects": [
+      {
+        "type": "buffAction",
+        "name": "Forte_Holding",
+        "target": "@Self",
+        "action": "remove",
+        "value": "ALL"
+      }
+    ],
     "input": "Basic",
     "inputType": "Release",
-    "priority": "@Default.HeavyPriority + 20",
     "holdConfig": {
-      "cursorSpeed": 100,
-      "cursorMode": "pingpong",
-      "retainCursor": false,
-      "maxCursorVal": 100,
-      "windowCenter": "65",
       "windowSize": "10 + (20 * @Self.BuffStacks(Clarity))"
     },
-    "effects": [
-      { "type": "buffAction", "name": "Forte_Holding", "target": "@Self", "action": "remove", "value": "ALL" }
-    ]
+    "priority": "@Default.HeavyPriority + 20",
+    "actionDuration": 18,
+    "swapTiming": "@Default.SwapTime"
   },
   "Sanhua_Forte Detonate Base": {
     "name": "Forte Detonate Base",
     "category": "Forte Circuit",
     "isPassive": true,
-    "provider": "Sanhua",
     "triggerRule": "OnCast[@Sanhua(Forte Hold Release)] IF (@Move.IsInHoldWindow == true)",
+    "dmgTypes": ["Glacio", "Heavy"],
+    "hitResources": {
+      "energy": [2.34, 2.34],
+      "concerto": [7.5, 7.5],
+      "tune": [0.75, 0.75]
+    },
+    "effects": [
+      {
+        "type": "resource",
+        "name": "concerto",
+        "value": 15
+      },
+      {
+        "type": "buffAction",
+        "name": "Clarity",
+        "target": "@Self",
+        "action": "remove",
+        "value": "ALL"
+      }
+    ],
     "hitMults": ["186.29%", "186.29%"],
     "scalar": "ATK",
-    "dmgTypes": ["Glacio", "Heavy"],
-    "effects": [
-      { "type": "resource", "name": "concerto", "value": 15 },
-      { "type": "buffAction", "name": "Clarity", "target": "@Self", "action": "remove", "value": "ALL" }
-    ]
+    "damageTimeframe": {
+      "end": 18
+    }
   },
   "Sanhua_Ice Thorn Burst": {
     "name": "Ice Thorn Burst",
     "category": "Forte Circuit",
     "isPassive": true,
-    "provider": "Sanhua",
     "triggerRule": "OnCast[@Sanhua(Forte Hold Release)] IF (@Move.IsInHoldWindow == true AND @Self.HasBuff(Ice_Thorn))",
+    "dmgTypes": ["Glacio", "Heavy"],
+    "hitResources": {
+      "energy": [7]
+    },
+    "effects": [
+      {
+        "type": "buffAction",
+        "name": "Ice_Thorn",
+        "target": "@Self",
+        "action": "remove",
+        "value": "ALL"
+      }
+    ],
     "hitMults": ["59.65%"],
     "scalar": "ATK",
-    "dmgTypes": ["Glacio", "Heavy"],
-    "effects": [
-      { "type": "buffAction", "name": "Ice_Thorn", "target": "@Self", "action": "remove", "value": "ALL" }
-    ]
+    "damageTimeframe": {
+      "start": 18,
+      "end": 18
+    }
   },
   "Sanhua_Ice Prism Burst": {
     "name": "Ice Prism Burst",
     "category": "Forte Circuit",
     "isPassive": true,
-    "provider": "Sanhua",
     "triggerRule": "OnCast[@Sanhua(Forte Hold Release)] IF (@Move.IsInHoldWindow == true AND @Self.HasBuff(Ice_Prism))",
+    "dmgTypes": ["Glacio", "Heavy"],
+    "hitResources": {
+      "energy": [7],
+      "concerto": [15]
+    },
+    "effects": [
+      {
+        "type": "buffAction",
+        "name": "Ice_Prism",
+        "action": "remove",
+        "value": "ALL"
+      }
+    ],
     "hitMults": ["79.53%"],
     "scalar": "ATK",
-    "dmgTypes": ["Glacio", "Heavy"],
-    "effects": [
-      { "type": "resource", "name": "concerto", "value": 30 },
-      { "type": "buffAction", "name": "Ice_Prism", "target": "@Self", "action": "remove", "value": "ALL" }
-    ]
+    "damageTimeframe": {
+      "start": 18,
+      "end": 18
+    }
   },
   "Sanhua_Glacier Burst": {
     "name": "Glacier Burst",
     "category": "Forte Circuit",
     "isPassive": true,
-    "provider": "Sanhua",
     "triggerRule": "OnCast[@Sanhua(Forte Hold Release)] IF (@Move.IsInHoldWindow == true AND @Self.HasBuff(Glacier))",
+    "dmgTypes": ["Glacio", "Heavy"],
+    "hitResources": {
+      "energy": [2],
+      "concerto": [15]
+    },
+    "effects": [
+      {
+        "type": "buffAction",
+        "name": "Glacier",
+        "target": "@Self",
+        "action": "remove",
+        "value": "ALL"
+      }
+    ],
     "hitMults": ["139.17%"],
     "scalar": "ATK",
-    "dmgTypes": ["Glacio", "Heavy"],
-    "effects": [
-      { "type": "resource", "name": "concerto", "value": 30 },
-      { "type": "buffAction", "name": "Glacier", "target": "@Self", "action": "remove", "value": "ALL" }
-    ]
+    "damageTimeframe": {
+      "start": 18,
+      "end": 18
+    }
   },
   "Sanhua_Glacial Gaze": {
     "name": "Glacial Gaze",
@@ -280,19 +344,33 @@
       "energy": -100,
       "concerto": 20
     },
+    "effects": [
+      {
+        "type": "buff",
+        "name": "Clarity",
+        "label": "Clarity Tier",
+        "target": "@Self",
+        "duration": 5,
+        "maxStacks": 2
+      },
+      {
+        "type": "buff",
+        "name": "Glacier",
+        "label": "Glacier Field Pool",
+        "target": "@Self",
+        "duration": 5,
+        "maxStacks": 1
+      }
+    ],
     "hitMults": ["809.48%"],
     "scalar": "ATK",
-    "actionDuration": 97,
-    "cooldown": 16,
-    "freezeTime": 89,
-    "comboWindow": "@Default.ComboWindow",
     "input": "Liberation",
     "stanceResult": "Grounded",
     "priority": 1000,
-    "effects": [
-      { "type": "buff", "name": "Clarity", "label": "Clarity Tier", "target": "@Self", "duration": 5, "maxStacks": 2 },
-      { "type": "buff", "name": "Glacier", "label": "Glacier Field Pool", "target": "@Self", "duration": 5, "maxStacks": 1 }
-    ]
+    "comboWindow": "@Default.ComboWindow",
+    "actionDuration": 97,
+    "cooldown": 16,
+    "freezeTime": 89
   },
   "Sanhua_Intro Skill": {
     "name": "Intro Skill",
@@ -308,17 +386,31 @@
       "tune": [0.73],
       "energy": [10]
     },
+    "effects": [
+      {
+        "type": "buff",
+        "name": "Clarity",
+        "label": "Clarity Tier",
+        "target": "@Self",
+        "duration": 5,
+        "maxStacks": 2
+      },
+      {
+        "type": "buff",
+        "name": "Ice_Thorn",
+        "label": "Ice Thorn Field Pool",
+        "target": "@Self",
+        "duration": 8,
+        "maxStacks": 1
+      }
+    ],
     "hitMults": ["139.17%"],
     "scalar": "ATK",
-    "actionDuration": 60,
-    "swapTiming": 60,
-    "comboWindow": "@Default.ComboWindow",
     "stanceResult": "Grounded",
     "priority": "@Default.IntroPriority",
-    "effects": [
-      { "type": "buff", "name": "Clarity", "label": "Clarity Tier", "target": "@Self", "duration": 5, "maxStacks": 2 },
-      { "type": "buff", "name": "Ice_Thorn", "label": "Ice Thorn Field Pool", "target": "@Self", "duration": 8, "maxStacks": 1 }
-    ]
+    "comboWindow": "@Default.ComboWindow",
+    "actionDuration": 60,
+    "swapTiming": 60
   },
   "Sanhua_Outro": {
     "name": "Outro",
@@ -329,9 +421,18 @@
       "concerto": -100
     },
     "effects": [
-      { "type": "buff", "target": "@Next", "name": "Sanhua_Outro_Buff", "label": "Sanhua Outro: Silversnow", "stat": "Basic DMG Amp", "value": "38%", "duration": 14, "removeOnSwap": true }
+      {
+        "type": "buff",
+        "target": "@Next",
+        "name": "Sanhua_Outro_Buff",
+        "label": "Sanhua Outro: Silversnow",
+        "stat": "Basic DMG Amp",
+        "value": "38%",
+        "duration": 14,
+        "removeOnSwap": true
+      }
     ],
-    "actionDuration": 0,
-    "priority": "@Default.OutroPriority"
+    "priority": "@Default.OutroPriority",
+    "actionDuration": 0
   }
 }

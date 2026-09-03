@@ -77,6 +77,14 @@ export interface Effect {
   stackBehavior?: 'resettable' | 'separate';
   expireBehavior?: 'clear' | 'drop_one' | 'drop_half';
   removeOnSwap?: boolean;
+  // "Applies During" in the Builder UI -- gates which hits this buff's stat counts toward, by
+  // cast type (e.g. "Basic") or specific move (e.g. "@Lumi(Pounce)"). Never a dmg type/element --
+  // that's scoped by the Stat Modifier's own name instead (e.g. "Fusion DMG Bonus"), a separate
+  // mechanism (see CombatCalculator.ts's baseDmgBonus). When set, this is the sole gate in
+  // CombatCalculator.ts's aggregateBuffTotals and fully overrides the name-based auto-inference
+  // (a stat containing "skill" no longer forces a 'skill'-tagged hit once applyTo is explicit).
+  // Left unset, that inference is still the fallback -- most existing buffs predate this field
+  // and rely on it for correct cast/dmg-type scoping.
   applyTo?: string | string[];
   action?: 'add' | 'set' | 'copy' | 'consume' | 'detonate' | 'remove' | 'pause' | 'resume' | 'extend';
   provider?: string;

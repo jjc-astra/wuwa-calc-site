@@ -163,8 +163,8 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
                   <EffField label="Target Entity" minWidth={90}>
                     <AutocompleteInput mode="eff-target" value={effTarget} onValueChange={setEffTarget} />
                   </EffField>
-                  <EffField label="Limit to Tags" minWidth={90}>
-                    <input type="text" className="form-input w-100" value={effApplyTo} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEffApplyTo(e.target.value)} placeholder="e.g. Skill, Heavy" />
+                  <EffField label="Applies During" minWidth={90}>
+                    <AutocompleteInput mode="eff-applies-during" value={effApplyTo} onValueChange={setEffApplyTo} placeholder="e.g. Basic, @Lumi(Pounce)" />
                   </EffField>
                 </div>
 

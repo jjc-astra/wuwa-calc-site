@@ -61,14 +61,17 @@ export const BuilderUtils = {
       if (swapTiming !== undefined) clean.swapTiming = swapTiming;
       const freezeTime = CommonUtils.parseMixed(node.freezeTime);
       if (freezeTime !== undefined) clean.freezeTime = freezeTime;
+    }
 
-      const dmgStart = CommonUtils.parseMixed(node.damageTimeframe?.start);
-      const dmgEnd = CommonUtils.parseMixed(node.damageTimeframe?.end);
-      if (dmgStart !== undefined || dmgEnd !== undefined) {
-        clean.damageTimeframe = {};
-        if (dmgStart !== undefined) clean.damageTimeframe.start = dmgStart;
-        if (dmgEnd !== undefined) clean.damageTimeframe.end = dmgEnd;
-      }
+    // damageTimeframe isn't scheduling-related like the fields above -- it's read by both a
+    // normal action's own hit-spread (_resolveTimings) and a passive/proc'd mechanic's own dmg
+    // delay (TimelineEngine._queueProccedMechanic), so it has to survive cleaning either way.
+    const dmgStart = CommonUtils.parseMixed(node.damageTimeframe?.start);
+    const dmgEnd = CommonUtils.parseMixed(node.damageTimeframe?.end);
+    if (dmgStart !== undefined || dmgEnd !== undefined) {
+      clean.damageTimeframe = {};
+      if (dmgStart !== undefined) clean.damageTimeframe.start = dmgStart;
+      if (dmgEnd !== undefined) clean.damageTimeframe.end = dmgEnd;
     }
 
     return clean;

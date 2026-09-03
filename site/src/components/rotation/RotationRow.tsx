@@ -90,9 +90,12 @@ export const RotationRow: React.FC<RotationRowProps> = ({
     const ctx = ContextManager.buildContext(row, selectedUnit, team);
     const skillGroupNames = dbChar.skillGroupNames || {};
 
+    // Genuine validity only -- the "always retain currently selected" carve-out is handled
+    // separately below (per-candidate isValid + the group collapse step), not baked in here,
+    // since folding it into this check made the currently-selected action look like a real
+    // contender when picking each input group's winner (see the collapse step's comment).
     const checkValid = (k: string, m: any) => {
       if (!m || m.isPassive) return false;
-      if (row.action === k) return true; // Always retain currently selected action in options
       if (m.triggerRule && m.triggerRule.trim() !== '') {
         if (!m._compiledRule || typeof m._compiledRule.evaluate !== 'function') {
           m._compiledRule = DSLParser.compile(m.triggerRule);
@@ -107,18 +110,20 @@ export const RotationRow: React.FC<RotationRowProps> = ({
     const resolvePriority = (m: any) =>
       typeof m.priority === 'number' ? m.priority : (m.priority ? DSLParser.evaluateMath(String(m.priority), ctx, selectedUnit) : 0);
 
-    interface Candidate { id: string; m: any; groupLabel: string }
+    interface Candidate { id: string; m: any; groupLabel: string; isValid: boolean }
     const candidates: Candidate[] = [];
 
     // 1. Character Mechanics
     const charKeys = DataLoader.mechanicsIndex[selectedUnit] || [];
     charKeys.forEach(k => {
       const m = DataLoader.mechanicsDB[k];
-      if (checkValid(k, m)) {
+      if (!m || m.isPassive) return;
+      const isValid = checkValid(k, m);
+      if (isValid || k === row.action) {
         const cat = m.category || BuilderUtils.guessCategory(m);
         const groupName = skillGroupNames[cat];
         const groupLabel = groupName ? `${cat}: ${groupName}` : cat;
-        candidates.push({ id: k, m, groupLabel });
+        candidates.push({ id: k, m, groupLabel, isValid });
       }
     });
 
@@ -128,7 +133,9 @@ export const RotationRow: React.FC<RotationRowProps> = ({
       const echoKeys = DataLoader.mechanicsIndex[slot.mainEcho] || [];
       echoKeys.forEach(k => {
         const m = DataLoader.mechanicsDB[k];
-        if (checkValid(k, m)) candidates.push({ id: k, m, groupLabel: 'Echo Skill' });
+        if (!m || m.isPassive) return;
+        const isValid = checkValid(k, m);
+        if (isValid || k === row.action) candidates.push({ id: k, m, groupLabel: 'Echo Skill', isValid });
       });
     }
 
@@ -136,7 +143,9 @@ export const RotationRow: React.FC<RotationRowProps> = ({
     const sysKeys = DataLoader.mechanicsIndex['System'] || [];
     sysKeys.forEach(k => {
       const m = DataLoader.mechanicsDB[k];
-      if (checkValid(k, m)) candidates.push({ id: k, m, groupLabel: 'Uncategorized (System)' });
+      if (!m || m.isPassive) return;
+      const isValid = checkValid(k, m);
+      if (isValid || k === row.action) candidates.push({ id: k, m, groupLabel: 'Uncategorized (System)', isValid });
     });
 
     // --- COLLAPSE CANDIDATES THAT SHARE THE SAME INPUT ---
@@ -147,8 +156,10 @@ export const RotationRow: React.FC<RotationRowProps> = ({
     // exists specifically to say which one actually resolves. stanceReq (Grounded vs Midair) is
     // excluded from the collapse key since this simulator only *estimates* airborne state rather
     // than truly tracking it -- both variants have to stay selectable so the author can pick
-    // manually. A row's already-selected action is never collapsed away (mirrors checkValid's own
-    // "always retain currently selected" rule above), even if it's no longer the priority winner.
+    // manually. A row's already-selected action is never collapsed away, even if it's no longer
+    // the priority winner -- and the winner itself is picked from genuinely-valid members only, so
+    // a stale selection (e.g. Energized Pounce still selected after Forte drops below 100) can't
+    // shadow the option the author actually needs to switch to (plain Pounce).
     const byInputKey = new Map<string, Candidate[]>();
     const finalCandidates: Candidate[] = [];
     candidates.forEach(c => {
@@ -159,7 +170,9 @@ export const RotationRow: React.FC<RotationRowProps> = ({
     });
     byInputKey.forEach(group => {
       if (group.length === 1) { finalCandidates.push(group[0]); return; }
-      const winner = group.reduce((best, cur) => (resolvePriority(cur.m) > resolvePriority(best.m) ? cur : best));
+      const validMembers = group.filter(c => c.isValid);
+      const winnerPool = validMembers.length > 0 ? validMembers : group;
+      const winner = winnerPool.reduce((best, cur) => (resolvePriority(cur.m) > resolvePriority(best.m) ? cur : best));
       finalCandidates.push(winner);
       const current = group.find(c => c.id === row.action && c.id !== winner.id);
       if (current) finalCandidates.push(current);

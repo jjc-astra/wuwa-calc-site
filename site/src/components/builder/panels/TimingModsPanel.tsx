@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import type { MechanicNode } from '../../../types';
 import { parseTimeInput } from '../../../utils/Frames';
 import { displayTimeVal, makeTimeBlur } from '../mechanicNodeHelpers';
+import { AutocompleteInput } from '../../common/AutocompleteInput';
 
 interface TimingModsPanelProps {
   data: MechanicNode;
@@ -46,19 +47,19 @@ export const TimingModsPanel: React.FC<TimingModsPanelProps> = ({ data, updateNo
       <div className="form-row">
         <div className="form-group">
           <label className="form-label">Freeze Time</label>
-          <input type="text" className="form-input w-100" value={displayTimeVal(data.freezeTime, 'f')} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateNode({ freezeTime: e.target.value })} onBlur={makeTimeBlur(data, updateNode, 'freezeTime', 'frames')} placeholder="e.g. 5f" />
+          <AutocompleteInput mode="dsl-value" value={displayTimeVal(data.freezeTime, 'f')} onValueChange={val => updateNode({ freezeTime: val })} onBlur={makeTimeBlur(data, updateNode, 'freezeTime', 'frames')} placeholder="e.g. 5f" />
         </div>
         <div className="form-group">
           <label className="form-label">Swap Time</label>
-          <input type="text" className="form-input w-100" value={displayTimeVal(data.swapTiming, 'f')} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateNode({ swapTiming: e.target.value })} onBlur={makeTimeBlur(data, updateNode, 'swapTiming', 'frames')} placeholder="e.g. 9f" />
+          <AutocompleteInput mode="dsl-value" value={displayTimeVal(data.swapTiming, 'f')} onValueChange={val => updateNode({ swapTiming: val })} onBlur={makeTimeBlur(data, updateNode, 'swapTiming', 'frames')} placeholder="e.g. 9f" />
         </div>
         <div className="form-group">
           <label className="form-label">Priority</label>
-          <input type="text" className="form-input w-100" value={data.priority ?? 0} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateNode({ priority: e.target.value })} placeholder="@Default.basicPriority" />
+          <AutocompleteInput mode="dsl-value" value={String(data.priority ?? 0)} onValueChange={val => updateNode({ priority: val })} placeholder="@Default.basicPriority" />
         </div>
         <div className="form-group relative">
           <label className="form-label">Combo Window</label>
-          <input type="text" className="form-input w-100" value={displayTimeVal(data.comboWindow, 'f')} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateNode({ comboWindow: e.target.value })} onBlur={makeTimeBlur(data, updateNode, 'comboWindow', 'frames')} placeholder="@Default.ComboWindow" />
+          <AutocompleteInput mode="dsl-value" value={displayTimeVal(data.comboWindow, 'f')} onValueChange={val => updateNode({ comboWindow: val })} onBlur={makeTimeBlur(data, updateNode, 'comboWindow', 'frames')} placeholder="@Default.ComboWindow" />
         </div>
       </div>
 
@@ -81,7 +82,9 @@ export const TimingModsPanel: React.FC<TimingModsPanelProps> = ({ data, updateNo
       <div className="mech-add-row mt-sm">
         <input type="text" className="form-input mech-mini-input" value={cancelTime} onChange={e => setCancelTime(e.target.value)} placeholder="24f" />
         <input type="number" step="1" className="form-input mech-mini-input" value={cancelHits} onChange={e => setCancelHits(e.target.value)} placeholder="hits" />
-        <input type="text" className="form-input mech-mini-input-wide" value={cancelRule} onChange={e => setCancelRule(e.target.value)} placeholder="rule (opt), e.g. IF (...)" />
+        <div className="flex-1">
+          <AutocompleteInput mode="general" className="mech-mini-input-wide" value={cancelRule} onValueChange={setCancelRule} placeholder="rule (opt), e.g. IF (...)" />
+        </div>
         <button type="button" className="base-btn text-xs" onClick={handleAddCancelTiming}>Add</button>
       </div>
     </div>
