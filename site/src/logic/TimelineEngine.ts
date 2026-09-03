@@ -1293,10 +1293,17 @@ export class TimelineEngineClass {
       delete currentData.trackers.Hold_Start;
     }
 
+    // A Simultaneous-timed row (see recalculateState's timing branch) never advances the shared
+    // accumulatedTime/accumulatedGameTime clock -- it's anchored inside the window the
+    // surrounding rows already own, by design ("executes in parallel", no extra time cost to the
+    // rotation). Decaying cooldowns/buffs by its own duration here would double-count that same
+    // already-elapsed window (e.g. Forte Hold Press's 6-frame actionDuration was shaving 0.1s off
+    // every cooldown wait computed after it), so it decays 0 real/game time instead.
+    const isSimultaneous = currentData.timing === 'Simultaneous';
     this._decayState(
       currentData,
-      toFrames(Math.max(0, currentData.duration || 0)),
-      toFrames(Math.max(0, currentData.gameTimePassed || 0)),
+      isSimultaneous ? toFrames(0) : toFrames(Math.max(0, currentData.duration || 0)),
+      isSimultaneous ? toFrames(0) : toFrames(Math.max(0, currentData.gameTimePassed || 0)),
       activeTeam,
       activeRows,
       team
