@@ -501,12 +501,12 @@
     "name": "Sequence 5 Effect: Bonus Glacier Concerto",
     "category": "Resonance Chain",
     "isPassive": true,
-    "triggerRule": "OnCast[Self, @Sanhua(Forte Hold Release)] IF (@Self.Sequence >= 5 && @Move.IsInHoldWindow == true && @Self.HasBuff(Glacier))",
+    "triggerRule": "OnHit[Self, @Sanhua(Forte Detonate Base))] IF (@Self.Sequence >= 5 && @Move.IsInHoldWindow == true)",
     "effects": [
       {
         "type": "resource",
         "name": "concerto",
-        "value": 15
+        "value": 7.5
       }
     ]
   },
@@ -575,6 +575,22 @@
         "type": "buff",
         "name": "Condensation",
         "applyTo": ["@Sanhua(Resonance Skill)"],
+        "stat": "DMG Bonus",
+        "value": "20%",
+        "duration": 8
+      }
+    ]
+  },
+  "Sanhua_Avalanche": {
+    "name": "Avalanche",
+    "category": "Inherent Skill",
+    "isPassive": true,
+    "triggerRule": "OnCast[@Sanhua(Basic Attack 5)]",
+    "effects": [
+      {
+        "type": "buff",
+        "name": "Avalanche",
+        "applyTo": ["@Sanhua(Ice Thorn Burst)", "@Sanhua(Ice Prism Burst)", "@Sanhua(Glacier Burst)", "@Sanhua(Ice Thorn Auto-Burst)", "@Sanhua(Ice Prism Auto-Burst)", "@Sanhua(Glacier Auto-Burst)"],
         "stat": "DMG Bonus",
         "value": "20%",
         "duration": 8

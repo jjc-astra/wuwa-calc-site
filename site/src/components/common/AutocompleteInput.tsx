@@ -184,6 +184,14 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
     if (!isOpen) return;
     const handleScroll = (e: Event) => {
       if (popupRef.current && e.target instanceof Node && popupRef.current.contains(e.target)) return;
+      // The input itself fires a native (non-bubbling, but still capture-visible) 'scroll' event
+      // whenever its own text scrolls internally -- typing/completing past the visible width, or
+      // a completion moving the caret beyond it (see handleSelect's programmatic
+      // selectionStart/End set). That's this component's own onScroll={syncScroll} territory
+      // (keeps the highlight overlay lined up with the real input), not a "the anchor moved"
+      // signal -- treating it as one closed the popup the instant a long "Applies During" value
+      // (or any long DSL value) started needing internal scroll, i.e. right after it opened.
+      if (e.target === inputRef.current) return;
       setIsOpen(false);
     };
     const close = () => setIsOpen(false);

@@ -153,7 +153,16 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
             ]}
           />
 
-          <div className="flex-col gap-sm flex-1 flex-wrap">
+          {/* min-width: 0 overrides this flex item's default min-width:auto, which otherwise
+              lets its content dictate a preferred width (flex-basis:auto) wide enough to fit
+              a long unwrapped value -- an Applies During field holding several @Namespace(Move)
+              references, say -- as if it had the *whole* row to itself. That silently ignored
+              the Dropdown/Add-button siblings actually sharing this row, computing a width equal
+              to the full row (e.g. 1017px) instead of (row width - dropdown - button - gaps), and
+              pushed the Add button that many px past the panel's right edge. min-width: 0 lets it
+              correctly shrink to the space actually left over, so its own flex-wrap can kick in
+              and wrap the field rows onto more lines instead. */}
+          <div className="flex-col gap-sm flex-1 flex-wrap" style={{ minWidth: 0 }}>
             {effectType === 'buff' && (
               <>
                 <div className="flex-row w-100 gap-sm m-0 flex-wrap">

@@ -518,6 +518,12 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    /* .type-tag is itself a (row-direction) flex container, and a flex item's default
+       min-width is `auto` -- i.e. it refuses to shrink below its own content's intrinsic
+       width. With `white-space: nowrap` above, this span's intrinsic width is its *entire*
+       unwrapped text, so without this override the ellipsis above never actually engages on a
+       long effect summary (e.g. a buff's "During: @X(...), @Y(...), ..." list). */
+    min-width: 0;
 }
 
 /* --- POLISHED NUMBER SPINNERS --- */
