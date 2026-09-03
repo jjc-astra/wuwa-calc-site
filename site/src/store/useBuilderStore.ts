@@ -288,22 +288,27 @@ export const useBuilderStore = create<BuilderState>()(
     }),
     {
       name: 'wuwa_builder_cache',
-      onRehydrateStorage: () => {
-        return (state, error) => {
-          if (!error && state) {
-            if (state.mechanics) {
-              Object.assign(DataLoader.mechanicsDB, state.mechanics);
-            }
-            if (state.activeChar && state.baseStats) {
-              if (DataLoader.characterDB[state.activeChar]) {
-                Object.assign(DataLoader.characterDB[state.activeChar], state.baseStats);
-              } else if (DataLoader.weaponDB[state.activeChar]) {
-                Object.assign(DataLoader.weaponDB[state.activeChar], state.baseStats);
-              }
-            }
-          }
-        };
-      }
+      // `mechanics`/`baseStats` are excluded on purpose -- they're the current entity's *derived*
+      // live working copy (fresh pristine DataLoader data + editedMechanics/editedBaseStats
+      // replayed on top, see setActiveChar), not part of the durable edit log themselves.
+      // Persisting and replaying them verbatim used to re-inject whatever pristine keys existed
+      // at snapshot time straight into DataLoader.mechanicsDB on every reload -- including ones
+      // since removed from the source JSON on disk, since that's an additive Object.assign with
+      // nothing to prune a since-deleted key. A manifest/file change would then never fix it
+      // (DataLoader itself was never asked to re-fetch that entity in the first place), and only
+      // Reset Cache's explicit clearMechanicCache -- which this rehydration path bypassed -- ever
+      // pruned it. Persisting only editedMechanics/editedBaseStats/deletedMechanicIds (the actual
+      // edit log) and always re-deriving `mechanics`/`baseStats` from a live setActiveChar call
+      // means every reload naturally goes through the same fresh-fetch + freshness-check path a
+      // first-ever visit does.
+      partialize: (state) => ({
+        activeChar: state.activeChar,
+        activeFolder: state.activeFolder,
+        activeRarity: state.activeRarity,
+        editedBaseStats: state.editedBaseStats,
+        editedMechanics: state.editedMechanics,
+        deletedMechanicIds: state.deletedMechanicIds
+      })
     }
   )
 );

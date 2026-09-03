@@ -240,11 +240,6 @@
     },
     "effects": [
       {
-        "type": "resource",
-        "name": "concerto",
-        "value": 15
-      },
-      {
         "type": "buffAction",
         "name": "Clarity",
         "target": "@Self",
@@ -434,5 +429,140 @@
     ],
     "priority": "@Default.OutroPriority",
     "actionDuration": 0
+  },
+  "Sanhua_Sequence 1: Solitude's Embrace": {
+    "name": "Sequence 1: Solitude's Embrace",
+    "category": "Resonance Chain",
+    "isPassive": true,
+    "triggerRule": "OnCast[Self, @Sanhua(Basic Attack 5)] IF (@Self.Sequence >= 1)",
+    "effects": [
+      {
+        "type": "buff",
+        "name": "Sanhua_S1 Crit Rate",
+        "duration": 10,
+        "stat": "Crit Rate",
+        "value": "15%"
+      }
+    ]
+  },
+  "Sanhua_Sequence 3: Anomalous Vision": {
+    "name": "Sequence 3: Anomalous Vision",
+    "category": "Resonance Chain",
+    "isPassive": true,
+    "triggerRule": "IF (@Self.Sequence >= 3 && @Enemy.HPPct < 0.7)",
+    "effects": [
+      {
+        "type": "buff",
+        "name": "Sanhua_S3 DMG Bonus",
+        "duration": "@Default.PermanentDuration",
+        "stat": "DMG Bonus",
+        "value": "35%"
+      }
+    ]
+  },
+  "Sanhua_Sequence 4: Blade Mastery": {
+    "name": "Sequence 4: Blade Mastery",
+    "category": "Resonance Chain",
+    "isPassive": true,
+    "triggerRule": "OnCast[Self, @Sanhua(Glacial Gaze)] IF (@Self.Sequence >= 4)",
+    "effects": [
+      {
+        "type": "resource",
+        "name": "energy",
+        "value": 10
+      },
+      {
+        "type": "buff",
+        "name": "Sanhua_S4 Detonate Bonus",
+        "applyTo": ["@Sanhua(Forte Detonate Base)"],
+        "stat": "DMG Bonus",
+        "value": "120%",
+        "duration": 5
+      }
+    ]
+  },
+  "Sanhua_Sequence 5: Unraveling Fate": {
+    "name": "Sequence 5: Unraveling Fate",
+    "category": "Resonance Chain",
+    "isPassive": true,
+    "triggerRule": "IF (@Self.Sequence >= 5)",
+    "effects": [
+      {
+        "type": "buff",
+        "name": "Sanhua_S5 Detonate Crit DMG",
+        "applyTo": ["@Sanhua(Ice Thorn Burst)", "@Sanhua(Ice Prism Burst)", "@Sanhua(Glacier Burst)", "@Sanhua(Ice Thorn Auto-Burst)", "@Sanhua(Ice Prism Auto-Burst)", "@Sanhua(Glacier Auto-Burst)"],
+        "stat": "Crit DMG",
+        "value": "100%",
+        "duration": "@Default.PermanentDuration"
+      }
+    ]
+  },
+  "Sanhua_Sequence 5: Bonus Glacier Concerto": {
+    "name": "Sequence 5 Effect: Bonus Glacier Concerto",
+    "category": "Resonance Chain",
+    "isPassive": true,
+    "triggerRule": "OnCast[Self, @Sanhua(Forte Hold Release)] IF (@Self.Sequence >= 5 && @Move.IsInHoldWindow == true && @Self.HasBuff(Glacier))",
+    "effects": [
+      {
+        "type": "resource",
+        "name": "concerto",
+        "value": 15
+      }
+    ]
+  },
+  "Sanhua_Ice Thorn Auto-Burst": {
+    "name": "Ice Thorn Auto-Burst",
+    "category": "Forte Circuit",
+    "isPassive": true,
+    "triggerRule": "OnBuffExpire[Ice_Thorn] IF (@Self.Sequence >= 5)",
+    "dmgTypes": ["Glacio", "Heavy"],
+    "hitResources": {
+      "energy": [7]
+    },
+    "hitMults": ["59.65%"],
+    "scalar": "ATK"
+  },
+  "Sanhua_Ice Prism Auto-Burst": {
+    "name": "Ice Prism Auto-Burst",
+    "category": "Forte Circuit",
+    "isPassive": true,
+    "triggerRule": "OnBuffExpire[Ice_Prism] IF (@Self.Sequence >= 5)",
+    "dmgTypes": ["Glacio", "Heavy"],
+    "hitResources": {
+      "energy": [7],
+      "concerto": [15]
+    },
+    "hitMults": ["79.53%"],
+    "scalar": "ATK"
+  },
+  "Sanhua_Glacier Auto-Burst": {
+    "name": "Glacier Auto-Burst",
+    "category": "Forte Circuit",
+    "isPassive": true,
+    "triggerRule": "OnBuffExpire[Glacier] IF (@Self.Sequence >= 5)",
+    "dmgTypes": ["Glacio", "Heavy"],
+    "hitResources": {
+      "energy": [2],
+      "concerto": [30]
+    },
+    "hitMults": ["139.17%"],
+    "scalar": "ATK"
+  },
+  "Sanhua_Sequence 6: Daybreak Radiance": {
+    "name": "Sequence 6: Daybreak Radiance",
+    "category": "Resonance Chain",
+    "isPassive": true,
+    "triggerRule": "ANY(OnBuffRemove[Self,@Sanhua(Ice Prism Burst)], OnBuffExpire[Self,@Sanhua(Ice Prism Burst)], OnBuffRemove[Self,@Sanhua(Glacier Burst)], OnBuffExpire[Self,@Sanhua(Glacier Burst)]) IF (@Self.Sequence >= 6)",
+    "effects": [
+      {
+        "type": "buff",
+        "name": "Sanhua_S6 Team ATK",
+        "target": "@Team",
+        "duration": 20,
+        "maxStacks": 2,
+        "stat": "ATK %",
+        "value": "10%"
+      }
+    ]
   }
 }
