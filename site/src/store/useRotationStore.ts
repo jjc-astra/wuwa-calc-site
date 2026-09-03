@@ -275,8 +275,18 @@ export const useRotationStore = create<RotationState>()(
           const { startEnergy, startConcerto, rows } = get();
           const options = { startEnergy, startConcerto };
 
+          // Same staleness check calculateDamage() does below -- recalculate() fires on nearly
+          // every rotation edit (see triggerRecalc above), and the worker's DataLoader is a
+          // long-lived instance that otherwise only ever notices a changed mechanic JSON via an
+          // explicit Calculate press. Without this, a fix to a character's mechanics file (or a
+          // Mechanics Builder edit reverted via Reset Cache) stayed invisible in the live-preview
+          // DMG column/legality checks until either a real Calculate press or a full page reload.
+          // Cheap even called this often: DataLoader.refreshManifest() internally throttles the
+          // actual manifest.json fetch to once per 5s no matter how many callers ask.
+          const staleRefs = await checkTeamFreshness(team);
+
           set({ isCalculating: true });
-          const { seq, result } = postToWorker('recalculate', { rows, team, options, enemy, includeDamage, ...buildBuilderPayload(team) });
+          const { seq, result } = postToWorker('recalculate', { rows, team, options, enemy, includeDamage, staleRefs, ...buildBuilderPayload(team) });
           latestSeqByType.recalculate = seq;
           let data: any;
           try {

@@ -42,17 +42,16 @@ function applyNodeHighlight(outBox: HTMLElement, nodeId: string | null, scroll: 
   }
 }
 
-// Applies (or clears) the field-level highlight for a now-open sub-panel's edited fields.
-// Gated on highlight.nodeId matching hoveredId -- i.e. only shows while the mouse is actually
-// over that node's row or its open panel (see MechanicNodeCard's handlePanelAreaMouseEnter/
-// Leave), not for the entire time the panel happens to be open. Never scrolls.
+// Applies (or clears) the field-level highlight for whichever sub-panel's fields are currently
+// hovered -- either a summary-row cell that opens that panel, or the panel's own body once open
+// (see MechanicNodeCard's enterFieldHover/leaveFieldHover). Purely hover-driven: `highlight` is
+// only ever non-null while the mouse is actually over one of those regions. Never scrolls.
 function applyFieldHighlight(
   outBox: HTMLElement,
-  highlight: { nodeId: string; fields: string[] } | null,
-  hoveredId: string | null
+  highlight: { nodeId: string; fields: string[] } | null
 ): void {
   outBox.querySelectorAll('.code-field-highlighted').forEach(el => el.classList.remove('code-field-highlighted'));
-  if (!highlight || highlight.nodeId !== hoveredId) return;
+  if (!highlight) return;
   const { nodeId, fields } = highlight;
 
   const keys = outBox.querySelectorAll('.syntax-key');
@@ -103,7 +102,7 @@ function applyFieldHighlight(
 }
 
 export const JsonOutputPane: React.FC = () => {
-  const { activeChar, activeFolder, baseStats, mechanics, resetCache, highlightedNodeId, activePanelHighlight, hoveredPanelNodeId, hasChanges } = useBuilderStore();
+  const { activeChar, activeFolder, baseStats, mechanics, resetCache, highlightedNodeId, hoveredFieldHighlight, hasChanges } = useBuilderStore();
   const codeEditorRef = useRef<HTMLPreElement>(null);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const isWeapon = activeChar ? !!DataLoader.weaponDB[activeChar] : false;
@@ -135,14 +134,15 @@ export const JsonOutputPane: React.FC = () => {
     applyNodeHighlight(outBox, highlightedNodeId, true);
   }, [highlightedNodeId, formatted.highlightedHTML]);
 
-  // 4. Highlight the specific fields a now-open sub-panel edits -- a stronger overlay on top of
-  // the whole-node hover highlight above, so clicking a cell (e.g. Timing Mods) shows exactly
-  // which lines it touches instead of leaving the reader to hunt through the node's full JSON.
+  // 4. Highlight the specific fields whatever's currently hovered edits -- a stronger overlay on
+  // top of the whole-node hover highlight above, so hovering a cell (e.g. Timing Mods) shows
+  // exactly which lines it touches instead of leaving the reader to hunt through the node's full
+  // JSON.
   useEffect(() => {
     const outBox = codeEditorRef.current;
     if (!outBox) return;
-    applyFieldHighlight(outBox, activePanelHighlight, hoveredPanelNodeId);
-  }, [activePanelHighlight, hoveredPanelNodeId, formatted.highlightedHTML]);
+    applyFieldHighlight(outBox, hoveredFieldHighlight);
+  }, [hoveredFieldHighlight, formatted.highlightedHTML]);
 
   // 5. Self-healing re-apply: the two effects above only fire when their own dependencies
   // change, but formatJSONOutput/setFormatted can also fire on its own 50ms debounce slightly
@@ -150,10 +150,10 @@ export const JsonOutputPane: React.FC = () => {
   // set of .code-line elements, silently discarding whatever classes were just added to the old
   // ones. Watching the actual DOM for that replacement and re-applying both highlights (without
   // scrolling) makes them resilient to that race regardless of why the content changed.
-  const highlightStateRef = useRef({ highlightedNodeId, activePanelHighlight, hoveredPanelNodeId });
+  const highlightStateRef = useRef({ highlightedNodeId, hoveredFieldHighlight });
   useEffect(() => {
-    highlightStateRef.current = { highlightedNodeId, activePanelHighlight, hoveredPanelNodeId };
-  }, [highlightedNodeId, activePanelHighlight, hoveredPanelNodeId]);
+    highlightStateRef.current = { highlightedNodeId, hoveredFieldHighlight };
+  }, [highlightedNodeId, hoveredFieldHighlight]);
 
   useEffect(() => {
     const outBox = codeEditorRef.current;
@@ -161,9 +161,9 @@ export const JsonOutputPane: React.FC = () => {
     const observer = new MutationObserver(muts => {
       const contentReplaced = muts.some(m => m.type === 'childList' && (m.addedNodes.length > 0 || m.removedNodes.length > 0));
       if (!contentReplaced) return;
-      const { highlightedNodeId: hn, activePanelHighlight: aph, hoveredPanelNodeId: hp } = highlightStateRef.current;
+      const { highlightedNodeId: hn, hoveredFieldHighlight: hfh } = highlightStateRef.current;
       applyNodeHighlight(outBox, hn, false);
-      applyFieldHighlight(outBox, aph, hp);
+      applyFieldHighlight(outBox, hfh);
     });
     observer.observe(outBox, { childList: true });
     return () => observer.disconnect();

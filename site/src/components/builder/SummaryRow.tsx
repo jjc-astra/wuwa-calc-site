@@ -31,6 +31,8 @@ interface SummaryRowProps {
   removeMechanicNode: (nodeId: string) => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
+  onFieldMouseEnter: (key: PanelKey) => void;
+  onFieldMouseLeave: () => void;
   setCastSelect: (v: string) => void;
   setDmgSelect: (v: string) => void;
   setCastResType: (v: string) => void;
@@ -39,7 +41,8 @@ interface SummaryRowProps {
 
 export const SummaryRow: React.FC<SummaryRowProps> = ({
   nodeId, data, updateNode, activeTrigger, toggleTrigger, setActiveTrigger, removeMechanicNode,
-  onMouseEnter, onMouseLeave, setCastSelect, setDmgSelect, setCastResType, setCastResAmt
+  onMouseEnter, onMouseLeave, onFieldMouseEnter, onFieldMouseLeave,
+  setCastSelect, setDmgSelect, setCastResType, setCastResAmt
 }) => {
   const hitMultsArr = Array.isArray(data.hitMults) ? data.hitMults : [];
   // hitMults entries may be plain numbers OR percentage strings like "48.71%" (static JSON
@@ -84,6 +87,8 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
       <td
         className={`mech-col-expand mech-trigger-cell ${activeTrigger === 'default' ? 'is-active' : ''}`}
         onClick={toggleTrigger('default')}
+        onMouseEnter={() => onFieldMouseEnter('default')}
+        onMouseLeave={onFieldMouseLeave}
       >
         <span className="collapse-icon" style={{ transform: activeTrigger === 'default' ? 'rotate(90deg)' : 'none' }}>{chevronIcon}</span>
       </td>
@@ -91,11 +96,18 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
       <td
         className={`mech-col-name mech-trigger-cell ${activeTrigger === 'identity' ? 'is-active' : ''}`}
         onClick={toggleTrigger('identity')}
+        onMouseEnter={() => onFieldMouseEnter('identity')}
+        onMouseLeave={onFieldMouseLeave}
       >
         <span className="mech-name-display">{data.name || 'New Mechanic'}</span>
       </td>
 
-      <td className={`mech-col-cast mech-trigger-cell ${activeTrigger === 'castTags' ? 'is-active' : ''}`} onClick={toggleTrigger('castTags')}>
+      <td
+        className={`mech-col-cast mech-trigger-cell ${activeTrigger === 'castTags' ? 'is-active' : ''}`}
+        onClick={toggleTrigger('castTags')}
+        onMouseEnter={() => onFieldMouseEnter('castTags')}
+        onMouseLeave={onFieldMouseLeave}
+      >
         <div className="mech-tag-row">
           {(data.castTypes || []).map((t, i) => (
             <TypeTag
@@ -116,7 +128,12 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
         </div>
       </td>
 
-      <td className={`mech-col-dmg mech-trigger-cell ${activeTrigger === 'dmgTags' ? 'is-active' : ''}`} onClick={toggleTrigger('dmgTags')}>
+      <td
+        className={`mech-col-dmg mech-trigger-cell ${activeTrigger === 'dmgTags' ? 'is-active' : ''}`}
+        onClick={toggleTrigger('dmgTags')}
+        onMouseEnter={() => onFieldMouseEnter('dmgTags')}
+        onMouseLeave={onFieldMouseLeave}
+      >
         <div className="mech-tag-row">
           {(data.dmgTypes || []).map((t, i) => (
             <TypeTag
@@ -140,11 +157,18 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
       <td
         className={data.isPassive ? 'mech-col-disabled' : `mech-trigger-cell ${activeTrigger === 'inputs' ? 'is-active' : ''}`}
         onClick={data.isPassive ? undefined : toggleTrigger('inputs')}
+        onMouseEnter={data.isPassive ? undefined : () => onFieldMouseEnter('inputs')}
+        onMouseLeave={data.isPassive ? undefined : onFieldMouseLeave}
       >
         {data.isPassive ? <span className="dim">—</span> : <span className="mech-sum-text">{physicsSummaryLabel}</span>}
       </td>
 
-      <td className={`mech-col-num mech-trigger-cell ${activeTrigger === 'hits' ? 'is-active' : ''}`} onClick={toggleTrigger('hits')}>
+      <td
+        className={`mech-col-num mech-trigger-cell ${activeTrigger === 'hits' ? 'is-active' : ''}`}
+        onClick={toggleTrigger('hits')}
+        onMouseEnter={() => onFieldMouseEnter('hits')}
+        onMouseLeave={onFieldMouseLeave}
+      >
         <span className="mech-sum-text">{multSummaryLabel}</span>
       </td>
 
@@ -159,7 +183,12 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
         />
       </td>
 
-      <td className={`mech-trigger-cell ${activeTrigger === 'timeMods' ? 'is-active' : ''}`} onClick={toggleTrigger('timeMods')}>
+      <td
+        className={`mech-trigger-cell ${activeTrigger === 'timeMods' ? 'is-active' : ''}`}
+        onClick={toggleTrigger('timeMods')}
+        onMouseEnter={() => onFieldMouseEnter('timeMods')}
+        onMouseLeave={onFieldMouseLeave}
+      >
         <div className="mech-tag-row">
           {timingModTags.length === 0 ? <span className="dim">—</span> : timingModTags.map((t, i) => (
             <TypeTag key={i} val={t.label} label={t.label} tooltip={t.tooltip} />
@@ -167,7 +196,12 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
         </div>
       </td>
 
-      <td className={`mech-col-castres mech-trigger-cell ${activeTrigger === 'castRes' ? 'is-active' : ''}`} onClick={toggleTrigger('castRes')}>
+      <td
+        className={`mech-col-castres mech-trigger-cell ${activeTrigger === 'castRes' ? 'is-active' : ''}`}
+        onClick={toggleTrigger('castRes')}
+        onMouseEnter={() => onFieldMouseEnter('castRes')}
+        onMouseLeave={onFieldMouseLeave}
+      >
         <div className="mech-tag-row">
           {Object.entries(data.castResources || {}).map(([k, v]) => (
             <TypeTag
@@ -195,7 +229,12 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
         </div>
       </td>
 
-      <td className={`mech-trigger-cell ${activeTrigger === 'hits' ? 'is-active' : ''}`} onClick={toggleTrigger('hits')}>
+      <td
+        className={`mech-trigger-cell ${activeTrigger === 'hits' ? 'is-active' : ''}`}
+        onClick={toggleTrigger('hits')}
+        onMouseEnter={() => onFieldMouseEnter('hits')}
+        onMouseLeave={onFieldMouseLeave}
+      >
         <div className="mech-tag-row">
           {hitResourceKeys.length === 0 ? <span className="dim">—</span> : hitResourceKeys.map(k => (
             <TypeTag key={k} val={k} label={`${resAbbr(k)} ${fmtNum(sumNumeric(data.hitResources?.[k]))}`} tooltip={resFullName(k)} />

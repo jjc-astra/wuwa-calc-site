@@ -139,9 +139,16 @@ export async function checkTeamFreshness(team: TeamSlot[]): Promise<FreshnessIte
   return checkItems(items);
 }
 
-// Checked right before the Mechanics Builder opens one specific entity for editing.
-export async function checkBuilderItemFreshness(folder: string, itemName: string): Promise<void> {
-  await checkItems([{ folder, itemName }]);
+// Checked right before the Mechanics Builder opens one specific entity for editing, and on
+// every reload/tab-refocus/live-poll re-check of whatever's currently open (see App.tsx's
+// refreshActiveBuilderItem). Returns whichever items were actually evicted (empty when nothing
+// changed) so a caller that also needs to replay setActiveChar afterward -- an operation that
+// always produces fresh `mechanics`/`baseStats` object references, which in turn re-triggers
+// JsonOutputPane's JSON-stringify-and-highlight effect -- can skip that replay entirely on a
+// no-op check instead of paying for it (and the visible highlight-flicker it caused) every poll
+// tick regardless of whether anything on disk actually changed.
+export async function checkBuilderItemFreshness(folder: string, itemName: string): Promise<FreshnessItem[]> {
+  return checkItems([{ folder, itemName }]);
 }
 
 // Rankings results files have no Builder-editable counterpart, so there's never a "local edits"

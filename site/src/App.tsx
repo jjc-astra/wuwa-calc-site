@@ -29,17 +29,26 @@ export default function App() {
   const [{ view: currentView, step: activeStep }, navigate] = useHashRoute();
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Shared by the initial load and the tab-refocus check below -- re-checks whatever entity the
-  // Mechanics Builder currently has open against the manifest and, if it changed upstream (and
-  // there's no conflicting local edit -- see checkBuilderItemFreshness/useFreshnessConflictStore),
-  // replays setActiveChar so the Builder's own `mechanics` working copy actually picks up
-  // whatever checkItems just evicted+refetched into DataLoader.mechanicsDB. A no-op re-derive
-  // when nothing changed, so it's cheap to call unconditionally.
-  const refreshActiveBuilderItem = async () => {
+  // Shared by the initial load, the tab-refocus check, and the live poll below -- re-checks
+  // whatever entity the Mechanics Builder currently has open against the manifest and, only if
+  // it actually changed upstream (and there's no conflicting local edit -- see
+  // checkBuilderItemFreshness/useFreshnessConflictStore), replays setActiveChar so the Builder's
+  // own `mechanics`/`baseStats` working copy picks up whatever checkItems just evicted+refetched
+  // into DataLoader.mechanicsDB.
+  //
+  // `force` skips the "did anything change" gate and always replays -- needed at mount, since
+  // `mechanics`/`baseStats` aren't persisted (see useBuilderStore's partialize) and start out
+  // empty there regardless of whether the on-disk file itself changed. Everywhere else (the 3s
+  // poll especially) must NOT force: setActiveChar always produces brand-new `mechanics`/
+  // `baseStats` object references even on a no-op re-derive, which re-triggers JsonOutputPane's
+  // JSON-stringify-and-highlight effect on every single poll tick -- visible as the JSON panel's
+  // sub-panel field highlight repeatedly restarting its CSS transition (a flicker) for as long as
+  // a panel stays hovered, even though nothing on disk had actually changed.
+  const refreshActiveBuilderItem = async (force = false) => {
     const { activeChar, activeFolder, activeRarity, setActiveChar } = useBuilderStore.getState();
     if (!activeChar) return;
-    await checkBuilderItemFreshness(mechFolderFor(activeFolder), activeChar);
-    await setActiveChar(activeChar, activeFolder, activeRarity);
+    const evicted = await checkBuilderItemFreshness(mechFolderFor(activeFolder), activeChar);
+    if (force || evicted.length > 0) await setActiveChar(activeChar, activeFolder, activeRarity);
   };
 
   useEffect(() => {
@@ -49,7 +58,7 @@ export default function App() {
       // reload that lands back on a previously-open entity needs this same freshness-check +
       // setActiveChar replay a grid click normally does, to rebuild it from a real fetch rather
       // than leaving the builder showing an empty/stale view for whatever was last open.
-      await refreshActiveBuilderItem();
+      await refreshActiveBuilderItem(true);
       setIsLoaded(true);
     });
   }, []);

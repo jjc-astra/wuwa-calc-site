@@ -22,12 +22,32 @@ function dataManifestWatchPlugin(): Plugin {
         file.endsWith('.json') &&
         !file.endsWith('manifest.json');
 
+      // generateManifest()'s writeFileSync can transiently fail on Windows (antivirus/OneDrive/
+      // the dev server's own static handler briefly holding the file open right after a write --
+      // observed as `Error: UNKNOWN: unknown error, open '...manifest.json'`) -- and an uncaught
+      // exception thrown from inside a setTimeout callback takes down the whole Node process, not
+      // just this plugin. One short retry covers the transient case; if it still fails, log and
+      // move on -- the next real file change queues another attempt anyway, so this is never
+      // stuck wrong for long, just briefly stale (same as the manifest always was before this
+      // plugin existed).
+      const tryGenerate = (attempt: number) => {
+        try {
+          generateManifest();
+        } catch (err) {
+          if (attempt === 0) {
+            setTimeout(() => tryGenerate(1), 100);
+          } else {
+            console.warn('[data-manifest-watch] Failed to regenerate manifest.json:', err);
+          }
+        }
+      };
+
       const regenerate = (file: string) => {
         if (!isDataJson(file)) return;
         if (debounceTimer) clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
           debounceTimer = null;
-          generateManifest();
+          tryGenerate(0);
         }, 150);
       };
 

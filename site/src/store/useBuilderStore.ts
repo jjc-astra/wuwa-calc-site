@@ -11,15 +11,14 @@ interface BuilderState {
   baseStats: BaseStats;
   mechanics: Record<string, MechanicNode>;
   highlightedNodeId: string | null;
-  // Which node + JSON field names to highlight in JsonOutputPane because their sub-panel is
-  // currently open -- separate from highlightedNodeId (hover-driven, whole-node) since the open
-  // panel can belong to a different row than whatever's currently hovered.
-  activePanelHighlight: { nodeId: string; fields: string[] } | null;
-  // Mouse is over this node's summary row OR its open sub-panel -- gates the field highlight
-  // above (visible only while true for the matching node), independently of highlightedNodeId,
-  // which stays scoped to the summary row alone so the whole-node highlight doesn't also light
-  // up while the mouse is just resting inside the sub-panel's own inputs.
-  hoveredPanelNodeId: string | null;
+  // Which node + JSON field names to highlight in JsonOutputPane -- purely hover-driven,
+  // independent of highlightedNodeId (which stays scoped to the summary row alone so the
+  // whole-node highlight doesn't also light up while the mouse is just over a specific cell or
+  // resting inside the open sub-panel's own inputs). Set while the mouse is over a summary-row
+  // cell that opens a given sub-panel (even if that panel isn't open) OR the currently-open
+  // panel's own body -- both resolve to the same PanelKey -> fields mapping (MechanicNodeCard's
+  // PANEL_FIELDS), so hovering either one previews exactly what that panel edits.
+  hoveredFieldHighlight: { nodeId: string; fields: string[] } | null;
   // Persisted across EVERY character/weapon/set/echo ever edited in the builder, not just the
   // currently active one -- setActiveChar replays whatever's here (keyed by that entity's own
   // name/nodeId prefix) on top of a fresh pristine fetch each time it's opened, so switching
@@ -30,8 +29,7 @@ interface BuilderState {
   editedMechanics: Record<string, MechanicNode>;
   deletedMechanicIds: string[];
   setHighlightedNodeId: (nodeId: string | null) => void;
-  setActivePanelHighlight: (highlight: { nodeId: string; fields: string[] } | null) => void;
-  setHoveredPanelNodeId: (nodeId: string | null) => void;
+  setHoveredFieldHighlight: (highlight: { nodeId: string; fields: string[] } | null) => void;
   setActiveChar: (charName: string | null, folder?: string, rarity?: number) => Promise<void>;
   setBaseStat: (key: string, value: any) => void;
   setMechanicNode: (nodeId: string, node: MechanicNode) => void;
@@ -87,14 +85,12 @@ export const useBuilderStore = create<BuilderState>()(
       baseStats: {},
       mechanics: {},
       highlightedNodeId: null,
-      activePanelHighlight: null,
-      hoveredPanelNodeId: null,
+      hoveredFieldHighlight: null,
       editedBaseStats: {},
       editedMechanics: {},
       deletedMechanicIds: [],
       setHighlightedNodeId: (nodeId) => set({ highlightedNodeId: nodeId }),
-      setActivePanelHighlight: (highlight) => set({ activePanelHighlight: highlight }),
-      setHoveredPanelNodeId: (nodeId) => set({ hoveredPanelNodeId: nodeId }),
+      setHoveredFieldHighlight: (highlight) => set({ hoveredFieldHighlight: highlight }),
 
       setActiveChar: async (charName, folder = IMAGE_FOLDERS.CHARACTERS, rarity = 5) => {
         const requestId = ++activeCharRequestSeq;

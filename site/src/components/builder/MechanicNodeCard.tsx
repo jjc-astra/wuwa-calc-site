@@ -42,22 +42,43 @@ const PANEL_FIELDS: Record<PanelKey, string[]> = {
 };
 
 export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data }) => {
-  const { setMechanicNode, removeMechanicNode, activeChar, baseStats, setHighlightedNodeId, setActivePanelHighlight, setHoveredPanelNodeId } = useBuilderStore();
+  const { setMechanicNode, removeMechanicNode, activeChar, baseStats, setHighlightedNodeId, setHoveredFieldHighlight } = useBuilderStore();
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const panelHoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Shared by every field-hover source below (each summary-row cell, and the open panel's own
+  // body) -- a single ref per node, not one per source, so a fast leave-then-enter across two
+  // adjacent hover targets (e.g. a cell into its own now-open panel right below it) cancels the
+  // pending "clear" before it ever fires instead of briefly flashing the highlight off and back
+  // on. Symmetric 50ms debounce on both enter and leave (the old code only debounced enter,
+  // clearing immediately on leave -- that asymmetry is exactly what produced the flicker: leaving
+  // the row fired an instant clear, then entering the panel scheduled a fresh 50ms-delayed set,
+  // guaranteeing a visible gap in between every time).
+  const fieldHoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Which column's sub-panel is open, if any -- exactly one at a time, mirroring the rotation
   // table's activeTrigger/SubPanel pattern instead of a floating popover.
   const [activeTrigger, setActiveTrigger] = useState<PanelKey | null>(null);
   const toggleTrigger = (key: PanelKey) => (e: React.MouseEvent) => {
     e.stopPropagation();
-    // Both setters run directly in this handler, not nested inside setActiveTrigger's updater --
-    // that form runs during React's render phase, where updating a different store/component
-    // (setActivePanelHighlight touches JsonOutputPane too) throws "Cannot update a component
-    // while rendering a different component".
-    const next = activeTrigger === key ? null : key;
-    setActiveTrigger(next);
-    setActivePanelHighlight(next ? { nodeId, fields: PANEL_FIELDS[next] } : null);
+    // Opening/closing a panel no longer touches the field highlight at all -- that's now purely
+    // hover-driven (see enterFieldHover/leaveFieldHover below), already active for this cell by
+    // the time it's clicked (the mouse has to be over the cell to click it).
+    setActiveTrigger(activeTrigger === key ? null : key);
+  };
+
+  // Field highlight -- previews a sub-panel's edited fields while the mouse is over the specific
+  // summary-row cell that opens it, OR over that panel's own body once it's open. Independent of
+  // highlightedNodeId (whole-node, row-only) so the two can respond to different hover regions.
+  const enterFieldHover = (key: PanelKey) => {
+    if (fieldHoverTimeoutRef.current) clearTimeout(fieldHoverTimeoutRef.current);
+    fieldHoverTimeoutRef.current = setTimeout(() => {
+      setHoveredFieldHighlight({ nodeId, fields: PANEL_FIELDS[key] });
+    }, 50);
+  };
+  const leaveFieldHover = () => {
+    if (fieldHoverTimeoutRef.current) clearTimeout(fieldHoverTimeoutRef.current);
+    fieldHoverTimeoutRef.current = setTimeout(() => {
+      setHoveredFieldHighlight(null);
+    }, 50);
   };
 
   // These 4 fields are shared between the summary row (clicking a chip seeds them back in for
@@ -68,15 +89,15 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
   const [castResType, setCastResType] = useState('energy');
   const [castResAmt, setCastResAmt] = useState('');
 
-  // Removing this node (or navigating away entirely) while its panel was open would otherwise
-  // leave a stale field-highlight pointing at a node no longer in the tree.
+  // Removing this node (or navigating away entirely) while it was hovered/highlighted would
+  // otherwise leave a stale highlight pointing at a node no longer in the tree.
   useEffect(() => () => {
-    if (useBuilderStore.getState().activePanelHighlight?.nodeId === nodeId) setActivePanelHighlight(null);
-    if (useBuilderStore.getState().hoveredPanelNodeId === nodeId) setHoveredPanelNodeId(null);
+    if (useBuilderStore.getState().highlightedNodeId === nodeId) setHighlightedNodeId(null);
+    if (useBuilderStore.getState().hoveredFieldHighlight?.nodeId === nodeId) setHoveredFieldHighlight(null);
   }, [nodeId]);
 
   // Whole-node highlight -- summary row only, so it doesn't also light up while the mouse is
-  // just resting inside the open sub-panel's own inputs below.
+  // just over a specific cell or resting inside the open sub-panel's own inputs below.
   const handleMouseEnter = () => {
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
     hoverTimeoutRef.current = setTimeout(() => {
@@ -87,21 +108,6 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
   const handleMouseLeave = () => {
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
     setHighlightedNodeId(null);
-  };
-
-  // Field highlight -- summary row *or* the open sub-panel, since that's the field-level detail
-  // the user is actively working with either way. Attached to both <tr>s below, separate from
-  // the whole-node handlers above so the two highlights can respond to different hover regions.
-  const handlePanelAreaMouseEnter = () => {
-    if (panelHoverTimeoutRef.current) clearTimeout(panelHoverTimeoutRef.current);
-    panelHoverTimeoutRef.current = setTimeout(() => {
-      setHoveredPanelNodeId(nodeId);
-    }, 50);
-  };
-
-  const handlePanelAreaMouseLeave = () => {
-    if (panelHoverTimeoutRef.current) clearTimeout(panelHoverTimeoutRef.current);
-    setHoveredPanelNodeId(null);
   };
 
   const updateNode = (patch: Partial<MechanicNode>) => {
@@ -162,8 +168,10 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
         toggleTrigger={toggleTrigger}
         setActiveTrigger={(key) => setActiveTrigger(key)}
         removeMechanicNode={removeMechanicNode}
-        onMouseEnter={() => { handleMouseEnter(); handlePanelAreaMouseEnter(); }}
-        onMouseLeave={() => { handleMouseLeave(); handlePanelAreaMouseLeave(); }}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        onFieldMouseEnter={enterFieldHover}
+        onFieldMouseLeave={leaveFieldHover}
         setCastSelect={setCastSelect}
         setDmgSelect={setDmgSelect}
         setCastResType={setCastResType}
@@ -171,7 +179,7 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
       />
 
       {activeTrigger && (
-        <tr onMouseEnter={handlePanelAreaMouseEnter} onMouseLeave={handlePanelAreaMouseLeave}>
+        <tr onMouseEnter={() => enterFieldHover(activeTrigger)} onMouseLeave={leaveFieldHover}>
           <td colSpan={12} className="mech-detail-cell">
             {renderPanel()}
           </td>

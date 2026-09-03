@@ -387,7 +387,7 @@
         "name": "Clarity",
         "label": "Clarity Tier",
         "target": "@Self",
-        "duration": 5,
+        "duration": 8,
         "maxStacks": 2
       },
       {
@@ -512,7 +512,7 @@
   },
   "Sanhua_Ice Thorn Auto-Burst": {
     "name": "Ice Thorn Auto-Burst",
-    "category": "Forte Circuit",
+    "category": "Resonance Chain",
     "isPassive": true,
     "triggerRule": "OnBuffExpire[Ice_Thorn] IF (@Self.Sequence >= 5)",
     "dmgTypes": ["Glacio", "Heavy"],
@@ -524,7 +524,7 @@
   },
   "Sanhua_Ice Prism Auto-Burst": {
     "name": "Ice Prism Auto-Burst",
-    "category": "Forte Circuit",
+    "category": "Resonance Chain",
     "isPassive": true,
     "triggerRule": "OnBuffExpire[Ice_Prism] IF (@Self.Sequence >= 5)",
     "dmgTypes": ["Glacio", "Heavy"],
@@ -537,7 +537,7 @@
   },
   "Sanhua_Glacier Auto-Burst": {
     "name": "Glacier Auto-Burst",
-    "category": "Forte Circuit",
+    "category": "Resonance Chain",
     "isPassive": true,
     "triggerRule": "OnBuffExpire[Glacier] IF (@Self.Sequence >= 5)",
     "dmgTypes": ["Glacio", "Heavy"],
@@ -552,7 +552,7 @@
     "name": "Sequence 6: Daybreak Radiance",
     "category": "Resonance Chain",
     "isPassive": true,
-    "triggerRule": "ANY(OnBuffRemove[Self,@Sanhua(Ice Prism Burst)], OnBuffExpire[Self,@Sanhua(Ice Prism Burst)], OnBuffRemove[Self,@Sanhua(Glacier Burst)], OnBuffExpire[Self,@Sanhua(Glacier Burst)]) IF (@Self.Sequence >= 6)",
+    "triggerRule": "ANY(OnBuffRemove[Ice_Prism], OnBuffExpire[Ice_Prism], OnBuffRemove[Glacier], OnBuffExpire[Glacier]) IF (@Self.Sequence >= 6)",
     "effects": [
       {
         "type": "buff",
@@ -562,6 +562,22 @@
         "maxStacks": 2,
         "stat": "ATK %",
         "value": "10%"
+      }
+    ]
+  },
+  "Sanhua_Condensation": {
+    "name": " Condensation",
+    "category": "Inherent Skill",
+    "isPassive": true,
+    "triggerRule": "OnCast[Self,Intro]",
+    "effects": [
+      {
+        "type": "buff",
+        "name": "Condensation",
+        "applyTo": ["@Sanhua(Resonance Skill)"],
+        "stat": "DMG Bonus",
+        "value": "20%",
+        "duration": 8
       }
     ]
   }
