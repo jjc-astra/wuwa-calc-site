@@ -275,8 +275,22 @@ function buildAllDmgOverTime(
 
 function buildContributionForWindow(windowHits: RotationHit[], teamNames: string[], divisor: number): ContributionForWindow {
   const teamGroups = groupSum(windowHits, hitLabel);
-  const team: TeamDmgSlice[] = Object.entries(teamGroups)
-    .map(([label, dmg]) => ({ label, dmg: dmg / divisor }))
+  // Object.entries(teamGroups) previously drove this array's order, which is just insertion
+  // order -- i.e. whichever unit's hit happened to land first *within this specific time
+  // window*. That's not stable across windows (Opener vs. First Loop vs. Avg Loop vs. 2-Min can
+  // each have a different unit act first), so switching timeframe tabs visibly reordered the
+  // team legend/pie every time. Roster slot order (teamNames, already in team-array order) is
+  // stable across all four windows, so sort by that instead -- real team members first in
+  // roster order, then anything else (a status-effect pseudo-label like an Electro Flare tick,
+  // which isn't a team member and has no roster position) appended after in its original
+  // insertion order.
+  const teamNameSet = new Set(teamNames);
+  const orderedLabels = [
+    ...teamNames.filter(name => teamGroups[name] !== undefined),
+    ...Object.keys(teamGroups).filter(label => !teamNameSet.has(label))
+  ];
+  const team: TeamDmgSlice[] = orderedLabels
+    .map(label => ({ label, dmg: teamGroups[label] / divisor }))
     .filter(s => s.dmg > 0);
 
   const units: Record<string, CastTypeSlice[]> = {};
