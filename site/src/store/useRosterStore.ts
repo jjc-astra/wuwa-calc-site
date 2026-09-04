@@ -271,7 +271,17 @@ export const useRosterStore = create<RosterState>()(
         await DataLoader.loadTeamMechanics(merged);
         merged.forEach(slot => { slot.echoStats = calculateEchoStatsForSlot(slot); });
         set({ team: merged });
-        useRotationStore.getState().recalculate();
+        // Awaited (unlike other fire-and-forget recalculate() calls elsewhere in this store) --
+        // every caller of importTeam either awaits it directly or immediately follows it with an
+        // importRotation() call, which fires its own recalculate() right after. Without waiting
+        // here, that second call races this one: both read team/rows via get() and both hit the
+        // same async checkTeamFreshness() gap inside recalculate(), so the two can resolve out of
+        // call order -- if this one's (still team-stale-for-rows-only) response happens to land
+        // after the rotation import's, it silently overwrites the freshly-imported rows with
+        // whatever was on screen before the import. Awaiting it closes that window: the
+        // subsequent importRotation() call only starts once this one's response has already been
+        // applied, so there's never two in flight at once to race.
+        await useRotationStore.getState().recalculate();
       },
 
       getIdleStats: slotIndex => {

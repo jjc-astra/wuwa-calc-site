@@ -7,6 +7,7 @@ import { RotationRow } from './RotationRow';
 import { useAccordionAnimDone } from '../../hooks/useAccordionAnimDone';
 import { useCollapseMaxHeight } from '../../hooks/useCollapseMaxHeight';
 import { CommonUtils } from '../../utils/Common';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 
 interface RotationBuilderProps {
   isOpen: boolean;
@@ -277,6 +278,36 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     CommonUtils.downloadJson(exportObject, filename);
   };
 
+  // Set only when an imported file's team shares the same characters+sequences as the roster
+  // already in Step 1 (see teamMatchesRoster below) -- holds the parsed file just long enough to
+  // ask whether to overwrite that roster's build (weapon/echoes/stats) or keep it and only bring
+  // in the rotation/settings. Any other import (no team in the file, or a genuinely different
+  // roster) applies immediately with no prompt, same as before.
+  const [pendingImport, setPendingImport] = useState<{ rawData: any; rotData: any[] } | null>(null);
+
+  const applyImport = async (rawData: any, rotData: any[], includeTeam: boolean) => {
+    if (includeTeam && rawData.team) {
+      await importTeam(rawData.team);
+    }
+    importRotation(rotData, rawData.settings);
+    // The rotation section may still be collapsed (e.g. import triggered while the Team step
+    // is open) -- open it first so the newly-imported rows, including the trailing placeholder
+    // row, are actually visible, then scroll to reveal the end.
+    if (!isOpen) onToggle();
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const container = document.getElementById('rotation-builder');
+        container?.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+      });
+    });
+  };
+
+  // Order-sensitive signature of a team's slots by character+sequence only -- deliberately
+  // ignores weapon/echoes/stats, since those are exactly the build details this prompt exists
+  // to let the user keep instead of silently losing to whatever the imported file happened to
+  // carry for the same roster.
+  const teamSignature = (t: any[]): string => (t || []).map(s => `${s?.character || ''}|${s?.sequence || 0}`).join(',');
+
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -286,23 +317,13 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
       try {
         const rawData = JSON.parse(ev.target?.result as string);
         const rotData = Array.isArray(rawData) ? rawData : rawData.rotation;
+        if (!rotData) return;
 
-        if (rawData.team) {
-          await importTeam(rawData.team);
-        }
-
-        if (rotData) {
-          importRotation(rotData, rawData.settings);
-          // The rotation section may still be collapsed (e.g. import triggered while the
-          // Team step is open) -- open it first so the newly-imported rows, including the
-          // trailing placeholder row, are actually visible, then scroll to reveal the end.
-          if (!isOpen) onToggle();
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              const container = document.getElementById('rotation-builder');
-              container?.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
-            });
-          });
+        const sameRoster = rawData.team && teamSignature(rawData.team) === teamSignature(team);
+        if (sameRoster) {
+          setPendingImport({ rawData, rotData });
+        } else {
+          await applyImport(rawData, rotData, true);
         }
       } catch (err) {
         console.error('[RotationBuilder] Error loading rotation:', err);
@@ -402,6 +423,23 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
           ))}
         </div>
       </div>
+
+      {pendingImport && (
+        <ConfirmDialog
+          title="Same team already in Step 1"
+          message="This rotation's team has the same characters and sequences already loaded. Replace the current build (weapon/echoes/stats) with the one from this file, or keep the current build and just import the rotation?"
+          confirmLabel="Replace Team"
+          cancelLabel="Keep Existing"
+          onConfirm={async () => {
+            await applyImport(pendingImport.rawData, pendingImport.rotData, true);
+            setPendingImport(null);
+          }}
+          onCancel={async () => {
+            await applyImport(pendingImport.rawData, pendingImport.rotData, false);
+            setPendingImport(null);
+          }}
+        />
+      )}
     </div>
   );
 };
