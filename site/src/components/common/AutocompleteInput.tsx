@@ -270,7 +270,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
         group: 'Sheet Stats'
       }));
       const combatMods = [
-        'DMG Bonus', 'DMG Amp', 'Deepen', 'DMG Taken', 'Reduce RES', 'RES Shred',
+        'DMG Bonus', 'DMG Amp', 'Deepen', 'DMG Boost', 'DMG Taken', 'Reduce RES', 'RES Shred',
         'Ignore RES', 'RES Pen', 'Reduce DEF', 'Ignore DEF', 'Additive Mult', 'Multiplicative Mult'
       ].map(v => ({ val: v, group: 'Combat Modifiers' }));
 

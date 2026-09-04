@@ -187,23 +187,34 @@ export const CommonUtils = {
   },
 
   /**
-   * Parses multiplier strings ("150%", "[50%, 100%]", "120") into an array of numbers.
+   * Parses multiplier strings ("150%", "[50%, 100%]", "120") into an array of numbers/percent
+   * strings. A '%' suffix is preserved (as "N%"), not stripped -- CombatCalculator.
+   * calculateDamageInstance keys off exactly that suffix to decide whether a hit mult scales
+   * off the move's scalar stat ("150%" -> pctMult) or is a flat added value ("120" -> flatMult,
+   * e.g. Tune Break's stat-independent hitMults). Dropping the '%' here would silently turn
+   * every percent mult typed into this field into a flat value instead.
    */
-  parseMultiplierString: (raw: any): number[] | undefined => {
+  parseMultiplierString: (raw: any): (number | string)[] | undefined => {
     if (raw === undefined || raw === null || raw === '') return undefined;
     const str = String(raw).trim();
+    const toVal = (s: string): number | string => {
+      const trimmed = s.trim();
+      const isPct = trimmed.includes('%');
+      const num = parseFloat(trimmed.replace('%', ''));
+      if (isNaN(num)) return 0;
+      return isPct ? `${num}%` : num;
+    };
     if (str.startsWith('[') && str.endsWith(']')) {
       try {
         const arr = JSON.parse(str.replace(/'/g, '"'));
         if (Array.isArray(arr)) {
-          return arr.map(v => typeof v === 'number' ? v : (parseFloat(String(v).replace('%', '')) || 0));
+          return arr.map(v => typeof v === 'number' ? v : toVal(String(v)));
         }
       } catch (e) { /* ignore JSON parse error */ }
     }
     if (str.includes(',')) {
-      return str.split(',').map(s => parseFloat(s.trim().replace('%', '')) || 0);
+      return str.split(',').map(toVal);
     }
-    const num = parseFloat(str.replace('%', ''));
-    return isNaN(num) ? undefined : [num];
+    return isNaN(parseFloat(str.replace('%', ''))) ? undefined : [toVal(str)];
   }
 };

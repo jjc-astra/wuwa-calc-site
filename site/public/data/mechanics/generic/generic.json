@@ -24,8 +24,9 @@
     "castTypes": ["TuneBreak"],
     "dmgTypes": ["TuneBreak"],
     "castResources": {
-      "tune": -100
+      "tune": -40
     },
+    "hitMults": [1600],
     "priority": "@Default.IntroPriority - 10",
     "actionDuration": 120,
     "freezeTime": 120

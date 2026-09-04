@@ -161,6 +161,7 @@ export interface BuffTotals {
   critDamage: number;
   dmgBonus: number;
   dmgAmp: number;
+  dmgBoost: number;
   dmgTaken: number;
   multiplicativeMult: number;
   additiveMult: number;

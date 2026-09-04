@@ -73,9 +73,9 @@ export const CombatCalculator = {
   },
 
   calcTuneDmg: (
-    baseDmg: number, dmgAmp: number, dmgTaken: number, multiMult: number
+    baseDmg: number, dmgBoost: number, dmgTaken: number, multiMult: number, resMult: number, defMult: number
   ): number => {
-    return baseDmg * (1 + dmgAmp) * (1 + dmgTaken) * (1 + multiMult);
+    return SIM_CONSTANTS.TUNE_BASE_DMG * baseDmg * (1 + dmgBoost) * (1 + dmgTaken) * (1 + multiMult) * resMult * defMult;
   },
 
   formatDamageBreakdown: (
@@ -91,6 +91,10 @@ export const CombatCalculator = {
     if (flatMult > 0) displayMult += +(flatMult).toFixed(6);
     if (displayMult === '') displayMult = '0';
 
+    // No scalar stat picked (e.g. Tune Break's custom, stat-independent scaling) -- scalingStatVal
+    // is the identity multiplier 1 in that case (see calculateDamageInstance), so showing "* 1"
+    // here would misleadingly suggest a stat term that doesn't actually exist for this hit.
+    const hasScalarStat = !!(statBreakdown && statBreakdown.label);
     let statStr = `${Math.floor(scalingStatVal)}`;
     if (statBreakdown && statBreakdown.base) {
       const label = statBreakdown.label ? `(${statBreakdown.label}) ` : '';
@@ -99,11 +103,15 @@ export const CombatCalculator = {
       statStr = `[${Math.floor(statBreakdown.base)}${pctStr}${flatStr}] ${label}`;
     }
 
-    const baseDmgStr = (totalPctMult > 0 && flatMult > 0) ? `(${+(totalPctMult * 100).toFixed(4)}% * ${statStr} + ${Math.floor(flatMult)})`
+    const baseDmgStr = !hasScalarStat ? `${+(totalPctMult * 100).toFixed(4)}%${flatMult > 0 ? ` + ${Math.floor(flatMult)}` : ''}`
+                      : (totalPctMult > 0 && flatMult > 0) ? `(${+(totalPctMult * 100).toFixed(4)}% * ${statStr} + ${Math.floor(flatMult)})`
                       : (totalPctMult > 0) ? `${+(totalPctMult * 100).toFixed(4)}% * ${statStr}`
                       : `${Math.floor(flatMult)}`;
 
-    const breakdownParts = [baseDmgStr];
+    // calcTuneDmg multiplies by this fixed base value up front -- shown as its own leading
+    // term so the displayed expression actually multiplies out to calculatedTotal, instead of
+    // silently being off by a factor of TUNE_BASE_DMG.
+    const breakdownParts = formulaUsed === 'Tune' ? [`${SIM_CONSTANTS.TUNE_BASE_DMG}`, baseDmgStr] : [baseDmgStr];
     if (formulaUsed === 'Standard') {
       const cr = Math.min(1.0, Math.max(0.0, finalCritRate));
       const critMult = (1 - cr) * 1 + cr * finalCritDamage;
@@ -113,13 +121,15 @@ export const CombatCalculator = {
     }
 
     if (buffTotals.dmgAmp !== 0) breakdownParts.push(`${(1 + buffTotals.dmgAmp).toFixed(3)} (Amp)`);
+    if (buffTotals.dmgBoost !== 0) breakdownParts.push(`${(1 + buffTotals.dmgBoost).toFixed(3)} (Boost)`);
     if (buffTotals.dmgTaken !== 0) breakdownParts.push(`${(1 + buffTotals.dmgTaken).toFixed(3)} (Taken)`);
     if (buffTotals.multiplicativeMult !== 0) breakdownParts.push(`${(1 + buffTotals.multiplicativeMult).toFixed(3)} (Multi)`);
 
-    if (formulaUsed !== 'Tune') {
-      if (resMultiplier !== 1) breakdownParts.push(`${resMultiplier.toFixed(3)} (RES)`);
-      if (defMult !== 1) breakdownParts.push(`${defMult.toFixed(3)} (DEF)`);
-    }
+    // Tune damage now runs both multipliers too (see calcTuneDmg) -- this used to skip them
+    // here because the old formula never applied them, but the display has to track whatever
+    // the formula actually does or it'll silently under-report what's factored into the total.
+    if (resMultiplier !== 1) breakdownParts.push(`${resMultiplier.toFixed(3)} (RES)`);
+    if (defMult !== 1) breakdownParts.push(`${defMult.toFixed(3)} (DEF)`);
 
     const suffix = formulaUsed !== 'Standard' ? ` [${formulaUsed}]` : '';
     return { displayMult, calcBreakdown: `${Math.floor(calculatedTotal)} = ${breakdownParts.join(' * ')}${suffix}` };
@@ -246,7 +256,7 @@ export const CombatCalculator = {
   aggregateBuffTotals: (stateData: any, executingUnit: string, hitModifiers: string[], team: any[] = []) => {
     const buffTotals: BuffTotals = {
       percentAtk: 0, flatAtk: 0, percentHP: 0, flatHP: 0, percentDef: 0, flatDef: 0,
-      critRate: 0, critDamage: 0, dmgBonus: 0, dmgAmp: 0, dmgTaken: 0,
+      critRate: 0, critDamage: 0, dmgBonus: 0, dmgAmp: 0, dmgBoost: 0, dmgTaken: 0, 
       multiplicativeMult: 0, additiveMult: 0, reduceRes: 0, ignoreRes: 0, reduceDef: 0, ignoreDef: 0
     };
 
@@ -343,6 +353,12 @@ export const CombatCalculator = {
       const totalVal = numVal * (buff.stacks || 1);
 
       if (sLower.includes('amp') || sLower.includes('deepen')) buffTotals.dmgAmp += totalVal;
+      // Its own multiplier bucket, separate from DMG Amp/Deepen -- only ever consulted by
+      // calcTuneDmg (Tune Break/Rupture's custom, stat-independent formula), so a buff has to
+      // name it explicitly ("Tune DMG Boost") rather than falling into the generic 'dmg' bucket
+      // below, which would otherwise misroute it into dmgBonus (a Standard-formula-only term
+      // Tune damage never reads).
+      else if (sLower.includes('dmg boost')) buffTotals.dmgBoost += totalVal;
       else if (sLower.includes('taken')) buffTotals.dmgTaken += totalVal;
       else if (sLower.includes('multiplicative')) buffTotals.multiplicativeMult += totalVal;
       else if (sLower.includes('additive')) buffTotals.additiveMult += totalVal;
@@ -390,7 +406,19 @@ export const CombatCalculator = {
       ...dmgTypes, ...castTypes, actionId, moveName, formattedPointer
     ].map(m => String(m).toLowerCase())));
 
-    const scalarType = (hitConfig.scalar || 'ATK').toLowerCase();
+    const titleLower = titleStr.toLowerCase();
+    // Tune Break/Rupture damage NEVER scales off ATK/HP/DEF, for any unit -- it's a fixed base
+    // value (SIM_CONSTANTS.TUNE_BASE_DMG, see calcTuneDmg) times the move's own hitMults%,
+    // full stop. This is forced here rather than left to each move's own `scalar` field being
+    // authored as "None", because (a) the generic System_Tune Break fallback move has no scalar
+    // field at all (undefined, not ''), which would otherwise default to ATK via the ?? below,
+    // and (b) a character-specific Tune Break node authored with scalar left at ATK by mistake
+    // would otherwise silently scale when it structurally never should.
+    const isTuneDmg = castTypes.some(c => c.toLowerCase().includes('tune')) || titleLower.includes('tune');
+    // ?? not || -- an explicitly-chosen "None" scalar comes through as '', which is falsy; ||
+    // would silently coerce that explicit choice back to 'ATK'. Only an actually-absent scalar
+    // field (legacy/unset movesets) should fall back to the ATK default.
+    const scalarType = isTuneDmg ? '' : (hitConfig.scalar ?? 'ATK').toLowerCase();
     const baseStats = CombatCalculator.calculateFinalStats(executingUnit, [], team);
     const getBaseStat = (key: string) => (baseStats as any)[key] || 0;
 
@@ -417,7 +445,10 @@ export const CombatCalculator = {
     const totalHP = getBaseStat('baseHP') * (1 + (getBaseStat('percentHP') / 100) + buffTotals.percentHP) + getBaseStat('flatHP') + buffTotals.flatHP;
     const totalDef = getBaseStat('baseDef') * (1 + (getBaseStat('percentDef') / 100) + buffTotals.percentDef) + getBaseStat('flatDef') + buffTotals.flatDef;
 
-    let scalingStatVal = 0;
+    // 1, not 0 -- a "None" scalar (scalarType === '') means the move's own hitMults/flatMult
+    // ARE the damage already (e.g. Tune Break's custom, stat-independent scaling), not "times
+    // zero of a stat". Only atk/hp/def below override this with the unit's actual stat value.
+    let scalingStatVal = 1;
     let scalarBonusPct = 0;
 
     if (scalarType === 'atk') { scalingStatVal = totalAtk; scalarBonusPct = buffTotals.percentAtk; }
@@ -441,16 +472,14 @@ export const CombatCalculator = {
     let critDmg = 0;
     let formulaUsed = 'Standard';
 
-    const titleLower = titleStr.toLowerCase();
-
     if (hitConfig.isNegativeStatus) {
       formulaUsed = 'NegativeStatus';
       const statusBaseDmg = ENEMY_DEFAULTS.statusBaseDmg * (flatMult / 10000);
       calculatedTotal = CombatCalculator.calcNegativeStatusDmg(statusBaseDmg, buffTotals.dmgAmp, buffTotals.dmgTaken, buffTotals.multiplicativeMult, resMultiplier, defMult);
       nonCritDmg = calculatedTotal; critDmg = calculatedTotal;
-    } else if (castTypes.some(c => c.toLowerCase().includes('tune')) || titleLower.includes('tune')) {
+    } else if (isTuneDmg) {
       formulaUsed = 'Tune';
-      calculatedTotal = CombatCalculator.calcTuneDmg(baseDmg, buffTotals.dmgAmp, buffTotals.dmgTaken, buffTotals.multiplicativeMult);
+      calculatedTotal = CombatCalculator.calcTuneDmg(baseDmg, buffTotals.dmgBoost, buffTotals.dmgTaken, buffTotals.multiplicativeMult, resMultiplier, defMult);
       nonCritDmg = calculatedTotal; critDmg = calculatedTotal;
     } else {
       const cr = Math.min(1.0, Math.max(0.0, finalCritRate));
@@ -494,7 +523,11 @@ export const CombatCalculator = {
         calcBreakdown: calcBreakdown,
         castTypes: castTypes.length > 0 ? castTypes.join(', ') : '-',
         dmgTypes: dmgTypes.length > 0 ? dmgTypes.join(', ') : '-',
-        scalarLabel: (hitConfig.scalar || 'ATK').toUpperCase(),
+        // Derived from the same scalarType the math actually used (not hitConfig.scalar
+        // directly) -- otherwise a Tune hit with no scalar authored on its own node (e.g.
+        // System_Tune Break) would display "ATK" here despite isTuneDmg having forced the
+        // calculation itself to skip scalar-stat scaling entirely.
+        scalarLabel: scalarType ? scalarType.toUpperCase() : 'None',
         scalarValue: scalarBonusPct > 0 ? +(scalarBonusPct * 100).toFixed(2) : 0,
         critRate: +(buffTotals.critRate * 100).toFixed(2),
         critDmg: +(buffTotals.critDamage * 100).toFixed(2),

@@ -141,7 +141,12 @@ export const SIM_CONSTANTS = {
   DEFAULT_ROW_DURATION: 1.5,
   MAX_SEQUENCE: 6,
   MAX_WEAPON_RANK: 5,
-  LEVEL_CAP: 90
+  LEVEL_CAP: 90,
+  // Tune Break/Rupture's custom scaling doesn't derive from ATK/HP/DEF at all -- a hit's
+  // hitMults% is a multiplier on this fixed base value instead (see CombatCalculator.calcTuneDmg).
+  // Named here (rather than left as a literal in calcTuneDmg) so formatDamageBreakdown can
+  // display the exact same constant in its breakdown string instead of silently omitting it.
+  TUNE_BASE_DMG: 10027
 };
 
 // Duration-domain defaults (swapTime, comboWindow, echoSummonTime, holdLookahead*) are FRAMES,
@@ -407,10 +412,15 @@ export const DSL_TOOLTIPS: {
   // Matches the CombatCalculator keyword buckets in logic/CombatCalculator.ts (~line 175-191):
   // damage = baseDmg * critMult * (1 + DMG Bonus) * (1 + DMG Amp/Deepen) * (1 + DMG Taken)
   //          * (1 + Multiplicative Mult) * resMult * defMult
+  // Tune Break/Rupture hits run a separate formula (calcTuneDmg) that skips DMG Bonus/crit
+  // and scalar-stat scaling entirely (a fixed base value times hitMults% instead), but still
+  // applies DMG Taken/Multiplicative Mult/RES/DEF, plus its own DMG Boost bucket in place of
+  // DMG Amp/Deepen.
   statModifiers: {
     'DMG Bonus': 'Adds to the additive damage-bonus multiplier (1 + Base DMG Bonus + this), applied before crit.',
     'DMG Amp': 'Multiplies final damage by (1 + this). Shares the same multiplier bucket as Deepen.',
     Deepen: 'Multiplies final damage by (1 + this). Shares the same multiplier bucket as DMG Amp.',
+    'DMG Boost': 'Tune Break/Rupture-only multiplier bucket: multiplies final Tune damage by (1 + this). Separate from DMG Amp/Deepen, which Tune damage does not use.',
     'DMG Taken': "Multiplies the target's final damage taken by (1 + this), a separate layer from DMG Amp/Deepen.",
     'Reduce RES': "Subtracted directly from the enemy's base Resistance before the resistance multiplier is computed.",
     'RES Shred': "Subtracted directly from the enemy's base Resistance, identically to Reduce RES.",
@@ -538,6 +548,22 @@ export const BUILDER_TEMPLATES: Record<string, MechanicNode> = {
     effects: [
       { type: 'buff', name: 'Inherent Buff', target: '@Self', duration: 9999, stat: 'ATK %', value: '10%' }
     ]
+  },
+  // Mirrors System_Tune Break (data/mechanics/generic/generic.json) -- castTypes/dmgTypes must
+  // stay ['TuneBreak'] (or 'TuneRupture') since that's what CombatCalculator.calculateDamageInstance
+  // keys off of to route a hit through calcTuneDmg instead of the Standard crit/dmg-bonus formula
+  // (see the `castTypes.some(c => c.toLowerCase().includes('tune'))` check). A character-specific
+  // Tune Break node just overrides hitMults/actionDuration/etc. for that unit's own animation.
+  'Tune Break': {
+    name: 'Tune Break',
+    triggerRule: 'IF (@Enemy.Tune >= 40)',
+    castTypes: ['TuneBreak'],
+    dmgTypes: ['TuneBreak'],
+    castResources: { tune: -40 },
+    hitMults: [1600],
+    actionDuration: toFrames(120),
+    freezeTime: toFrames(120),
+    priority: '@Default.IntroPriority - 10'
   },
   'Resonance Chain': {
     name: 'Sequence 1',
