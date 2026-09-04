@@ -8,6 +8,7 @@ export const RotationToolbar: React.FC = () => {
     rows,
     startEnergy,
     startConcerto,
+    endingRotationEnabled,
     canUndo,
     canRedo,
     isStale,
@@ -16,6 +17,7 @@ export const RotationToolbar: React.FC = () => {
     clipboard,
     setStartEnergy,
     setStartConcerto,
+    setEndingRotationEnabled,
     setClipboard,
     setSelectedIndices,
     addRow,
@@ -108,6 +110,9 @@ export const RotationToolbar: React.FC = () => {
           </label>
           <label className="toolbar-toggle-label" {...tip('Start combat with max Concerto')}>
             <input type="checkbox" checked={startConcerto} onChange={e => setStartConcerto(e.target.checked)} /> Full Concerto
+          </label>
+          <label className="toolbar-toggle-label" {...tip('For the 2-Minute window: simulate the in-between loops, then run a custom sequence for the final stretch instead of an arbitrarily-truncated loop repeat')}>
+            <input type="checkbox" checked={endingRotationEnabled} onChange={e => setEndingRotationEnabled(e.target.checked)} /> Ending Rotation
           </label>
         </div>
         

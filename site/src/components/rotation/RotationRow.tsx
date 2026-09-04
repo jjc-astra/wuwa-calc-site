@@ -33,6 +33,10 @@ interface RotationRowProps {
   onLoopMarkerDragStart?: (e: React.DragEvent) => void;
   onLoopMarkerDragEnd?: (e: React.DragEvent) => void;
   onResetLoopStart?: () => void;
+  isLoopEnd?: boolean;
+  onLoopEndMarkerDragStart?: (e: React.DragEvent) => void;
+  onLoopEndMarkerDragEnd?: (e: React.DragEvent) => void;
+  onResetLoopEnd?: () => void;
 }
 
 interface TimingOption {
@@ -71,7 +75,11 @@ export const RotationRow: React.FC<RotationRowProps> = ({
   loopWarnings,
   onLoopMarkerDragStart,
   onLoopMarkerDragEnd,
-  onResetLoopStart
+  onResetLoopStart,
+  isLoopEnd,
+  onLoopEndMarkerDragStart,
+  onLoopEndMarkerDragEnd,
+  onResetLoopEnd
 }) => {
   const { updateRowField, updateRowFields, addRow, isStale } = useRotationStore();
   const { team } = useRosterStore();
@@ -453,6 +461,28 @@ export const RotationRow: React.FC<RotationRowProps> = ({
           <DialGauge name="Tune" value={row.enemyTune || 0} max={row.enemyMaxTune || 40} />
         </div>
       </div>
+
+      {isLoopEnd && (
+        <div
+          className="loop-end-tag"
+          draggable
+          onDragStart={onLoopEndMarkerDragStart}
+          onDragEnd={onLoopEndMarkerDragEnd}
+          onMouseEnter={e => TooltipManager.show(e.currentTarget, '<div>Loop ends here — everything below is the Ending Rotation. Drag to move.</div>')}
+          onMouseLeave={() => TooltipManager.hide()}
+        >
+          <span className="loop-tag-icon">⟳</span>
+          <span className="loop-tag-label">LOOP END</span>
+          <button
+            className="loop-tag-reset"
+            onClick={e => { e.stopPropagation(); onResetLoopEnd?.(); }}
+            onMouseEnter={e => { e.stopPropagation(); TooltipManager.show(e.currentTarget, '<div>Remove the Ending Rotation split</div>'); }}
+            onMouseLeave={() => TooltipManager.hide()}
+          >
+            ↺
+          </button>
+        </div>
+      )}
 
       {/* Error / Warning Strip */}
       {row.errorMsg && (

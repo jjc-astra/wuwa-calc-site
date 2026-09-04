@@ -42,6 +42,9 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     loopWarnings,
     setLoopStartOverride,
     resetLoopStart,
+    setLoopEndOverride,
+    resetLoopEnd,
+    endingRotationEnabled,
     recalculate,
     results,
     isStale
@@ -71,11 +74,11 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
   const [draggedIndices, setDraggedIndices] = useState<number[]>([]);
   const [dragOverInfo, setDragOverInfo] = useState<{ index: number; position: 'top' | 'bottom' } | null>(null);
 
-  // Loop-start tag drag state -- a separate gesture from row reordering above: dragging the
-  // tag relocates which row is flagged as the loop start, it never reorders rows. It shares
-  // dragOverInfo with row reordering so the top/bottom placement indicator looks and behaves
-  // identically for both.
-  const [draggedLoopMarker, setDraggedLoopMarker] = useState(false);
+  // Loop marker drag state -- a separate gesture from row reordering above: dragging a tag
+  // relocates which row is flagged as the loop start/end, it never reorders rows. 'start' vs
+  // 'end' picks which flag handleDrop moves. Shares dragOverInfo with row reordering so the
+  // top/bottom placement indicator looks and behaves identically for both.
+  const [draggedMarker, setDraggedMarker] = useState<'start' | 'end' | null>(null);
 
   // Global Keyboard Shortcuts (Delete, Undo/Redo, Copy/Paste, Insert Above/Below).
   // Mirrors the equivalent buttons/logic in RotationToolbar -- same duplication pattern
@@ -181,7 +184,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
 
-    if (!draggedLoopMarker && draggedIndices.includes(targetIndex)) return;
+    if (!draggedMarker && draggedIndices.includes(targetIndex)) return;
 
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const isBelow = e.clientY > rect.top + rect.height / 2;
@@ -195,11 +198,14 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
   const handleDrop = (e: React.DragEvent, targetIndex: number) => {
     e.preventDefault();
 
-    if (draggedLoopMarker) {
+    if (draggedMarker) {
       let adjustedTarget = targetIndex;
       if (dragOverInfo?.position === 'bottom') adjustedTarget++;
-      if (rows[adjustedTarget]?.unit) setLoopStartOverride(adjustedTarget);
-      setDraggedLoopMarker(false);
+      if (rows[adjustedTarget]?.unit) {
+        if (draggedMarker === 'start') setLoopStartOverride(adjustedTarget);
+        else setLoopEndOverride(adjustedTarget);
+      }
+      setDraggedMarker(null);
       setDragOverInfo(null);
       return;
     }
@@ -221,11 +227,17 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
   const handleLoopMarkerDragStart = (e: React.DragEvent) => {
     e.stopPropagation();
     e.dataTransfer.effectAllowed = 'move';
-    setDraggedLoopMarker(true);
+    setDraggedMarker('start');
+  };
+
+  const handleLoopEndMarkerDragStart = (e: React.DragEvent) => {
+    e.stopPropagation();
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedMarker('end');
   };
 
   const handleLoopMarkerDragEnd = () => {
-    setDraggedLoopMarker(false);
+    setDraggedMarker(null);
     setDragOverInfo(null);
   };
 
@@ -241,17 +253,18 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     // saved file, and it's cheap to regenerate via a real recalculate).
     const includeResults = !!results && !isStale;
     const exportObject: Record<string, unknown> = {
-      rotation: rows.map(({ unit, action, timing, loopStartOverride }) => ({
+      rotation: rows.map(({ unit, action, timing, loopStartOverride, loopEndOverride }) => ({
         unit,
         action,
         timing,
-        ...(loopStartOverride === true && { loopStartOverride: true })
+        ...(loopStartOverride === true && { loopStartOverride: true }),
+        ...(loopEndOverride === true && { loopEndOverride: true })
       })),
       team: team.map(slot => {
         const { domRef, ...cleanData } = slot;
         return cleanData;
       }),
-      settings: { startEnergy, startConcerto }
+      settings: { startEnergy, startConcerto, endingRotationEnabled }
     };
     if (includeResults) {
       const { dmgOverTimeSeries, ...resultsWithoutDmgOverTime } = results!;
@@ -299,6 +312,10 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     reader.readAsText(file);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
+
+  // No auto-detection for loop end (unlike loop start) -- it's always an explicit tag, or
+  // absent entirely (the whole loop runs to the end of the rows array, today's behavior).
+  const loopEndIndex = rows.findIndex(r => r.loopEndOverride === true);
 
   return (
     <div ref={wrapperRef} className={`section-wrapper ${isCollapsed ? 'is-collapsed' : ''} ${animDone ? 'anim-done' : ''}`} id="step2-wrapper">
@@ -377,6 +394,10 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
               onLoopMarkerDragStart={handleLoopMarkerDragStart}
               onLoopMarkerDragEnd={handleLoopMarkerDragEnd}
               onResetLoopStart={resetLoopStart}
+              isLoopEnd={i === loopEndIndex}
+              onLoopEndMarkerDragStart={handleLoopEndMarkerDragStart}
+              onLoopEndMarkerDragEnd={handleLoopMarkerDragEnd}
+              onResetLoopEnd={resetLoopEnd}
             />
           ))}
         </div>

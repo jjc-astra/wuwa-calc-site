@@ -318,6 +318,53 @@ export class SetLoopStartCommand implements Command {
   }
 }
 
+// Same shape as SetLoopStartCommand, targeting `loopEndOverride` instead -- marks the last row
+// of the repeating loop when the "Ending Rotation" feature is on. Unlike loop start, there's no
+// auto-detected fallback: absent means "no ending rotation" (the whole loop runs to the end of
+// the rows array, today's behavior), not "detect one."
+export class SetLoopEndCommand implements Command {
+  private getRows: () => any[];
+  private setRows: (rows: any[]) => void;
+  private newIndex: number | null;
+  private prevIndex: number | null;
+  private onComplete?: () => void;
+
+  constructor(
+    getRows: () => any[],
+    setRows: (rows: any[]) => void,
+    newIndex: number | null,
+    onComplete?: () => void
+  ) {
+    this.getRows = getRows;
+    this.setRows = setRows;
+    this.newIndex = newIndex;
+    this.prevIndex = this.getRows().findIndex(r => r.loopEndOverride === true);
+    if (this.prevIndex === -1) this.prevIndex = null;
+    this.onComplete = onComplete;
+  }
+
+  private apply(clearIndex: number | null, setIndex: number | null) {
+    const current = [...this.getRows()];
+    if (clearIndex !== null && clearIndex >= 0 && clearIndex < current.length) {
+      const { loopEndOverride, ...rest } = current[clearIndex];
+      current[clearIndex] = rest;
+    }
+    if (setIndex !== null && setIndex >= 0 && setIndex < current.length) {
+      current[setIndex] = { ...current[setIndex], loopEndOverride: true };
+    }
+    this.setRows(current);
+    this.onComplete?.();
+  }
+
+  execute() {
+    this.apply(this.prevIndex, this.newIndex);
+  }
+
+  undo() {
+    this.apply(this.newIndex, this.prevIndex);
+  }
+}
+
 export class MoveRowsCommand implements Command {
   private getRows: () => any[];
   private setRows: (rows: any[]) => void;

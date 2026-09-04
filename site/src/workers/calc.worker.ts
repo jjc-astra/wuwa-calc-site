@@ -8,7 +8,7 @@
 // can't be structured-cloned).
 import { TimelineEngine } from '../logic/TimelineEngine';
 import { CombatCalculator } from '../logic/CombatCalculator';
-import { buildRotationResults } from '../logic/ResultsCalculator';
+import { buildRotationResults, previewEndingRotationTiming } from '../logic/ResultsCalculator';
 import { DataLoader } from '../utils/DataLoader';
 
 let ready: Promise<void> | null = null;
@@ -114,7 +114,7 @@ worker.onmessage = async (e: MessageEvent) => {
 
     if (type === 'recalculate') {
       const { rows, team, options, enemy } = payload;
-      const evaluatedRows = TimelineEngine.recalculateState(rows, team, options, enemy);
+      let evaluatedRows = TimelineEngine.recalculateState(rows, team, options, enemy);
       // Optional -- a plain live-preview recalculate (every rotation edit) skips this to stay
       // cheap, but the one-time refresh RotationBuilder's mount effect fires (restoring a
       // rehydrated-but-never-recalculated rotation) asks for it, so the per-row DMG column comes
@@ -125,6 +125,13 @@ worker.onmessage = async (e: MessageEvent) => {
       const { errors: loopErrors, warnings: loopWarnings } = TimelineEngine.analyzeLoop(
         evaluatedRows, team, options, enemy, loopStartIndex
       );
+      // A plain single pass shows the Ending Rotation's rows starting right after the one loop
+      // rep in front of them in the table -- re-time just that tail so the editor's Time/gauge
+      // columns reflect where it actually lands once the in-between loops are (silently)
+      // accounted for, same as the real 2-Minute calculation does.
+      if (payload.endingRotationEnabled) {
+        evaluatedRows = previewEndingRotationTiming(evaluatedRows, team, options, enemy, loopStartIndex, !!payload.includeDamage);
+      }
       worker.postMessage({
         id,
         ok: true,
@@ -135,13 +142,20 @@ worker.onmessage = async (e: MessageEvent) => {
         loopWarnings
       });
     } else if (type === 'calculateDamage') {
-      const { rows, team, options, enemy, loopStartIndex } = payload;
+      const { rows, team, options, enemy, loopStartIndex, endingRotationEnabled } = payload;
 
-      const evaluatedRows = TimelineEngine.recalculateState(rows, team, options, enemy);
+      let evaluatedRows = TimelineEngine.recalculateState(rows, team, options, enemy);
       populateDamageInstances(evaluatedRows, enemy, team);
+      // Same re-timing as the 'recalculate' preview above -- without it, pressing Calculate
+      // would overwrite the Ending Rotation rows' Time/gauge/DMG columns with this plain
+      // single-pass evaluation (starting right after the one loop rep in front of them again),
+      // undoing what the live preview already got right.
+      if (endingRotationEnabled) {
+        evaluatedRows = previewEndingRotationTiming(evaluatedRows, team, options, enemy, loopStartIndex, true);
+      }
 
       // Separate extended (opener + N-loop-repetition) pass -- feeds the Results panel.
-      const results = buildRotationResults(rows, team, options, enemy, loopStartIndex);
+      const results = buildRotationResults(rows, team, options, enemy, loopStartIndex, endingRotationEnabled);
 
       worker.postMessage({ id, ok: true, evaluatedRows: stripFunctions(evaluatedRows), results });
     }

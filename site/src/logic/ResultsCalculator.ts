@@ -61,6 +61,30 @@ const cloneAuthored = (r: any) => ({
   ...(r.manualOffset !== undefined && { manualOffset: r.manualOffset })
 });
 
+// Splits a rotation's content rows into opener / repeating-loop-template / (optional) Ending
+// Rotation tail. Shared by buildExtendedTimeline below (the real 2-Minute calculation) and
+// previewEndingRotationTiming (the cheap live-preview pass) so both agree on exactly which rows
+// belong to which segment.
+function splitLoopSegments(
+  contentRows: any[],
+  loopStartIndex: number,
+  endingRotationEnabled: boolean
+): { openerRows: any[]; loopTemplate: any[]; endingRows: any[] } {
+  const clampedStart = Math.max(0, Math.min(loopStartIndex, contentRows.length));
+  const openerRows = contentRows.slice(0, clampedStart);
+  let loopTemplate = contentRows.slice(clampedStart);
+
+  let endingRows: any[] = [];
+  if (endingRotationEnabled) {
+    const endRel = loopTemplate.findIndex(r => r.loopEndOverride === true);
+    if (endRel !== -1 && endRel < loopTemplate.length - 1) {
+      endingRows = loopTemplate.slice(endRel + 1);
+      loopTemplate = loopTemplate.slice(0, endRel + 1);
+    }
+  }
+  return { openerRows, loopTemplate, endingRows };
+}
+
 // Opener + N loop reps, run through the real (non-lightweight) engine once. N is at least
 // AVG_LOOP_REPS (so the avg-loop window always has its full 3 reps available) and enough whole
 // reps to cross 120s (so the 2-min window always has a full 120s of hits available) -- every
@@ -71,12 +95,11 @@ function buildExtendedTimeline(
   team: any[],
   options: { startEnergy?: boolean; startConcerto?: boolean },
   enemyConfig: { level: number; res: number; hp: number },
-  loopStartIndex: number
+  loopStartIndex: number,
+  endingRotationEnabled: boolean
 ): { evaluatedRows: any[]; openerEndTime: Frames; loopDuration: Frames | null } {
   const contentRows = rows.filter(r => r && r.unit);
-  const clampedStart = Math.max(0, Math.min(loopStartIndex, contentRows.length));
-  const openerRows = contentRows.slice(0, clampedStart);
-  const loopTemplate = contentRows.slice(clampedStart);
+  const { openerRows, loopTemplate, endingRows } = splitLoopSegments(contentRows, loopStartIndex, endingRotationEnabled);
 
   // `rows` is the live already-recalculated pass, so its timing fields are trustworthy --
   // same trick analyzeLoop uses to avoid a throwaway baseline pass just to read them back.
@@ -97,14 +120,96 @@ function buildExtendedTimeline(
   const loopDuration = toFrames(loopEndTime - openerEndTime);
 
   if (loopDuration === 0) {
-    return { evaluatedRows: runSimple([...openerRows, ...loopTemplate]), openerEndTime, loopDuration: null };
+    return { evaluatedRows: runSimple([...openerRows, ...loopTemplate, ...endingRows]), openerEndTime, loopDuration: null };
   }
 
-  const repsToSimulate = Math.max(AVG_LOOP_REPS, Math.ceil((TWO_MIN - openerEndTime) / loopDuration));
+  // With an Ending Rotation to splice in, stop repeating the loop at the last full rep that
+  // still fits inside the 120s budget (floor) instead of overshooting past it (ceil) -- the
+  // Ending Rotation itself fills whatever's left, rather than an arbitrarily-truncated partial
+  // loop rep. Math.max(AVG_LOOP_REPS, ...) still guarantees the avg-loop window's 3 full reps
+  // even if that means running past 120s before the Ending Rotation even starts (a loop longer
+  // than the whole 2-minute budget) -- the Ending Rotation is a no-op there, which is fine.
+  const repsToSimulate = endingRows.length > 0
+    ? Math.max(AVG_LOOP_REPS, Math.max(0, Math.floor((TWO_MIN - openerEndTime) / loopDuration)))
+    : Math.max(AVG_LOOP_REPS, Math.ceil((TWO_MIN - openerEndTime) / loopDuration));
   const extendedContent: any[] = [...openerRows];
   for (let i = 0; i < repsToSimulate; i++) extendedContent.push(...loopTemplate);
+  extendedContent.push(...endingRows);
 
   return { evaluatedRows: runSimple(extendedContent), openerEndTime, loopDuration };
+}
+
+// Live-preview counterpart to buildExtendedTimeline -- used by calc.worker.ts's cheap
+// 'recalculate' pass (every rotation edit), not the real 2-Minute calculation. A plain
+// TimelineEngine.recalculateState(rows, ...) call shows the Ending Rotation's rows starting
+// right after the single loop rep in front of them in the table, which is wrong: for real, they
+// only run after however many *whole* loops silently fill the rest of the 120s budget first (see
+// buildExtendedTimeline). This re-derives that same skip-ahead timing and splices it onto the
+// tail of `evaluatedRows` (the rows already returned by the normal single-pass evaluation) so the
+// Time/gauge/DMG columns for the Ending Rotation rows in the editor reflect where they'd actually
+// land, without disturbing the opener/loop rows' own (first-rep) preview.
+export function previewEndingRotationTiming(
+  evaluatedRows: any[],
+  team: any[],
+  options: { startEnergy?: boolean; startConcerto?: boolean },
+  enemyConfig: { level: number; res: number; hp: number },
+  loopStartIndex: number,
+  populateDamage: boolean = false
+): any[] {
+  const contentRows = evaluatedRows.filter(r => r && r.unit);
+  const { openerRows, loopTemplate, endingRows } = splitLoopSegments(contentRows, loopStartIndex, true);
+  if (endingRows.length === 0) return evaluatedRows;
+
+  const openerEndRow = openerRows.length > 0 ? openerRows[openerRows.length - 1] : null;
+  const openerEndTime = toFrames(openerEndRow ? (openerEndRow.gameTimeStart || 0) + (openerEndRow.gameTimePassed || 0) : 0);
+  const loopEndRow = loopTemplate[loopTemplate.length - 1];
+  const loopEndTime = (loopEndRow.gameTimeStart || 0) + (loopEndRow.gameTimePassed || 0);
+  const loopDuration = toFrames(loopEndTime - openerEndTime);
+  if (loopDuration <= 0) return evaluatedRows;
+
+  const repsToSimulate = Math.max(1, Math.floor((TWO_MIN - openerEndTime) / loopDuration));
+  const extendedContent: any[] = [...openerRows];
+  for (let i = 0; i < repsToSimulate; i++) extendedContent.push(...loopTemplate);
+  extendedContent.push(...endingRows);
+
+  const previewInput = [...extendedContent.map(cloneAuthored), { unit: '', action: '', timing: 'Auto', offset: 0 }];
+  const previewEvaluated = TimelineEngine.recalculateState(previewInput, team, options, enemyConfig);
+
+  // Mirrors calc.worker.ts's populateDamageInstances -- the Ending Rotation's re-timed rows
+  // need their own DMG column filled in too (the plain evaluatedRows passed in already has it
+  // for the opener/loop rows, from the caller's own single pass). Same "fresh enemy at full HP"
+  // starting point that pass already uses for the whole table, not the true post-N-loops HP --
+  // an existing simplification, not something this preview needs to fix.
+  if (populateDamage) {
+    let runningEnemyHp = enemyConfig.hp;
+    previewEvaluated.forEach((row: any) => {
+      row.damageInstances = [];
+      if (row._pendingHits && row._pendingHits.length > 0) {
+        row._pendingHits.forEach((hit: any) => {
+          hit.context.enemyHp = runningEnemyHp;
+          const result = CombatCalculator.calculateDamageInstance(hit.config, hit.context, team);
+          runningEnemyHp = Math.max(0, runningEnemyHp - result.total);
+          row.damageInstances.push(result);
+        });
+      }
+    });
+  }
+
+  const evaluatedEndingRows = previewEvaluated.filter((r: any) => r && r.unit).slice(-endingRows.length);
+
+  // Walk the original evaluatedRows and overwrite just the Ending Rotation's tail positions
+  // (everything after the loopEndOverride row) with their re-timed counterparts, preserving
+  // loopStartOverride/loopEndOverride flags (cloneAuthored strips them, so the fresh engine
+  // output doesn't carry them) and everything before that tail untouched.
+  const endingStartContentIdx = openerRows.length + loopTemplate.length;
+  let contentIdx = 0;
+  return evaluatedRows.map(row => {
+    if (!row || !row.unit) return row;
+    const idx = contentIdx++;
+    if (idx < endingStartContentIdx) return row;
+    const replacement = evaluatedEndingRows[idx - endingStartContentIdx];
+    return replacement ? { ...replacement, loopStartOverride: row.loopStartOverride, loopEndOverride: row.loopEndOverride } : row;
+  });
 }
 
 // Walks every row's queued hits and prices them for real -- mirrors useRotationStore's
@@ -417,9 +522,10 @@ export function buildRotationResults(
   team: TeamSlot[],
   options: { startEnergy?: boolean; startConcerto?: boolean },
   enemyConfig: { level: number; res: number; hp: number },
-  loopStartIndex: number
+  loopStartIndex: number,
+  endingRotationEnabled: boolean = false
 ): RotationResults {
-  const { evaluatedRows, openerEndTime, loopDuration } = buildExtendedTimeline(rows, team, options, enemyConfig, loopStartIndex);
+  const { evaluatedRows, openerEndTime, loopDuration } = buildExtendedTimeline(rows, team, options, enemyConfig, loopStartIndex, endingRotationEnabled);
   const hits = buildHitList(evaluatedRows, team, enemyConfig);
   const teamNames = team.filter(s => s.character).map(s => s.character);
   const twoMinHits = windowedHits(hits, -Infinity, TWO_MIN);
