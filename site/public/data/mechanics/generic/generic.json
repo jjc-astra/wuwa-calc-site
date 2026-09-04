@@ -20,20 +20,12 @@
   "System_Tune Break": {
     "name": "Tune Break",
     "provider": "System",
-    "triggerRule": "IF (@Self.Tune >= 100)",
+    "triggerRule": "IF (@Enemy.Tune >= 40)",
     "castTypes": ["TuneBreak"],
     "dmgTypes": ["TuneBreak"],
     "castResources": {
       "tune": -100
     },
-    "effects": [
-      {
-        "type": "tracker",
-        "name": "Tune",
-        "target": "@Self",
-        "action": "consume"
-      }
-    ],
     "priority": "@Default.IntroPriority - 10",
     "actionDuration": 120,
     "freezeTime": 120

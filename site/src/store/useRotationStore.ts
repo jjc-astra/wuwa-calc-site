@@ -282,16 +282,49 @@ export const useRotationStore = create<RotationState>()(
           historyManager.execute(cmd);
         },
 
+        // Fully removes the Ending Rotation split, not just the tag -- shared by the row
+        // marker's own reset button and by unchecking the toolbar checkbox (setEndingRotationEnabled
+        // below), so both entry points behave identically. The tag alone means nothing without
+        // the rows below it (and vice versa), so clearing one clears both: leaving the appended
+        // Ending Rotation rows behind would resurrect them as orphaned content the next time the
+        // feature is turned back on and re-populates from scratch. The trailing blank row (always
+        // last, unit === '') is left alone -- it's the table's perpetual "add a new row" slot, not
+        // Ending Rotation content.
         resetLoopEnd: () => {
-          const hasOverride = get().rows.some(r => r.loopEndOverride === true);
-          if (!hasOverride) return;
-          const cmd = new SetLoopEndCommand(getRawRows, setRawRows, null, triggerRecalc);
-          historyManager.execute(cmd);
+          const rows = get().rows;
+          const endIdx = rows.findIndex(r => r.loopEndOverride === true);
+          const wasEnabled = get().endingRotationEnabled;
+          // The flag flip has to ride inside the same CompositeCommand as the row/tag changes
+          // below (rather than a bare set() after historyManager.execute()) -- otherwise
+          // undoing this action restores the marker and its rows but leaves the checkbox's
+          // underlying flag stuck false, silently desyncing it from the now-restored marker.
+          const flagCommand: Command = {
+            execute: () => set({ endingRotationEnabled: false }),
+            undo: () => set({ endingRotationEnabled: wasEnabled })
+          };
+
+          if (endIdx === -1) {
+            historyManager.execute(flagCommand);
+            return;
+          }
+
+          const lastIdx = rows.length - 1;
+          const toDelete: number[] = [];
+          for (let i = endIdx + 1; i <= lastIdx; i++) {
+            if (i === lastIdx && !rows[i].unit) continue;
+            toDelete.push(i);
+          }
+
+          const commands: Command[] = [];
+          if (toDelete.length > 0) commands.push(new DeleteRowsCommand(getRawRows, setRawRows, toDelete, triggerRecalc));
+          commands.push(new SetLoopEndCommand(getRawRows, setRawRows, null, triggerRecalc));
+          commands.push(flagCommand);
+          historyManager.execute(new CompositeCommand(commands));
         },
 
         setEndingRotationEnabled: (val: boolean) => {
           if (!val) {
-            set({ endingRotationEnabled: false });
+            get().resetLoopEnd();
             return;
           }
 

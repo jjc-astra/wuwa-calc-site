@@ -4,6 +4,7 @@ import { useRotationStore } from '../../store/useRotationStore';
 import { useRosterStore } from '../../store/useRosterStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { BuilderUtils } from '../../utils/BuilderUtils';
+import { BUILDER_CATEGORIES } from '../../data/db';
 import { ContextManager } from '../../logic/ContextManager';
 import { DSLParser } from '../../logic/DSLParser';
 import { DialGauge, VerticalGauge, MultiForteGauge } from './Gauge';
@@ -153,7 +154,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
       const m = DataLoader.mechanicsDB[k];
       if (!m || m.isPassive) return;
       const isValid = checkValid(m);
-      if (isValid || k === row.action) candidates.push({ id: k, m, groupLabel: 'Uncategorized (System)', isValid });
+      if (isValid || k === row.action) candidates.push({ id: k, m, groupLabel: 'System', isValid });
     });
 
     // --- COLLAPSE CANDIDATES THAT SHARE THE SAME INPUT ---
@@ -202,10 +203,25 @@ export const RotationRow: React.FC<RotationRowProps> = ({
       });
     });
 
-    return Object.entries(groupsMap).map(([label, options]) => ({
-      label,
-      options
-    }));
+    // --- ORDER GROUPS TO MATCH THE UNIT PAGE ---
+    // groupLabel is either a bare category (e.g. 'Echo Skill', 'System') or
+    // '<category>: <skillGroupName>' (e.g. 'Basic Attack: Frigid Light') for character
+    // mechanics -- strip the ": <name>" suffix before matching against BUILDER_CATEGORIES so
+    // this stays in the same order the Mechanics Builder's own accordion uses for this unit,
+    // rather than whatever order candidates happened to be collected/collapsed in above. Echo
+    // Skill isn't one of the unit's own categories, so it's placed right after them; System
+    // always sorts last regardless, since it's not part of the unit page at all.
+    const groupOrder = [...BUILDER_CATEGORIES, 'Echo Skill'];
+    const groupRank = (label: string): number => {
+      if (label === 'System') return groupOrder.length;
+      const category = label.includes(': ') ? label.slice(0, label.indexOf(': ')) : label;
+      const idx = groupOrder.indexOf(category);
+      return idx === -1 ? groupOrder.length - 1 : idx;
+    };
+
+    return Object.entries(groupsMap)
+      .map(([label, options]) => ({ label, options }))
+      .sort((a, b) => groupRank(a.label) - groupRank(b.label));
   };
 
   const actionGroups = getActionGroups();

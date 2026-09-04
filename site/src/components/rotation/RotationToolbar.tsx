@@ -30,6 +30,12 @@ export const RotationToolbar: React.FC = () => {
 
   const lastIndex = rows.length - 1;
   const hasSelection = selectedIndices.some(i => i !== lastIndex);
+  // endingRotationEnabled can outlive the actual split -- e.g. the loop-end-tagged row gets
+  // deleted through a plain multi-row delete rather than the marker's own reset button (which
+  // clears the flag itself, see useRotationStore.resetLoopEnd) -- so the checkbox's checked
+  // state is gated on an actual tag existing, not just the stored flag, rather than showing
+  // "on" for a rotation that no longer has an Ending Rotation defined.
+  const hasEndingRotationMarker = rows.some(r => r.loopEndOverride === true);
 
   const handleCopy = () => {
     const validIndices = selectedIndices.filter(i => i !== lastIndex);
@@ -112,7 +118,7 @@ export const RotationToolbar: React.FC = () => {
             <input type="checkbox" checked={startConcerto} onChange={e => setStartConcerto(e.target.checked)} /> Full Concerto
           </label>
           <label className="toolbar-toggle-label" {...tip('For the 2-Minute window: simulate the in-between loops, then run a custom sequence for the final stretch instead of an arbitrarily-truncated loop repeat')}>
-            <input type="checkbox" checked={endingRotationEnabled} onChange={e => setEndingRotationEnabled(e.target.checked)} /> Ending Rotation
+            <input type="checkbox" checked={endingRotationEnabled && hasEndingRotationMarker} onChange={e => setEndingRotationEnabled(e.target.checked)} /> Ending Rotation
           </label>
         </div>
         

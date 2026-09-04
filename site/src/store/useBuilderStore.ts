@@ -244,7 +244,22 @@ export const useBuilderStore = create<BuilderState>()(
         const matchesAny = (id: string) => prefixes.some(p => id.startsWith(p));
         return {
           editedBaseStats: Object.fromEntries(Object.entries(editedBaseStats).filter(([name]) => names.has(name))),
-          editedMechanics: Object.fromEntries(Object.entries(editedMechanics).filter(([id]) => matchesAny(id))),
+          // setMechanicNode stores this exact node object into DataLoader.mechanicsDB too, and
+          // the Rotation Calculator's dropdown legality-check (RotationRow.tsx's checkValid)
+          // mutates DataLoader.mechanicsDB entries in place, caching a compiled trigger-rule
+          // function onto them as `_compiledRule` -- so a node edited in the Builder can pick up
+          // a live function reference this way. Strip it back out here (it gets recompiled for
+          // free on the worker side anyway -- see TimelineEngine._getModifiedMoveData) since
+          // this payload is about to cross the postMessage boundary into the calc worker, which
+          // can't structured-clone a function.
+          editedMechanics: Object.fromEntries(
+            Object.entries(editedMechanics)
+              .filter(([id]) => matchesAny(id))
+              .map(([id, node]) => {
+                const { _compiledRule, ...rest } = node as any;
+                return [id, rest];
+              })
+          ),
           deletedMechanicIds: deletedMechanicIds.filter(matchesAny)
         };
       },
