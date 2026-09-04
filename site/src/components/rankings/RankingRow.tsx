@@ -93,7 +93,6 @@ export const RankingRow: React.FC<RankingRowProps> = ({ rank, entry, activeWindo
           <ActionsMenuButton
             triggerClassName="ranking-row-menu-btn"
             iconSize={20}
-            portal
             items={[
               { key: 'open-in-calculator', label: 'Open in Rotation Calculator', onClick: handleOpenInCalculator },
               { key: 'pin-to-comparison', label: 'Pin to Comparison', onClick: handlePinToComparison },

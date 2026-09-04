@@ -280,7 +280,7 @@
     position: absolute; top: calc(100% + 4px); right: 0;
     background: var(--bg-well); border: 1px solid var(--border); border-radius: 6px;
     box-shadow: 0 4px 12px var(--overlay-b4);
-    z-index: 100; min-width: 170px; overflow: hidden;
+    z-index: 100; min-width: 170px; overflow-y: auto;
 }
 .pin-menu-item {
     display: flex; justify-content: space-between; align-items: center; gap: var(--space-3);

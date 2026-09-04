@@ -1,7 +1,8 @@
 // src/components/common/ActionsMenuButton.tsx
-import React, { useLayoutEffect, useRef, useState } from 'react';
+import React from 'react';
 import { createPortal } from 'react-dom';
 import { tip } from '../../utils/Common';
+import { usePositionedSelectPopup } from '../../hooks/usePositionedSelectPopup';
 
 export interface ActionsMenuItem {
   /** Only needed when two items could share a label (e.g. one "Open X Guide" item per unit). */
@@ -15,60 +16,53 @@ interface ActionsMenuButtonProps {
   items: ActionsMenuItem[];
   triggerClassName: string;
   iconSize?: number;
-  /** Portals the menu to <body>, fixed-positioned off the trigger's own rect, for a trigger
-   * that sits inside an overflow:hidden ancestor (e.g. a rounded-corner tab panel) where the
-   * default position:absolute-in-position:relative placement would get clipped. */
-  portal?: boolean;
 }
 
+// Generous ceiling on the popup's own height -- usePositionedSelectPopup only ever shrinks a
+// popup down to whatever room is actually available (see its maxHeight clamp), so this just
+// needs to be at least as tall as this menu's content ever realistically gets; it never forces
+// the popup to be this tall when there's less content or less room.
+const MENU_MAX_HEIGHT = 240;
+
 /** Shared "..." actions-menu trigger: a 3-dot icon button that opens a `.pin-menu` list.
- * Every item click closes the menu (before running the item's own onClick, so an async handler
- * doesn't race a still-open menu) -- matches how every existing menu item in this app behaves. */
+ * Positioning (fixed-position portal placement, flips above the trigger when the viewport
+ * doesn't have room below -- e.g. the last row of a scrollable list) reuses the exact same
+ * usePositionedSelectPopup hook that backs Dropdown/IconSelect's popups, rather than
+ * re-deriving the same boundary math here. Every item click closes the menu (before running the
+ * item's own onClick, so an async handler doesn't race a still-open menu) -- matches how every
+ * existing menu item in this app behaves. */
 export const ActionsMenuButton: React.FC<ActionsMenuButtonProps> = ({
-  items, triggerClassName, iconSize = 14, portal = false
+  items, triggerClassName, iconSize = 14
 }) => {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const btnRef = useRef<HTMLButtonElement>(null);
-  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
+  const selectItem = (index: number) => {
+    setIsOpen(false);
+    items[index]?.onClick();
+  };
 
-  useLayoutEffect(() => {
-    if (!portal || !menuOpen || !btnRef.current) return;
-    const rect = btnRef.current.getBoundingClientRect();
-    setMenuStyle({
-      position: 'fixed',
-      top: rect.bottom + 4,
-      right: window.innerWidth - rect.right
-    });
-  }, [menuOpen, portal]);
-
-  const menu = menuOpen && (
-    <>
-      <div className="pin-menu-backdrop" onClick={() => setMenuOpen(false)} />
-      <div className="pin-menu" style={portal ? menuStyle : undefined}>
-        {items.map((item, i) => (
-          <button
-            key={item.key ?? i}
-            type="button"
-            className={`pin-menu-item ${item.danger ? 'pin-menu-item-danger' : ''}`}
-            onClick={() => {
-              setMenuOpen(false);
-              item.onClick();
-            }}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
-    </>
-  );
+  const {
+    isOpen, setIsOpen, popupPos, rootRef, triggerRef, popupRef, handleKeyDown
+  } = usePositionedSelectPopup({
+    itemCount: items.length,
+    popupMaxHeight: MENU_MAX_HEIGHT,
+    // No persistent "selected" option for an action menu (unlike Dropdown/IconSelect) -- these
+    // two are only consulted for keyboard nav bookkeeping this component doesn't otherwise use.
+    activeOptionSelector: '.pin-menu-item.is-active',
+    findInitialActiveIndex: () => -1,
+    findTypeaheadMatch: () => -1,
+    onSelectIndex: selectItem,
+    // The trigger is a narrow icon pinned to the row's right edge -- right-anchor so the menu
+    // opens back over the row instead of hanging off to the right past it.
+    align: 'right'
+  });
 
   return (
-    <>
+    <div className="dropdown" ref={rootRef}>
       <button
         type="button"
         className={triggerClassName}
-        ref={btnRef}
-        onClick={() => setMenuOpen(o => !o)}
+        ref={triggerRef}
+        onClick={() => setIsOpen(o => !o)}
+        onKeyDown={handleKeyDown}
         {...tip('More actions')}
       >
         <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="currentColor">
@@ -77,7 +71,21 @@ export const ActionsMenuButton: React.FC<ActionsMenuButtonProps> = ({
           <circle cx="12" cy="19" r="2"></circle>
         </svg>
       </button>
-      {portal ? (menuOpen && createPortal(menu, document.body)) : menu}
-    </>
+      {isOpen && createPortal(
+        <div className="pin-menu" ref={popupRef} style={popupPos}>
+          {items.map((item, i) => (
+            <button
+              key={item.key ?? i}
+              type="button"
+              className={`pin-menu-item ${item.danger ? 'pin-menu-item-danger' : ''}`}
+              onClick={() => selectItem(i)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>,
+        document.body
+      )}
+    </div>
   );
 };
