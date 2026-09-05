@@ -43,13 +43,18 @@ export const useComparisonStore = create<ComparisonState>()(
       const recalcAndPin = async (label: string, rotation: any[], team: any[], options: any) => {
         set({ status: 'loading' });
         try {
+          // Pulled out to top-level payload keys, not left nested in `options` -- that's where
+          // calc.worker.ts actually reads them from. Without this, a pinned rotation with an
+          // Ending Rotation split would silently compare against its plain truncated-loop tail.
+          const endingRotationEnabled = options?.endingRotationEnabled;
+          const endRotationStartsEarlier = options?.endRotationStartsEarlier;
           const { result: recalcResult } = postToWorker('recalculate', {
-            rows: rotation, team, options, enemy: ENEMY_DEFAULTS
+            rows: rotation, team, options, enemy: ENEMY_DEFAULTS, endingRotationEnabled, endRotationStartsEarlier
           });
           const { loopStartIndex } = await recalcResult;
 
           const { result: calcResult } = postToWorker('calculateDamage', {
-            rows: rotation, team, options, enemy: ENEMY_DEFAULTS, loopStartIndex
+            rows: rotation, team, options, enemy: ENEMY_DEFAULTS, loopStartIndex, endingRotationEnabled, endRotationStartsEarlier
           });
           const { results } = (await calcResult) as { results: RotationResults };
 

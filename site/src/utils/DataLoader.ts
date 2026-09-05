@@ -5,7 +5,7 @@ import type { RotationResults } from '../types/results';
 export interface CharacterResultData {
   rotation: any[];
   team: TeamSlot[];
-  settings: { startEnergy?: boolean; startConcerto?: boolean };
+  settings: { startEnergy?: boolean; startConcerto?: boolean; endingRotationEnabled?: boolean; endRotationStartsEarlier?: boolean };
   rotationType: 'linear' | 'quickswap' | null;
   // Present when the file was produced by History's "Save Results" -- lets the Rankings loader
   // skip re-running the calc worker for this entry entirely. Absent for a plain Export Rotation

@@ -227,6 +227,12 @@ export const useRankingsStore = create<RankingsState>()(
             results = data.results;
           } else {
             const options = data.settings || {};
+            // Top-level payload keys, not left nested in `options` -- that's where calc.worker.ts
+            // actually reads them from. Without this, any saved rotation with an Ending Rotation
+            // split would silently compute its DPS/2-Minute stats as if the split didn't exist
+            // (a plain truncated-loop tail instead of the authored replacement content).
+            const endingRotationEnabled = data.settings?.endingRotationEnabled;
+            const endRotationStartsEarlier = data.settings?.endRotationStartsEarlier;
             // 'recalculate' runs TimelineEngine.recalculateState + findLoopStart -- its
             // loopStartIndex is a required input to 'calculateDamage' below (mirrors the
             // two-step round trip useRotationStore's own Calculate button makes).
@@ -234,7 +240,9 @@ export const useRankingsStore = create<RankingsState>()(
               rows: data.rotation,
               team: data.team,
               options,
-              enemy: ENEMY_DEFAULTS
+              enemy: ENEMY_DEFAULTS,
+              endingRotationEnabled,
+              endRotationStartsEarlier
             });
             const { loopStartIndex } = await recalcResult;
 
@@ -243,7 +251,9 @@ export const useRankingsStore = create<RankingsState>()(
               team: data.team,
               options,
               enemy: ENEMY_DEFAULTS,
-              loopStartIndex
+              loopStartIndex,
+              endingRotationEnabled,
+              endRotationStartsEarlier
             });
             ({ results } = (await calcResult) as { results: RotationResults });
           }

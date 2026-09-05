@@ -6,6 +6,7 @@ import React, { useMemo } from 'react';
 import { TimelineFlagTrack } from './TimelineFlagTrack';
 import { TimelineRow } from './TimelineRow';
 import { TimelineRuler } from './TimelineRuler';
+import { TooltipManager } from '../../utils/Common';
 import {
   buildUnitRows,
   buildFlags,
@@ -40,6 +41,19 @@ export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRow
 
   const loopStartRow = loopStartIndex !== null ? evaluatedRows[loopStartIndex] : null;
   const loopStartLeft = loopStartRow ? HEADER_COL_WIDTH_PX + timeToPx(loopStartRow.gameTimeStart) : null;
+
+  // Same two-marker convention as the Rotation Calculator's own row table (RotationRow.tsx):
+  // LOOP END closes off the repeating loop template, and -- whenever the loop-end row is
+  // followed by real content -- END ROTATION marks where that custom replacement content
+  // starts. Both derived from loopEndOverride/row-adjacency rather than their own persisted
+  // flags, mirroring RotationBuilder.tsx's hasEndRotationContent exactly, so the two views can
+  // never disagree about where these markers sit.
+  const loopEndIndex = evaluatedRows.findIndex(r => r && r.unit && r.loopEndOverride === true);
+  const loopEndRow = loopEndIndex !== -1 ? evaluatedRows[loopEndIndex] : null;
+  const loopEndLeft = loopEndRow ? HEADER_COL_WIDTH_PX + timeToPx(loopEndRow.gameTimeStart + loopEndRow.gameTimePassed) : null;
+  const hasEndRotationContent = loopEndIndex !== -1 && !!evaluatedRows[loopEndIndex + 1]?.unit;
+  const endRotationRow = hasEndRotationContent ? evaluatedRows[loopEndIndex + 1] : null;
+  const endRotationLeft = endRotationRow ? HEADER_COL_WIDTH_PX + timeToPx(endRotationRow.gameTimeStart) : null;
 
   // Poles stop at the bottom of the rows (never cross into the ruler's tick-mark section
   // below), and start right at their own flag's label -- not above it, which would otherwise
@@ -86,6 +100,39 @@ export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRow
             <div
               className="timeline-loop-start-line"
               style={{ left: loopStartLeft, top: flagTrackHeight, width: snapToDevicePixel(2) }}
+            />
+          )}
+
+          {/* Ending Rotation: the gap between loopEndLeft and endRotationLeft is genuinely
+              empty here (the silently-simulated repeat loops never get their own rows in
+              evaluatedRows -- only the tail's timing shifts to reflect them, see
+              previewEndingRotationTiming) -- filled with the same "sped up / time remapped"
+              video-editor convention as the row table's own cut graphic, rather than left as an
+              unexplained blank stretch of timeline. */}
+          {loopEndLeft !== null && (
+            <div
+              className="timeline-loop-end-line"
+              style={{ left: loopEndLeft, top: flagTrackHeight, width: snapToDevicePixel(2) }}
+            />
+          )}
+          {loopEndLeft !== null && endRotationLeft !== null && endRotationLeft > loopEndLeft && (
+            <div
+              className="timeline-ending-rotation-cut"
+              style={{ left: loopEndLeft, top: flagTrackHeight, width: endRotationLeft - loopEndLeft, height: Math.max(0, rowsBottom - flagTrackHeight) }}
+              onMouseEnter={e => TooltipManager.showAtPoint(e.clientX, e.clientY, 'The loop repeats silently here before the Ending Rotation begins.')}
+              onMouseMove={e => TooltipManager.showAtPoint(e.clientX, e.clientY, 'The loop repeats silently here before the Ending Rotation begins.')}
+              onMouseLeave={() => TooltipManager.hide()}
+            >
+              <svg className="timeline-ending-rotation-cut-ff" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="1,4 11,12 1,20" />
+                <polygon points="12,4 22,12 12,20" />
+              </svg>
+            </div>
+          )}
+          {endRotationLeft !== null && (
+            <div
+              className="timeline-end-rotation-line"
+              style={{ left: endRotationLeft, top: flagTrackHeight, width: snapToDevicePixel(2) }}
             />
           )}
         </div>

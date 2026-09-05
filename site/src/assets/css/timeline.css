@@ -201,3 +201,37 @@
     z-index: 3;
     pointer-events: none;
 }
+
+/* =========================================
+   ENDING ROTATION -- LOOP END / END ROTATION markers, matching the same accent-colored line
+   convention as LOOP START, plus the gap between them (see RotationTimeline.tsx's comment on
+   why that gap is genuinely empty timeline, not a layout gap to be closed).
+   ========================================= */
+.timeline-loop-end-line,
+.timeline-end-rotation-line {
+    position: absolute;
+    top: 0; bottom: 0;
+    background: var(--accent);
+    z-index: 3;
+    pointer-events: none;
+}
+.timeline-ending-rotation-cut {
+    position: absolute;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: repeating-linear-gradient(
+        -45deg,
+        var(--border) 0px,
+        var(--border) 2px,
+        transparent 2px,
+        transparent 9px
+    );
+}
+.timeline-ending-rotation-cut-ff {
+    width: 20px;
+    height: 20px;
+    color: var(--accent);
+    flex-shrink: 0;
+}

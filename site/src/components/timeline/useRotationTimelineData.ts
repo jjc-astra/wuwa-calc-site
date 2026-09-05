@@ -54,6 +54,13 @@ export function useRotationTimelineData(resultId: string | null): TimelineDataSt
           team: data.team,
           options: data.settings || {},
           enemy: ENEMY_DEFAULTS,
+          // Pulled out to top-level payload keys (not left nested in `options`) because that's
+          // where calc.worker.ts's 'recalculate' handler actually reads them from -- without
+          // this, a saved rotation with an Ending Rotation split would silently show it starting
+          // right after the one authored loop rep instead of after the real skip-ahead, the same
+          // bug previewEndingRotationTiming exists to fix for the live Rotation Calculator.
+          endingRotationEnabled: data.settings?.endingRotationEnabled,
+          endRotationStartsEarlier: data.settings?.endRotationStartsEarlier,
           ...buildBuilderPayload(data.team)
         });
         const { evaluatedRows, loopStartIndex } = await result;
