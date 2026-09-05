@@ -46,6 +46,8 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     setLoopEndOverride,
     resetLoopEnd,
     endingRotationEnabled,
+    endRotationStartsEarlier,
+    setEndRotationStartsEarlier,
     recalculate,
     results,
     isStale
@@ -265,7 +267,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
         const { domRef, ...cleanData } = slot;
         return cleanData;
       }),
-      settings: { startEnergy, startConcerto, endingRotationEnabled }
+      settings: { startEnergy, startConcerto, endingRotationEnabled, endRotationStartsEarlier }
     };
     if (includeResults) {
       const { dmgOverTimeSeries, ...resultsWithoutDmgOverTime } = results!;
@@ -337,6 +339,11 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
   // No auto-detection for loop end (unlike loop start) -- it's always an explicit tag, or
   // absent entirely (the whole loop runs to the end of the rows array, today's behavior).
   const loopEndIndex = rows.findIndex(r => r.loopEndOverride === true);
+  // The "END ROTATION" marker is derived from loopEndIndex rather than its own persisted flag
+  // -- it's always the row immediately after LOOP END, whenever that row actually has content
+  // (an empty trailing row there means there's no Ending Rotation content to mark). Deriving it
+  // avoids a second per-row flag that could drift out of sync with loopEndOverride.
+  const hasEndRotationContent = loopEndIndex !== -1 && !!rows[loopEndIndex + 1]?.unit;
 
   return (
     <div ref={wrapperRef} className={`section-wrapper ${isCollapsed ? 'is-collapsed' : ''} ${animDone ? 'anim-done' : ''}`} id="step2-wrapper">
@@ -419,6 +426,9 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
               onLoopEndMarkerDragStart={handleLoopEndMarkerDragStart}
               onLoopEndMarkerDragEnd={handleLoopMarkerDragEnd}
               onResetLoopEnd={resetLoopEnd}
+              isEndRotationStart={i === loopEndIndex + 1 && hasEndRotationContent}
+              endRotationStartsEarlier={endRotationStartsEarlier}
+              onToggleEndRotationStartsEarlier={setEndRotationStartsEarlier}
             />
           ))}
         </div>

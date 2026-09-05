@@ -14,7 +14,7 @@ export interface HistoryEntry {
   isFavorite: boolean;
   team: TeamSlot[];
   rotation: RotationRow[];
-  settings: { startEnergy: boolean; startConcerto: boolean; endingRotationEnabled?: boolean };
+  settings: { startEnergy: boolean; startConcerto: boolean; endingRotationEnabled?: boolean; endRotationStartsEarlier?: boolean };
   results: RotationResults;
 }
 

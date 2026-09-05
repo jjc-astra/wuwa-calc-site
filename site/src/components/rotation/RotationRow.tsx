@@ -14,6 +14,7 @@ import type { DropdownGroup } from '../common/Dropdown';
 import { TooltipManager, getCharacterThemeColor } from '../../utils/Common';
 import { toFrames, secondsToFrames, framesToSeconds, formatFramesAsSeconds } from '../../utils/Frames';
 
+
 interface RotationRowProps {
   index: number;
   row: any;
@@ -38,6 +39,11 @@ interface RotationRowProps {
   onLoopEndMarkerDragStart?: (e: React.DragEvent) => void;
   onLoopEndMarkerDragEnd?: (e: React.DragEvent) => void;
   onResetLoopEnd?: () => void;
+  // Derived by RotationBuilder (loopEndIndex + 1, when that row has content) rather than its
+  // own persisted flag -- see RotationBuilder.tsx's hasEndRotationContent comment.
+  isEndRotationStart?: boolean;
+  endRotationStartsEarlier?: boolean;
+  onToggleEndRotationStartsEarlier?: (val: boolean) => void;
 }
 
 interface TimingOption {
@@ -80,7 +86,10 @@ export const RotationRow: React.FC<RotationRowProps> = ({
   isLoopEnd,
   onLoopEndMarkerDragStart,
   onLoopEndMarkerDragEnd,
-  onResetLoopEnd
+  onResetLoopEnd,
+  isEndRotationStart,
+  endRotationStartsEarlier,
+  onToggleEndRotationStartsEarlier
 }) => {
   const { updateRowField, updateRowFields, addRow, isStale } = useRotationStore();
   const { team } = useRosterStore();
@@ -319,6 +328,43 @@ export const RotationRow: React.FC<RotationRowProps> = ({
       onDragLeave={onDragLeave}
       onDrop={e => onDrop(e, index)}
     >
+      {isEndRotationStart && (
+        <>
+          <div
+            className="ending-rotation-cut"
+          >
+            <div className="ending-rotation-cut-track">
+              <svg className="ending-rotation-cut-ff" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="1,4 11,12 1,20" />
+                <polygon points="12,4 22,12 12,20" />
+              </svg>
+            </div>
+          </div>
+          <div
+            className="end-rotation-tag"
+            onMouseEnter={e => TooltipManager.show(e.currentTarget, '<div>Everything from here down replaces the tail of the 2-Minute window.</div>')}
+            onMouseLeave={() => TooltipManager.hide()}
+          >
+            <span className="loop-tag-icon">⟳</span>
+            <span className="loop-tag-label">END ROTATION</span>
+            <label
+              className="end-rotation-check-wrap"
+              onClick={e => e.stopPropagation()}
+              onMouseEnter={e => { e.stopPropagation(); TooltipManager.show(e.currentTarget, '<div>Simulate one fewer full loop, so the Ending Rotation replaces/extends the final loop instead of running as a short extra segment after it.</div>'); }}
+              onMouseLeave={() => TooltipManager.hide()}
+            >
+              <span>Extend Last Loop</span>
+              <input
+                type="checkbox"
+                checked={!!endRotationStartsEarlier}
+                onChange={e => onToggleEndRotationStartsEarlier?.(e.target.checked)}
+              />
+              <span className="check-visual" />
+            </label>
+          </div>
+        </>
+      )}
+
       {isLoopStart && (
         <div
           className={`loop-start-tag ${loopIssues.some(i => i.isError) ? 'loop-tag-error' : loopIssues.length > 0 ? 'loop-tag-warning' : ''}`}

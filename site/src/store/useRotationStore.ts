@@ -44,6 +44,12 @@ interface RotationState {
   loopErrors: string[];
   loopWarnings: string[];
   endingRotationEnabled: boolean;
+  // When true, the engine simulates one fewer full loop repetition before splicing in the
+  // Ending Rotation content -- lets the authored content replace/extend the final loop instead
+  // of running as a short extra segment tacked on after a full last loop. Purely a calculation
+  // flag: it never changes what gets auto-populated into the table (see setEndingRotationEnabled
+  // below), only how many silent reps precede the splice point on the next recalculate/Calculate.
+  endRotationStartsEarlier: boolean;
   results: RotationResults | null;
   isCalculating: boolean;
 
@@ -66,10 +72,14 @@ interface RotationState {
   // Turning on for the first time (no row yet carries loopEndOverride) auto-populates: tags
   // the current last content row as the loop end, then appends a copy of the loop segment
   // (rows[loopStartIndex..that row]) below it as the starting "Ending Rotation" content for
-  // the user to edit. Turning off is non-destructive -- the tag and rows stay put, just unused
-  // by the 2-Minute calculation until re-enabled. Re-enabling after a tag already exists just
-  // flips the flag back on, never re-populates (would otherwise duplicate rows on every toggle).
+  // the user to edit. Turning off is fully destructive (see resetLoopEnd) -- the tag and the
+  // appended rows are removed, not left behind unused. Re-enabling after a tag already exists
+  // just flips the flag back on, never re-populates (would otherwise duplicate rows).
   setEndingRotationEnabled: (val: boolean) => void;
+  // A no-op while there's no active Ending Rotation split (nothing for it to affect) --
+  // mirrors the checkbox-gating pattern used for endingRotationEnabled's own display. Never
+  // touches rows; see the endRotationStartsEarlier field comment above.
+  setEndRotationStartsEarlier: (val: boolean) => void;
 
   executeCommand: (cmd: Command) => void;
   // markStale defaults true (a real edit always invalidates the last Calculate) -- pass false
@@ -84,7 +94,7 @@ interface RotationState {
   calculateDamage: () => Promise<void>;
   undo: () => void;
   redo: () => void;
-  importRotation: (rows: RotationRow[], settings?: { startEnergy?: boolean; startConcerto?: boolean; endingRotationEnabled?: boolean }) => void;
+  importRotation: (rows: RotationRow[], settings?: { startEnergy?: boolean; startConcerto?: boolean; endingRotationEnabled?: boolean; endRotationStartsEarlier?: boolean }) => void;
 }
 
 const historyManager = new HistoryManager();
@@ -152,6 +162,7 @@ export const useRotationStore = create<RotationState>()(
         loopErrors: [],
         loopWarnings: [],
         endingRotationEnabled: false,
+        endRotationStartsEarlier: false,
         results: null,
         isCalculating: false,
 
@@ -294,13 +305,17 @@ export const useRotationStore = create<RotationState>()(
           const rows = get().rows;
           const endIdx = rows.findIndex(r => r.loopEndOverride === true);
           const wasEnabled = get().endingRotationEnabled;
+          const wasStartingEarlier = get().endRotationStartsEarlier;
           // The flag flip has to ride inside the same CompositeCommand as the row/tag changes
           // below (rather than a bare set() after historyManager.execute()) -- otherwise
           // undoing this action restores the marker and its rows but leaves the checkbox's
           // underlying flag stuck false, silently desyncing it from the now-restored marker.
+          // endRotationStartsEarlier resets alongside endingRotationEnabled for the same
+          // reason -- it's meaningless without an active split, so a future re-enable should
+          // start from a clean, unchecked "Extend Last Loop" state.
           const flagCommand: Command = {
-            execute: () => set({ endingRotationEnabled: false }),
-            undo: () => set({ endingRotationEnabled: wasEnabled })
+            execute: () => set({ endingRotationEnabled: false, endRotationStartsEarlier: false }),
+            undo: () => set({ endingRotationEnabled: wasEnabled, endRotationStartsEarlier: wasStartingEarlier })
           };
 
           if (endIdx === -1) {
@@ -357,6 +372,12 @@ export const useRotationStore = create<RotationState>()(
           set({ endingRotationEnabled: true });
         },
 
+        setEndRotationStartsEarlier: (val: boolean) => {
+          if (!get().endingRotationEnabled) return;
+          set({ endRotationStartsEarlier: val });
+          triggerRecalc();
+        },
+
         executeCommand: (cmd: Command) => {
           historyManager.execute(cmd);
         },
@@ -366,7 +387,7 @@ export const useRotationStore = create<RotationState>()(
         recalculate: async (markStale: boolean = true, includeDamage: boolean = false) => {
           const team = useRosterStore.getState().team;
           const enemy = useRosterStore.getState().enemy;
-          const { startEnergy, startConcerto, rows, endingRotationEnabled } = get();
+          const { startEnergy, startConcerto, rows, endingRotationEnabled, endRotationStartsEarlier } = get();
           const options = { startEnergy, startConcerto };
 
           // Same staleness check calculateDamage() does below -- recalculate() fires on nearly
@@ -380,7 +401,7 @@ export const useRotationStore = create<RotationState>()(
           const staleRefs = await checkTeamFreshness(team);
 
           set({ isCalculating: true });
-          const { seq, result } = postToWorker('recalculate', { rows, team, options, enemy, includeDamage, endingRotationEnabled, staleRefs, ...buildBuilderPayload(team) });
+          const { seq, result } = postToWorker('recalculate', { rows, team, options, enemy, includeDamage, endingRotationEnabled, endRotationStartsEarlier, staleRefs, ...buildBuilderPayload(team) });
           latestSeqByType.recalculate = seq;
           let data: any;
           try {
@@ -433,7 +454,7 @@ export const useRotationStore = create<RotationState>()(
         calculateDamage: async () => {
           const team = useRosterStore.getState().team;
           const enemy = useRosterStore.getState().enemy;
-          const { startEnergy, startConcerto, rows, loopStartIndex, endingRotationEnabled } = get();
+          const { startEnergy, startConcerto, rows, loopStartIndex, endingRotationEnabled, endRotationStartsEarlier } = get();
           const options = { startEnergy, startConcerto };
 
           // Silently evicts (or, if locally edited, flags) any of this team's mechanic JSONs
@@ -448,7 +469,7 @@ export const useRotationStore = create<RotationState>()(
           const staleRefs = await checkTeamFreshness(team);
 
           set({ isCalculating: true });
-          const { seq, result } = postToWorker('calculateDamage', { rows, team, options, enemy, loopStartIndex, endingRotationEnabled, staleRefs, ...buildBuilderPayload(team) });
+          const { seq, result } = postToWorker('calculateDamage', { rows, team, options, enemy, loopStartIndex, endingRotationEnabled, endRotationStartsEarlier, staleRefs, ...buildBuilderPayload(team) });
           latestSeqByType.calculateDamage = seq;
           let data: any;
           try {
@@ -480,7 +501,7 @@ export const useRotationStore = create<RotationState>()(
               ...(loopStartOverride === true && { loopStartOverride: true }),
               ...(loopEndOverride === true && { loopEndOverride: true })
             })),
-            settings: { ...options, endingRotationEnabled },
+            settings: { ...options, endingRotationEnabled, endRotationStartsEarlier },
             results: data.results
           });
         },
@@ -493,7 +514,7 @@ export const useRotationStore = create<RotationState>()(
           historyManager.redo();
         },
 
-        importRotation: (rows: RotationRow[], settings?: { startEnergy?: boolean; startConcerto?: boolean; endingRotationEnabled?: boolean }) => {
+        importRotation: (rows: RotationRow[], settings?: { startEnergy?: boolean; startConcerto?: boolean; endingRotationEnabled?: boolean; endRotationStartsEarlier?: boolean }) => {
           historyManager.clear();
           const trailingEmpty: RotationRow = { unit: '', action: '', timing: 'Auto', offset: 0 };
           const withTrailingRow = rows.length > 0 && rows[rows.length - 1].unit
@@ -504,6 +525,7 @@ export const useRotationStore = create<RotationState>()(
             startEnergy: settings?.startEnergy ?? get().startEnergy,
             startConcerto: settings?.startConcerto ?? get().startConcerto,
             endingRotationEnabled: settings?.endingRotationEnabled ?? get().endingRotationEnabled,
+            endRotationStartsEarlier: settings?.endRotationStartsEarlier ?? get().endRotationStartsEarlier,
             selectedIndices: []
           });
           get().recalculate();
@@ -525,6 +547,7 @@ export const useRotationStore = create<RotationState>()(
         startEnergy: state.startEnergy,
         startConcerto: state.startConcerto,
         endingRotationEnabled: state.endingRotationEnabled,
+        endRotationStartsEarlier: state.endRotationStartsEarlier,
         // The last Calculate press's output -- so reopening the Calculator (or reloading the
         // page) still shows the Results tab instead of "No Results Yet" until something
         // actually changes. isStale/loop* travel with it since they describe that same result

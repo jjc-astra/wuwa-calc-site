@@ -96,7 +96,8 @@ function buildExtendedTimeline(
   options: { startEnergy?: boolean; startConcerto?: boolean },
   enemyConfig: { level: number; res: number; hp: number },
   loopStartIndex: number,
-  endingRotationEnabled: boolean
+  endingRotationEnabled: boolean,
+  endRotationStartsEarlier: boolean = false
 ): { evaluatedRows: any[]; openerEndTime: Frames; loopDuration: Frames | null } {
   const contentRows = rows.filter(r => r && r.unit);
   const { openerRows, loopTemplate, endingRows } = splitLoopSegments(contentRows, loopStartIndex, endingRotationEnabled);
@@ -129,8 +130,13 @@ function buildExtendedTimeline(
   // loop rep. Math.max(AVG_LOOP_REPS, ...) still guarantees the avg-loop window's 3 full reps
   // even if that means running past 120s before the Ending Rotation even starts (a loop longer
   // than the whole 2-minute budget) -- the Ending Rotation is a no-op there, which is fine.
+  // endRotationStartsEarlier subtracts one more rep on top of that floor calc (still clamped by
+  // the same Math.max(AVG_LOOP_REPS, ...) below) -- it never changes how many rows got copied
+  // into the table (see useRotationStore.setEndingRotationEnabled), only how many silent reps
+  // run before the splice point, so the Ending Rotation content effectively replaces/extends
+  // what would have been the final loop instead of tacking on after a full one.
   const repsToSimulate = endingRows.length > 0
-    ? Math.max(AVG_LOOP_REPS, Math.max(0, Math.floor((TWO_MIN - openerEndTime) / loopDuration)))
+    ? Math.max(AVG_LOOP_REPS, Math.max(0, Math.floor((TWO_MIN - openerEndTime) / loopDuration) - (endRotationStartsEarlier ? 1 : 0)))
     : Math.max(AVG_LOOP_REPS, Math.ceil((TWO_MIN - openerEndTime) / loopDuration));
   const extendedContent: any[] = [...openerRows];
   for (let i = 0; i < repsToSimulate; i++) extendedContent.push(...loopTemplate);
@@ -154,7 +160,8 @@ export function previewEndingRotationTiming(
   options: { startEnergy?: boolean; startConcerto?: boolean },
   enemyConfig: { level: number; res: number; hp: number },
   loopStartIndex: number,
-  populateDamage: boolean = false
+  populateDamage: boolean = false,
+  endRotationStartsEarlier: boolean = false
 ): any[] {
   const contentRows = evaluatedRows.filter(r => r && r.unit);
   const { openerRows, loopTemplate, endingRows } = splitLoopSegments(contentRows, loopStartIndex, true);
@@ -167,7 +174,7 @@ export function previewEndingRotationTiming(
   const loopDuration = toFrames(loopEndTime - openerEndTime);
   if (loopDuration <= 0) return evaluatedRows;
 
-  const repsToSimulate = Math.max(1, Math.floor((TWO_MIN - openerEndTime) / loopDuration));
+  const repsToSimulate = Math.max(1, Math.floor((TWO_MIN - openerEndTime) / loopDuration) - (endRotationStartsEarlier ? 1 : 0));
   const extendedContent: any[] = [...openerRows];
   for (let i = 0; i < repsToSimulate; i++) extendedContent.push(...loopTemplate);
   extendedContent.push(...endingRows);
@@ -523,9 +530,10 @@ export function buildRotationResults(
   options: { startEnergy?: boolean; startConcerto?: boolean },
   enemyConfig: { level: number; res: number; hp: number },
   loopStartIndex: number,
-  endingRotationEnabled: boolean = false
+  endingRotationEnabled: boolean = false,
+  endRotationStartsEarlier: boolean = false
 ): RotationResults {
-  const { evaluatedRows, openerEndTime, loopDuration } = buildExtendedTimeline(rows, team, options, enemyConfig, loopStartIndex, endingRotationEnabled);
+  const { evaluatedRows, openerEndTime, loopDuration } = buildExtendedTimeline(rows, team, options, enemyConfig, loopStartIndex, endingRotationEnabled, endRotationStartsEarlier);
   const hits = buildHitList(evaluatedRows, team, enemyConfig);
   const teamNames = team.filter(s => s.character).map(s => s.character);
   const twoMinHits = windowedHits(hits, -Infinity, TWO_MIN);

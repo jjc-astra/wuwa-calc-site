@@ -130,7 +130,7 @@ worker.onmessage = async (e: MessageEvent) => {
       // columns reflect where it actually lands once the in-between loops are (silently)
       // accounted for, same as the real 2-Minute calculation does.
       if (payload.endingRotationEnabled) {
-        evaluatedRows = previewEndingRotationTiming(evaluatedRows, team, options, enemy, loopStartIndex, !!payload.includeDamage);
+        evaluatedRows = previewEndingRotationTiming(evaluatedRows, team, options, enemy, loopStartIndex, !!payload.includeDamage, !!payload.endRotationStartsEarlier);
       }
       worker.postMessage({
         id,
@@ -142,7 +142,7 @@ worker.onmessage = async (e: MessageEvent) => {
         loopWarnings
       });
     } else if (type === 'calculateDamage') {
-      const { rows, team, options, enemy, loopStartIndex, endingRotationEnabled } = payload;
+      const { rows, team, options, enemy, loopStartIndex, endingRotationEnabled, endRotationStartsEarlier } = payload;
 
       let evaluatedRows = TimelineEngine.recalculateState(rows, team, options, enemy);
       populateDamageInstances(evaluatedRows, enemy, team);
@@ -151,11 +151,11 @@ worker.onmessage = async (e: MessageEvent) => {
       // single-pass evaluation (starting right after the one loop rep in front of them again),
       // undoing what the live preview already got right.
       if (endingRotationEnabled) {
-        evaluatedRows = previewEndingRotationTiming(evaluatedRows, team, options, enemy, loopStartIndex, true);
+        evaluatedRows = previewEndingRotationTiming(evaluatedRows, team, options, enemy, loopStartIndex, true, !!endRotationStartsEarlier);
       }
 
       // Separate extended (opener + N-loop-repetition) pass -- feeds the Results panel.
-      const results = buildRotationResults(rows, team, options, enemy, loopStartIndex, endingRotationEnabled);
+      const results = buildRotationResults(rows, team, options, enemy, loopStartIndex, endingRotationEnabled, !!endRotationStartsEarlier);
 
       worker.postMessage({ id, ok: true, evaluatedRows: stripFunctions(evaluatedRows), results });
     }

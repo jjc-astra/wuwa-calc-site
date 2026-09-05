@@ -606,7 +606,8 @@
     pointer-events: none;
 }
 
-.check-wrap input:checked ~ .check-visual {
+.check-wrap input:checked ~ .check-visual,
+.end-rotation-check-wrap input:checked ~ .check-visual {
     background-color: var(--accent); border-color: var(--accent);
     box-shadow: inset 0 0 0 1px rgba(0,0,0,0.3);
 }
@@ -1000,6 +1001,75 @@
     letter-spacing: 0.02rem;
 }
 .loop-end-tag:active { cursor: grabbing; }
+
+/* --- Ending Rotation cut + End Rotation Tag --- (the "gap" between where the loop template
+   stops repeating and where the custom Ending Rotation content begins -- purely informational,
+   not draggable/interactive, since the split point itself is still controlled entirely by the
+   Loop End tag above it) */
+.ending-rotation-cut {
+    display: flex;
+    align-items: center;
+    padding: 2px 4px;
+    margin: 2px 0;
+}
+/* A diagonal-striped timeline track with a fast-forward glyph -- the same "sped up / time
+   remapped" convention video editors (Premiere, Resolve) use for a retimed clip on a timeline,
+   rather than an abstract line -- reads immediately as "skips ahead here". */
+.ending-rotation-cut-track {
+    width: 100%;
+    height: 14px;
+    border-radius: 2px;
+    background: repeating-linear-gradient(
+        -45deg,
+        var(--border) 0px,
+        var(--border) 2px,
+        transparent 2px,
+        transparent 9px
+    );
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.ending-rotation-cut-ff {
+    width: 14px;
+    height: 14px;
+    color: var(--accent);
+    flex-shrink: 0;
+}
+
+/* Same look as Loop Start (rounded top, sits above its row) -- not draggable, since its
+   position is always derived from the Loop End tag rather than its own marker. */
+.end-rotation-tag {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 4px 10px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-selected);
+    border: 1px solid var(--accent-border);
+    border-bottom: none;
+    border-radius: 4px 4px 0 0;
+    letter-spacing: 0.02rem;
+}
+/* Same hidden-native-input + custom box pattern as .check-wrap/.check-visual (the row-select
+   checkbox) -- just without that one's absolute positioning/hover-reveal, since this toggle is
+   always visible rather than an overlay on the row-index cell. Label text first, checkbox last,
+   per the row-select checkbox's own reading order. */
+.end-rotation-check-wrap {
+    margin-left: auto;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: normal;
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    cursor: pointer;
+    white-space: nowrap;
+}
+.end-rotation-check-wrap input { position: absolute; opacity: 0; cursor: pointer; height: 0; width: 0; }
 
 /* =========================================
    9. CALCULATION STATES (rotation-only; .calc-warning-msg itself is shared with the
