@@ -48,7 +48,7 @@ export const TeamPreview: React.FC<TeamPreviewProps> = ({ team }) => (
             )}
           </div>
           <span className="preview-badge">S{slot.sequence || 0}</span>
-          <span style={{ color: 'var(--text-disabled)', margin: '0 5px' }}>/</span>
+          <span style={{ color: 'var(--text-disabled)', margin: '0 2px' }}>&middot;</span>
           <div className="preview-avatar preview-rect preview-avatar-wrap" {...tip(slot.weapon || 'No Weapon')}>
             {slot.weapon ? (
               <PreviewIcon name={slot.weapon} folder={IMAGE_FOLDERS.WEAPONS} />
