@@ -468,7 +468,17 @@ export class TimelineEngineClass {
 
     const clampedStart = Math.max(0, Math.min(loopStartIndex, contentRows.length));
     const openerRows = contentRows.slice(0, clampedStart);
-    const loopTemplate = contentRows.slice(clampedStart);
+    // A row flagged loopEndOverride marks where the repeating loop template stops -- anything
+    // after it is Ending Rotation content, fixed one-time material that never repeats, not a
+    // continuation of the loop. Without this cutoff, that tail got folded into loopTemplate and
+    // duplicated below along with the real loop for the repeat-legality check, which validated
+    // combo/resource continuity as if the loop repeated *into* the Ending Rotation and the
+    // Ending Rotation looped back into a fresh copy of itself -- surfacing bogus "combo
+    // requirement not met" warnings against Ending Rotation moves that only ever play once.
+    const loopEndIndex = contentRows.findIndex(r => r.loopEndOverride === true);
+    const loopTemplate = loopEndIndex !== -1 && loopEndIndex >= clampedStart
+      ? contentRows.slice(clampedStart, loopEndIndex + 1)
+      : contentRows.slice(clampedStart);
     if (loopTemplate.length === 0) return { errors: [], warnings: [] };
 
     // `rows` is this edit's already-recalculated pass, so its timing fields are trustworthy --
