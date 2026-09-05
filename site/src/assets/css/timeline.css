@@ -38,7 +38,15 @@
     padding: 0 var(--space-3);
     position: sticky;
     left: 0;
-    z-index: 2;
+    /* Above every absolutely-positioned overlay in RotationTimeline.tsx (flag poles=1, the
+       Ending Rotation cut band=2, loop/end-rotation marker lines+arrows=3) -- those are
+       positioned in *content* space and scroll underneath this sticky column, so without
+       outranking their z-index they'd paint over the unit name/icon at whatever scroll position
+       happens to put them there (this is exactly what a longer rotation made visible: the loop
+       marker/cut band sit further along the timeline, so reaching them means scrolling past a
+       point where they align with this sticky column). See also .timeline-flag-track and
+       .timeline-ruler-spacer below, which need the same treatment for their own bands. */
+    z-index: 5;
     background: var(--surface-card-flat);
     overflow: hidden;
 }
@@ -93,7 +101,32 @@
     border-top: 1px solid var(--border);
     flex-shrink: 0;
 }
-.timeline-ruler-spacer { flex-shrink: 0; }
+/* Sticky + opaque so this bottom-left corner joins the row headers above it into one
+   continuous solid column -- .timeline-ruler itself isn't positioned, so this becomes a direct
+   participant in .timeline-content's own stacking context (same reasoning as .timeline-row-
+   header above) rather than being trapped at a lower effective z-index inside a non-positioned
+   parent. Shared with TimelineFlagTrack.tsx's own use of this class at the top of the timeline
+   -- see .timeline-flag-track below for why that one needs its z-index bumped instead. */
+.timeline-ruler-spacer {
+    flex-shrink: 0;
+    position: sticky;
+    left: 0;
+    z-index: 5;
+    background: var(--surface-card-flat);
+}
+/* The top usage of this spacer (TimelineFlagTrack.tsx) needs to reach 4px higher than its own
+   flex-stretched box -- .timeline-scroll's padding-top exists specifically so lane-0's spam/wait
+   corner dot (.timeline-flag-label-spam/-wait::after, offset top:-3px off its own label) isn't
+   clipped by overflow-y: hidden, but that same 4px sliver sits *above* .timeline-content
+   entirely, outside every sticky element's own box -- nothing was covering it, so a dot that
+   scrolls to align with the header column (same underlying issue as any other overlay content,
+   just literally out of reach of the fix elsewhere) stayed visible there regardless of z-index.
+   Negative margin-top + matching extra height grows this box upward into that sliver without
+   shifting the rest of the flex row's layout. */
+.timeline-flag-track > .timeline-ruler-spacer {
+    margin-top: -4px;
+    height: calc(100% + 4px);
+}
 .timeline-ruler-track { flex: 1; min-width: 0; position: relative; height: 100%; }
 
 /* Marks hang from the top of the ruler (flush against the border shared with the last unit
@@ -124,9 +157,16 @@
     border-bottom: 1px solid var(--border);
     position: relative;
     flex-shrink: 0;
-    /* Above .timeline-flag-pole (z-index: 1) -- poles are later siblings under .timeline-content
-       and would otherwise win the DOM-order tiebreak and paint over these labels. */
-    z-index: 2;
+    /* Being position:relative makes this its own stacking context, so its z-index has to beat
+       every top-level overlay in RotationTimeline.tsx as a whole unit -- flag poles (1), the
+       Ending Rotation cut band (2), and the loop/end-rotation marker lines+arrows (3) -- not
+       just win internally against its own flag labels. Otherwise this track's sticky spacer
+       (the top-left corner of the header column, see .timeline-ruler-spacer) would still lose
+       to those overlays despite its own z-index, since a child's z-index only ranks it within
+       its parent's stacking context, not against siblings of that parent. Matches
+       .timeline-row-header/.timeline-ruler-spacer's z-index so the whole header column -- top
+       spacer, every row, bottom spacer -- stacks as one consistent unit. */
+    z-index: 5;
 }
 .timeline-flag-track-lanes { flex: 1; min-width: 0; position: relative; }
 
@@ -194,9 +234,11 @@
 /* =========================================
    LOOP START INDICATOR
    ========================================= */
+/* top/height are always set inline (RotationTimeline.tsx's TimelineMarkerLine) -- the line
+   spans only the unit rows, stopping before the ruler, so it never visually collides with the
+   ruler's own tick marks/second labels. The ruler gets its own arrow marker instead (below). */
 .timeline-loop-start-line {
     position: absolute;
-    top: 0; bottom: 0;
     background: var(--accent);
     z-index: 3;
     pointer-events: none;
@@ -210,8 +252,19 @@
 .timeline-loop-end-line,
 .timeline-end-rotation-line {
     position: absolute;
-    top: 0; bottom: 0;
     background: var(--accent);
+    z-index: 3;
+    pointer-events: none;
+}
+/* The "playhead" marker at the ruler -- a solid triangle pointing up at the line above it,
+   same glyph-based solid-arrow convention as .toggle-icon/.ranking-row-expand-icon elsewhere in
+   the app (a plain colored Unicode character, not a bespoke SVG shape). */
+.timeline-marker-arrow {
+    position: absolute;
+    transform: translate(-50%, 0);
+    color: var(--accent);
+    font-size: 0.6rem;
+    line-height: 1;
     z-index: 3;
     pointer-events: none;
 }

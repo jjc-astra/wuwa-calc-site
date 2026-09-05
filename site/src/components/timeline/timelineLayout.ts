@@ -68,6 +68,68 @@ export function timeToPx(frames: number): number {
   return snapToDevicePixel(framesToSeconds(toFrames(frames)) * PX_PER_SECOND);
 }
 
+// A fixed, compact width for the Ending Rotation's "fast forward" jump -- deliberately NOT
+// proportional to the real (potentially huge, many-silently-repeated-loops') time it represents.
+// Rendering that gap at its true width is just a long stretch of empty timeline that happens to
+// be decorated, not a "skip ahead" -- a real video editor's jump-cut/speed-ramp marker is always
+// a small, fixed-size indicator regardless of how much time it actually elides. compressedTimeToPx
+// below is what actually enforces this: every frame in the gap collapses into this many pixels,
+// and everything after the gap shifts left to sit immediately against it, rather than one
+// decorative element being resized while its neighbors keep their true (huge) positions -- that
+// would leave it visually disconnected from the content right after it.
+export const ENDING_ROTATION_CUT_WIDTH_PX = 48;
+
+export interface TimeCompression {
+  gapStartFrames: number;
+  gapEndFrames: number;
+  compressedWidthPx: number;
+}
+
+// Mirrors RotationBuilder.tsx's/RotationTimeline.tsx's own loopEndOverride + row-adjacency
+// derivation exactly, so the row table and this Timeline can never disagree about where an
+// Ending Rotation split sits. Returns null when there's no split, or when the real gap is
+// already smaller than the compressed width (nothing to compress -- compressing it would
+// paradoxically stretch a short gap out instead of shrinking a long one).
+export function buildTimeCompression(evaluatedRows: any[]): TimeCompression | null {
+  const loopEndIndex = evaluatedRows.findIndex(r => r && r.unit && r.loopEndOverride === true);
+  if (loopEndIndex === -1) return null;
+  const loopEndRow = evaluatedRows[loopEndIndex];
+  const endRotationRow = evaluatedRows[loopEndIndex + 1];
+  if (!endRotationRow || !endRotationRow.unit) return null;
+
+  const gapStartFrames = toFrames(loopEndRow.gameTimeStart + loopEndRow.gameTimePassed);
+  const gapEndFrames = toFrames(endRotationRow.gameTimeStart);
+  if (gapEndFrames <= gapStartFrames) return null;
+
+  const realGapWidthPx = timeToPx(gapEndFrames) - timeToPx(gapStartFrames);
+  if (realGapWidthPx <= ENDING_ROTATION_CUT_WIDTH_PX) return null;
+
+  return { gapStartFrames, gapEndFrames, compressedWidthPx: ENDING_ROTATION_CUT_WIDTH_PX };
+}
+
+// Same as timeToPx, but every frame inside [gapStartFrames, gapEndFrames) collapses into a
+// fixed compressedWidthPx-wide band, and every frame at/after gapEndFrames shifts left by
+// however much real width that collapse removed -- so content right after the gap sits right
+// after the (now compact) band instead of stranded out at its true, huge offset. Every x/width
+// calculation in this module should route through this instead of calling timeToPx directly, so
+// the whole layout -- clips, flags, ticks, total width -- agrees on the same compressed axis.
+export function compressedTimeToPx(frames: number, compression: TimeCompression | null): number {
+  if (!compression) return timeToPx(frames);
+  const { gapStartFrames, gapEndFrames, compressedWidthPx } = compression;
+  if (frames <= gapStartFrames) return timeToPx(frames);
+  const gapStartPx = timeToPx(gapStartFrames);
+  if (frames >= gapEndFrames) {
+    const realGapWidthPx = timeToPx(gapEndFrames) - gapStartPx;
+    return timeToPx(frames) - realGapWidthPx + compressedWidthPx;
+  }
+  // Falls inside the gap -- only reached by a tick about to be filtered out (see generateTicks)
+  // or a defensive/edge-case caller; interpolate proportionally within the compressed band
+  // rather than returning something outside [gapStartPx, gapStartPx + compressedWidthPx].
+  const gapFrames = gapEndFrames - gapStartFrames;
+  const frac = gapFrames > 0 ? (frames - gapStartFrames) / gapFrames : 0;
+  return gapStartPx + frac * compressedWidthPx;
+}
+
 export type SegmentType = 'onfield' | 'offfield' | 'wait';
 
 export interface TimelineSegment {
@@ -91,7 +153,7 @@ export interface UnitRowData {
   simultaneousLines: SimultaneousLine[];
 }
 
-function deriveSegments(rows: any[]): TimelineSegment[] {
+function deriveSegments(rows: any[], compression: TimeCompression | null): TimelineSegment[] {
   const segments: TimelineSegment[] = [];
   for (const row of rows) {
     // The on-field clip must end where the action actually finishes *in game time*, not
@@ -99,8 +161,8 @@ function deriveSegments(rows: any[]): TimelineSegment[] {
     // animation has, which pauses the game clock but not the real-world one). gameTimePassed is
     // the engine's own freeze-adjusted figure (TimelineEngine.ts: `duration - freezeTime`), so
     // it's used directly rather than re-deriving the subtraction here.
-    const onStartX = timeToPx(row.gameTimeStart);
-    const onTrueEndX = timeToPx(row.gameTimeStart + row.gameTimePassed);
+    const onStartX = compressedTimeToPx(row.gameTimeStart, compression);
+    const onTrueEndX = compressedTimeToPx(row.gameTimeStart + row.gameTimePassed, compression);
     // Below the min-width floor, extend rightward (not the true end) so this clip's start stays
     // anchored to the actual game-time boundary shared with the wait segment before it.
     const onWidthPx = Math.max(MIN_CLIP_WIDTH_PX, onTrueEndX - onStartX);
@@ -110,7 +172,7 @@ function deriveSegments(rows: any[]): TimelineSegment[] {
     if (row.waitTime > 0 && row.timing !== 'Simultaneous') {
       // Anchored to onStartX (the shared, fixed boundary) and extended *backward* when floored,
       // so a floored wait clip can never creep forward into the on-field clip it precedes.
-      const waitTrueStartX = timeToPx(row.gameTimeStart - row.waitTime);
+      const waitTrueStartX = compressedTimeToPx(row.gameTimeStart - row.waitTime, compression);
       const waitWidthPx = Math.max(MIN_CLIP_WIDTH_PX, onStartX - waitTrueStartX);
       segments.push({ type: 'wait', xPx: onStartX - waitWidthPx, widthPx: waitWidthPx, row });
     }
@@ -123,7 +185,7 @@ function deriveSegments(rows: any[]): TimelineSegment[] {
     // clip can never overlap the off-field tail that follows it.
     const offEndFrames = row.gameTimeStart + Math.max(0, row.animationCommitment - (row.freezeTime || 0));
     if (offEndFrames > row.gameTimeStart + row.gameTimePassed) {
-      const offEndX = timeToPx(offEndFrames);
+      const offEndX = compressedTimeToPx(offEndFrames, compression);
       segments.push({ type: 'offfield', xPx: onRenderedEndX, widthPx: Math.max(MIN_CLIP_WIDTH_PX, offEndX - onRenderedEndX), row });
     }
   }
@@ -136,7 +198,7 @@ function deriveSegments(rows: any[]): TimelineSegment[] {
 // bottom-of-row line marking how long the simultaneous action itself actually runs: until its
 // own animation finishes, or -- for a Hold-type simultaneous action (e.g. a Forte Hold Press
 // starting mid-combo) -- until the matching Release row fires later in the rotation.
-function deriveSimultaneousLines(rows: any[]): SimultaneousLine[] {
+function deriveSimultaneousLines(rows: any[], compression: TimeCompression | null): SimultaneousLine[] {
   const lines: SimultaneousLine[] = [];
   rows.forEach((row, i) => {
     if (row.timing !== 'Simultaneous') return;
@@ -145,14 +207,14 @@ function deriveSimultaneousLines(rows: any[]): SimultaneousLine[] {
       const releaseRow = rows.slice(i + 1).find(r => r.inputType === 'Release');
       if (releaseRow) endGameTime = releaseRow.gameTimeStart;
     }
-    const startX = timeToPx(row.gameTimeStart);
-    const endX = timeToPx(endGameTime);
+    const startX = compressedTimeToPx(row.gameTimeStart, compression);
+    const endX = compressedTimeToPx(endGameTime, compression);
     lines.push({ xPx: startX, widthPx: Math.max(1, endX - startX), row });
   });
   return lines;
 }
 
-export function buildUnitRows(evaluatedRows: any[], team: TeamSlot[]): UnitRowData[] {
+export function buildUnitRows(evaluatedRows: any[], team: TeamSlot[], compression: TimeCompression | null = null): UnitRowData[] {
   const unitRows: UnitRowData[] = [];
   team.forEach((slot, slotIndex) => {
     if (!slot.character) return;
@@ -161,8 +223,8 @@ export function buildUnitRows(evaluatedRows: any[], team: TeamSlot[]): UnitRowDa
       unit: slot.character,
       slotIndex,
       themeColor: getCharacterThemeColor(DataLoader.characterDB[slot.character]),
-      segments: deriveSegments(rows),
-      simultaneousLines: deriveSimultaneousLines(rows)
+      segments: deriveSegments(rows, compression),
+      simultaneousLines: deriveSimultaneousLines(rows, compression)
     });
   });
   return unitRows;
@@ -295,9 +357,9 @@ export function estimateFlagWidthPx(flag: TimelineFlag): number {
 // Greedy interval-partitioning: sort by x (stable sort keeps same-timestamp flags in emission
 // order, so a swap flag always lands before its co-timed input flag), then place each flag in
 // the first lane whose last-occupied edge has cleared this flag's start, else open a new lane.
-export function assignFlagLanes(flags: TimelineFlag[]): LaidOutFlag[] {
+export function assignFlagLanes(flags: TimelineFlag[], compression: TimeCompression | null = null): LaidOutFlag[] {
   const positioned = flags
-    .map(f => ({ ...f, xPx: timeToPx(f.timeFrames), widthPx: estimateFlagWidthPx(f) }))
+    .map(f => ({ ...f, xPx: compressedTimeToPx(f.timeFrames, compression), widthPx: estimateFlagWidthPx(f) }))
     .sort((a, b) => a.xPx - b.xPx);
 
   const laneEndX: number[] = [];
@@ -325,13 +387,17 @@ export interface Tick {
 // Frame-domain loop (not repeated float-second addition) -- 60fps divides evenly into all three
 // intervals (major=60f/1s, secondary=30f/0.5s, minor=15f/0.25s), so there's no drift to guard
 // against.
-export function generateTicks(totalFrames: number): Tick[] {
+export function generateTicks(totalFrames: number, compression: TimeCompression | null = null): Tick[] {
   const ticks: Tick[] = [];
   for (let f = 0; f <= totalFrames; f += 15) {
+    // Skip ticks that fall strictly inside the compressed gap -- crammed into a ~48px band at
+    // 0.25s resolution they'd be illegible, and their spacing would imply real elapsed time that
+    // compressedTimeToPx no longer represents there (the whole point of compressing it).
+    if (compression && f > compression.gapStartFrames && f < compression.gapEndFrames) continue;
     const tier: TickTier = f % 60 === 0 ? 'major' : f % 30 === 0 ? 'secondary' : 'minor';
     ticks.push({
       frames: f,
-      xPx: timeToPx(f),
+      xPx: compressedTimeToPx(f, compression),
       tier,
       label: tier === 'major' ? `${Math.round(framesToSeconds(toFrames(f)))}s` : undefined
     });

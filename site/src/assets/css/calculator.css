@@ -372,6 +372,15 @@
 }
 
 /* --- The Builder List --- */
+/* Wraps #rotation-builder (the real scrolling list) and .rotation-scrollbar-map (a plain,
+   non-scrolling sibling painted underneath it) -- see that class below for why a real DOM
+   element, not scrollbar-track CSS, is what actually draws the map. */
+.rotation-list-wrap {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+}
 #rotation-builder {
     flex: 1;
     min-height: 0;
@@ -381,6 +390,64 @@
     flex-direction: column;
     gap: 0;
     background: transparent;
+    /* Own stacking context, ranked above .rotation-scrollbar-map below -- without this,
+       #rotation-builder is a plain non-positioned block, which CSS's painting order puts
+       *before* a position:absolute sibling with z-index:auto regardless of DOM order. Since a
+       native scrollbar paints as part of its owning box's own render, that made the map's colored
+       segments cover the real scrollbar (thumb included) instead of the other way around --
+       exactly backwards from the "translucent scrollbar overlaying an opaque map" design. */
+    position: relative;
+    z-index: 1;
+    /* Same scrollbar-color mechanism components.css's `*` rule already uses everywhere else on
+       the site (not the legacy ::-webkit-scrollbar-track/-thumb pseudo-elements -- an earlier
+       attempt used those, which pushed Chromium into its classic scrollbar-button rendering
+       mode, showing an unstyled/blank arrow-button gap that doesn't exist anywhere else on the
+       site, plus a width that didn't line up with what scrollbar-width: thin actually renders).
+       Plain translucent grey (not tinted to the map's own colors) -- this scrollbar's only job
+       now is to act as a "window" showing which rows are currently in view, like VS Code's own
+       minimap slider; the color-coding lives entirely in .rotation-scrollbar-map underneath it.
+       Track is fully transparent so the map shows through everywhere except where the thumb
+       itself (the "window") sits. */
+    scrollbar-color: color-mix(in srgb, white 22%, transparent) transparent;
+}
+/* The scrollbar "map" itself -- a plain, non-scrolling container sitting directly behind
+   #rotation-builder's own translucent scrollbar, holding one absolutely-positioned child per
+   .rotation-scrollbar-segment-* below (computed in RotationBuilder.tsx's
+   buildRotationScrollbarSegments). Width is measured there too (not assumed) since
+   scrollbar-color's rendered width doesn't correspond to any fixed pixel value -- see the
+   ResizeObserver effect. Being real elements (not a pseudo-element background), they render
+   exactly as authored, with no native-scrollbar-widget restrictions.
+   top/bottom are inset by that same measured thickness (RotationBuilder.tsx passes it inline) --
+   setting an explicit scrollbar-color pushes Windows Chrome/Edge into its "classic" scrollbar
+   rendering, which (unlike the overlay style) draws a square up/down arrow button at each end of
+   the track, roughly as tall as the scrollbar is wide. Without this inset the map's own segments
+   would run the full height and paint underneath (and visually bleed around) those buttons; this
+   keeps the color-coding scoped to the actual draggable track, which is also a closer match for
+   where the real thumb can travel. z-index:0 (explicit, not auto) keeps this reliably below
+   #rotation-builder's own z-index:1 above regardless of paint-order specifics. */
+.rotation-scrollbar-map {
+    position: absolute;
+    right: 0;
+    z-index: 0;
+    pointer-events: none;
+}
+/* One rounded, narrow bar per contiguous run of same-unit rows -- narrower than the gutter
+   (a "thinner colored bar", VS Code's own overview-ruler convention for non-decoration content)
+   and dimmed to match that unit's own input-field background (RotationRow's own color-mix
+   formula) rather than the full-strength theme color, so it reads as a quiet backdrop. */
+.rotation-scrollbar-segment-unit {
+    position: absolute;
+    left: 30%;
+    right: 30%;
+    border-radius: 2px;
+}
+/* Loop start/end -- wider than the gutter (a "wider but skinnier mark", VS Code's convention for
+   an actual decoration/annotation) and short, layered on top of the unit bars. */
+.rotation-scrollbar-segment-marker {
+    position: absolute;
+    left: -2px;
+    right: -2px;
+    background: var(--accent);
 }
 
 /* --- Toolbar --- */
