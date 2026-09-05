@@ -1,9 +1,7 @@
 import type { MechanicNode } from '../types';
 import { toFrames } from '../utils/Frames';
 
-// Public/images subfolder names, single-sourced so every icon path builder and
-// class-selection check (MechanicsBuilder, TeamBuilder, CharacterSlot, BaseStatsForm)
-// stays in sync if these folders are ever renamed.
+// Public/images subfolder names, single-sourced so icon path builders stay in sync.
 export const IMAGE_FOLDERS = {
   CHARACTERS: 'characters',
   WEAPONS: 'weapons',
@@ -28,8 +26,7 @@ export const MECHANICS_NOTATION = {
   }
 };
 
-// A mechanic's `input` tag (InputsPhysicsPanel.tsx's "Input Binding" dropdown) -> the physical
-// key/click the rotation Timeline's input-press flags label it with.
+// A mechanic's `input` tag -> the physical key/click the Timeline's input flags label it with.
 export const INPUT_KEY_MAP: Record<string, string> = {
   Basic: 'Left Click',
   Skill: 'E',
@@ -101,18 +98,12 @@ export const STAT_NAME_MAP: Record<string, string> = {
 export const DEFAULT_SUBSTATS = ['CR Rate', 'CR DMG', 'ATK %', 'ER %', 'ATK'];
 export const CHARS_WITH_MODES = ['Lynae', 'Aemeath'];
 
-// Master switch for gating content that doesn't have real mechanics data yet: when true,
-// unimplemented units/weapons/echo sets/echoes are disabled (and greyed out) in the Rotation
-// Calculator's Step 1 dropdowns, and shown greyed out (but still selectable, since that's
-// exactly where you'd go to add them) in the Mechanics Builder's roster grid. Flip to false
-// during content authoring to make everything selectable again.
+// Master switch gating content with no real mechanics data yet -- disabled/greyed out in the
+// Rotation Calculator, still selectable in the Mechanics Builder. Flip off during content authoring.
 export const DISABLE_UNIMPLEMENTED_CONTENT = true;
 
-// Keep these in sync with what actually has a mechanics JSON file under
-// public/data/mechanics/{characters,weapons,sets,echoes}/ -- only consulted while
-// DISABLE_UNIMPLEMENTED_CONTENT is true. Not auto-derived: mechanics files are fetched lazily
-// per-team-slot (see DataLoader.loadTeamMechanics), so there's no cheap way to check "does a
-// file exist" for every roster entry up front.
+// Keep in sync with what actually has a mechanics JSON file. Not auto-derived: mechanics files
+// are fetched lazily per-team-slot, so there's no cheap way to check existence up front.
 export const IMPLEMENTED_CHARACTERS = ['Lumi', 'Sanhua'];
 export const IMPLEMENTED_WEAPONS = ['Radiance Cleaver', 'Emerald of Genesis'];
 export const IMPLEMENTED_SETS = ['Void Thunder', 'Moonlit Clouds'];
@@ -120,8 +111,7 @@ export const IMPLEMENTED_ECHOES = ['NM Thundering Mephis', 'Impermanence Heron']
 
 export type ImplementedContentKind = 'character' | 'weapon' | 'set' | 'echo';
 
-// Returns true unconditionally when the gate is off, so every call site stays correct without
-// its own if-check -- flipping DISABLE_UNIMPLEMENTED_CONTENT to false is enough on its own.
+// Returns true unconditionally when the gate is off.
 export function isContentImplemented(kind: ImplementedContentKind, name: string): boolean {
   if (!DISABLE_UNIMPLEMENTED_CONTENT) return true;
   switch (kind) {
@@ -142,17 +132,13 @@ export const SIM_CONSTANTS = {
   MAX_SEQUENCE: 6,
   MAX_WEAPON_RANK: 5,
   LEVEL_CAP: 90,
-  // Tune Break/Rupture's custom scaling doesn't derive from ATK/HP/DEF at all -- a hit's
-  // hitMults% is a multiplier on this fixed base value instead (see CombatCalculator.calcTuneDmg).
-  // Named here (rather than left as a literal in calcTuneDmg) so formatDamageBreakdown can
-  // display the exact same constant in its breakdown string instead of silently omitting it.
+  // Tune Break/Rupture damage is hitMults% times this fixed base (see calcTuneDmg). Named here
+  // so formatDamageBreakdown can display the same constant instead of omitting it.
   TUNE_BASE_DMG: 10027
 };
 
-// Duration-domain defaults (swapTime, comboWindow, echoSummonTime, holdLookahead*) are FRAMES,
-// per the frame-based timing migration -- 60fps: 0.15s->9, 0.5s->30, 0.17s->10 (10.2 rounded),
-// 5.0s->300, 0.01s step->1 (deliberately simplified to whole-frame stepping). swapCooldown and
-// permanentDuration are literal cooldown/buff-lifetime values and stay SECONDS, unconverted.
+// Duration fields (swapTime, comboWindow, echoSummonTime, holdLookahead*) are FRAMES at 60fps;
+// swapCooldown and permanentDuration are cooldown/buff-lifetime values and stay SECONDS.
 export const GAME_DEFAULTS = {
   swapTime: 9,
   swapCooldown: 1.0,
@@ -235,9 +221,7 @@ export const CAST_OPTIONS = [
   'Dodge', 'Jump', 'Echo', 'Utility', 'Heal'
 ];
 
-// Non-elemental tag color-coding for cast types, shown alongside the elemental ELEMENT_COLORS
-// (utils/Common.ts) used for dmg types -- distinct hues so cast-type and dmg-type chips read
-// as two different categories at a glance, not just a random assortment.
+// Non-elemental cast-type colors, distinct from ELEMENT_COLORS (utils/Common.ts) for dmg types.
 export const CAST_TYPE_COLORS: Record<string, string> = {
   Basic: '#8fa8c9',
   Heavy: '#e0a050',
@@ -267,9 +251,8 @@ export const STAT_OPTIONS = [
   'CR Rate', 'CR DMG', 'ER %', 'Healing Bonus'
 ];
 
-// Hover-tooltip copy for DSL autocomplete dropdown options, shown in the Mechanics Builder's
-// DSL inputs. Grounded in the actual formula in logic/CombatCalculator.ts and RotationUtils.ts
-// (e.g. Deepen and DMG Amp share the same multiplier bucket there, so their tooltips say so).
+// Hover-tooltip copy for DSL autocomplete options in the Mechanics Builder, grounded in the
+// actual formula in CombatCalculator.ts (e.g. Deepen and DMG Amp share a multiplier bucket).
 export const DSL_TOOLTIPS: {
   events: Record<string, string>;
   modifiers: Record<string, string>;
@@ -409,13 +392,10 @@ export const DSL_TOOLTIPS: {
       OutroPriority: 'Default action-priority value for Outro Skills.'
     }
   },
-  // Matches the CombatCalculator keyword buckets in logic/CombatCalculator.ts (~line 175-191):
-  // damage = baseDmg * critMult * (1 + DMG Bonus) * (1 + DMG Amp/Deepen) * (1 + DMG Taken)
-  //          * (1 + Multiplicative Mult) * resMult * defMult
-  // Tune Break/Rupture hits run a separate formula (calcTuneDmg) that skips DMG Bonus/crit
-  // and scalar-stat scaling entirely (a fixed base value times hitMults% instead), but still
-  // applies DMG Taken/Multiplicative Mult/RES/DEF, plus its own DMG Boost bucket in place of
-  // DMG Amp/Deepen.
+  // Matches CombatCalculator.ts's keyword buckets: damage = baseDmg * critMult * (1 + DMG
+  // Bonus) * (1 + DMG Amp/Deepen) * (1 + DMG Taken) * (1 + Multiplicative Mult) * resMult * defMult.
+  // Tune Break/Rupture (calcTuneDmg) skips DMG Bonus/crit/scalar scaling but uses DMG Boost
+  // in place of DMG Amp/Deepen.
   statModifiers: {
     'DMG Bonus': 'Adds to the additive damage-bonus multiplier (1 + Base DMG Bonus + this), applied before crit.',
     'DMG Amp': 'Multiplies final damage by (1 + this). Shares the same multiplier bucket as Deepen.',
@@ -445,8 +425,7 @@ export const DSL_TOOLTIPS: {
   }
 };
 
-// actionDuration/freezeTime are frames (duration domain); cooldown stays seconds. Values below
-// are the same example durations as before, just expressed in frames (60fps).
+// actionDuration/freezeTime are frames at 60fps; cooldown stays seconds.
 export const BUILDER_TEMPLATES: Record<string, MechanicNode> = {
   'Basic Attack': {
     name: 'Basic Attack 1',
@@ -549,11 +528,8 @@ export const BUILDER_TEMPLATES: Record<string, MechanicNode> = {
       { type: 'buff', name: 'Inherent Buff', target: '@Self', duration: 9999, stat: 'ATK %', value: '10%' }
     ]
   },
-  // Mirrors System_Tune Break (data/mechanics/generic/generic.json) -- castTypes/dmgTypes must
-  // stay ['TuneBreak'] (or 'TuneRupture') since that's what CombatCalculator.calculateDamageInstance
-  // keys off of to route a hit through calcTuneDmg instead of the Standard crit/dmg-bonus formula
-  // (see the `castTypes.some(c => c.toLowerCase().includes('tune'))` check). A character-specific
-  // Tune Break node just overrides hitMults/actionDuration/etc. for that unit's own animation.
+  // castTypes/dmgTypes must stay ['TuneBreak'] (or 'TuneRupture') -- CombatCalculator keys off
+  // this to route through calcTuneDmg instead of the Standard formula.
   'Tune Break': {
     name: 'Tune Break',
     triggerRule: 'IF (@Enemy.Tune >= 40)',

@@ -45,8 +45,7 @@ function resolveTooltip(item: SuggestionItem, group: string): string | undefined
     case 'Specific Modifiers':
       return DSL_TOOLTIPS.statModifiers[key];
     case 'Continue':
-      // See EventManager.ts's requiredModifiers check: every listed modifier must match, so
-      // comma-separated entries are an AND filter (e.g. OnHit[Skill, Fusion] = Skill AND Fusion), not an OR.
+      // Comma-separated entries are an AND filter (EventManager.ts's requiredModifiers check).
       return key === ',' ? 'Combines with AND — the action must match every listed modifier, not just one.' : undefined;
     default:
       return undefined;
@@ -60,12 +59,10 @@ interface MatchRule {
   prefix?: string;
   append?: string;
   dynamicAppend?: (val: string) => string | null;
-  /** Marks a rule where multiple comma-separated values can be typed (e.g. On Hit[...]'s
-   *  modifiers, or Applies During's bare tag list). */
+  /** Marks a rule where multiple comma-separated values can be typed. */
   commaList?: boolean;
-  /** The bracket-close character a commaList rule's "Continue" prompt should also offer (e.g.
-   *  ']' for On Hit[...]) -- omitted for a commaList rule with no enclosing bracket syntax
-   *  (Applies During), where "add another" is the only continue action. */
+  /** Bracket-close character the "Continue" prompt should also offer; omitted when there's no
+   *  enclosing bracket (e.g. Applies During). */
   commaCloses?: string;
 }
 
@@ -81,16 +78,10 @@ function getCommaSegmentInfo(fullCaptured: string): { currentTerm: string; repla
   return { currentTerm, replaceLength, chosenTerms };
 }
 
-// Every mechanic node's own key already carries its namespace as a Folder_ prefix (e.g.
-// "System_Dodge", "Lumi_Outro"), but the *effects* it defines don't consistently follow the same
-// rule: a character-specific buff often repeats its own namespace in the name ("Lumi_Outro Skill
-// DMG Amp"), while the shared Negative Status Dictionary's own effects (System_
-// NegativeStatus_Dictionary) are just bare, globally-unique names ("Fusion Burst", "Glacio
-// Chafe") with no "System_" prefix at all -- there's nothing globally ambiguous about them, so
-// they were never given one. Deriving the namespace from the *node* an effect is defined in
-// (not from the effect's own name) is the one rule that covers both conventions: an explicit
-// self-prefix on the name gets stripped for display (so "Lumi_Outro Skill DMG Amp" still shows
-// as "Outro Skill DMG Amp" under Lumi), and a bare name is kept exactly as authored.
+// Effect names don't consistently carry their namespace the way node keys do (some repeat it,
+// e.g. "Lumi_Outro Skill DMG Amp"; some don't, e.g. "Fusion Burst"). Deriving the namespace from
+// the node an effect is defined in covers both: a self-prefix gets stripped for display, a bare
+// name is kept as authored.
 function collectEffectNamesByNamespace(builderMechanics: Record<string, MechanicNode>): Record<string, Set<string>> {
   const byNamespace: Record<string, Set<string>> = {};
   const addFrom = (mechanicsByKey: Record<string, MechanicNode>) => {
@@ -109,13 +100,10 @@ function collectEffectNamesByNamespace(builderMechanics: Record<string, Mechanic
   return byNamespace;
 }
 
-// Every mechanic node as an @Namespace(Move Name) reference -- Applies During's "specific move"
-// suggestions. Uses the node's own `.name` (its display name, e.g. "Pounce"), not the raw key,
-// since that's exactly what CombatCalculator.ts's hitModifiers set carries as `moveName` for
-// runtime matching -- suggesting anything else would silently never match a real hit.
-// Restricted to System + the currently-open unit -- a buff can only ever fire on hits from its
-// own owner or a shared System mechanic, so every other character/weapon/echo/set's moves are
-// never valid here and would just be noise.
+// Every mechanic node as an @Namespace(Move Name) reference. Uses `.name` (display name), not
+// the raw key, since that's what CombatCalculator.ts's hitModifiers carries as `moveName` for
+// runtime matching. Restricted to System + the currently-open unit -- a buff can only fire on
+// hits from its own owner or a shared System mechanic.
 function collectMechanicReferences(builderMechanics: Record<string, MechanicNode>, currentNamespace: string | null): SuggestionItem[] {
   const seen = new Set<string>();
   const results: SuggestionItem[] = [];
@@ -155,10 +143,8 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
   const popupRef = useRef<HTMLDivElement>(null);
   const { mechanics, baseStats, activeChar } = useBuilderStore();
 
-  // Popup is portaled to <body> (see the render below) so it always escapes the node sub-panel's
-  // clipping/scrolling, the way Dropdown.tsx's popup does -- computed in fixed coordinates from
-  // the real input's own rect, not the small relative-positioned wrapper div, since the wrapper
-  // is what the old position:absolute popup used to (wrongly) anchor to.
+  // Portaled to <body> (like Dropdown.tsx's popup) so it escapes the sub-panel's clipping,
+  // positioned in fixed coordinates from the real input's rect.
   const POPUP_MAX_HEIGHT = 260;
   const positionPopup = () => {
     const input = inputRef.current;
@@ -178,19 +164,14 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
     });
   };
 
-  // A portaled popup can't cheaply track every scrollable ancestor's scroll offset -- close
-  // instead of drifting off-anchor, same tradeoff Dropdown.tsx's usePositionedSelectPopup makes.
+  // A portaled popup can't cheaply track every scrollable ancestor's offset -- close instead of
+  // drifting off-anchor (same tradeoff Dropdown.tsx's usePositionedSelectPopup makes).
   useEffect(() => {
     if (!isOpen) return;
     const handleScroll = (e: Event) => {
       if (popupRef.current && e.target instanceof Node && popupRef.current.contains(e.target)) return;
-      // The input itself fires a native (non-bubbling, but still capture-visible) 'scroll' event
-      // whenever its own text scrolls internally -- typing/completing past the visible width, or
-      // a completion moving the caret beyond it (see handleSelect's programmatic
-      // selectionStart/End set). That's this component's own onScroll={syncScroll} territory
-      // (keeps the highlight overlay lined up with the real input), not a "the anchor moved"
-      // signal -- treating it as one closed the popup the instant a long "Applies During" value
-      // (or any long DSL value) started needing internal scroll, i.e. right after it opened.
+      // The input's own internal text-scroll fires a 'scroll' event too (syncScroll's
+      // territory), not an "anchor moved" signal -- ignore it or the popup closes on typing.
       if (e.target === inputRef.current) return;
       setIsOpen(false);
     };
@@ -303,9 +284,8 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
     }
 
     if (mode === 'eff-applies-during') {
-      // Cast Type (Basic/Heavy/Skill/...) or a specific move (@Provider(Move Name)) -- never a
-      // dmg type/element, which a Stat Modifier like "Fusion DMG Bonus" already scopes to on its
-      // own (see CombatCalculator.ts's baseDmgBonus, a separate mechanism from this field).
+      // Cast Type or a specific move reference -- never a dmg type/element, which a Stat
+      // Modifier like "Fusion DMG Bonus" already scopes to on its own.
       const castTypes = Object.keys(CAST_TYPE_COLORS).map(ct => ({ val: ct, group: 'Cast Type' }));
       const currentNamespace = activeChar === 'Generic' ? 'System' : activeChar;
       const mechanicRefs = collectMechanicReferences(mechanics, currentNamespace);
@@ -318,9 +298,8 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
     }
 
     if (mode === 'dsl-value') {
-      // Plain DSL math-expression fields (Priority, Combo Window, Freeze/Swap Time) -- just
-      // pointer + pointer-property completion (@Default, then @Default.HeavyPriority etc.), no
-      // event/bracket suggestions since these fields never hold a trigger rule.
+      // Plain math-expression fields (Priority, Combo Window, Freeze/Swap Time): just pointer +
+      // pointer-property completion, no event/bracket suggestions since these never hold a trigger rule.
       return [
         {
           trigger: /@([a-zA-Z]*)$/,
@@ -361,10 +340,8 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
     const currentNamespace = activeChar === 'Generic' ? 'System' : activeChar;
     return [
       {
-        // OnCast[Self, ...] etc. -- static cast/dmg-type modifiers plus a specific move
-        // reference (@Lumi(Move Name)), matching how TimelineEngine.ts's castModifiers set
-        // actually carries a cast move (see DSLParser.ts's _parseTrigger). Scoped to System +
-        // the currently-open unit for the same reason as Applies During's mechanic list.
+        // OnCast[Self, ...] etc.: cast/dmg-type modifiers plus a specific move reference,
+        // scoped to System + the currently-open unit like Applies During's mechanic list.
         trigger: /\b(?:On|After|Detonate)[a-zA-Z]*\[([^\]]*)$/i,
         options: () => [
           ...DSL_SCHEMA.modifiers.map(v => ({ val: v, group: 'Modifiers' })),
@@ -522,10 +499,8 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
     if (!matched) setIsOpen(false);
   };
 
-  // After finishing one comma-list entry (e.g. a modifier inside On Hit[...]), offer to add
-  // another or close the bracket, instead of guessing which one the user wants. closeChar is the
-  // rule's own commaCloses -- omitted entirely for a bracket-less commaList field (Applies
-  // During), where "add another" is the only continue action.
+  // After finishing one comma-list entry, offer to add another or close the bracket rather
+  // than guessing. closeChar is omitted for a bracket-less commaList field (Applies During).
   const showContinueOptions = (closeChar?: string) => {
     const items: SuggestionItem[] = [{ val: ',', group: 'Continue', label: ',  (add another)' }];
     if (closeChar) items.push({ val: closeChar, group: 'Continue', label: `${closeChar}  (close)` });
@@ -586,12 +561,8 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
       const matchLength = match[groupIdx] !== undefined ? match[groupIdx].length : match[0].length;
       const replaceStart = cursorPos - matchLength;
 
-      // rule.prefix (e.g. '@') is only actually present in `val` when the trigger regex matched
-      // it as part of the full match but *outside* the captured group (e.g. the optional '@?' in
-      // eff-name's namespace rule) -- match[0] is longer than the captured group in that case.
-      // When nothing beyond the captured group matched (an empty/no-'@'-yet field), that prefix
-      // was never typed and has to be inserted here, or a selection like "System(" would land
-      // without its leading '@' at all.
+      // rule.prefix (e.g. '@') is only present in `val` when the regex matched it outside the
+      // captured group; otherwise it was never typed and must be inserted here.
       const matchedExtra = match[0].length - matchLength;
       const needsPrefix = !!rule.prefix && matchedExtra < rule.prefix.length;
       const insertedPrefix = needsPrefix ? rule.prefix! : '';

@@ -1,11 +1,7 @@
-// src/workers/calc.worker.ts
-// Runs the heavy rotation-simulation pipeline (TimelineEngine + CombatCalculator +
-// ResultsCalculator) off the main thread, so editing a rotation or pressing Calculate never
-// freezes the UI. This worker has its own separate module graph and its own DataLoader
-// instance -- it loads the same mechanics JSON independently via fetch rather than sharing the
-// main thread's already-loaded copy, since neither is there a way to share it across a
-// postMessage boundary anyway (compiled DSL trigger-rule functions attached to mechanic data
-// can't be structured-cloned).
+// Runs the rotation-simulation pipeline (TimelineEngine + CombatCalculator + ResultsCalculator)
+// off the main thread. Has its own separate DataLoader instance, fetching mechanics JSON
+// independently -- there's no way to share it across postMessage anyway, since compiled DSL
+// trigger-rule functions attached to mechanic data can't be structured-cloned.
 import { TimelineEngine } from '../logic/TimelineEngine';
 import { CombatCalculator } from '../logic/CombatCalculator';
 import { buildRotationResults, previewEndingRotationTiming } from '../logic/ResultsCalculator';
@@ -14,9 +10,8 @@ import { DataLoader } from '../utils/DataLoader';
 let ready: Promise<void> | null = null;
 const getReady = () => ready ?? (ready = DataLoader.initDatabases());
 
-// Drops function-valued properties (those compiled trigger-rule functions) before a result
-// crosses back to the main thread -- structured clone already handles the engine's circular
-// prevRow/nextRow links fine on its own, functions are the only actual blocker.
+// Drops function-valued properties (compiled trigger-rule functions) before a result crosses
+// back to the main thread -- structured clone handles the circular prevRow/nextRow links fine.
 function stripFunctions(value: any, seen = new WeakMap<object, any>()): any {
   if (value === null || typeof value !== 'object') return value;
   if (seen.has(value)) return seen.get(value);
@@ -30,10 +25,8 @@ function stripFunctions(value: any, seen = new WeakMap<object, any>()): any {
   return clone;
 }
 
-// Short pass over the literal authored rows -- feeds the per-row damage-breakdown dropdown in
-// the rotation table, independent of the Results panel's own extended (opener + N-loop) pass.
-// Mutates each row in place (row.damageInstances), same convention TimelineEngine.
-// recalculateState itself already uses.
+// Short pass over the literal authored rows, feeding the per-row damage-breakdown dropdown,
+// independent of the Results panel's extended (opener + N-loop) pass. Mutates rows in place.
 function populateDamageInstances(evaluatedRows: any[], enemy: any, team: any[]): void {
   let runningEnemyHp = enemy.hp;
   evaluatedRows.forEach((row: any) => {
@@ -51,10 +44,8 @@ function populateDamageInstances(evaluatedRows: any[], enemy: any, team: any[]):
 
 const worker = self as any;
 
-// Applies useBuilderStore's cached edits (if any) on top of whatever's currently loaded in
-// this worker's DataLoader -- mirrors useBuilderStore.setActiveChar's own "replay edits after
-// the pristine fetch" step exactly, just against the worker's separate DataLoader instance.
-// A no-op for any entity the builder has no edits for (its overrides simply won't be present).
+// Mirrors useBuilderStore.setActiveChar's "replay edits after the pristine fetch" step, against
+// this worker's separate DataLoader instance. A no-op for any entity with no cached edits.
 function applyBuilderOverrides(payload: any): void {
   const overrides = payload.builderOverrides;
   if (!overrides) return;
@@ -75,10 +66,8 @@ worker.onmessage = async (e: MessageEvent) => {
   try {
     await getReady();
 
-    // Only bother forcing a pristine reset (below) when this team actually has *something*
-    // cached in the builder -- otherwise every single Calculate press would pay for 4 extra
-    // JSON fetches plus one per team entity for nothing, even for someone who's never opened
-    // the Mechanics Builder at all.
+    // Only force a pristine reset below when this team actually has something cached in the
+    // builder, or every Calculate press pays for extra JSON fetches for nothing.
     const overrides = payload.builderOverrides;
     const hasOverrides = !!overrides && (
       Object.keys(overrides.editedMechanics || {}).length > 0 ||
@@ -86,24 +75,17 @@ worker.onmessage = async (e: MessageEvent) => {
       (overrides.deletedMechanicIds || []).length > 0
     );
 
-    // A real Calculate press (not the cheap live-preview recalculate) forces every entity the
-    // team actually uses back to a pristine re-fetch first -- otherwise an edit *removed* in
-    // the Mechanics Builder (a Reset Cache, a deleted node) would have no way to un-stick from
-    // this worker's own long-lived mechanicsDB/characterDB, which only ever gets new data
-    // merged in, never reverted. Includes 'generic'/System mechanics same as everything else --
-    // DataLoader.mechanicFileName is the one place that translates 'Generic' to the real
-    // lowercase generic.json filename, so clearMechanicCache/loadMechanic already agree on the
-    // same cache-Set key regardless of which casing a caller passes in.
+    // A real Calculate press forces every entity the team uses back to a pristine re-fetch,
+    // or an edit removed in the Mechanics Builder (Reset Cache, a deleted node) would have no
+    // way to un-stick from this worker's long-lived mechanicsDB/characterDB.
     if (type === 'calculateDamage' && hasOverrides && payload.builderEntityRefs) {
       await DataLoader.initDatabases();
       payload.builderEntityRefs.forEach((ref: { name: string; folder: string }) =>
         DataLoader.clearMechanicCache(ref.folder, ref.name));
     }
 
-    // Mirrors whatever the main thread's own dataFreshness.ts check already evicted from *its*
-    // DataLoader -- this worker has a completely separate instance (see the file header comment)
-    // that never saw that eviction, and would otherwise keep simulating against whatever it
-    // happened to fetch at its own first use for the rest of this worker's lifetime.
+    // Mirrors whatever the main thread's dataFreshness.ts check already evicted from its own
+    // DataLoader, which this worker's separate instance never saw.
     if (Array.isArray(payload.staleRefs) && payload.staleRefs.length > 0) {
       payload.staleRefs.forEach((ref: { folder: string; itemName: string }) =>
         DataLoader.clearMechanicCache(ref.folder, ref.itemName));
@@ -115,20 +97,15 @@ worker.onmessage = async (e: MessageEvent) => {
     if (type === 'recalculate') {
       const { rows, team, options, enemy } = payload;
       let evaluatedRows = TimelineEngine.recalculateState(rows, team, options, enemy);
-      // Optional -- a plain live-preview recalculate (every rotation edit) skips this to stay
-      // cheap, but the one-time refresh RotationBuilder's mount effect fires (restoring a
-      // rehydrated-but-never-recalculated rotation) asks for it, so the per-row DMG column comes
-      // back populated on page load too, not just the Results panel (which persists its own
-      // last-computed `results` separately -- see useRotationStore's partialize).
+      // Optional -- a plain live-preview recalculate skips this to stay cheap, but
+      // RotationBuilder's mount-effect refresh asks for it so the DMG column is populated on load too.
       if (payload.includeDamage) populateDamageInstances(evaluatedRows, enemy, team);
       const { index: loopStartIndex, isOverride: loopStartIsOverride } = TimelineEngine.findLoopStart(evaluatedRows, team[0]?.character);
       const { errors: loopErrors, warnings: loopWarnings } = TimelineEngine.analyzeLoop(
         evaluatedRows, team, options, enemy, loopStartIndex
       );
-      // A plain single pass shows the Ending Rotation's rows starting right after the one loop
-      // rep in front of them in the table -- re-time just that tail so the editor's Time/gauge
-      // columns reflect where it actually lands once the in-between loops are (silently)
-      // accounted for, same as the real 2-Minute calculation does.
+      // A plain single pass shows the Ending Rotation's rows right after the one loop rep in
+      // front of them -- re-time just that tail to reflect where it actually lands.
       if (payload.endingRotationEnabled) {
         evaluatedRows = previewEndingRotationTiming(evaluatedRows, team, options, enemy, loopStartIndex, !!payload.includeDamage, !!payload.endRotationStartsEarlier);
       }
@@ -146,10 +123,8 @@ worker.onmessage = async (e: MessageEvent) => {
 
       let evaluatedRows = TimelineEngine.recalculateState(rows, team, options, enemy);
       populateDamageInstances(evaluatedRows, enemy, team);
-      // Same re-timing as the 'recalculate' preview above -- without it, pressing Calculate
-      // would overwrite the Ending Rotation rows' Time/gauge/DMG columns with this plain
-      // single-pass evaluation (starting right after the one loop rep in front of them again),
-      // undoing what the live preview already got right.
+      // Same re-timing as the 'recalculate' preview above, or Calculate would overwrite the
+      // Ending Rotation rows' columns with the plain single-pass evaluation.
       if (endingRotationEnabled) {
         evaluatedRows = previewEndingRotationTiming(evaluatedRows, team, options, enemy, loopStartIndex, true, !!endRotationStartsEarlier);
       }

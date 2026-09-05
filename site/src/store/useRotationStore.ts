@@ -44,11 +44,8 @@ interface RotationState {
   loopErrors: string[];
   loopWarnings: string[];
   endingRotationEnabled: boolean;
-  // When true, the engine simulates one fewer full loop repetition before splicing in the
-  // Ending Rotation content -- lets the authored content replace/extend the final loop instead
-  // of running as a short extra segment tacked on after a full last loop. Purely a calculation
-  // flag: it never changes what gets auto-populated into the table (see setEndingRotationEnabled
-  // below), only how many silent reps precede the splice point on the next recalculate/Calculate.
+  // When true, simulates one fewer loop rep before splicing in the Ending Rotation, so the
+  // authored content replaces/extends the final loop instead of tacking on after it.
   endRotationStartsEarlier: boolean;
   results: RotationResults | null;
   isCalculating: boolean;
@@ -69,27 +66,16 @@ interface RotationState {
   resetLoopStart: () => void;
   setLoopEndOverride: (index: number) => void;
   resetLoopEnd: () => void;
-  // Turning on for the first time (no row yet carries loopEndOverride) auto-populates: tags
-  // the current last content row as the loop end, then appends a copy of the loop segment
-  // (rows[loopStartIndex..that row]) below it as the starting "Ending Rotation" content for
-  // the user to edit. Turning off is fully destructive (see resetLoopEnd) -- the tag and the
-  // appended rows are removed, not left behind unused. Re-enabling after a tag already exists
-  // just flips the flag back on, never re-populates (would otherwise duplicate rows).
+  // First enable tags the last content row as loop end and appends a copy of the loop segment
+  // as starting "Ending Rotation" content. Disabling removes the tag and appended rows.
   setEndingRotationEnabled: (val: boolean) => void;
-  // A no-op while there's no active Ending Rotation split (nothing for it to affect) --
-  // mirrors the checkbox-gating pattern used for endingRotationEnabled's own display. Never
-  // touches rows; see the endRotationStartsEarlier field comment above.
+  // No-op while there's no active Ending Rotation split.
   setEndRotationStartsEarlier: (val: boolean) => void;
 
   executeCommand: (cmd: Command) => void;
-  // markStale defaults true (a real edit always invalidates the last Calculate) -- pass false
-  // for a purely informational refresh (e.g. the Calculator's mount effect re-deriving
-  // gauges/loop info for a rehydrated-but-unedited rotation) that shouldn't itself flip a
-  // freshly-restored `isStale: false` back to stale with nothing having actually changed.
-  // includeDamage defaults false (every live-preview recalculate() on a rotation edit skips the
-  // extra per-row damage pass to stay cheap) -- pass true for the one-time mount refresh, so a
-  // rehydrated rotation's DMG column comes back populated instead of blank until the next
-  // Calculate press (damageInstances isn't persisted -- see partialize below).
+  // markStale: false for an informational refresh that shouldn't flip isStale back on.
+  // includeDamage: true only for the one-time mount refresh, so a rehydrated rotation's DMG
+  // column is populated without a live-preview recalculate paying for the extra damage pass.
   recalculate: (markStale?: boolean, includeDamage?: boolean) => Promise<void>;
   calculateDamage: () => Promise<void>;
   undo: () => void;
@@ -99,28 +85,12 @@ interface RotationState {
 
 const historyManager = new HistoryManager();
 
-// The actual TimelineEngine/CombatCalculator/ResultsCalculator run inside a worker instead of
-// on the main thread (postToWorker, imported above), so a long rotation's simulation never
-// freezes the UI while it runs -- see calcWorkerClient.ts for the worker/queue lifecycle,
-// shared with the Rankings page's batch loader.
+// TimelineEngine/CombatCalculator/ResultsCalculator run in a worker (postToWorker) so a long
+// rotation's simulation never blocks the UI thread.
 
-// Every call gets its own request id (returned by postToWorker), used both to match responses
-// to requests and to detect staleness -- but staleness is tracked per type (recalculate vs
-// calculateDamage), not globally. A recalculate() firing in the background (e.g. from an
-// unrelated edit's triggerRecalc) must never invalidate an explicit calculateDamage() the user
-// just triggered by pressing Calculate -- that's the one result that should always win once it
-// lands, since it's a deliberate action, not an incidental background sync. Each type only
-// checks itself for a newer in-flight/landed request of the *same* type.
+// Staleness is tracked per request type, not globally, so a background recalculate() can never
+// invalidate a deliberate calculateDamage() (Calculate button press) that just landed.
 const latestSeqByType: Record<'recalculate' | 'calculateDamage', number> = { recalculate: 0, calculateDamage: 0 };
-
-// Attached to every postToWorker call this store makes -- lets the calc worker use the
-// Mechanics Builder's locally-cached edits (if any exist for this team's own characters/
-// weapons/sets/echoes) instead of always the pristine data/mechanics JSON files. Rankings' own
-// DPS numbers (useRankingsStore.ts) deliberately do NOT attach this -- a submitted rotation's
-// leaderboard entry should stay reproducible from the file alone, not shift based on whoever's
-// browser cache it's recalculated in. The rotation Timeline (useRotationTimelineData.ts) is a
-// visualization of the mechanics as currently configured, though, so it deliberately does
-// attach this -- see that file for why the two diverge.
 
 export const useRotationStore = create<RotationState>()(
   persist(
@@ -132,12 +102,7 @@ export const useRotationStore = create<RotationState>()(
       const getRawRows = () => get().rows;
       const setRawRows = (rows: RotationRow[]) => set({ rows });
 
-      // Multi-row operations (paste, undo/redo of a paste) run as several Commands inside one
-      // CompositeCommand, and each Command's execute()/undo() calls this individually -- without
-      // coalescing, pasting N rows would re-run the full recalculation (now including the loop
-      // analysis) N times in a row. Collapsing same-tick calls into one microtask-deferred
-      // recalculate() fixes that with no perceptible delay (microtasks flush before the next
-      // paint, so a single edit still updates effectively immediately).
+      // Coalesces same-tick recalculate() calls (e.g. a multi-row paste) into one microtask.
       let recalcScheduled = false;
       const triggerRecalc = () => {
         if (recalcScheduled) return;
@@ -194,17 +159,14 @@ export const useRotationStore = create<RotationState>()(
 
         moveRows: (indicesToMove: number[], targetIndex: number) => {
           const cmd = new MoveRowsCommand(getRawRows, setRawRows, indicesToMove, targetIndex, (newIndices?: number[]) => {
-            // Follow the moved rows to their new positions (undo has no well-defined
-            // "new" position, so it just clears the selection instead).
             set({ selectedIndices: newIndices || [] });
             triggerRecalc();
           });
           historyManager.execute(cmd);
         },
 
-        // Mirrors the old site: 1-to-1 overwrite of selected rows, extra clipboard rows are
-        // inserted, and any selected rows left over once the clipboard runs out are deleted.
-        // With nothing selected, clipboard rows are inserted before the trailing empty row.
+        // 1-to-1 overwrite of selected rows; extra clipboard rows are inserted; leftover
+        // selected rows are deleted. With nothing selected, rows insert before the trailing blank row.
         pasteRows: () => {
           const state = get();
           const clipboard = state.clipboard;
@@ -293,26 +255,14 @@ export const useRotationStore = create<RotationState>()(
           historyManager.execute(cmd);
         },
 
-        // Fully removes the Ending Rotation split, not just the tag -- shared by the row
-        // marker's own reset button and by unchecking the toolbar checkbox (setEndingRotationEnabled
-        // below), so both entry points behave identically. The tag alone means nothing without
-        // the rows below it (and vice versa), so clearing one clears both: leaving the appended
-        // Ending Rotation rows behind would resurrect them as orphaned content the next time the
-        // feature is turned back on and re-populates from scratch. The trailing blank row (always
-        // last, unit === '') is left alone -- it's the table's perpetual "add a new row" slot, not
-        // Ending Rotation content.
+        // Removes the whole Ending Rotation split (tag + appended rows), not just the tag.
+        // Shared by the row marker's reset button and unchecking the toolbar checkbox.
         resetLoopEnd: () => {
           const rows = get().rows;
           const endIdx = rows.findIndex(r => r.loopEndOverride === true);
           const wasEnabled = get().endingRotationEnabled;
           const wasStartingEarlier = get().endRotationStartsEarlier;
-          // The flag flip has to ride inside the same CompositeCommand as the row/tag changes
-          // below (rather than a bare set() after historyManager.execute()) -- otherwise
-          // undoing this action restores the marker and its rows but leaves the checkbox's
-          // underlying flag stuck false, silently desyncing it from the now-restored marker.
-          // endRotationStartsEarlier resets alongside endingRotationEnabled for the same
-          // reason -- it's meaningless without an active split, so a future re-enable should
-          // start from a clean, unchecked "Extend Last Loop" state.
+          // Flag flip rides in the same CompositeCommand as the row changes so undo restores both together.
           const flagCommand: Command = {
             execute: () => set({ endingRotationEnabled: false, endRotationStartsEarlier: false }),
             undo: () => set({ endingRotationEnabled: wasEnabled, endRotationStartsEarlier: wasStartingEarlier })
@@ -352,8 +302,7 @@ export const useRotationStore = create<RotationState>()(
 
           const lastContentIdx = rows.reduce((last, r, i) => (r.unit ? i : last), -1);
           if (lastContentIdx === -1) {
-            // Nothing to tag/copy yet (empty rotation) -- just flip the flag, the checkbox
-            // becomes meaningful once the user actually builds a loop.
+            // Nothing to tag/copy yet -- just flip the flag.
             set({ endingRotationEnabled: true });
             return;
           }
@@ -382,22 +331,14 @@ export const useRotationStore = create<RotationState>()(
           historyManager.execute(cmd);
         },
 
-        // Timeline/Gauges/Timings Recalculation (Only marks stale, does NOT run combat damage)
-        // -- runs in the calc worker (see postToWorker above) so it never blocks the UI thread.
+        // Recalculates timeline/gauges/timings only -- does not run combat damage.
         recalculate: async (markStale: boolean = true, includeDamage: boolean = false) => {
           const team = useRosterStore.getState().team;
           const enemy = useRosterStore.getState().enemy;
           const { startEnergy, startConcerto, rows, endingRotationEnabled, endRotationStartsEarlier } = get();
           const options = { startEnergy, startConcerto };
 
-          // Same staleness check calculateDamage() does below -- recalculate() fires on nearly
-          // every rotation edit (see triggerRecalc above), and the worker's DataLoader is a
-          // long-lived instance that otherwise only ever notices a changed mechanic JSON via an
-          // explicit Calculate press. Without this, a fix to a character's mechanics file (or a
-          // Mechanics Builder edit reverted via Reset Cache) stayed invisible in the live-preview
-          // DMG column/legality checks until either a real Calculate press or a full page reload.
-          // Cheap even called this often: DataLoader.refreshManifest() internally throttles the
-          // actual manifest.json fetch to once per 5s no matter how many callers ask.
+          // So a mechanics-file change is picked up without waiting for a Calculate press or reload.
           const staleRefs = await checkTeamFreshness(team);
 
           set({ isCalculating: true });
@@ -411,25 +352,11 @@ export const useRotationStore = create<RotationState>()(
             if (seq === latestSeqByType.recalculate) set({ isCalculating: false });
             return;
           }
-          // A newer recalculate() already landed (or is still in flight) by the time this one
-          // came back -- its result is stale, so just drop it instead of clobbering fresher
-          // state. calculateDamage() has its own independent tracking (see comment above),
-          // so an interleaved Calculate press doesn't affect this check either way.
+          // A newer recalculate() already landed -- drop this stale result.
           if (seq !== latestSeqByType.recalculate) return;
 
-          // Read the row-level damageInstances fresh, right now, rather than a snapshot taken
-          // before this request was sent -- a calculateDamage() (or another recalculate())
-          // could easily have finished and populated fresher per-row damage in the meantime,
-          // and stomping that with whatever existed when this request started would silently
-          // undo it. row.damageInstances itself takes priority when actually populated -- that
-          // only happens when this call passed includeDamage:true, in which case it's a fresh
-          // worker result and should win over whatever was already there. TimelineEngine
-          // unconditionally resets every row's damageInstances to [] as part of recalculateState
-          // regardless of includeDamage, so an empty array here does NOT mean "fresh, keep it" --
-          // a plain `||` check would treat that empty array as present (it's truthy) and never
-          // fall back, silently wiping the DMG column back to 0 on every plain edit instead of
-          // leaving it dimmed. Checking .length instead of truthiness is what actually
-          // distinguishes a real fresh result from this reset placeholder.
+          // Preserve existing per-row damageInstances unless this result actually has fresh
+          // ones (TimelineEngine always resets them to [], which is truthy but not "fresh").
           const existingDamageMap = new Map(get().rows.map((r, i) => [i, r.damageInstances]));
           const evaluatedRows = data.evaluatedRows;
           evaluatedRows.forEach((row: any, i: number) => {
@@ -449,23 +376,15 @@ export const useRotationStore = create<RotationState>()(
           });
         },
 
-        // Manual Combat Calculation (Triggered exclusively by the "Calculate" button) -- also
-        // runs in the calc worker, same reasoning as recalculate above.
+        // Runs full combat damage -- only triggered by the "Calculate" button.
         calculateDamage: async () => {
           const team = useRosterStore.getState().team;
           const enemy = useRosterStore.getState().enemy;
           const { startEnergy, startConcerto, rows, loopStartIndex, endingRotationEnabled, endRotationStartsEarlier } = get();
           const options = { startEnergy, startConcerto };
 
-          // Silently evicts (or, if locally edited, flags) any of this team's mechanic JSONs
-          // that changed on the server since they were loaded -- so a Calculate press always
-          // runs against current data instead of whatever happened to be cached at page-load
-          // time. Throttled internally (DataLoader.refreshManifest), so repeated presses don't
-          // spam requests. The evicted list is also handed to the worker below (staleRefs) so
-          // its own *separate* DataLoader instance drops the same entries -- otherwise only the
-          // main thread's copy would ever notice the change, and the actual simulation (which
-          // runs in the worker) would keep using whatever it happened to fetch at its own first
-          // use.
+          // Evicts stale mechanic JSONs so Calculate runs against current data; staleRefs is
+          // also passed to the worker so its own DataLoader instance drops the same entries.
           const staleRefs = await checkTeamFreshness(team);
 
           set({ isCalculating: true });
@@ -479,16 +398,11 @@ export const useRotationStore = create<RotationState>()(
             if (seq === latestSeqByType.calculateDamage) set({ isCalculating: false });
             return;
           }
-          // Only a newer calculateDamage() (e.g. a second Calculate press before the first
-          // returned) supersedes this -- an interleaved recalculate() does not.
           if (seq !== latestSeqByType.calculateDamage) return;
 
           set({ rows: data.evaluatedRows, isStale: false, results: data.results, isCalculating: false });
 
-          // One history row per successful Calculate press -- snapshot the exact team/rotation
-          // that produced this result, matching the shape Export Rotation writes (domRef
-          // stripped, same {unit,action,timing,loopStartOverride?} row shape) so a saved entry
-          // can round-trip through Restore Rotation identically.
+          // One history row per successful Calculate press, in the same shape Export Rotation uses.
           useRotationHistoryStore.getState().addEntry({
             team: team.map(slot => {
               const { domRef, ...clean } = slot as any;
@@ -548,22 +462,16 @@ export const useRotationStore = create<RotationState>()(
         startConcerto: state.startConcerto,
         endingRotationEnabled: state.endingRotationEnabled,
         endRotationStartsEarlier: state.endRotationStartsEarlier,
-        // The last Calculate press's output -- so reopening the Calculator (or reloading the
-        // page) still shows the Results tab instead of "No Results Yet" until something
-        // actually changes. isStale/loop* travel with it since they describe that same result
-        // (isStale in particular has to survive the reload too, or a result computed against
-        // an earlier rotation would silently look fresh).
+        // Last Calculate press's output, so a reload still shows Results instead of "No Results Yet".
         results: state.results,
         isStale: state.isStale,
         loopStartIndex: state.loopStartIndex,
         loopStartIsOverride: state.loopStartIsOverride,
         loopErrors: state.loopErrors,
         loopWarnings: state.loopWarnings
-      }),
-      // No auto-recalculate here on purpose -- this fires on every page load app-wide (this
-      // store module is in the static import graph regardless of route), so triggering the
-      // worker from here meant it ran even on the landing page. The calculator page itself
-      // (RotationBuilder's mount effect) recalculates once when the user actually opens it.
+      })
+      // No auto-recalculate on rehydrate -- this store loads app-wide; RotationBuilder's mount
+      // effect recalculates once the calculator page actually opens.
     }
   )
 );

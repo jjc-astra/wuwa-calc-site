@@ -1,4 +1,3 @@
-// src/components/rotation/RotationRow.tsx
 import React, { useState } from 'react';
 import { useRotationStore } from '../../store/useRotationStore';
 import { useRosterStore } from '../../store/useRosterStore';
@@ -39,8 +38,7 @@ interface RotationRowProps {
   onLoopEndMarkerDragStart?: (e: React.DragEvent) => void;
   onLoopEndMarkerDragEnd?: (e: React.DragEvent) => void;
   onResetLoopEnd?: () => void;
-  // Derived by RotationBuilder (loopEndIndex + 1, when that row has content) rather than its
-  // own persisted flag -- see RotationBuilder.tsx's hasEndRotationContent comment.
+  // Derived by RotationBuilder (loopEndIndex + 1, when that row has content), not a persisted flag.
   isEndRotationStart?: boolean;
   endRotationStartsEarlier?: boolean;
   onToggleEndRotationStartsEarlier?: (val: boolean) => void;
@@ -109,9 +107,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
     const skillGroupNames = dbChar.skillGroupNames || {};
 
     // Genuine validity only -- the "always retain currently selected" carve-out is handled
-    // separately below (per-candidate isValid + the group collapse step), not baked in here,
-    // since folding it into this check made the currently-selected action look like a real
-    // contender when picking each input group's winner (see the collapse step's comment).
+    // separately below, so it doesn't look like a real contender when picking a group's winner.
     const checkValid = (m: any) => {
       if (!m || m.isPassive) return false;
       if (m.triggerRule && m.triggerRule.trim() !== '') {
@@ -167,17 +163,12 @@ export const RotationRow: React.FC<RotationRowProps> = ({
     });
 
     // --- COLLAPSE CANDIDATES THAT SHARE THE SAME INPUT ---
-    // Only one resolved mechanic can actually fire when a given input is pressed, so when several
-    // valid candidates share the same (input, inputType), only the highest-priority one is real --
-    // e.g. Lumi's Red Spotlight Basic Attack 1/2/3 all bind to a plain Basic press while the
-    // Spotlight tracker has charges left, and their priority ladder (BasicPriority+10/11/12)
-    // exists specifically to say which one actually resolves. stanceReq (Grounded vs Midair) is
-    // excluded from the collapse key since this simulator only *estimates* airborne state rather
-    // than truly tracking it -- both variants have to stay selectable so the author can pick
-    // manually. A row's already-selected action is never collapsed away, even if it's no longer
-    // the priority winner -- and the winner itself is picked from genuinely-valid members only, so
-    // a stale selection (e.g. Energized Pounce still selected after Forte drops below 100) can't
-    // shadow the option the author actually needs to switch to (plain Pounce).
+    // Only one resolved mechanic can fire for a given input, so when several valid candidates
+    // share (input, inputType), only the highest-priority one is real. stanceReq is excluded
+    // from the collapse key since this simulator only estimates airborne state, not tracks it
+    // truly -- both variants stay selectable. The already-selected action is never collapsed
+    // away even if it's no longer the priority winner, but the winner itself comes only from
+    // genuinely-valid members, so a stale selection can't shadow the option the author needs.
     const byInputKey = new Map<string, Candidate[]>();
     const finalCandidates: Candidate[] = [];
     candidates.forEach(c => {
@@ -213,13 +204,9 @@ export const RotationRow: React.FC<RotationRowProps> = ({
     });
 
     // --- ORDER GROUPS TO MATCH THE UNIT PAGE ---
-    // groupLabel is either a bare category (e.g. 'Echo Skill', 'System') or
-    // '<category>: <skillGroupName>' (e.g. 'Basic Attack: Frigid Light') for character
-    // mechanics -- strip the ": <name>" suffix before matching against BUILDER_CATEGORIES so
-    // this stays in the same order the Mechanics Builder's own accordion uses for this unit,
-    // rather than whatever order candidates happened to be collected/collapsed in above. Echo
-    // Skill isn't one of the unit's own categories, so it's placed right after them; System
-    // always sorts last regardless, since it's not part of the unit page at all.
+    // groupLabel is a bare category or '<category>: <skillGroupName>' -- strip the suffix
+    // before matching BUILDER_CATEGORIES so groups sort like the Mechanics Builder's accordion.
+    // Echo Skill goes right after the unit's own categories; System always sorts last.
     const groupOrder = [...BUILDER_CATEGORIES, 'Echo Skill'];
     const groupRank = (label: string): number => {
       if (label === 'System') return groupOrder.length;
@@ -260,9 +247,8 @@ export const RotationRow: React.FC<RotationRowProps> = ({
     updateRowField(index, 'timing', newTiming);
   };
 
-  // Buffered locally instead of committing on every keystroke: a controlled input that
-  // reformats to "X.XX" on each change would stomp a lone "-" or trailing "." before the
-  // user can finish typing a negative or decimal offset. Commit only on blur/Enter.
+  // Buffered locally so reformatting to "X.XX" on every keystroke doesn't stomp a lone "-" or
+  // trailing "." mid-typing. Commit only on blur/Enter.
   const handleOffsetInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     setOffsetDraft(e.target.value);
   };
@@ -284,8 +270,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
   };
 
   const timeStart = row.gameTimeStart !== undefined ? formatFramesAsSeconds(toFrames(row.gameTimeStart)) : '0.00s';
-  // row.offset is Frames; convert to seconds once here -- the sign is preserved by scaling, so
-  // this same value still drives the offset-pos/offset-neg styling below.
+  // row.offset is Frames; convert to seconds (sign preserved) for the offset-pos/neg styling below.
   const offsetVal = framesToSeconds(toFrames(row.offset || 0));
   const offsetStr = `${offsetVal > 0 ? '+' : ''}${offsetVal.toFixed(2)}`;
   const totalDmg = (row.damageInstances || []).reduce((acc: number, d: any) => acc + (d.total || 0), 0);
@@ -298,9 +283,8 @@ export const RotationRow: React.FC<RotationRowProps> = ({
   const hasError = !!row.errorMsg;
   const hasWarning = !!row.warningMsg;
 
-  // Every error/warning analyzeLoop found across the loop's second repetition -- not just the
-  // first one -- so the tag's tooltip gives the full picture instead of hiding all but one
-  // issue behind repeated hover-fix-hover cycles.
+  // Every error/warning analyzeLoop found across the loop's second rep, so the tag's tooltip
+  // gives the full picture instead of hiding all but one issue behind repeated hover-fix cycles.
   const loopIssues = [
     ...(loopErrors || []).map(text => ({ text, isError: true })),
     ...(loopWarnings || []).map(text => ({ text, isError: false }))

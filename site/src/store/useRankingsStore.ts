@@ -1,4 +1,3 @@
-// src/store/useRankingsStore.ts
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { DataLoader } from '../utils/DataLoader';
@@ -29,28 +28,22 @@ export const RANKING_DPS_FIELD: Record<DpsWindowKey, 'openerDps' | 'firstLoopDps
 };
 
 // "Same rotation" for the Best Only toggle: same characters in the same slots at the same
-// sequence. Gear/echoes and button order deliberately don't factor in -- two submissions that
-// differ only there collapse into one entry, keeping the higher-DPS one.
+// sequence. Gear/echoes and button order don't factor in.
 function rotationGroupKey(entry: RankingEntry): string {
   return entry.team.map((slot, i) => `${slot.character || ''}@S${entry.sequences[i] ?? 0}`).join('|');
 }
 
-// Which single element / which single Basic-Heavy-Skill-Liberation-Echo category this entry's
-// team dealt the most damage as, for the given window -- the DMG Type filter's basis. Element is
-// attributed wholesale to each unit's own assigned element (DataLoader.characterDB[name].
-// element), weighted by that unit's own total contribution for the window -- so e.g. a Fusion
-// main DPS + Aero sub DPS reads as a "Fusion team", not a 50/50 split. Category is instead
-// summed from each unit's own per-castType breakdown (contribution.units), since a single
-// character's own hits already mix several categories together (a Basic-Attack-heavy kit still
-// throws out Skill/Liberation hits too). Either can come back null if the team dealt no damage
-// at all, or none of it falls into a tracked element/category.
+// The single element / dmg category this team dealt the most damage as, for the DMG Type
+// filter. Element is attributed wholesale per-unit and weighted by contribution (so a Fusion
+// main + Aero sub reads as a "Fusion team"); category is summed from each unit's per-castType
+// breakdown, since one character's hits already mix several categories.
 function majorityDmgTypes(entry: RankingEntry, window: DpsWindowKey): { element: string | null; category: RankingDmgCategory | null } {
   const c = entry.contribution[window];
   const teamNames = new Set(entry.team.map(s => s.character).filter(Boolean));
 
   const elementTotals: Record<string, number> = {};
   c.team.forEach(slice => {
-    if (!teamNames.has(slice.label)) return; // a status-effect tick's own label, not a team member
+    if (!teamNames.has(slice.label)) return; // a status-effect tick's label, not a team member
     const element = DataLoader.characterDB[slice.label]?.element;
     if (!element) return;
     elementTotals[element] = (elementTotals[element] || 0) + slice.dmg;
@@ -79,9 +72,8 @@ function majorityDmgTypes(entry: RankingEntry, window: DpsWindowKey): { element:
   };
 }
 
-/** Applies the Rankings page's sequence/style/search filters, then (last) the Best Only dedupe
- * and DPS-descending sort -- shared by the full Rankings page and the Pin Comparison picker so
- * both apply identical rules to the exact same underlying entries. */
+/** Applies the sequence/style/search filters, then Best Only dedupe and DPS-descending sort.
+ * Shared by the Rankings page and the Pin Comparison picker. */
 export function filterRankingEntries(
   entries: RankingEntry[],
   filters: RankingFilters,
@@ -89,21 +81,18 @@ export function filterRankingEntries(
   activeWindow: DpsWindowKey
 ): RankingEntry[] {
   const searchLower = search.trim().toLowerCase();
-  // Faceted-checkbox convention (see RankingFilterToolbar's DEFAULT_RANKING_FILTERS): every box
-  // checked means the facet is inactive (don't even bother computing majorityDmgTypes for every
-  // entry when nothing's been narrowed), not "only pass entries matching all 6/5".
+  // Every box checked means the facet is inactive -- skip computing majorityDmgTypes per entry
+  // when nothing's been narrowed.
   const elementFilterActive = filters.elements.length < RANKING_ELEMENTS.length;
   const categoryFilterActive = filters.dmgCategories.length < RANKING_DMG_CATEGORIES.length;
 
-  // Sequence range, rotation style, search text, and DMG Type narrow the candidate set first --
-  // "Best Only" (below) only ever dedupes *within* whatever survives these, so a rotation
-  // that's the best of its group never gets silently hidden by a duplicate that itself
-  // would've been filtered out anyway.
+  // Sequence/style/search/DMG Type narrow the candidate set first; Best Only (below) only
+  // dedupes within whatever survives, so a group's best rotation is never hidden by a
+  // duplicate that would've been filtered out anyway.
   let candidates = entries.filter(entry => {
     for (let i = 0; i < 3; i++) {
       const slotChar = entry.team[i]?.character;
-      // 4-star units are effectively always S6 -- dupes are far easier to acquire than even
-      // S0 of a 5-star, so a sequence range that's meaningful for 5-stars doesn't apply here.
+      // 4-star units are effectively always S6, so a 5-star-meaningful sequence range doesn't apply.
       const rarity = slotChar ? DataLoader.characterDB[slotChar]?.rarity : undefined;
       if (rarity === 4) continue;
       const seq = entry.sequences[i] ?? 0;
@@ -147,10 +136,8 @@ interface RankingsState {
   // No-op if already loading/ready -- safe to call from every mount of the Rankings page.
   load: () => Promise<void>;
 
-  // Search/filter UI state -- persisted (see partialize below) so leaving the Rankings page
-  // and coming back (or reloading) doesn't reset a filter setup you were mid-comparison with.
-  // `entries`/`status`/`error` deliberately aren't persisted here, same reasoning as before:
-  // they're cheap to recompute and could go stale if the underlying result files change.
+  // Persisted (see partialize below) so revisiting the page doesn't reset a filter setup.
+  // `entries`/`status`/`error` aren't persisted -- cheap to recompute, could go stale otherwise.
   activeWindow: DpsWindowKey;
   search: string;
   filters: RankingFilters;
@@ -158,21 +145,16 @@ interface RankingsState {
   setSearch: (search: string) => void;
   setFilters: (filters: RankingFilters) => void;
 
-  // Pagination -- both persisted (see partialize below), so a reload lands back on the same
-  // page. RotationRankingsPage still resets page to 1 whenever search/filters/activeWindow
-  // change, so switching *those* never leaves you stranded deep in a now-different result set --
-  // this is purely about a plain reload/revisit preserving where you were.
+  // Persisted so a reload lands on the same page. RotationRankingsPage still resets page to 1
+  // when search/filters/activeWindow change.
   page: number;
   pageSize: number;
   setPage: (page: number) => void;
   setPageSize: (pageSize: number) => void;
 
-  // True once zustand's persist middleware has finished restoring localStorage into this store.
-  // Rehydration is asynchronous and swaps in new (if deeply-equal) object references for
-  // search/filters/activeWindow *after* the first render -- RotationRankingsPage's
-  // reset-page-on-filter-change effect needs this to tell "rehydration just landed, ignore it"
-  // apart from "the user actually changed something", or it would stomp a restored page number
-  // straight back to 1 on every load.
+  // True once persist middleware finishes restoring localStorage. RotationRankingsPage's
+  // reset-page-on-filter-change effect needs this to tell rehydration apart from a real user
+  // change, or it would stomp the restored page number back to 1 on every load.
   hasHydrated: boolean;
 }
 
@@ -192,16 +174,13 @@ export const useRankingsStore = create<RankingsState>()(
   page: 1,
   pageSize: 20,
   setPage: (page) => set({ page }),
-  // Changing how many rows fit a page shifts what "page 2" even means -- reset to page 1 rather
-  // than risk landing on a now-out-of-range or just-plain-different slice of entries.
+  // A page-size change shifts what "page 2" means, so reset to page 1.
   setPageSize: (pageSize) => set({ pageSize, page: 1 }),
 
   hasHydrated: false,
 
   load: async () => {
-    // Silently evicts any character_results file that changed on the server since it was last
-    // loaded -- if that touched anything already 'ready', force a real reload instead of
-    // returning the now-stale entries list below.
+    // Evicts changed result files; force a real reload if that touched anything already 'ready'.
     if (await checkResultsFreshness()) set({ status: 'idle', entries: [] });
 
     if (get().status === 'loading' || get().status === 'ready') return;
@@ -210,32 +189,25 @@ export const useRankingsStore = create<RankingsState>()(
     try {
       const filenames = await DataLoader.loadCharacterResults();
 
-      // Sequential on purpose -- postToWorker already serializes through one shared queue
-      // (see calcWorkerClient.ts), and awaiting each entry here lets rows stream into the
-      // list as they finish instead of the whole leaderboard popping in at once.
+      // Sequential on purpose: lets rows stream in as they finish instead of the whole
+      // leaderboard popping in at once (postToWorker already serializes through one queue).
       for (const filename of filenames) {
         const data = DataLoader.characterResults[filename];
         if (!data) continue;
 
         try {
-          // Omit<..., 'dmgOverTimeSeries'> -- a saved-results file's results never carry it
-          // (see DataLoader.CharacterResultData), and this store never reads it either way.
           let results: Omit<RotationResults, 'dmgOverTimeSeries'>;
           if (data.results) {
-            // Already computed (History's "Save Results" wrote this file) -- skip the worker
-            // entirely instead of re-running the simulation for a known answer.
+            // Already computed by History's "Save Results" -- skip the worker entirely.
             results = data.results;
           } else {
             const options = data.settings || {};
-            // Top-level payload keys, not left nested in `options` -- that's where calc.worker.ts
-            // actually reads them from. Without this, any saved rotation with an Ending Rotation
-            // split would silently compute its DPS/2-Minute stats as if the split didn't exist
-            // (a plain truncated-loop tail instead of the authored replacement content).
+            // Top-level payload keys, since that's where calc.worker.ts reads them from --
+            // nested in `options` would silently ignore a saved Ending Rotation split.
             const endingRotationEnabled = data.settings?.endingRotationEnabled;
             const endRotationStartsEarlier = data.settings?.endRotationStartsEarlier;
-            // 'recalculate' runs TimelineEngine.recalculateState + findLoopStart -- its
-            // loopStartIndex is a required input to 'calculateDamage' below (mirrors the
-            // two-step round trip useRotationStore's own Calculate button makes).
+            // Mirrors the two-step round trip useRotationStore's Calculate button makes:
+            // 'recalculate' derives loopStartIndex, which 'calculateDamage' below needs.
             const { result: recalcResult } = postToWorker('recalculate', {
               rows: data.rotation,
               team: data.team,
@@ -287,14 +259,9 @@ export const useRankingsStore = create<RankingsState>()(
         page: state.page,
         pageSize: state.pageSize
       }),
-      // zustand's default merge is `{...currentState, ...persistedState}` -- a shallow merge at
-      // the TOP level only, so a persisted `filters` object (from before the DMG Type filter
-      // existed) would replace the in-code default `filters` *wholesale*, leaving
-      // elements/dmgCategories `undefined` and crashing the first render (`.length`/`.includes`
-      // on undefined) instead of quietly defaulting to "all checked, no filtering" like a fresh
-      // install gets. Deep-merging `filters` specifically -- defaults first, persisted values
-      // overlaid on top -- means any field older localStorage doesn't have just falls back to
-      // its default instead of vanishing.
+      // zustand's default merge is shallow at the top level, so an old persisted `filters`
+      // (from before the DMG Type filter existed) would replace the default wholesale and
+      // crash on undefined .length/.includes. Deep-merge filters so missing fields fall back.
       merge: (persistedState, currentState) => {
         const persisted = (persistedState || {}) as Partial<RankingsState>;
         return {

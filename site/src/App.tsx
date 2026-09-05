@@ -1,4 +1,3 @@
-// src/App.tsx
 import { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { LandingPage } from './components/LandingPage';
@@ -29,21 +28,11 @@ export default function App() {
   const [{ view: currentView, step: activeStep }, navigate] = useHashRoute();
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Shared by the initial load, the tab-refocus check, and the live poll below -- re-checks
-  // whatever entity the Mechanics Builder currently has open against the manifest and, only if
-  // it actually changed upstream (and there's no conflicting local edit -- see
-  // checkBuilderItemFreshness/useFreshnessConflictStore), replays setActiveChar so the Builder's
-  // own `mechanics`/`baseStats` working copy picks up whatever checkItems just evicted+refetched
-  // into DataLoader.mechanicsDB.
-  //
-  // `force` skips the "did anything change" gate and always replays -- needed at mount, since
-  // `mechanics`/`baseStats` aren't persisted (see useBuilderStore's partialize) and start out
-  // empty there regardless of whether the on-disk file itself changed. Everywhere else (the 3s
-  // poll especially) must NOT force: setActiveChar always produces brand-new `mechanics`/
-  // `baseStats` object references even on a no-op re-derive, which re-triggers JsonOutputPane's
-  // JSON-stringify-and-highlight effect on every single poll tick -- visible as the JSON panel's
-  // sub-panel field highlight repeatedly restarting its CSS transition (a flicker) for as long as
-  // a panel stays hovered, even though nothing on disk had actually changed.
+  // Re-checks whichever entity the Mechanics Builder has open against the manifest, replaying
+  // setActiveChar if it changed upstream. `force` skips the "did anything change" gate (needed
+  // at mount, since `mechanics`/`baseStats` aren't persisted) -- everywhere else must NOT force,
+  // since a no-op replay still produces new object references and flickers JsonOutputPane's
+  // highlight effect on every poll tick.
   const refreshActiveBuilderItem = async (force = false) => {
     const { activeChar, activeFolder, activeRarity, setActiveChar } = useBuilderStore.getState();
     if (!activeChar) return;
@@ -53,22 +42,14 @@ export default function App() {
 
   useEffect(() => {
     DataLoader.initDatabases().then(async () => {
-      // The Mechanics Builder only persists activeChar/editedMechanics across reloads, not the
-      // derived `mechanics` working copy itself (see useBuilderStore's partialize) -- so a
-      // reload that lands back on a previously-open entity needs this same freshness-check +
-      // setActiveChar replay a grid click normally does, to rebuild it from a real fetch rather
-      // than leaving the builder showing an empty/stale view for whatever was last open.
+      // A reload only persists activeChar, not the derived `mechanics` working copy, so it
+      // needs the same freshness-check + replay a grid click normally does.
       await refreshActiveBuilderItem(true);
       setIsLoaded(true);
     });
   }, []);
 
-  // "Tab regains focus" freshness check, scoped to whatever the active page actually has
-  // loaded -- the Calculator checks the current roster's mechanic JSONs (silently evicting or,
-  // if locally edited, raising a conflict via useFreshnessConflictStore); Rankings just
-  // re-invokes load(), which now does its own freshness check internally and only actually
-  // re-fetches if something changed; the Builder re-checks whatever entity is currently open the
-  // same way. Other views have nothing worth checking on focus alone.
+  // "Tab regains focus" freshness check, scoped to whatever the active page has loaded.
   useEffect(() => {
     const onVisibility = () => {
       if (document.visibilityState !== 'visible') return;
@@ -84,13 +65,8 @@ export default function App() {
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, [currentView]);
 
-  // Visibilitychange only fires on actual tab occlusion (switching tabs, minimizing) -- it does
-  // NOT fire from simply clicking into another *window* (e.g. an editor open side-by-side with
-  // the browser) since the page never actually stops being shown on screen. That's exactly the
-  // Mechanics Builder's most common live-editing workflow, so it needs its own lightweight poll
-  // rather than depending on a focus/visibility event that may never come. Cheap to run often:
-  // DataLoader.refreshManifest() internally throttles the actual manifest.json fetch to once per
-  // 5s no matter how many times it's called, so this just piggybacks on that.
+  // visibilitychange doesn't fire for a side-by-side editor window, the Builder's most common
+  // live-editing setup, so it needs its own poll instead. Cheap: refreshManifest self-throttles.
   useEffect(() => {
     if (currentView !== 'builder') return;
     const interval = setInterval(() => {

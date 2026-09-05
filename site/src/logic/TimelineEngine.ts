@@ -31,13 +31,10 @@ export class TimelineEngineClass {
   _localBuffCache: Record<string, Effect> = {};
   _globalBuffCache: Record<string, Effect | null> = {};
   _enemyConfig: { level: number; res: number; hp: number } = ENEMY_DEFAULTS;
-  // Skips building UI-only bookkeeping (dropdown snapshots, per-hit history entries) that
-  // callers like analyzeLoop's throwaway simulations never read -- see recalculateState.
+  // Skips UI-only bookkeeping (dropdown snapshots, per-hit history) that analyzeLoop's
+  // throwaway simulations never read.
   _lightweightMode = false;
-  // Memoizes _getModifiedMoveData per actionId for the current recalculateState call, since
-  // the same move gets looked up repeatedly (a row's own cast, the next-row lookahead in
-  // _resolveTimings, and every occurrence of that action across repeated loop iterations)
-  // and its raw definition can't change mid-simulation. Reset at the top of every call.
+  // Memoizes _getModifiedMoveData per actionId for one recalculateState call; reset each call.
   _moveDataCache: Record<string, MechanicNode | null> = {};
 
   recalculateState(
@@ -72,7 +69,7 @@ export class TimelineEngineClass {
     const unitBusyUntil: Record<string, number> = {};
     let globalSwapCdExpiresAt = 0;
 
-    // --- LINK ROW POINTERS (Restores @Prev, @Next, and @Self.PrevAction) ---
+    // Link row pointers (@Prev, @Next, @Self.PrevAction)
     activeRows.forEach((row, i) => {
       row.arrayIndex = i;
       row.prevRow = i > 0 ? activeRows[i - 1] : null;
@@ -110,8 +107,7 @@ export class TimelineEngineClass {
       currentData.moveName = dbMove.name || currentData.action;
       currentData.castTypes = dbMove.castTypes || (currentData.action ? [currentData.action] : []);
       currentData.dmgTypes = dbMove.dmgTypes || [];
-      // Surfaced for the rotation Timeline's input-press flags (which key/hold this move
-      // corresponds to) -- pure metadata, never read by any damage-calculation logic below.
+      // Metadata for the Timeline's input-press flags; never read by damage calculation below.
       currentData.input = dbMove.input;
       currentData.inputType = dbMove.inputType;
 
@@ -131,8 +127,7 @@ export class TimelineEngineClass {
       }
 
       if (i > 0 && prevData.unit !== currentData.unit) {
-        // swapCooldown is a real cooldown (seconds domain, per the frame-timing split) --
-        // convert it once here where it crosses into the frames-domain "expires at" marker.
+        // swapCooldown is seconds-domain; convert once here into the frames-domain marker.
         globalSwapCdExpiresAt = Math.max(globalSwapCdExpiresAt, accumulatedTime + secondsToFrames(GAME_DEFAULTS.swapCooldown));
       }
 
@@ -174,10 +169,7 @@ export class TimelineEngineClass {
         for (let delay = 0; delay <= GAME_DEFAULTS.holdLookaheadMax; delay += GAME_DEFAULTS.holdLookaheadStep) {
           const checkTime = currentBaseStart + delay;
           const holdDuration = checkTime - holdStart;
-          // cursorSpeed is calibrated in cursor-units per real-time SECOND (e.g. a full 0-100
-          // sweep once per second), unrelated to the frames-domain duration migration -- convert
-          // the elapsed frames to seconds right at this one multiplication, same pattern as the
-          // cooldown/buff decay boundary.
+          // cursorSpeed is cursor-units per real-time second, so convert elapsed frames here.
           const progress = accumulated + framesToSeconds(toFrames(holdDuration)) * speed;
           let cursor = 0;
           if (mode === 'clamp') cursor = Math.min(progress, maxVal);
@@ -260,11 +252,8 @@ export class TimelineEngineClass {
       unitBusyUntil[currentData.unit] = currentData.timeStart + currentData.animationCommitment;
       const baseActDur = dbMove.actionDuration !== undefined && dbMove.actionDuration !== null ? parseFloat(String(dbMove.actionDuration)) : 0;
 
-      // Frame counts are exact integers, so every threshold below is a plain > 0 / < 0 / === 0
-      // comparison -- no epsilon needed (unlike the seconds-domain decay checks elsewhere in
-      // this file, which keep their epsilons since that side is still float). Each reason
-      // carries a raw valueFrames instead of a pre-formatted string; SubPanel.tsx formats it
-      // to seconds at display time.
+      // Frame counts are exact integers, so no epsilon is needed on these comparisons (unlike
+      // the seconds-domain decay checks elsewhere). SubPanel.tsx formats valueFrames to seconds.
       const reasons: any[] = [];
       if (wCD > 0) reasons.push({ label: 'Waiting for Skill CD', valueFrames: wCD });
       if (wBusy > 0) reasons.push({ label: 'Off-Field Animation Lock', valueFrames: toFrames(wBusy) });
@@ -326,7 +315,7 @@ export class TimelineEngineClass {
           const mode = config.cursorMode || MECHANICS_NOTATION.HOLD_DEFAULTS.CURSOR_MODE;
           const holdDuration = currentData.gameTimeStart - currentData.trackers.Hold_Start;
           const accumulated = currentData.trackers.Cursor_Accumulated || 0;
-          // Same seconds-calibrated cursorSpeed conversion as the lookahead loop above.
+          // Same cursorSpeed conversion as the lookahead loop above.
           const progress = accumulated + framesToSeconds(toFrames(holdDuration)) * speed;
           let finalCursor = 0;
           if (mode === 'clamp') finalCursor = Math.min(progress, maxVal);
@@ -343,8 +332,7 @@ export class TimelineEngineClass {
         }
       }
 
-      // --- PRE-CAST DROPDOWN SNAPSHOT --- (skipped in lightweight mode: legality-only
-      // simulations never render a row's inspector panel, so this is pure waste for them)
+      // Pre-cast dropdown snapshot, skipped in lightweight mode (nothing renders it there).
       if (!this._lightweightMode) {
         currentData.dropdownState = {
           ...currentData,
@@ -382,10 +370,8 @@ export class TimelineEngineClass {
 
       this._evaluateMechanics(currentData, activeTeam, activeRows, i, team, dbMove);
       this._resolveComboWindows(currentData, dbMove, prevData, team);
-      // Surfaced for the rotation Timeline's spam-click indicator (comparing this row's priority
-      // against the previous row's) -- resolved the same DSL-or-number way _resolveComboWindows
-      // resolves comboWindow/actionDuration, deferred until here so @Self/@Move context reflects
-      // this row's own fully-computed state rather than whatever was set before inheritance ran.
+      // For the Timeline's spam-click indicator; deferred until here so @Self/@Move context
+      // reflects this row's fully-computed state.
       currentData.priority = dbMove.priority === undefined
         ? 0
         : (typeof dbMove.priority === 'string' && (dbMove.priority.includes('@') || /[+\-*/]/.test(dbMove.priority)))
@@ -410,13 +396,8 @@ export class TimelineEngineClass {
       emptyRow.dropdownState = JSON.parse(JSON.stringify(cleanEmpty));
     }
 
-    // A hit can still be sitting in the queue here: an action's damage timeframe can
-    // land after its own animation was cut short (e.g. cancelling into an Outro via
-    // swapTiming), and if no later row's own decay ever advances the clock far enough
-    // to reach it, it would otherwise sit unresolved forever and silently deal no
-    // damage. Flush whatever's left now — nothing later in the rotation will reach it.
-    // (Event context uses the last row since each hit's true origin row already
-    // receives the result via nextHit.originRow, regardless of context passed here.)
+    // A hit can still be queued here (e.g. cancelled into an Outro via swapTiming) with no
+    // later row to advance the clock far enough to reach it -- flush what's left now.
     if (this.damageQueue.length > 0) {
       const flushContext = activeRows[activeRows.length - 1];
       this._processQueuedHits(flushContext, toFrames(Number.MAX_SAFE_INTEGER), activeTeam, activeRows, team);
@@ -426,19 +407,9 @@ export class TimelineEngineClass {
     return activeRows;
   }
 
-  // Checks whether the loop portion of a rotation (rows[loopStartIndex..]) can repeat: builds
-  // opener + 2 loop reps and inspects the second rep for issues that only surface once state
-  // has carried over from a prior loop (cooldowns not yet up, trigger rules no longer
-  // satisfied, resources not regenerated). This is the live, on-every-edit legality check --
-  // it only needs to prove the *next* iteration works, not simulate out to a full 2-minute
-  // window, so it stays cheap regardless of how short the loop is. Simulating far enough to
-  // cover 2 minutes for real DPS stats is future work, reserved for an explicit "Calculate"
-  // action rather than this live check.
-  // A manual override (a row flagged `loopStartOverride`) always wins. Otherwise, auto-detect:
-  // the loop starts right after the main DPS's first Outro in the rotation, since that's what
-  // ends the opener. No Outro found, or nothing follows it, means there's no distinct opener --
-  // the whole rotation is the loop. Lives here (not in useRotationStore) so both the store and
-  // the calc worker -- which can't import a Zustand store -- can call the same logic.
+  // Manual override (loopStartOverride) always wins. Otherwise the loop starts right after
+  // the main DPS's first Outro, since that's what ends the opener; no Outro means the whole
+  // rotation is the loop. Lives here (not useRotationStore) so the calc worker can call it too.
   findLoopStart(rows: any[], mainDps: string | undefined): { index: number; isOverride: boolean } {
     const overrideIndex = rows.findIndex(r => r.loopStartOverride === true && !!r.unit);
     if (overrideIndex !== -1) return { index: overrideIndex, isOverride: true };
@@ -456,6 +427,9 @@ export class TimelineEngineClass {
     return { index: 0, isOverride: false };
   }
 
+  // Live legality check: simulates opener + 2 loop reps and inspects the second rep for issues
+  // that only surface once state carries over from a prior loop (cooldowns, trigger rules,
+  // resources). Cheap on purpose -- proves just the next iteration works, not a full DPS run.
   analyzeLoop(
     rows: any[],
     team: any[] = [],
@@ -468,21 +442,15 @@ export class TimelineEngineClass {
 
     const clampedStart = Math.max(0, Math.min(loopStartIndex, contentRows.length));
     const openerRows = contentRows.slice(0, clampedStart);
-    // A row flagged loopEndOverride marks where the repeating loop template stops -- anything
-    // after it is Ending Rotation content, fixed one-time material that never repeats, not a
-    // continuation of the loop. Without this cutoff, that tail got folded into loopTemplate and
-    // duplicated below along with the real loop for the repeat-legality check, which validated
-    // combo/resource continuity as if the loop repeated *into* the Ending Rotation and the
-    // Ending Rotation looped back into a fresh copy of itself -- surfacing bogus "combo
-    // requirement not met" warnings against Ending Rotation moves that only ever play once.
+    // loopEndOverride marks where the loop template stops; anything after it is Ending
+    // Rotation content and must be excluded, or it gets validated as if it repeated too.
     const loopEndIndex = contentRows.findIndex(r => r.loopEndOverride === true);
     const loopTemplate = loopEndIndex !== -1 && loopEndIndex >= clampedStart
       ? contentRows.slice(clampedStart, loopEndIndex + 1)
       : contentRows.slice(clampedStart);
     if (loopTemplate.length === 0) return { errors: [], warnings: [] };
 
-    // `rows` is this edit's already-recalculated pass, so its timing fields are trustworthy --
-    // no need to re-simulate the opener+1-loop from scratch just to read them back.
+    // `rows` is already-recalculated, so its timing fields can be read directly.
     const openerEndRow = openerRows.length > 0 ? openerRows[openerRows.length - 1] : null;
     const openerEndTime = openerEndRow ? (openerEndRow.gameTimeStart || 0) + (openerEndRow.gameTimePassed || 0) : 0;
     const loopEndRow = loopTemplate[loopTemplate.length - 1];
@@ -493,9 +461,7 @@ export class TimelineEngineClass {
       return { errors: ['Loop has no duration — cannot repeat.'], warnings: [] };
     }
 
-    // recalculateState's post-loop pass assumes the array's last element is the UI's
-    // trailing blank row; feeding it a real action there silently corrupts that row's
-    // timing, so every synthetic array built here must end with one.
+    // recalculateState assumes the array's last element is the UI's trailing blank row.
     const cloneAuthored = (r: any) => ({
       unit: r.unit,
       action: r.action,
@@ -526,10 +492,8 @@ export class TimelineEngineClass {
         errors.push(`${moveName}: ${row.errorMsg}`);
         continue;
       }
-      // A cooldown-blocked move fails its trigger rule the same way a genuine combo-order
-      // violation does, but it isn't actually illegal -- the loop is fine, it just needs to
-      // wait. Check cdWaitTime first so that case is always a wait-time warning, never
-      // promoted to the "illegal loop" error below.
+      // A cooldown-blocked move fails its trigger rule too, but it's just a wait, not illegal --
+      // check cdWaitTime first so it's never promoted to the error case below.
       if (row.cdWaitTime > 3) {
         warnings.push(`${moveName} needs ${formatFramesAsSeconds(row.cdWaitTime)} more (on cooldown).`);
       } else if (row.warningMsg && /^Combo requirement not met/.test(row.warningMsg)) {
@@ -655,8 +619,7 @@ export class TimelineEngineClass {
     currentData.cooldowns = structuredClone(prevData.cooldowns || {});
     currentData.activeBuffs = structuredClone(prevData.activeBuffs || {});
 
-    // Buffs flagged removeOnSwap belong to whoever swaps off-field; drop them the moment
-    // that unit leaves so later hits (from a different acting unit) can't still benefit.
+    // removeOnSwap buffs belong to whoever swaps off-field; drop them the moment they leave.
     if (prevData.unit && currentData.unit && currentData.unit !== prevData.unit) {
       const swappedOutPrefix = `${prevData.unit}_`;
       for (const key in currentData.activeBuffs) {
@@ -697,7 +660,6 @@ export class TimelineEngineClass {
 
     passives.forEach(eff => {
       const owner = eff.provider || eff.source || firstRowData.unit;
-      // Process through _processEffect to properly handle dynamic math, resources, trackers, and buff targets
       this._processEffect(eff, firstRowData, owner, activeTeam, [], 0, team);
     });
   }
@@ -977,20 +939,16 @@ export class TimelineEngineClass {
       this._executeEffectsStream(onHitEffects, currentData, activeTeam, activeRows, nextHit.executeAt, nextHit.provider, team);
       delete currentData.activeProcSource;
 
-      // Builds this hit's UI-facing history entry (the damage breakdown shown when a row's
-      // DMG cell is inspected). Skipped in lightweight mode: analyzeLoop's throwaway
-      // simulations only read errorMsg/warningMsg/cdWaitTime off the result rows, never this.
+      // Builds this hit's UI-facing history entry (the damage breakdown for a row's DMG cell).
+      // Skipped in lightweight mode -- unread there.
       if (!this._lightweightMode) {
         const hitName = nextHit.originMoveData.name + (nextHit.totalHits > 1 ? ` (Hit ${nextHit.hitIndex + 1})` : '');
         const { prevRow, nextRow, dropdownState, _pendingHits, ...cleanData } = currentData;
         if (!nextHit.originRow._pendingHits) nextHit.originRow._pendingHits = [];
 
-        // executeAt is a real-time offset; convert it to the equivalent game time. Only the
-        // move's own freezeTime pulls real time and game time apart -- NOT the swap/cancel
-        // truncated duration, since hits scheduled within the move's true damage window (which
-        // is resolved before that truncation is applied) keep resolving in the background after
-        // a swap cuts the animation short. Elapsed time still inside the freeze window collapses
-        // to the instant the freeze began; anything past it resumes 1:1 with real time.
+        // executeAt is real-time; convert to game time. Only freezeTime pulls the two domains
+        // apart -- not a swap/cancel-truncated duration, since a hit can still resolve after
+        // a swap cuts the animation short.
         const originRow = nextHit.originRow;
         const elapsedSinceRowStart = Math.max(0, nextHit.executeAt - (originRow.timeStart || 0));
         const rowFreezeTime = originRow.freezeTime || 0;
@@ -1017,9 +975,7 @@ export class TimelineEngineClass {
   }
 
   _processGameTimeDecay(currentData: any, gameTimePassed: Frames, activeTeam: string[], activeRows: any[], team: any[]): void {
-    // gameTimePassed arrives in frames (row-scheduling domain); cooldowns and buff/effect
-    // lifetimes are a deliberate exception that stays in seconds, so this is the one place
-    // elapsed frame-time needs to cross into that domain to decay them.
+    // Cooldowns and buff/effect lifetimes deliberately stay in seconds, unlike frame-domain gameTimePassed.
     const decaySeconds = framesToSeconds(gameTimePassed);
     const getTimeScale = (timerId: string) => {
       let mult = 1.0;
@@ -1056,8 +1012,7 @@ export class TimelineEngineClass {
     if (expiringBuffs.length > 0) {
       expiringBuffs.forEach(buff => {
         const provider = buff.provider || currentData.unit;
-        // Modifier brackets (e.g. OnBuffExpire[Fusion Burst]) are lowercased at DSL-parse time
-        // (see DSLParser.ts's _parseTrigger), so the emitted modifier set has to match that case.
+        // Modifier brackets are lowercased at DSL-parse time (DSLParser.ts), so match that case.
         const payloads = EventManager.emit('OnBuffExpire', new Set([(buff.name || '').toLowerCase()]), currentData, provider, team);
         if (payloads.length > 0) {
           this._executeEffectsStream(payloads, currentData, activeTeam, activeRows, this.currentGlobalRealTime, provider, team);
@@ -1097,8 +1052,7 @@ export class TimelineEngineClass {
       if (currentData.cooldowns[key] <= 0.001) delete currentData.cooldowns[key];
     }
 
-    // OnTick intervals (e.g. DoT ticks) are authored/parsed as raw seconds literals in the DSL
-    // trigger modifier (no frame-suffix syntax there), so this payload stays seconds too.
+    // OnTick intervals are authored as raw seconds literals in the DSL, so this stays seconds.
     const tickEffects = EventManager.emit('OnTick', new Set(), currentData, currentData.unit, team, { gameTimePassed: decaySeconds, getTimeScale });
     this._executeEffectsStream(tickEffects, currentData, activeTeam, activeRows, this.currentGlobalRealTime, currentData.unit, team);
   }
@@ -1130,9 +1084,7 @@ export class TimelineEngineClass {
   _queueProccedMechanic(currentData: any, proc: any, executeAt: number, team: any[]): void {
     const mData = proc.mechanicData;
     const rawProcMults = Array.isArray(mData.hitMults) ? mData.hitMults : [];
-    // Same move-name/pointer addition as the main action's hitModifiers above -- lets an
-    // OnHit[...] rule target a specific proc'd mechanic by name (e.g. Sanhua's Forte Detonate
-    // Base, itself only ever fired as a proc), not just its dmgTypes/castTypes tags.
+    // Adds name/pointer so an OnHit[...] rule can target this specific proc'd mechanic by name.
     const procModifiers = new Set([
       ...(mData.dmgTypes || []),
       ...(mData.castTypes || []),
@@ -1140,11 +1092,8 @@ export class TimelineEngineClass {
       `@${proc.provider}(${mData.name})`
     ].map((m: any) => String(m).toLowerCase()));
     if (rawProcMults.length > 0) {
-      // A passive/proc'd mechanic (e.g. Lumi's laser-beam passives) can carry its own
-      // damageTimeframe -- the hit lands some frames after whatever triggered it, not
-      // instantly -- offset from executeAt the same way _resolveTimings resolves a normal
-      // action's own damageTimeframe. Left unset, both default to executeAt (today's
-      // instant-fire behavior), so every other existing proc is unaffected.
+      // A proc'd mechanic can carry its own damageTimeframe, offsetting the hit from executeAt.
+      // Left unset, both default to executeAt (instant-fire).
       const resolveOffset = (val: any): Frames => (typeof val === 'string' && (val.includes('@') || /[+\-*/]/.test(val)))
         ? roundFrames(parseFloat(String(this._resolveDynamicMath(val, currentData, proc.provider, team))))
         : roundFrames(parseFloat(val));
@@ -1256,11 +1205,8 @@ export class TimelineEngineClass {
       currentData.cooldowns[`${unitName}_${currentData.moveName}`] = parseFloat(String(moveData.cooldown));
     }
 
-    // Plain dmgTypes (e.g. "Glacio", "Heavy") plus the move's own name/pointer -- the same two
-    // extra entries castModifiers below adds for OnCast -- so an OnHit[...] rule can target one
-    // specific move (OnHit[Self, @Sanhua(Forte Detonate Base)]) instead of only being able to
-    // filter by damage type, which a mechanic can share with unrelated moves (e.g. Sanhua's
-    // Heavy Attack has the same ["Glacio","Heavy"] tags as Forte Detonate Base).
+    // dmgTypes plus name/pointer, so an OnHit[...] rule can target one specific move rather
+    // than just a damage type that other moves might share.
     const hitModifiers = new Set([
       ...(moveData.dmgTypes || []),
       moveData.name,
@@ -1303,12 +1249,9 @@ export class TimelineEngineClass {
       delete currentData.trackers.Hold_Start;
     }
 
-    // A Simultaneous-timed row (see recalculateState's timing branch) never advances the shared
-    // accumulatedTime/accumulatedGameTime clock -- it's anchored inside the window the
-    // surrounding rows already own, by design ("executes in parallel", no extra time cost to the
-    // rotation). Decaying cooldowns/buffs by its own duration here would double-count that same
-    // already-elapsed window (e.g. Forte Hold Press's 6-frame actionDuration was shaving 0.1s off
-    // every cooldown wait computed after it), so it decays 0 real/game time instead.
+    // A Simultaneous row never advances the shared clock (it's anchored inside a window the
+    // surrounding rows already own), so decaying cooldowns/buffs by its own duration here
+    // would double-count that window -- it decays 0 real/game time instead.
     const isSimultaneous = currentData.timing === 'Simultaneous';
     this._decayState(
       currentData,
@@ -1342,11 +1285,8 @@ export class TimelineEngineClass {
     const buildShortfallMsg = (label: string, myVal: number, req: number, isEnergy: boolean) => {
       const base = `${currentData.unit} has ${myVal.toFixed(1)} out of the required ${req} ${label}`;
       if (!isEnergy || myVal <= 0) return `${base}.`;
-      // Energy accumulated so far already reflects the unit's current ER% (see
-      // _handleResourceEffect), so the base (unbuffed) potential can be backed out and
-      // re-scaled to find the ER% that would have closed the gap by now -- a rough
-      // "aim for this much ER" target rather than just the flat energy shortfall. There's no
-      // equivalent rate to extrapolate for Concerto/Forte/Tune, so they skip this suffix.
+      // Backs out the ER% that would have closed the gap by now, as an "aim for this much ER"
+      // hint. No equivalent rate exists for Concerto/Forte/Tune, so they skip this suffix.
       const validBuffs = Object.values(currentData.activeBuffs || {}).filter((b: any) =>
         b.target === currentData.unit || b.target === '@Team' || b.target === 'Active'
       );
@@ -1377,10 +1317,7 @@ export class TimelineEngineClass {
       }
       if (moveData._compiledRule && typeof moveData._compiledRule.evaluate === 'function') {
         const ctx = ContextManager.buildContext(currentData, currentData.unit, team);
-        // validateRes above may already have diagnosed a specific resource shortfall -- that's
-        // more useful than this generic text, so only fall back to it when nothing better has
-        // been found yet. (If the rule failed purely because of cooldown, the standalone check
-        // below replaces this with the concrete wait anyway.)
+        // Only used when validateRes above found no more specific shortfall to report.
         if (!moveData._compiledRule.evaluate(ctx, currentData.unit) && !currentData.warningMsg) {
           currentData.warningMsg = `Combo requirement not met for ${moveName}.`;
         }
@@ -1394,11 +1331,8 @@ export class TimelineEngineClass {
       }
     }
 
-    // A move can be delayed by its own cooldown regardless of whether it has a trigger rule at
-    // all (most moves don't) -- surface that wait directly rather than only catching it as a
-    // side effect of a trigger-rule failure. Resource-shortfall messages from validateRes above
-    // are more specific/actionable, so they're left alone; this only replaces nothing or the
-    // generic combo-requirement fallback.
+    // Surfaces a cooldown wait directly, even for moves with no trigger rule. Leaves a more
+    // specific validateRes shortfall message alone.
     if (currentData.cdWaitTime > 3 && (!currentData.warningMsg || /^Combo requirement not met/.test(currentData.warningMsg))) {
       currentData.warningMsg = `${moveName} needs ${formatFramesAsSeconds(currentData.cdWaitTime)} more (on cooldown).`;
     }
@@ -1528,9 +1462,7 @@ export class TimelineEngineClass {
     if (targetStr === '@Self') return [unitName];
     if (targetStr === '@Team') return [...activeTeam];
     if (targetStr === '@TeamOthers') return activeTeam.filter(c => c !== unitName);
-    // @Enemy is the pointer DSL_SCHEMA/autocomplete actually surfaces (db.ts's DSL_SCHEMA.pointers)
-    // for the unit taking damage; @Target predates it and was never wired into the autocomplete
-    // suggestions, but is kept resolving the same way in case anything already authored uses it.
+    // @Target predates @Enemy and isn't in autocomplete, but still resolves the same way.
     if (targetStr === '@Enemy' || targetStr === '@Target') return ['Enemy'];
     if (targetStr === '@Active') return ['Active'];
     if (targetStr === '@Next') {

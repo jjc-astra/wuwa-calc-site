@@ -4,15 +4,8 @@ import { DSLParser } from './DSLParser';
 import { CHARACTER_DEFAULTS, SIM_CONSTANTS, ENEMY_DEFAULTS, STAT_NAME_MAP } from '../data/db';
 import type { Effect, HitConfig, DamageInstanceResult, BuffTotals, CalculatedStats } from '../types';
 
-// Resolves a buff's raw value string when it's a dynamic math expression (contains an '@'
-// pointer, e.g. a kit passive that converts a unit's own ER% or Max HP into another stat --
-// "for every 1% of ER over 125%, gain 2% Echo Skill DMG Bonus, up to 50%") into the same plain
-// "N" / "N%" string shape a static buff value already comes in, so callers can keep treating
-// every buff value the same way afterward. Resolved against `selfStats`, a snapshot of the
-// unit's OWN stats (gear/passives, no buffs) rather than a live re-entrant calculateFinalStats
-// call -- these kit passives are worded as "based on this unit's own X", and re-deriving fully
-// buffed stats here would mean calculateFinalStats calling itself to build the buff context
-// that calculateFinalStats itself is in the middle of resolving.
+// Resolves an '@'-expression buff value against the provider's own unbuffed stats,
+// so calculateFinalStats never has to recursively re-derive its own buff context.
 function resolveBuffValue(rawVal: any, selfStats: Record<string, number> | null): any {
   if (typeof rawVal !== 'string' || !rawVal.includes('@') || !selfStats) return rawVal;
   const ctx = { self: { getStat: (key: string) => selfStats[key] ?? 0 } };
@@ -91,9 +84,7 @@ export const CombatCalculator = {
     if (flatMult > 0) displayMult += +(flatMult).toFixed(6);
     if (displayMult === '') displayMult = '0';
 
-    // No scalar stat picked (e.g. Tune Break's custom, stat-independent scaling) -- scalingStatVal
-    // is the identity multiplier 1 in that case (see calculateDamageInstance), so showing "* 1"
-    // here would misleadingly suggest a stat term that doesn't actually exist for this hit.
+    // No scalar stat (e.g. Tune Break) means scalingStatVal is the identity 1; don't show "* 1".
     const hasScalarStat = !!(statBreakdown && statBreakdown.label);
     let statStr = `${Math.floor(scalingStatVal)}`;
     if (statBreakdown && statBreakdown.base) {
@@ -108,9 +99,7 @@ export const CombatCalculator = {
                       : (totalPctMult > 0) ? `${+(totalPctMult * 100).toFixed(4)}% * ${statStr}`
                       : `${Math.floor(flatMult)}`;
 
-    // calcTuneDmg multiplies by this fixed base value up front -- shown as its own leading
-    // term so the displayed expression actually multiplies out to calculatedTotal, instead of
-    // silently being off by a factor of TUNE_BASE_DMG.
+    // Tune's fixed base multiplier shown as its own leading term to match calculatedTotal.
     const breakdownParts = formulaUsed === 'Tune' ? [`${SIM_CONSTANTS.TUNE_BASE_DMG}`, baseDmgStr] : [baseDmgStr];
     if (formulaUsed === 'Standard') {
       const cr = Math.min(1.0, Math.max(0.0, finalCritRate));
@@ -125,9 +114,6 @@ export const CombatCalculator = {
     if (buffTotals.dmgTaken !== 0) breakdownParts.push(`${(1 + buffTotals.dmgTaken).toFixed(3)} (Taken)`);
     if (buffTotals.multiplicativeMult !== 0) breakdownParts.push(`${(1 + buffTotals.multiplicativeMult).toFixed(3)} (Multi)`);
 
-    // Tune damage now runs both multipliers too (see calcTuneDmg) -- this used to skip them
-    // here because the old formula never applied them, but the display has to track whatever
-    // the formula actually does or it'll silently under-report what's factored into the total.
     if (resMultiplier !== 1) breakdownParts.push(`${resMultiplier.toFixed(3)} (RES)`);
     if (defMult !== 1) breakdownParts.push(`${defMult.toFixed(3)} (DEF)`);
 
@@ -183,13 +169,8 @@ export const CombatCalculator = {
     injectPassiveStat(dbUnit.talentStat1, dbUnit.talentVal1);
     injectPassiveStat(dbUnit.talentStat2, dbUnit.talentVal2);
 
-    // Lazily-computed, per-provider cache of "that unit's own stats, no buffs" -- the
-    // substitution source for any buff below whose value is a dynamic expression (see
-    // resolveBuffValue above). Keyed by provider rather than always this unit (`unitName`)
-    // because "@Self" in a buff's own formula means whoever's kit authored the buff, not
-    // whoever ends up consuming it -- e.g. a team-wide debuff Mornye applies to the enemy,
-    // scaled off Mornye's own ER%, must still read Mornye's ER% while resolving for Sanhua's
-    // hit. Computed with an empty buffs array, so this can never recurse back into itself.
+    // Per-provider cache of unbuffed stats for resolving '@' buff expressions -- keyed by
+    // provider since "@Self" refers to whoever authored the buff, not who consumes it.
     const providerStatsCache: Record<string, Record<string, number>> = {};
     const getProviderStats = (providerName: string): Record<string, number> => {
       if (!providerStatsCache[providerName]) {
@@ -264,9 +245,7 @@ export const CombatCalculator = {
     const activeBuffs = stateData.activeBuffs || {};
     const modsSet = new Set((hitModifiers || []).map(m => String(m).toLowerCase().trim()));
 
-    // See the matching cache in calculateFinalStats above -- same reasoning: a dynamic buff
-    // value resolves against its own provider's stats (buffs computed with no buffs, so this
-    // can never recurse), not the unit whose hit is currently consuming the buff.
+    // Same provider-stats cache as calculateFinalStats, for resolving dynamic buff values.
     const providerStatsCache: Record<string, Record<string, number>> = {};
     const getProviderStats = (providerName: string): Record<string, number> => {
       if (!providerStatsCache[providerName]) {
@@ -296,12 +275,8 @@ export const CombatCalculator = {
 
       if (!(appliesToSelf || appliesToTeam || appliesToActive)) continue;
 
-      // Applies During (applyTo) is the explicit, authoritative gate on which hits a buff's stat
-      // applies to, checked against this hit's own castTypes/dmgTypes/move identity (modsSet,
-      // built above from hitConfig). When it's set, it fully replaces the inference below --
-      // needed so a stat literally named "Skill DMG Amp" can still be scoped to Basic Attacks
-      // (e.g. "for 5s after Liberation, +Skill DMG Bonus on Basic Attacks") without the stat
-      // name's own "skill" wording forcing a skill-tagged hit regardless of applyTo.
+      // applyTo, when set, is the authoritative scope gate and overrides the name-based
+      // inference below (a stat named "Skill DMG Amp" can still be scoped to Basic Attacks).
       const applyToList = Array.isArray(buff.applyTo) ? buff.applyTo : (buff.applyTo ? [buff.applyTo] : []);
       const hasExplicitApplyTo = applyToList.length > 0;
       if (hasExplicitApplyTo) {
@@ -310,10 +285,7 @@ export const CombatCalculator = {
 
       const sLower = buff.stat.toLowerCase().trim();
 
-      // Fallback only -- most existing buffs (basically all pre-dating Applies During) were
-      // never given an explicit applyTo and rely entirely on this name-based inference for
-      // correct cast/dmg-type scoping (e.g. "Liberation DMG Bonus" must not also buff Basics).
-      // Skipped whenever applyTo is explicitly set, so it can never override an explicit choice.
+      // Fallback for buffs with no explicit applyTo: infer scope from the stat name.
       if (!hasExplicitApplyTo) {
         let requiredTagFound = false;
         let tagMatched = true;
@@ -353,11 +325,7 @@ export const CombatCalculator = {
       const totalVal = numVal * (buff.stacks || 1);
 
       if (sLower.includes('amp') || sLower.includes('deepen')) buffTotals.dmgAmp += totalVal;
-      // Its own multiplier bucket, separate from DMG Amp/Deepen -- only ever consulted by
-      // calcTuneDmg (Tune Break/Rupture's custom, stat-independent formula), so a buff has to
-      // name it explicitly ("Tune DMG Boost") rather than falling into the generic 'dmg' bucket
-      // below, which would otherwise misroute it into dmgBonus (a Standard-formula-only term
-      // Tune damage never reads).
+      // Separate bucket from dmgAmp/Deepen; only calcTuneDmg reads dmgBoost.
       else if (sLower.includes('dmg boost')) buffTotals.dmgBoost += totalVal;
       else if (sLower.includes('taken')) buffTotals.dmgTaken += totalVal;
       else if (sLower.includes('multiplicative')) buffTotals.multiplicativeMult += totalVal;
@@ -407,28 +375,18 @@ export const CombatCalculator = {
     ].map(m => String(m).toLowerCase())));
 
     const titleLower = titleStr.toLowerCase();
-    // Tune Break/Rupture damage NEVER scales off ATK/HP/DEF, for any unit -- it's a fixed base
-    // value (SIM_CONSTANTS.TUNE_BASE_DMG, see calcTuneDmg) times the move's own hitMults%,
-    // full stop. This is forced here rather than left to each move's own `scalar` field being
-    // authored as "None", because (a) the generic System_Tune Break fallback move has no scalar
-    // field at all (undefined, not ''), which would otherwise default to ATK via the ?? below,
-    // and (b) a character-specific Tune Break node authored with scalar left at ATK by mistake
-    // would otherwise silently scale when it structurally never should.
+    // Tune Break/Rupture damage never scales off ATK/HP/DEF, forced here since some Tune
+    // movesets have no scalar field at all (would otherwise default to ATK).
     const isTuneDmg = castTypes.some(c => c.toLowerCase().includes('tune')) || titleLower.includes('tune');
-    // ?? not || -- an explicitly-chosen "None" scalar comes through as '', which is falsy; ||
-    // would silently coerce that explicit choice back to 'ATK'. Only an actually-absent scalar
-    // field (legacy/unset movesets) should fall back to the ATK default.
+    // ?? not || -- an explicit "None" scalar is '', which is falsy but must not fall back to ATK.
     const scalarType = isTuneDmg ? '' : (hitConfig.scalar ?? 'ATK').toLowerCase();
     const baseStats = CombatCalculator.calculateFinalStats(executingUnit, [], team);
     const getBaseStat = (key: string) => (baseStats as any)[key] || 0;
 
     const { buffTotals, appliedBuffs } = CombatCalculator.aggregateBuffTotals(stateData, executingUnit, hitModifiers, team);
 
-    // Deliberately dmgTypes only, not the combined hitModifiers -- "Basic/Heavy/Skill/Lib DMG
-    // Bonus" stats scale with a hit's damage-bonus category, not its cast/input category, and
-    // those can differ (e.g. a move whose castType is "Heavy" can have dmgType "Basic", so it
-    // should only pick up basicDmgBonus). hitModifiers also carries castTypes for buff-tag
-    // matching in aggregateBuffTotals above, which is a separate, intentional use.
+    // dmgTypes only, not hitModifiers -- damage-bonus category can differ from cast-type
+    // category (e.g. castType "Heavy" with dmgType "Basic" should only pick up basicDmgBonus).
     let baseDmgBonus = 0;
     dmgTypes.forEach(type => {
       const key = String(type).toLowerCase();
@@ -445,9 +403,7 @@ export const CombatCalculator = {
     const totalHP = getBaseStat('baseHP') * (1 + (getBaseStat('percentHP') / 100) + buffTotals.percentHP) + getBaseStat('flatHP') + buffTotals.flatHP;
     const totalDef = getBaseStat('baseDef') * (1 + (getBaseStat('percentDef') / 100) + buffTotals.percentDef) + getBaseStat('flatDef') + buffTotals.flatDef;
 
-    // 1, not 0 -- a "None" scalar (scalarType === '') means the move's own hitMults/flatMult
-    // ARE the damage already (e.g. Tune Break's custom, stat-independent scaling), not "times
-    // zero of a stat". Only atk/hp/def below override this with the unit's actual stat value.
+    // 1, not 0 -- a "None" scalar means hitMult already IS the damage, not zero times a stat.
     let scalingStatVal = 1;
     let scalarBonusPct = 0;
 
@@ -523,10 +479,7 @@ export const CombatCalculator = {
         calcBreakdown: calcBreakdown,
         castTypes: castTypes.length > 0 ? castTypes.join(', ') : '-',
         dmgTypes: dmgTypes.length > 0 ? dmgTypes.join(', ') : '-',
-        // Derived from the same scalarType the math actually used (not hitConfig.scalar
-        // directly) -- otherwise a Tune hit with no scalar authored on its own node (e.g.
-        // System_Tune Break) would display "ATK" here despite isTuneDmg having forced the
-        // calculation itself to skip scalar-stat scaling entirely.
+        // Uses the resolved scalarType, not hitConfig.scalar, since Tune hits force it to ''.
         scalarLabel: scalarType ? scalarType.toUpperCase() : 'None',
         scalarValue: scalarBonusPct > 0 ? +(scalarBonusPct * 100).toFixed(2) : 0,
         critRate: +(buffTotals.critRate * 100).toFixed(2),

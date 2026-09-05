@@ -1,4 +1,3 @@
-// src/components/results/DmgOverTimeChart.tsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRotationStore } from '../../store/useRotationStore';
 import { useComparisonStore } from '../../store/useComparisonStore';
@@ -10,9 +9,8 @@ import { Dropdown } from '../common/Dropdown';
 import { TooltipManager, tip } from '../../utils/Common';
 import { framesToSeconds } from '../../utils/Frames';
 
-// This chart's whole internal domain is plain display-seconds, converted once at the boundary
-// below (toDisplaySeries) from the engine's real Frames-typed series -- nothing past that point
-// needs to know about frames at all, matching every other seconds-only display in the app.
+// This chart's domain is plain display-seconds, converted once at the boundary (toDisplaySeries)
+// from the engine's Frames-typed series.
 interface DisplayPoint { t: number; dmg: number; label?: string; }
 interface DisplaySeries { label: string; points: DisplayPoint[]; bossMaxHp: number; killTime: number | null; windowEnd: number; }
 
@@ -27,28 +25,21 @@ function toDisplaySeries(s: DmgOverTimeSeries): DisplaySeries {
 }
 
 const TWO_MIN = 120;
-// Initial/fallback logical width, used until the first ResizeObserver measurement lands --
-// the real width tracks the chart's actual rendered pixel width (see chartWidth state below),
-// so a wider container reveals more horizontal plot area instead of stretching a fixed-size
-// chart (which would distort the axis/label text along with the geometry).
+// Fallback width until the first ResizeObserver measurement lands (see chartWidth state below).
 const DEFAULT_WIDTH = 440;
 const HEIGHT = 220;
 const PAD = { top: 22, right: 16, bottom: 30, left: 62 };
-// How close (in seconds) the cursor needs to be to a kill/2-minute intercept before the
-// hover snaps to its exact time, so the tooltip reads that intercept's precise values
-// instead of an approximate nearby point.
+// How close (in seconds) the cursor needs to be to a kill/2-minute intercept to snap to it.
 const SNAP_PX = 8;
 
-// Safe placeholder so every hook below can run unconditionally even before results exist --
-// the component still bails to `null` after the hooks, per the Rules of Hooks.
+// Placeholder so every hook below can run unconditionally before results exist (Rules of Hooks).
 const EMPTY_SERIES: DisplaySeries = { label: '', points: [{ t: 0, dmg: 0 }], bossMaxHp: 1, killTime: null, windowEnd: 0 };
 
 type ViewMode = 'dmg' | 'dps';
-// "Rolling avg of the past 1 second" per spec.
 const DPS_WINDOW = 1;
 
-// Picks a readable tick spacing for whichever window is selected -- an Opener window might be
-// 8s long, a 2-Min window is 120s+, and one fixed tick set can't read well across that range.
+// Picks a readable tick spacing for whichever window is selected (an Opener might be 8s, a
+// 2-Min window 120s+).
 function pickTickStep(domainMaxT: number): number {
   if (domainMaxT <= 15) return 2;
   if (domainMaxT <= 40) return 5;
@@ -57,9 +48,8 @@ function pickTickStep(domainMaxT: number): number {
   return 60;
 }
 
-// A label centered/anchored right at the plot's left or right edge would render half off the
-// chart (SVG text isn't clipped to the viewBox by default, it just draws past it and gets cut
-// off by the container) -- flip to "start"/"end" near either edge so it draws inward instead.
+// A label centered at the plot's edge draws half off-chart (SVG text isn't clipped to the
+// viewBox) -- flip to "start"/"end" near either edge so it draws inward instead.
 const EDGE_ZONE = 22;
 function edgeAnchor(x: number, width: number): 'start' | 'middle' | 'end' {
   if (x <= PAD.left + EDGE_ZONE) return 'start';
@@ -83,9 +73,8 @@ function valueAtTime(points: DisplayPoint[], t: number): number {
   return points[points.length - 1].dmg;
 }
 
-// Same "which point governs this time" lookup as valueAtTime, but for the point's label --
-// used to color the hover dot/tooltip to match whichever unit's segment is currently under
-// the cursor, same as the line itself.
+// Same lookup as valueAtTime, but for the point's label, to color the hover dot/tooltip to
+// match whichever unit's segment is under the cursor.
 function labelAtTime(points: DisplayPoint[], t: number): string | undefined {
   for (let i = 1; i < points.length; i++) {
     if (points[i].t >= t) return points[i].label;
@@ -93,11 +82,8 @@ function labelAtTime(points: DisplayPoint[], t: number): string | undefined {
   return points[points.length - 1].label;
 }
 
-// Derives a trailing-1s-average DPS line from the dmg dmg points, sampled at every real
-// hit's own timestamp (where the average jumps up) AND at that hit's +1s "expiry" timestamp
-// (where it drops back out of the window) -- capturing the actual rise/decay shape a rolling
-// average produces, rather than just linearly bridging between whatever hit timestamps happen
-// to exist (which would smear a burst's decay into a random later sample).
+// Derives a trailing-1s-average DPS line, sampled at every hit's timestamp and at that hit's
+// +1s "expiry" timestamp, to capture the actual rise/decay shape instead of smearing it.
 function buildDpsPoints(points: DisplayPoint[], domainMaxT: number): DisplayPoint[] {
   const criticalTimes = new Set<number>([0, domainMaxT]);
   points.forEach(p => {
@@ -124,22 +110,16 @@ export const DmgOverTimeChart: React.FC = () => {
   const [WIDTH, setWidth] = useState(DEFAULT_WIDTH);
 
   const primarydmg = results ? toDisplaySeries(results.dmgOverTimeSeries[dpsType]) : EMPTY_SERIES;
-  // A solo series keeps its real per-window label from the engine (e.g. "Opener") -- shown in
-  // its own tooltip row. Once a comparison is pinned, both series need a name that identifies
-  // *which rotation* instead (the window is already implied by dpsType), so this overrides both
-  // to the same "Current" / pinned.label convention DpsPanel's legend already uses -- the
-  // engine's own dmgOverTimeSeries[window].label isn't that identity (e.g. it's literally the
-  // string "Current Rotation" for the 2-Min window on *every* rotation, current or pinned).
+  // A solo series keeps its engine label (e.g. "Opener"). Once pinned, both need a name that
+  // identifies which rotation instead, matching DpsPanel's "Current" / pinned.label convention.
   const dmgSeries: DisplaySeries[] = pinned
     ? [{ ...primarydmg, label: 'Current' }, { ...toDisplaySeries(pinned.dmgOverTimeSeries[dpsType]), label: pinned.label }]
     : [primarydmg];
   const domainMaxT = primarydmg.windowEnd;
   const hasChart = domainMaxT > 0;
 
-  // Tracks the svg's actual rendered pixel width so a wider results panel reveals more plot
-  // area at the same crisp scale, instead of stretching the existing layout to fit (which would
-  // distort the axis/label text along with the line geometry). Re-runs when the svg itself
-  // mounts/unmounts (the "no opener/loop" placeholder below renders no svg at all).
+  // Tracks the svg's rendered pixel width so a wider panel reveals more plot area instead of
+  // stretching the layout. Re-runs when the svg mounts/unmounts (the placeholder renders no svg).
   useEffect(() => {
     const el = svgRef.current;
     if (!el) return;
@@ -151,17 +131,13 @@ export const DmgOverTimeChart: React.FC = () => {
     return () => observer.disconnect();
   }, [hasChart]);
 
-  // In DPS mode, every series' points are replaced with the derived rolling-average line --
-  // label/bossMaxHp/killTime (all time- or total-based, not shape-of-the-line-based) still
-  // carry over unchanged, so the rest of the chart (kill markers, snap times, legend) doesn't
-  // need to know which mode it's in.
+  // In DPS mode, points are replaced with the rolling-average line; label/bossMaxHp/killTime
+  // carry over unchanged so the rest of the chart doesn't need to know which mode it's in.
   const series: DisplaySeries[] =
     mode === 'dmg' ? dmgSeries : dmgSeries.map(s => ({ ...s, points: buildDpsPoints(s.points, domainMaxT) }));
 
-  // Scaled to whatever's actually visible in the current window, not always up to Boss HP --
-  // a short zoomed-in window (Opener, one loop) rarely gets anywhere near full Boss HP, and
-  // forcing that into the domain would waste most of the chart's height on empty space above
-  // a tiny line. The Boss HP reference line below only renders when it's actually in range.
+  // Scaled to what's visible in the current window, not always up to Boss HP (a short zoomed-in
+  // window rarely gets near it). The Boss HP reference line below only renders when in range.
   const domainMaxDmg = Math.max(1, ...series.flatMap(s => s.points.map(p => p.dmg))) * 1.05;
 
   const plotW = WIDTH - PAD.left - PAD.right;
@@ -172,22 +148,17 @@ export const DmgOverTimeChart: React.FC = () => {
   const pathFor = (points: DisplayPoint[]) => points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xScale(p.t)} ${yScale(p.dmg)}`).join(' ');
   const formatValue = (v: number) => (mode === 'dps' ? `${formatDmg(v)}/s` : formatDmg(v));
 
-  // Every kill intercept (one per series) plus the shared 2-minute mark -- hovering near any
-  // of these snaps the cursor to its exact time, so the tooltip reads its precise value
-  // instead of whatever's approximately nearby.
+  // Every kill intercept plus the shared 2-minute mark; hovering near one snaps to its exact time.
   const snapTimes = useMemo(() => {
     const times = series.map(s => s.killTime).filter((t): t is number => t !== null && t <= domainMaxT);
     if (TWO_MIN <= domainMaxT) times.push(TWO_MIN);
     return times;
   }, [series, domainMaxT]);
 
-  // Tooltip follows the cursor rather than sitting in a fixed spot, so it stays readable at
-  // whatever point along the line the reader is actually looking at.
   useEffect(() => () => TooltipManager.hide(), []);
 
-  // Matches the line's own per-segment coloring (one series -> colored by whoever's hit
-  // governs time t) or falls back to the fixed per-series color once a pinned comparison
-  // brings in a second line that needs to stay visually distinct from the first.
+  // Matches the line's per-segment coloring for a solo series, or falls back to a fixed
+  // per-series color once a pinned comparison needs two visually distinct lines.
   const colorForSeriesAt = (s: DisplaySeries, i: number, t: number): string => {
     if (series.length > 1) return CATEGORICAL_PALETTE[i];
     const label = labelAtTime(s.points, t);
@@ -285,8 +256,7 @@ export const DmgOverTimeChart: React.FC = () => {
           );
         })}
 
-        {/* X axis ticks -- spacing adapts to the selected window's width (an Opener window and
-            a 2-Min window need very different tick density). */}
+        {/* X axis ticks -- spacing adapts to the selected window's width. */}
         {(() => {
           const step = pickTickStep(domainMaxT);
           const ticks: number[] = [];
@@ -298,12 +268,8 @@ export const DmgOverTimeChart: React.FC = () => {
           ));
         })()}
 
-        {/* Boss HP reference line -- a dmg-total concept only, not a rate, and only drawn when
-            it's actually within the current window's scale (a short zoomed-in window rarely
-            reaches it, and forcing it into the domain would flatten the visible line). Labeled
-            from the left edge rather than the right -- kill markers tend to land late in a
-            window, so anchoring here on the right would routinely collide with a "Kill" label
-            sitting right on top of this same line. */}
+        {/* Boss HP reference line -- only drawn in range; labeled from the left since kill
+            markers tend to land late in a window and would collide with a right-side label. */}
         {mode === 'dmg' && primarydmg.bossMaxHp <= domainMaxDmg && (
           <>
             <line
@@ -317,17 +283,12 @@ export const DmgOverTimeChart: React.FC = () => {
           </>
         )}
 
-        {/* No separate "2:00" vertical reference line -- in the 2-Min window (the only mode
-            this would apply to), the window itself now ends at exactly t=120, so that line
-            would always sit right on the plot's own right border and its label would always
-            duplicate the x-axis's own last tick. Hover-snapping to exactly 2:00 (in snapTimes
-            above) still works without it. */}
+        {/* No separate "2:00" reference line -- the 2-Min window already ends at t=120, so it
+            would just duplicate the x-axis's last tick. Hover-snapping to 2:00 still works. */}
 
-        {/* Series lines -- colored per-segment by whichever unit's hit produced that segment
-            (matches the Team Contribution pie's per-unit colors) when there's just one series
-            to show. With a pinned comparison, two lines need to stay visually distinguishable
-            from each other, so both fall back to one solid color per line instead -- per-unit
-            coloring would make the two series indistinguishable wherever they share a unit. */}
+        {/* Series lines: colored per-segment by unit for a solo series (matches the Team
+            Contribution pie); one solid color per line once a pinned comparison needs them
+            visually distinguishable. */}
         {series.length === 1
           ? series[0].points.slice(1).map((p, i) => {
               const prev = series[0].points[i];
@@ -345,10 +306,8 @@ export const DmgOverTimeChart: React.FC = () => {
               <path key={s.label} d={pathFor(s.points)} className="dmg-time-line" stroke={CATEGORICAL_PALETTE[i]} fill="none" />
             ))}
 
-        {/* Kill intercept markers -- labeled for every series, not just the primary one. Y
-            position reads this series' own value at kill time -- in dmg mode that's
-            just bossMaxHp again (kill time is defined as exactly when dmg crosses it),
-            in DPS mode it's wherever the rolling-average line happens to sit at that instant. */}
+        {/* Kill intercept markers, labeled for every series. Y position reads this series'
+            value at kill time (bossMaxHp in dmg mode; the DPS line's value in DPS mode). */}
         {series.map((s, i) =>
           s.killTime !== null && s.killTime <= domainMaxT ? (
             <g key={`kill-${s.label}`}>

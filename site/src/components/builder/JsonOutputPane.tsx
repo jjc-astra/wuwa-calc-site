@@ -1,13 +1,11 @@
-// components/builder/JsonOutputPane.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { useBuilderStore, mechFolderFor } from '../../store/useBuilderStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { BuilderUtils } from '../../utils/BuilderUtils';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 
-// Applies (or clears, if nodeId is null) the whole-node hover highlight. scroll=true only for
-// a genuine highlightedNodeId change (see the effect below) -- the self-healing re-apply after
-// an incidental content replacement must never move the view out from under the user.
+// Applies (or clears) the whole-node hover highlight. scroll=true only for a genuine
+// highlightedNodeId change -- the self-healing re-apply must never move the view.
 function applyNodeHighlight(outBox: HTMLElement, nodeId: string | null, scroll: boolean): void {
   outBox.querySelectorAll('.code-highlighted').forEach(el => el.classList.remove('code-highlighted'));
   if (!nodeId) return;
@@ -30,10 +28,8 @@ function applyNodeHighlight(outBox: HTMLElement, nodeId: string | null, scroll: 
     }
 
     if (scroll) {
-      // Land the highlighted node at the top of the visible area (with a small margin so it
-      // isn't flush against the edge) rather than centered -- centering pushed the node's own
-      // start line up out of easy view whenever the block itself was taller than half the
-      // panel, which is common for a node with a full effects array.
+      // Lands at the top of the visible area rather than centered, which pushed a tall node's
+      // start line out of view.
       const outBoxRect = outBox.getBoundingClientRect();
       const lineRect = startLine.getBoundingClientRect();
       outBox.scrollTo({ top: outBox.scrollTop + (lineRect.top - outBoxRect.top) - 12, behavior: 'auto' });
@@ -42,10 +38,8 @@ function applyNodeHighlight(outBox: HTMLElement, nodeId: string | null, scroll: 
   }
 }
 
-// Applies (or clears) the field-level highlight for whichever sub-panel's fields are currently
-// hovered -- either a summary-row cell that opens that panel, or the panel's own body once open
-// (see MechanicNodeCard's enterFieldHover/leaveFieldHover). Purely hover-driven: `highlight` is
-// only ever non-null while the mouse is actually over one of those regions. Never scrolls.
+// Applies (or clears) the field-level highlight for whichever sub-panel's fields are hovered
+// (see MechanicNodeCard's enterFieldHover/leaveFieldHover). Never scrolls.
 function applyFieldHighlight(
   outBox: HTMLElement,
   highlight: { nodeId: string; fields: string[] } | null
@@ -60,8 +54,8 @@ function applyFieldHighlight(
   const nodeStartLine = nodeKeySpan.closest('.code-line') as HTMLElement | null;
   if (!nodeStartLine) return;
 
-  // Collect the node's own lines first so a field-name search below can't cross into a
-  // different node that happens to share a field name (e.g. every node has "name").
+  // Collect the node's own lines first so a field-name search can't cross into a different
+  // node sharing the same field name (e.g. every node has "name").
   const nodeLines: HTMLElement[] = [];
   let nodeCursor: HTMLElement | null = nodeStartLine;
   let nodeDepth = 0;
@@ -83,9 +77,8 @@ function applyFieldHighlight(
     const fieldStartLine = fieldKeySpan.closest('.code-line') as HTMLElement | null;
     if (!fieldStartLine) return;
 
-    // A scalar value (e.g. "name": "Basic Attack 1") has no bracket on its own line, so this
-    // highlights just that one line; an object/array value (e.g. "effects": [) walks forward
-    // through its full block the same way applyNodeHighlight walks a whole node.
+    // A scalar value highlights just this one line; an object/array value walks forward
+    // through its full block, same as applyNodeHighlight.
     let fieldCursor: HTMLElement | null = fieldStartLine;
     let fieldDepth = 0;
     let opened = false;
@@ -107,17 +100,15 @@ export const JsonOutputPane: React.FC = () => {
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const isWeapon = activeChar ? !!DataLoader.weaponDB[activeChar] : false;
   const isDirty = activeChar ? hasChanges(activeChar) : false;
-  // Same folder DataLoader.loadMechanic/clearMechanicCache actually use -- 'characters',
-  // 'weapons', 'sets', 'echoes', or 'generic' -- so the "Save this exact JSON to" comment names
-  // the real path instead of a literal, never-substituted "[folder]" placeholder.
+  // Same folder DataLoader.loadMechanic/clearMechanicCache use, so the "Save this exact JSON
+  // to" comment names the real path.
   const mechFolder = mechFolderFor(activeFolder);
 
-  // 1. Local state for formatted JSON output
   const [formatted, setFormatted] = useState(() =>
     BuilderUtils.formatJSONOutput(activeChar, baseStats, mechanics, isWeapon, mechFolder)
   );
 
-  // 2. 250ms Debounce effect for JSON stringification and syntax highlighting
+  // Debounced JSON stringification and syntax highlighting.
   useEffect(() => {
     const timer = setTimeout(() => {
       setFormatted(BuilderUtils.formatJSONOutput(activeChar, baseStats, mechanics, isWeapon, mechFolder));
@@ -126,30 +117,23 @@ export const JsonOutputPane: React.FC = () => {
     return () => clearTimeout(timer);
   }, [activeChar, baseStats, mechanics, isWeapon, mechFolder]);
 
-  // 3. Highlight full node block on hover (scrolls -- this only runs on a genuine
-  // highlightedNodeId/content change, not on every incidental re-render).
+  // Highlight full node block on hover (scrolls -- only on a genuine highlightedNodeId change).
   useEffect(() => {
     const outBox = codeEditorRef.current;
     if (!outBox) return;
     applyNodeHighlight(outBox, highlightedNodeId, true);
   }, [highlightedNodeId, formatted.highlightedHTML]);
 
-  // 4. Highlight the specific fields whatever's currently hovered edits -- a stronger overlay on
-  // top of the whole-node hover highlight above, so hovering a cell (e.g. Timing Mods) shows
-  // exactly which lines it touches instead of leaving the reader to hunt through the node's full
-  // JSON.
+  // Highlight the specific fields currently hovered, on top of the whole-node highlight.
   useEffect(() => {
     const outBox = codeEditorRef.current;
     if (!outBox) return;
     applyFieldHighlight(outBox, hoveredFieldHighlight);
   }, [hoveredFieldHighlight, formatted.highlightedHTML]);
 
-  // 5. Self-healing re-apply: the two effects above only fire when their own dependencies
-  // change, but formatJSONOutput/setFormatted can also fire on its own 50ms debounce slightly
-  // out of step with a hover-driven highlight -- dangerouslySetInnerHTML then swaps in a fresh
-  // set of .code-line elements, silently discarding whatever classes were just added to the old
-  // ones. Watching the actual DOM for that replacement and re-applying both highlights (without
-  // scrolling) makes them resilient to that race regardless of why the content changed.
+  // Self-healing re-apply: dangerouslySetInnerHTML can swap in fresh .code-line elements
+  // slightly out of step with a hover-driven highlight, discarding its classes. Watches the
+  // DOM for that replacement and re-applies both highlights without scrolling.
   const highlightStateRef = useRef({ highlightedNodeId, hoveredFieldHighlight });
   useEffect(() => {
     highlightStateRef.current = { highlightedNodeId, hoveredFieldHighlight };

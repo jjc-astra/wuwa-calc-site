@@ -1,4 +1,3 @@
-// src/components/rotation/RotationBuilder.tsx
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { useRotationStore } from '../../store/useRotationStore';
 import { useRosterStore } from '../../store/useRosterStore';
@@ -23,29 +22,15 @@ interface ScrollbarSegment {
   color?: string;
 }
 
-// A VS Code "overview ruler" style minimap, rendered onto .rotation-scrollbar-map -- a plain,
-// non-scrolling element sitting directly behind #rotation-builder's own scrollbar (see
-// calculator.css for why a real element, not the scrollbar-track's own background, is what
-// draws this). Two kinds of segment, both absolutely positioned by percent of the total row
-// count:
-//  - One rounded, narrow bar per *contiguous run* of same-unit rows (not one per row -- adjacent
-//    rows for the same unit merge into a single bar with a small gap opening up only where the
-//    active unit actually changes), colored to match that unit's own dimmed input-field
-//    background (.rotation-row .base-select's own color-mix formula) rather than the full-
-//    strength theme color used elsewhere, so it reads as a quiet backdrop, not another bright UI
-//    element.
-//  - One wide, flat accent-colored mark per loop start/end boundary, layered on top -- wider
-//    than the unit bars (extends past the gutter's own edges) but much shorter, the same
-//    "thick tick, not a bar" convention VS Code uses for its own overview-ruler decorations.
+// A VS Code "overview ruler" style minimap rendered onto .rotation-scrollbar-map, behind
+// #rotation-builder's own scrollbar. One dimmed bar per contiguous run of same-unit rows, plus
+// a wider accent-colored tick mark for each loop start/end boundary.
 function buildRotationScrollbarSegments(rows: any[], loopStartIndex: number, loopEndIndex: number): ScrollbarSegment[] {
   const n = rows.length;
   if (n === 0) return [];
 
   const segments: ScrollbarSegment[] = [];
-  // Small fixed gap (in track percent) between two consecutive bars for *different* units --
-  // shrinks each run's own rect in from both ends rather than adding margin, since these are
-  // percent-positioned absolutely (no box model to hang a margin off). Capped so it can't
-  // swallow a very short run entirely on a long rotation (100/n/4 shrinks toward 0 as n grows).
+  // Percent-domain gap between two different-unit bars, capped so it can't swallow a short run.
   const gap = Math.min(0.4, 100 / n / 4);
   let i = 0;
   while (i < n) {
@@ -83,13 +68,8 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
   const maxHeight = useCollapseMaxHeight(isOpen, contentRef);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // The actual rendered width of #rotation-builder's own scrollbar -- offsetWidth-clientWidth
-  // measures whatever the browser really reserved for it (scrollbar-color's "thin" rendering
-  // doesn't correspond to any fixed CSS pixel value the same way an explicit
-  // ::-webkit-scrollbar{width} would), so .rotation-scrollbar-map can be sized to match exactly
-  // instead of guessing a constant and risking a visible seam down one edge. Re-measured via
-  // ResizeObserver (covers the box resizing) and whenever the row count changes (overflow can
-  // appear/disappear, changing whether there's a scrollbar to measure at all).
+  // Actual rendered scrollbar width (offsetWidth-clientWidth), so .rotation-scrollbar-map can
+  // match it exactly instead of guessing a constant. Re-measured on resize and row-count change.
   const rotationBuilderRef = useRef<HTMLDivElement>(null);
   const [scrollbarWidth, setScrollbarWidth] = useState(0);
 
@@ -126,16 +106,9 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
 
   const { team, importTeam } = useRosterStore();
 
-  // Refreshes gauges/timings/per-row DMG once when the calculator page is actually opened, in
-  // case a rotation was rehydrated from a previous session but never recalculated since. This is
-  // the only place recalculate() runs on load -- it used to run app-wide (even on the landing
-  // page) from the store's persist rehydration hook, since the store module loads regardless of
-  // route. markStale=false: results/isStale are now cached too (see useRotationStore's
-  // partialize), so this refresh shouldn't itself stamp a freshly-rehydrated "still fresh"
-  // result as stale -- only an actual edit (triggerRecalc, setStartEnergy/Concerto,
-  // importRotation) should do that. includeDamage=true: row.damageInstances isn't persisted
-  // either, so without this the rotation table's own DMG column would sit blank/0 after every
-  // reload despite the Results panel above it looking fully cached.
+  // Refreshes gauges/timings/per-row DMG once when the page opens, for a rotation rehydrated
+  // from a previous session but never recalculated since. markStale=false so this doesn't stamp
+  // a fresh "still fresh" result as stale; includeDamage=true since damageInstances isn't persisted.
   useEffect(() => {
     recalculate(false, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -148,12 +121,8 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
-    // Catches the accordion's own open/close max-height CSS transition settling (300ms,
-    // useCollapseMaxHeight) -- a measurement taken mid-transition (e.g. right on mount, before
-    // ResizeObserver's first callback fires or while the box is still animating toward its
-    // final height) can under/over-report versus the fully-settled box, and nothing else is
-    // guaranteed to trigger a re-measure afterward if the row count doesn't happen to also
-    // change around the same time.
+    // Re-measures after the accordion's open/close transition (useCollapseMaxHeight) settles,
+    // since a measurement mid-transition can under/over-report.
     const settleTimer = setTimeout(measure, 350);
     return () => {
       ro.disconnect();
@@ -168,15 +137,11 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
   const [draggedIndices, setDraggedIndices] = useState<number[]>([]);
   const [dragOverInfo, setDragOverInfo] = useState<{ index: number; position: 'top' | 'bottom' } | null>(null);
 
-  // Loop marker drag state -- a separate gesture from row reordering above: dragging a tag
-  // relocates which row is flagged as the loop start/end, it never reorders rows. 'start' vs
-  // 'end' picks which flag handleDrop moves. Shares dragOverInfo with row reordering so the
-  // top/bottom placement indicator looks and behaves identically for both.
+  // Loop marker drag state: a separate gesture from row reordering -- relocates the loop
+  // start/end flag instead of moving rows. Shares dragOverInfo for the placement indicator.
   const [draggedMarker, setDraggedMarker] = useState<'start' | 'end' | null>(null);
 
-  // Global Keyboard Shortcuts (Delete, Undo/Redo, Copy/Paste, Insert Above/Below).
-  // Mirrors the equivalent buttons/logic in RotationToolbar -- same duplication pattern
-  // already used there for Delete, since each component owns its own store subscription.
+  // Global keyboard shortcuts (Delete, Undo/Redo, Copy/Paste, Insert Above/Below).
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const active = document.activeElement as HTMLElement | null;
@@ -214,8 +179,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
           if (selectedIndices.length > 0) {
             e.preventDefault();
             addRow('', '', selectedIndices[0]);
-            // The new blank row pushes the selected block down by one; follow it rather
-            // than leaving the selection pinned to the row index (now the new blank row).
+            // Follow the selected block down by one instead of leaving it pinned to the new blank row.
             setSelectedIndices(selectedIndices.map(i => i + 1));
           }
         } else if (isCtrlOrCmd && e.key === 'ArrowDown') {
@@ -338,13 +302,9 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
   const handleExport = () => {
     if (rows.length === 0) return alert('Rotation is empty.');
 
-    // A rotation/team/settings-only export and History's "Save Results" export were
-    // needlessly separate files for what's usually the same data -- if the current results
-    // still match what's on screen (calculated, not stale from an edit since), fold them in
-    // here too instead of making a Rankings-ready file only reachable via History. Left out
-    // when stale, since bundling results next to a rotation they no longer match would be
-    // actively misleading; dmgOverTimeSeries is left out either way (nothing reads it from a
-    // saved file, and it's cheap to regenerate via a real recalculate).
+    // Fold in results when they still match the on-screen rotation (not stale), so this export
+    // doubles as a Rankings-ready file. dmgOverTimeSeries is left out either way -- cheap to
+    // regenerate via a real recalculate.
     const includeResults = !!results && !isStale;
     const exportObject: Record<string, unknown> = {
       rotation: rows.map(({ unit, action, timing, loopStartOverride, loopEndOverride }) => ({
@@ -371,11 +331,9 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     CommonUtils.downloadJson(exportObject, filename);
   };
 
-  // Set only when an imported file's team shares the same characters+sequences as the roster
-  // already in Step 1 (see teamMatchesRoster below) -- holds the parsed file just long enough to
-  // ask whether to overwrite that roster's build (weapon/echoes/stats) or keep it and only bring
-  // in the rotation/settings. Any other import (no team in the file, or a genuinely different
-  // roster) applies immediately with no prompt, same as before.
+  // Set only when an imported file's team shares characters+sequences with the roster already
+  // in Step 1 -- holds the parsed file while asking whether to overwrite that roster's build or
+  // keep it and only import the rotation/settings. Any other import applies immediately.
   const [pendingImport, setPendingImport] = useState<{ rawData: any; rotData: any[] } | null>(null);
 
   const applyImport = async (rawData: any, rotData: any[], includeTeam: boolean) => {
@@ -383,9 +341,8 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
       await importTeam(rawData.team);
     }
     importRotation(rotData, rawData.settings);
-    // The rotation section may still be collapsed (e.g. import triggered while the Team step
-    // is open) -- open it first so the newly-imported rows, including the trailing placeholder
-    // row, are actually visible, then scroll to reveal the end.
+    // Open the rotation section first (it may still be collapsed) so the imported rows are
+    // visible, then scroll to reveal the end.
     if (!isOpen) onToggle();
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -395,10 +352,8 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     });
   };
 
-  // Order-sensitive signature of a team's slots by character+sequence only -- deliberately
-  // ignores weapon/echoes/stats, since those are exactly the build details this prompt exists
-  // to let the user keep instead of silently losing to whatever the imported file happened to
-  // carry for the same roster.
+  // Signature by character+sequence only, ignoring weapon/echoes/stats (the build details this
+  // prompt lets the user keep instead of losing to the imported file).
   const teamSignature = (t: any[]): string => (t || []).map(s => `${s?.character || ''}|${s?.sequence || 0}`).join(',');
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -427,13 +382,9 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // No auto-detection for loop end (unlike loop start) -- it's always an explicit tag, or
-  // absent entirely (the whole loop runs to the end of the rows array, today's behavior).
+  // No auto-detection for loop end (unlike loop start) -- always an explicit tag, or absent.
   const loopEndIndex = rows.findIndex(r => r.loopEndOverride === true);
-  // The "END ROTATION" marker is derived from loopEndIndex rather than its own persisted flag
-  // -- it's always the row immediately after LOOP END, whenever that row actually has content
-  // (an empty trailing row there means there's no Ending Rotation content to mark). Deriving it
-  // avoids a second per-row flag that could drift out of sync with loopEndOverride.
+  // Derived from loopEndIndex rather than its own flag, to avoid drifting out of sync with it.
   const hasEndRotationContent = loopEndIndex !== -1 && !!rows[loopEndIndex + 1]?.unit;
   const scrollbarSegments = useMemo(
     () => buildRotationScrollbarSegments(rows, loopStartIndex, loopEndIndex),
@@ -495,16 +446,9 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
         </div>
 
         <div className="rotation-list-wrap">
-          {/* A plain, non-scrolling element painted directly behind #rotation-builder's own
-              scrollbar (translucent, see calculator.css) -- not a background on the scrollbar
-              track itself, since current Chromium silently ignores a gradient/image background
-              there for the real native scrollbar widget even though it reports the rule as
-              matched. This sits at the same fixed screen position as the scrollbar gutter
-              regardless of #rotation-builder's own scroll offset, since it's a sibling outside
-              the scrolling box, not a child of it. Top/bottom inset by the scrollbar's own
-              measured thickness -- Windows Chrome/Edge draws a square arrow button at each end of
-              a "classic" (explicit scrollbar-color) scrollbar, roughly as tall as it is wide, so
-              this keeps segments out of that dead zone instead of running the full track height. */}
+          {/* Painted behind #rotation-builder's own scrollbar as a sibling, since Chromium
+              ignores a background set directly on the native scrollbar track. Inset top/bottom
+              by scrollbar width to clear Windows' square arrow buttons at each end. */}
           {scrollbarWidth > 0 && (
             <div className="rotation-scrollbar-map" style={{ width: scrollbarWidth, top: scrollbarWidth, bottom: scrollbarWidth }}>
               {scrollbarSegments.map(seg => (
