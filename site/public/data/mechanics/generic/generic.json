@@ -29,7 +29,10 @@
     "hitMults": [1600],
     "priority": "@Default.IntroPriority - 10",
     "actionDuration": 120,
-    "freezeTime": 120
+    "freezeTime": 120,
+    "effects": [
+      { "type": "buff", "name": "TuneImmune", "target": "@Enemy", "duration": 3 }
+    ]
   },
   "System_NegativeStatus_Dictionary": {
     "name": "Negative Status Dictionary",

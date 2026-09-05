@@ -1126,6 +1126,11 @@ export class TimelineEngineClass {
     }
   }
 
+  // A timed 'Enemy_TuneImmune' buff (e.g. applied by Tune Break) blocks tune gain entirely.
+  _isTuneImmune(currentData: any): boolean {
+    return !!currentData.activeBuffs?.['Enemy_TuneImmune'];
+  }
+
   _applyCastResources(currentData: any, moveData: MechanicNode, activeTeam: string[], team: any[]): void {
     if (!moveData.castResources) return;
     const unitName = currentData.unit;
@@ -1142,7 +1147,9 @@ export class TimelineEngineClass {
       if (val === undefined || val === 0) continue;
       const maxCap = this._getMaxCap(unitName, key);
       if (key === 'tune') {
-        currentData.enemyTune = Math.min(maxCap, Math.max(0, (currentData.enemyTune || 0) + parseFloat(String(val))));
+        const numVal = parseFloat(String(val));
+        if (numVal > 0 && this._isTuneImmune(currentData)) continue;
+        currentData.enemyTune = Math.min(maxCap, Math.max(0, (currentData.enemyTune || 0) + numVal));
         continue;
       }
       if (!currentData[key]) currentData[key] = {};
@@ -1410,6 +1417,7 @@ export class TimelineEngineClass {
     const resKey = resolvedEffect.name;
     if (!resKey) return;
     if (resKey === 'tune') {
+      if (amt > 0 && this._isTuneImmune(currentData)) return;
       const maxCap = this._getMaxCap(currentData.unit, 'tune');
       currentData.enemyTune = Math.min(maxCap, Math.max(0, (currentData.enemyTune || 0) + amt));
       return;
