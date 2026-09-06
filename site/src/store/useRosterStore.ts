@@ -201,6 +201,7 @@ export const useRosterStore = create<RosterState>()(
           });
         } else if (field === 'character' && value) {
           slot.weapon = '';
+          slot.mode = 'None';
           await DataLoader.loadMechanic('characters', value);
           team[slotIndex] = slot;
           set({ team });

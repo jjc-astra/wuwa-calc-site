@@ -35,7 +35,7 @@ const PANEL_FIELDS: Record<PanelKey, string[]> = {
   castTags: ['castTypes'],
   dmgTags: ['dmgTypes'],
   castRes: ['castResources'],
-  default: ['triggerRule', 'isPassive', 'isSwapInDefault', 'effects']
+  default: ['triggerRule', 'isPassive', 'isSwapInDefault', 'modeScope', 'effects']
 };
 
 export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data }) => {

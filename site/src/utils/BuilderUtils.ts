@@ -14,6 +14,7 @@ export const BuilderUtils = {
     if (node.provider && node.provider !== activeChar) clean.provider = node.provider;
     if (node.isPassive) clean.isPassive = true;
     if (node.isSwapInDefault) clean.isSwapInDefault = true;
+    if (node.modeScope && node.modeScope !== 'both') clean.modeScope = node.modeScope;
     if (node.triggerRule) clean.triggerRule = node.triggerRule;
     if (node.castTypes && node.castTypes.length > 0) clean.castTypes = node.castTypes;
     if (node.dmgTypes && node.dmgTypes.length > 0) clean.dmgTypes = node.dmgTypes;

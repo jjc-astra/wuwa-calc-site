@@ -96,7 +96,6 @@ export const STAT_NAME_MAP: Record<string, string> = {
 };
 
 export const DEFAULT_SUBSTATS = ['CR Rate', 'CR DMG', 'ATK %', 'ER %', 'ATK'];
-export const CHARS_WITH_MODES = ['Lynae', 'Aemeath'];
 
 // Master switch gating content with no real mechanics data yet -- disabled/greyed out in the
 // Rotation Calculator, still selectable in the Mechanics Builder. Flip off during content authoring.

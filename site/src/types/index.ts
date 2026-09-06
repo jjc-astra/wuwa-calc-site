@@ -26,6 +26,11 @@ export interface CharacterData extends BaseStats {
   talentVal2?: string;
   skillGroupNames?: Record<string, string>;
   forteCount?: number;
+  // A character with two named modes (e.g. Strain/Rupture) -- mode1Name/mode2Name label the
+  // roster's mode dropdown and MechanicNode.modeScope's toggle for this character specifically.
+  isDualMode?: boolean;
+  mode1Name?: string;
+  mode2Name?: string;
   [key: string]: any;
 }
 
@@ -118,6 +123,9 @@ export interface MechanicNode {
   provider?: string;
   isPassive?: boolean;
   isSwapInDefault?: boolean;
+  // Restricts this mechanic to one of a dual-mode character's two modes (see
+  // CharacterData.isDualMode). Omitted/'both' means it's available in either.
+  modeScope?: 'mode1' | 'mode2' | 'both';
   triggerRule?: string;
   castTypes?: string[];
   dmgTypes?: string[];

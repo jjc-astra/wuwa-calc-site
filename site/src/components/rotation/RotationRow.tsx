@@ -105,11 +105,14 @@ export const RotationRow: React.FC<RotationRowProps> = ({
     if (!selectedUnit) return [];
     const ctx = ContextManager.buildContext(row, selectedUnit, team);
     const skillGroupNames = dbChar.skillGroupNames || {};
+    const slot = team.find(t => t.character === selectedUnit);
+    const activeMode = slot?.mode && slot.mode !== 'None' ? slot.mode : null;
 
     // Genuine validity only -- the "always retain currently selected" carve-out is handled
     // separately below, so it doesn't look like a real contender when picking a group's winner.
     const checkValid = (m: any) => {
       if (!m || m.isPassive) return false;
+      if (m.modeScope && m.modeScope !== 'both' && activeMode && m.modeScope !== activeMode) return false;
       if (m.triggerRule && m.triggerRule.trim() !== '') {
         if (!m._compiledRule || typeof m._compiledRule.evaluate !== 'function') {
           m._compiledRule = DSLParser.compile(m.triggerRule);
@@ -142,7 +145,6 @@ export const RotationRow: React.FC<RotationRowProps> = ({
     });
 
     // 2. Equipped Echo Skill from Roster Slot
-    const slot = team.find(t => t.character === selectedUnit);
     if (slot?.mainEcho) {
       const echoKeys = DataLoader.mechanicsIndex[slot.mainEcho] || [];
       echoKeys.forEach(k => {

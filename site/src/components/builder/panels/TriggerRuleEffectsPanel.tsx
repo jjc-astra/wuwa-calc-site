@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import type { Effect, MechanicNode } from '../../../types';
 import { BuilderState } from '../../../data/db';
+import { useBuilderStore } from '../../../store/useBuilderStore';
 import { AutocompleteInput } from '../../common/AutocompleteInput';
 import { TypeTag } from '../../common/TypeTag';
 import { Dropdown, type DropdownOption } from '../../common/Dropdown';
@@ -25,6 +26,10 @@ interface TriggerRuleEffectsPanelProps {
 }
 
 export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = ({ data, updateNode, forteOptions }) => {
+  const { baseStats } = useBuilderStore();
+  const isDualMode = !!baseStats.isDualMode;
+  const mode1Label = baseStats.mode1Name || 'Mode 1';
+  const mode2Label = baseStats.mode2Name || 'Mode 2';
   const [effectType, setEffectType] = useState<string>('buff');
 
   // Effect Input State
@@ -123,6 +128,31 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
           <input type="checkbox" checked={!!data.isSwapInDefault} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateNode({ isSwapInDefault: e.target.checked })} />
           <span>Default Swap-In</span>
         </label>
+        {isDualMode && (
+          <div className="segmented-toggle" role="group" aria-label="Mode scope">
+            <button
+              type="button"
+              className={`segmented-toggle-btn ${!data.modeScope || data.modeScope === 'both' ? 'is-active' : ''}`}
+              onClick={() => updateNode({ modeScope: 'both' })}
+            >
+              Both
+            </button>
+            <button
+              type="button"
+              className={`segmented-toggle-btn ${data.modeScope === 'mode1' ? 'is-active' : ''}`}
+              onClick={() => updateNode({ modeScope: 'mode1' })}
+            >
+              {mode1Label}
+            </button>
+            <button
+              type="button"
+              className={`segmented-toggle-btn ${data.modeScope === 'mode2' ? 'is-active' : ''}`}
+              onClick={() => updateNode({ modeScope: 'mode2' })}
+            >
+              {mode2Label}
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="panel-header-tiny" style={{ marginTop: '14px' }}>Effects Array</div>

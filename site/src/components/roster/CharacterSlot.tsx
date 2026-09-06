@@ -4,7 +4,7 @@ import { useRosterStore } from '../../store/useRosterStore';
 import { useBuilderStore } from '../../store/useBuilderStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { CommonUtils, TRANSPARENT_PIXEL, getCharacterThemeColor, tip } from '../../utils/Common';
-import { CHARS_WITH_MODES, SET_LAYOUTS, IMAGE_FOLDERS, isContentImplemented } from '../../data/db';
+import { SET_LAYOUTS, IMAGE_FOLDERS, isContentImplemented } from '../../data/db';
 import type { ImageFolder } from '../../data/db';
 import { EchoCard } from './EchoCard';
 import { IconSelect } from '../common/IconSelect';
@@ -35,7 +35,9 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
 
   const charData = DataLoader.characterDB[slot.character] || null;
   const validWeapons = charData ? DataLoader.weaponsByType[charData.weaponType] || [] : [];
-  const hasMode = CHARS_WITH_MODES.includes(slot.character);
+  const hasMode = !!charData?.isDualMode;
+  const mode1Label = charData?.mode1Name || 'Mode 1';
+  const mode2Label = charData?.mode2Name || 'Mode 2';
   const themeColor = getCharacterThemeColor(charData || undefined);
   const isTriggerSet = DataLoader.triggerSets.includes(slot.mainSet);
 
@@ -120,8 +122,8 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
                 onChange={v => setSlotField(index, 'mode', v)}
                 options={[
                   { value: 'None', label: 'None' },
-                  { value: 'Strain', label: 'Strain' },
-                  { value: 'Rupture', label: 'Rupture' }
+                  { value: 'mode1', label: mode1Label },
+                  { value: 'mode2', label: mode2Label }
                 ]}
               />
             )}

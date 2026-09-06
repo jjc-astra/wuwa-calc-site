@@ -570,11 +570,26 @@
        directly on the editor pane's background, not the lighter flat --bg-card tone. */
     background: var(--surface-card);
 }
+.builder-view .base-stats-icon-col {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    flex-shrink: 0;
+    width: 130px;
+}
 .builder-view .base-stats-icon {
     width: 130px;
     height: auto;
     flex-shrink: 0;
     margin: 0;
+}
+/* Sits directly under the icon rather than as its own base-stats-strip column, so an
+   unchecked/short Dual Mode panel doesn't stretch that whole grid row to match its taller
+   neighbors (Talent Nodes, Base Values). */
+.builder-view .base-stats-mode-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
 }
 .builder-view .base-stats-body {
     flex: 1;

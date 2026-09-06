@@ -39,6 +39,17 @@ export const BaseStatsForm: React.FC = () => {
     </div>
   );
 
+  const makeCheckbox = (key: string, label: string) => (
+    <label key={key} className="checkbox-label base-stat-checkbox">
+      <input
+        type="checkbox"
+        checked={!!baseStats[key]}
+        onChange={e => setBaseStat(key, e.target.checked)}
+      />
+      <span>{label}</span>
+    </label>
+  );
+
   const makeSelect = (key: string, label: string) => (
     <div className="base-stat-field">
       <label className="base-stat-label">{label}</label>
@@ -67,18 +78,50 @@ export const BaseStatsForm: React.FC = () => {
 
   return (
     <div className="base-card base-stats-card">
-      <div id="editor-char-icon" className={`char-icon rarity-${baseStats.rarity || 5} base-stats-icon`}>
-        {!imgError && (
-          <img
-            className={`char-grid-img ${imgLoaded ? 'opacity-1' : 'opacity-0'}`}
-            src={iconPath}
-            alt={activeChar}
-            onLoad={() => setImgLoaded(true)}
-            onError={() => setImgError(true)}
-          />
-        )}
-        {(!imgLoaded || imgError) && (
-          <span className="char-fallback">{activeChar.charAt(0)}</span>
+      <div className="base-stats-icon-col">
+        <div id="editor-char-icon" className={`char-icon rarity-${baseStats.rarity || 5} base-stats-icon`}>
+          {!imgError && (
+            <img
+              className={`char-grid-img ${imgLoaded ? 'opacity-1' : 'opacity-0'}`}
+              src={iconPath}
+              alt={activeChar}
+              onLoad={() => setImgLoaded(true)}
+              onError={() => setImgError(true)}
+            />
+          )}
+          {(!imgLoaded || imgError) && (
+            <span className="char-fallback">{activeChar.charAt(0)}</span>
+          )}
+        </div>
+
+        {isChar && (
+          <div className="base-stats-mode-panel">
+            {makeCheckbox('isDualMode', 'Dual Mode')}
+            {!!baseStats.isDualMode && (
+              <>
+                <div className="form-group">
+                  <label className="form-label">Mode 1 Name</label>
+                  <input
+                    type="text"
+                    className="form-input text-xs"
+                    value={baseStats.mode1Name || ''}
+                    placeholder="e.g. Strain"
+                    onChange={e => setBaseStat('mode1Name', e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Mode 2 Name</label>
+                  <input
+                    type="text"
+                    className="form-input text-xs"
+                    value={baseStats.mode2Name || ''}
+                    placeholder="e.g. Rupture"
+                    onChange={e => setBaseStat('mode2Name', e.target.value)}
+                  />
+                </div>
+              </>
+            )}
+          </div>
         )}
       </div>
 
