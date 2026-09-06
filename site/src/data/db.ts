@@ -97,30 +97,6 @@ export const STAT_NAME_MAP: Record<string, string> = {
 
 export const DEFAULT_SUBSTATS = ['CR Rate', 'CR DMG', 'ATK %', 'ER %', 'ATK'];
 
-// Master switch gating content with no real mechanics data yet -- disabled/greyed out in the
-// Rotation Calculator, still selectable in the Mechanics Builder. Flip off during content authoring.
-export const DISABLE_UNIMPLEMENTED_CONTENT = true;
-
-// Keep in sync with what actually has a mechanics JSON file. Not auto-derived: mechanics files
-// are fetched lazily per-team-slot, so there's no cheap way to check existence up front.
-export const IMPLEMENTED_CHARACTERS = ['Lumi', 'Sanhua'];
-export const IMPLEMENTED_WEAPONS = ['Radiance Cleaver', 'Emerald of Genesis'];
-export const IMPLEMENTED_SETS = ['Void Thunder', 'Moonlit Clouds'];
-export const IMPLEMENTED_ECHOES = ['NM Thundering Mephis', 'Impermanence Heron'];
-
-export type ImplementedContentKind = 'character' | 'weapon' | 'set' | 'echo';
-
-// Returns true unconditionally when the gate is off.
-export function isContentImplemented(kind: ImplementedContentKind, name: string): boolean {
-  if (!DISABLE_UNIMPLEMENTED_CONTENT) return true;
-  switch (kind) {
-    case 'character': return IMPLEMENTED_CHARACTERS.includes(name);
-    case 'weapon': return IMPLEMENTED_WEAPONS.includes(name);
-    case 'set': return IMPLEMENTED_SETS.includes(name);
-    case 'echo': return IMPLEMENTED_ECHOES.includes(name);
-  }
-}
-
 export const COST_DISTRIBUTION: Record<string, number[]> = {
   '4 3 3 1 1': [4, 3, 3, 1, 1],
   '4 4 1 1 1': [4, 4, 1, 1, 1]

@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useBuilderStore, mechFolderFor } from '../../store/useBuilderStore';
 import { checkBuilderItemFreshness } from '../../utils/dataFreshness';
-import { DataLoader } from '../../utils/DataLoader';
+import { DataLoader, type ImplementedContentKind } from '../../utils/DataLoader';
 import { CommonUtils } from '../../utils/Common';
 import { BuilderUtils } from '../../utils/BuilderUtils';
 import { BaseStatsForm } from './BaseStatsForm';
 import { MechanicNodeCard } from './MechanicNodeCard';
 import { JsonOutputPane } from './JsonOutputPane';
-import { BuilderState, IMAGE_FOLDERS, isContentImplemented, type ImplementedContentKind } from '../../data/db';
+import { BuilderState, IMAGE_FOLDERS } from '../../data/db';
 import type { MechanicNode } from '../../types';
 import type { ImageFolder } from '../../data/db';
 import { tip } from './mechanicNodeHelpers';
@@ -50,7 +50,7 @@ const GridCard: React.FC<GridCardProps> = ({ itemName, imgFolder, dbRef, onClick
   const fontSize = imgFolder === IMAGE_FOLDERS.CHARACTERS ? '0.8em' : '0.65em';
   const iconPath = CommonUtils.getIconPath(itemName, imgFolder);
   const implementedKind = IMPLEMENTED_KIND_BY_FOLDER[imgFolder];
-  const isImplemented = !implementedKind || isContentImplemented(implementedKind, itemName) || hasChanges;
+  const isImplemented = !implementedKind || DataLoader.isContentImplemented(implementedKind, itemName) || hasChanges;
 
   return (
     <div

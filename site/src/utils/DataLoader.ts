@@ -2,6 +2,15 @@ import { CommonUtils } from './Common';
 import type { CharacterData, WeaponData, MechanicNode, TeamSlot } from '../types/index';
 import type { RotationResults } from '../types/results';
 
+// Master switch gating content with no real mechanics data yet -- disabled/greyed out in the
+// Rotation Calculator, still selectable in the Mechanics Builder. Flip off during content authoring.
+export const DISABLE_UNIMPLEMENTED_CONTENT = true;
+
+export type ImplementedContentKind = 'character' | 'weapon' | 'set' | 'echo';
+const MECHANIC_FOLDER_BY_KIND: Record<ImplementedContentKind, string> = {
+  character: 'characters', weapon: 'weapons', set: 'sets', echo: 'echoes'
+};
+
 export interface CharacterResultData {
   rotation: any[];
   team: TeamSlot[];
@@ -68,6 +77,14 @@ export class DataLoaderClass {
   // Same relPath convention loadMechanic uses internally, exposed for dataFreshness.ts.
   mechanicPath(folder: string, itemName: string): string {
     return `mechanics/${folder}/${this.mechanicFileName(itemName)}.json`;
+  }
+
+  // Derived from the manifest (populated before anything can call this -- see App.tsx's
+  // initDatabases gate) rather than a hand-maintained list: a mechanics JSON file existing on
+  // disk for `name` at app build time is exactly what "implemented" means.
+  isContentImplemented(kind: ImplementedContentKind, name: string): boolean {
+    if (!DISABLE_UNIMPLEMENTED_CONTENT) return true;
+    return !!this.manifest[this.mechanicPath(MECHANIC_FOLDER_BY_KIND[kind], name)];
   }
 
   // Throttled (5s) so a burst of near-simultaneous callers collapses into one request. `force`

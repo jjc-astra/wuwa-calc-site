@@ -2,9 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { useRosterStore } from '../../store/useRosterStore';
 import { useBuilderStore } from '../../store/useBuilderStore';
-import { DataLoader } from '../../utils/DataLoader';
+import { DataLoader, type ImplementedContentKind } from '../../utils/DataLoader';
 import { CommonUtils, TRANSPARENT_PIXEL, getCharacterThemeColor, tip } from '../../utils/Common';
-import { SET_LAYOUTS, IMAGE_FOLDERS, isContentImplemented } from '../../data/db';
+import { SET_LAYOUTS, IMAGE_FOLDERS } from '../../data/db';
 import type { ImageFolder } from '../../data/db';
 import { EchoCard } from './EchoCard';
 import { IconSelect } from '../common/IconSelect';
@@ -21,8 +21,8 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
   const { hasChanges: hasBuilderChanges } = useBuilderStore();
   const slot = team[index];
   // A mechanic added through the Builder makes an otherwise-unimplemented entity selectable too.
-  const isSelectable = (kind: Parameters<typeof isContentImplemented>[0], name: string) =>
-    isContentImplemented(kind, name) || hasBuilderChanges(name);
+  const isSelectable = (kind: ImplementedContentKind, name: string) =>
+    DataLoader.isContentImplemented(kind, name) || hasBuilderChanges(name);
 
   const [imgErrors, setImgErrors] = useState({ char: false, wep: false, mainSet: false, subSet: false, mainEcho: false });
   const [imgLoaded, setImgLoaded] = useState({ char: false, wep: false, mainSet: false, subSet: false, mainEcho: false });
