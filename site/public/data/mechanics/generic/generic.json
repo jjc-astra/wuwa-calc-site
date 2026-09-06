@@ -26,13 +26,24 @@
     "castResources": {
       "tune": -40
     },
+    "effects": [
+      {
+        "type": "buff",
+        "name": "TuneImmune",
+        "target": "@Enemy",
+        "duration": 3
+      },
+      {
+        "type": "buff",
+        "name": "Mistune",
+        "target": "@Enemy",
+        "duration": 8
+      }
+    ],
     "hitMults": [1600],
     "priority": "@Default.IntroPriority - 10",
     "actionDuration": 120,
-    "freezeTime": 120,
-    "effects": [
-      { "type": "buff", "name": "TuneImmune", "target": "@Enemy", "duration": 3 }
-    ]
+    "freezeTime": 120
   },
   "System_NegativeStatus_Dictionary": {
     "name": "Negative Status Dictionary",

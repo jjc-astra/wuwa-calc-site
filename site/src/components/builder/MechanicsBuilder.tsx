@@ -50,7 +50,7 @@ const GridCard: React.FC<GridCardProps> = ({ itemName, imgFolder, dbRef, onClick
   const fontSize = imgFolder === IMAGE_FOLDERS.CHARACTERS ? '0.8em' : '0.65em';
   const iconPath = CommonUtils.getIconPath(itemName, imgFolder);
   const implementedKind = IMPLEMENTED_KIND_BY_FOLDER[imgFolder];
-  const isImplemented = !implementedKind || isContentImplemented(implementedKind, itemName);
+  const isImplemented = !implementedKind || isContentImplemented(implementedKind, itemName) || hasChanges;
 
   return (
     <div

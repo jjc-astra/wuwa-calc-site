@@ -1,6 +1,7 @@
 // src/components/roster/CharacterSlot.tsx
 import React, { useState, useEffect } from 'react';
 import { useRosterStore } from '../../store/useRosterStore';
+import { useBuilderStore } from '../../store/useBuilderStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { CommonUtils, TRANSPARENT_PIXEL, getCharacterThemeColor, tip } from '../../utils/Common';
 import { CHARS_WITH_MODES, SET_LAYOUTS, IMAGE_FOLDERS, isContentImplemented } from '../../data/db';
@@ -17,7 +18,11 @@ const NOT_IMPLEMENTED_TIP = 'Not yet implemented';
 
 export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
   const { team, setSlotField, applyRecommendedBuild } = useRosterStore();
+  const { hasChanges: hasBuilderChanges } = useBuilderStore();
   const slot = team[index];
+  // A mechanic added through the Builder makes an otherwise-unimplemented entity selectable too.
+  const isSelectable = (kind: Parameters<typeof isContentImplemented>[0], name: string) =>
+    isContentImplemented(kind, name) || hasBuilderChanges(name);
 
   const [imgErrors, setImgErrors] = useState({ char: false, wep: false, mainSet: false, subSet: false, mainEcho: false });
   const [imgLoaded, setImgLoaded] = useState({ char: false, wep: false, mainSet: false, subSet: false, mainEcho: false });
@@ -101,7 +106,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
             iconFolder={IMAGE_FOLDERS.CHARACTERS}
             iconShape="circle"
             placeholder="Character"
-            options={DataLoader.charList.map(c => ({ value: c, disabled: !isContentImplemented('character', c), disabledTooltip: NOT_IMPLEMENTED_TIP }))}
+            options={DataLoader.charList.map(c => ({ value: c, disabled: !isSelectable('character', c), disabledTooltip: NOT_IMPLEMENTED_TIP }))}
           />
           <div className="flex-row gap-sm seq-mode-row">
             <div className="base-num-box seq-box">
@@ -136,7 +141,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
             iconFolder={IMAGE_FOLDERS.WEAPONS}
             iconShape="rect"
             placeholder={slot.character ? 'Weapon' : 'Select Character First'}
-            options={validWeapons.map(w => ({ value: w, disabled: !isContentImplemented('weapon', w), disabledTooltip: NOT_IMPLEMENTED_TIP }))}
+            options={validWeapons.map(w => ({ value: w, disabled: !isSelectable('weapon', w), disabledTooltip: NOT_IMPLEMENTED_TIP }))}
           />
           <div className="base-num-box">
             <span className="text-xs text-bold text-dim">RANK</span>
@@ -167,7 +172,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
               iconFolder={IMAGE_FOLDERS.ECHO_SETS}
               iconShape="circle"
               placeholder="Main Set"
-              options={DataLoader.sonataSets.map(s => ({ value: s, disabled: !isContentImplemented('set', s), disabledTooltip: NOT_IMPLEMENTED_TIP }))}
+              options={DataLoader.sonataSets.map(s => ({ value: s, disabled: !isSelectable('set', s), disabledTooltip: NOT_IMPLEMENTED_TIP }))}
             />
           </div>
           {isTriggerSet && (
@@ -180,7 +185,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
                 iconFolder={IMAGE_FOLDERS.ECHO_SETS}
                 iconShape="circle"
                 placeholder="Sub Set"
-                options={DataLoader.sonataSets.map(s => ({ value: s, disabled: !isContentImplemented('set', s), disabledTooltip: NOT_IMPLEMENTED_TIP }))}
+                options={DataLoader.sonataSets.map(s => ({ value: s, disabled: !isSelectable('set', s), disabledTooltip: NOT_IMPLEMENTED_TIP }))}
               />
             </div>
           )}
@@ -194,7 +199,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
                 iconFolder={IMAGE_FOLDERS.ECHOES}
                 iconShape="circle"
                 placeholder="Main Echo"
-                options={allowedEchoes.map(e => ({ value: e, disabled: !isContentImplemented('echo', e), disabledTooltip: NOT_IMPLEMENTED_TIP }))}
+                options={allowedEchoes.map(e => ({ value: e, disabled: !isSelectable('echo', e), disabledTooltip: NOT_IMPLEMENTED_TIP }))}
               />
             </div>
           )}
