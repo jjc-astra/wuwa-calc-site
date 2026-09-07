@@ -153,7 +153,6 @@ export interface MechanicNode {
   effects?: Effect[];
   damageTimeframe?: { start?: Frames | string; end?: Frames | string };
   allowedHits?: number;
-  isNegativeStatus?: boolean;
   _compiledRule?: any;
 }
 
@@ -187,7 +186,6 @@ export interface HitConfig {
   scalar?: ScalarStat | string;
   title?: string;
   isOpen?: boolean;
-  isNegativeStatus?: boolean;
   actionId?: string;
   moveName?: string;
   gameTime?: Frames;
@@ -201,6 +199,7 @@ export interface DamageInstanceResult {
   crit: number;
   isOpen: boolean;
   gameTime?: Frames;
+  formulaUsed: 'Standard' | 'Tune' | 'NegativeStatus';
   data: {
     activeBuffs: Record<string, Effect>;
     baseMult: string;

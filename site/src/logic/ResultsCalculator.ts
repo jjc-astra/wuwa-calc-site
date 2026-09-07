@@ -32,17 +32,18 @@ interface RotationHit {
   total: number;
   provider: string;
   dmgTypes: string[];
-  isNegativeStatus: boolean;
+  formulaUsed: string;
   // Kept for substat-worth re-simulation, which re-runs just the formula per hit with a
   // stat-patched team.
   config: HitConfig;
   context: any;
 }
 
-// A status-effect tick isn't caused by any unit's action, so it's labeled by dmgType instead
-// (e.g. "Aero Erosion"). Shared by the contribution pie and dmg-over-time chart for consistency.
+// A non-Standard-formula hit (Tune Break, negative status) isn't caused by any unit's own
+// combat kit, so it's labeled by dmgType instead (e.g. "Aero Erosion", "TuneBreak"). Shared by
+// the contribution pie and dmg-over-time chart for consistency.
 function hitLabel(h: RotationHit): string {
-  return h.isNegativeStatus ? h.dmgTypes[0] || 'Status Effect' : h.provider;
+  return h.formulaUsed !== 'Standard' ? (h.dmgTypes[0] || 'Status Effect') : h.provider;
 }
 
 const cloneAuthored = (r: any) => ({
@@ -207,7 +208,7 @@ function buildHitList(evaluatedRows: any[], team: any[], enemyConfig: { level: n
         total: result.total,
         provider: hit.config.provider,
         dmgTypes: hit.config.dmgTypes || [],
-        isNegativeStatus: !!hit.config.isNegativeStatus,
+        formulaUsed: result.formulaUsed,
         config: hit.config,
         context: hit.context
       });
@@ -363,7 +364,7 @@ function buildContributionForWindow(windowHits: RotationHit[], teamNames: string
   const units: Record<string, CastTypeSlice[]> = {};
   teamNames.forEach(unit => {
     const unitGroups = groupSum(
-      windowHits.filter(h => h.provider === unit && !h.isNegativeStatus),
+      windowHits.filter(h => h.provider === unit && h.formulaUsed === 'Standard'),
       h => primaryDmgType(h.dmgTypes)
     );
     units[unit] = Object.entries(unitGroups)

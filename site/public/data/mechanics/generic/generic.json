@@ -114,13 +114,15 @@
     "name": "Glacio Chafe Damage",
     "isPassive": true,
     "triggerRule": "OnBuffAdd[Glacio Chafe]",
-    "dmgTypes": ["Glacio"]
+    "dmgTypes": ["Glacio Chafe"],
+    "hitMults": ["100%"]
   },
   "System_FusionBurst_Pop": {
     "name": "Fusion Burst Explosion",
     "isPassive": true,
     "triggerRule": "OnBuffAdd[Fusion Burst] IF (@Enemy.BuffStacks(Fusion Burst) >= @Enemy.BuffMaxStacks(Fusion Burst))",
-    "dmgTypes": ["Fusion"],
+    "dmgTypes": ["Fusion Burst"],
+    "hitMults": ["100%"],
     "effects": [
       {
         "type": "buffAction",
@@ -135,13 +137,15 @@
     "name": "Aero Erosion Tick",
     "isPassive": true,
     "triggerRule": "OnTick[3.0] IF (@Enemy.HasBuff(Aero Erosion))",
-    "dmgTypes": ["Aero"]
+    "dmgTypes": ["Aero Erosion"],
+    "hitMults": ["100%"]
   },
   "System_ElectroFlare_Damage": {
     "name": "Electro Flare Tick",
     "isPassive": true,
     "triggerRule": "OnBuffExpire[Electro Flare]",
-    "dmgTypes": ["Electro"],
+    "dmgTypes": ["Electro Flare"],
+    "hitMults": ["100%"],
     "effects": [
       {
         "type": "buffAction",
@@ -156,6 +160,7 @@
     "name": "Spectro Frazzle Tick",
     "isPassive": true,
     "triggerRule": "OnBuffExpire[Spectro Frazzle]",
-    "dmgTypes": ["Spectro"]
+    "dmgTypes": ["Spectro Frazzle"],
+    "hitMults": ["100%"]
   }
 }

@@ -591,6 +591,14 @@ export class TimelineEngineClass {
         }
       });
     });
+
+    // Generic.json's status/Tune-Break damage nodes aren't owned by any team slot, so they never
+    // get registered above -- register them once, keyed to a synthetic 'System' equipper.
+    (DataLoader.mechanicsIndex['System'] || []).forEach(key => {
+      const mech = DataLoader.mechanicsDB[key];
+      if (mech?.isPassive) EventManager.registerMechanic(mech, 'System');
+    });
+
     return activeTeam;
   }
 
@@ -960,7 +968,6 @@ export class TimelineEngineClass {
             castTypes: nextHit.originMoveData.castTypes, scalar: nextHit.originMoveData.scalar,
             title: nextHit.isProc ? `[Proc] ${hitName}` : (nextHit.totalHits > 1 ? `Hit ${nextHit.hitIndex + 1}` : 'Active Hit'),
             isOpen: false,
-            isNegativeStatus: nextHit.originMoveData.isNegativeStatus,
             actionId: nextHit.originActionId,
             moveName: nextHit.originMoveData.name,
             gameTime: hitGameTime

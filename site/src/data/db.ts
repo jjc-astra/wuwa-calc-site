@@ -109,7 +109,9 @@ export const SIM_CONSTANTS = {
   LEVEL_CAP: 90,
   // Tune Break/Rupture damage is hitMults% times this fixed base (see calcTuneDmg). Named here
   // so formatDamageBreakdown can display the same constant instead of omitting it.
-  TUNE_BASE_DMG: 10027
+  TUNE_BASE_DMG: 10027,
+  // Negative-status damage = (getNegativeStatusMult(status, stacks) / this) * ENEMY_DEFAULTS.statusBaseDmg.
+  NEGATIVE_STATUS_BASE_MULT: 10000
 };
 
 // Duration fields (swapTime, comboWindow, echoSummonTime, holdLookahead*) are FRAMES at 60fps;
