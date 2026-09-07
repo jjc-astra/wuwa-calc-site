@@ -45,16 +45,25 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
   setCastSelect, setDmgSelect, setCastResType, setCastResAmt
 }) => {
   const hitMultsArr = Array.isArray(data.hitMults) ? data.hitMults : [];
-  // hitMults entries may be plain numbers OR percentage strings like "48.71%" (static JSON
-  // data commonly stores them the latter way) -- parse both, only DSL expressions fail to parse.
-  const parsedMults = hitMultsArr.map(v => {
-    if (typeof v === 'number') return v;
-    const n = parseFloat(v.replace('%', ''));
-    return isNaN(n) ? null : n;
-  });
-  const numericMults = parsedMults.filter((v): v is number => v !== null);
-  const multSum = numericMults.reduce((a, b) => a + b, 0);
-  const multSummaryLabel = hitMultsArr.length === 0 ? '—' : `${fmtNum(multSum)}%${numericMults.length !== hitMultsArr.length ? '…' : ''}`;
+  // A '%' in the entry's own string form is exactly what CombatCalculator checks to route a
+  // hit as percent- vs flat-scaling -- mirror that here so a flat value (e.g. Tune Break's
+  // fixed-magnitude hits) reads as flat instead of misleadingly always showing a trailing '%'.
+  const isPctEntry = (v: number | string) => typeof v === 'string' && v.includes('%');
+  const sumEntries = (arr: (number | string)[]): number => arr.reduce<number>((sum, v) => {
+    const n: number = typeof v === 'number' ? v : parseFloat(v.replace('%', ''));
+    return isNaN(n) ? sum : sum + n;
+  }, 0);
+  const pctEntries = hitMultsArr.filter(isPctEntry);
+  const flatEntries = hitMultsArr.filter(v => !isPctEntry(v));
+  const hasUnparsed = hitMultsArr.some(v => isNaN(parseFloat(String(v).replace('%', ''))));
+  const ellipsis = hasUnparsed ? '…' : '';
+
+  let multSummaryLabel = '—';
+  if (hitMultsArr.length > 0) {
+    if (flatEntries.length === 0) multSummaryLabel = `${fmtNum(sumEntries(pctEntries))}%${ellipsis}`;
+    else if (pctEntries.length === 0) multSummaryLabel = `${fmtNum(sumEntries(flatEntries))} flat${ellipsis}`;
+    else multSummaryLabel = `${fmtNum(sumEntries(pctEntries))}% + ${fmtNum(sumEntries(flatEntries))} flat${ellipsis}`;
+  }
 
   const physicsSummaryLabel = `${data.input || '—'}${data.inputType ? ` · ${data.inputType}` : ''}`;
   const hitResourceKeys = Object.keys(data.hitResources || {});

@@ -18,7 +18,7 @@ const NOT_IMPLEMENTED_TIP = 'Not yet implemented';
 
 export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
   const { team, setSlotField, applyRecommendedBuild } = useRosterStore();
-  const { hasChanges: hasBuilderChanges } = useBuilderStore();
+  const { hasChanges: hasBuilderChanges, editedBaseStats } = useBuilderStore();
   const slot = team[index];
   // A mechanic added through the Builder makes an otherwise-unimplemented entity selectable too.
   const isSelectable = (kind: ImplementedContentKind, name: string) =>
@@ -33,7 +33,13 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
   useEffect(() => { setImgErrors(p => ({ ...p, subSet: false })); setImgLoaded(p => ({ ...p, subSet: false })); }, [slot.subSet]);
   useEffect(() => { setImgErrors(p => ({ ...p, mainEcho: false })); setImgLoaded(p => ({ ...p, mainEcho: false })); }, [slot.mainEcho]);
 
-  const charData = DataLoader.characterDB[slot.character] || null;
+  // Builder edits only get replayed onto the shared DataLoader.characterDB entry when that
+  // character is actually opened in the Builder (see useBuilderStore.setActiveChar) -- so a
+  // character edited only in the Builder this session (never opened here) still needs its
+  // local edits overlaid here to show up in the roster (e.g. a builder-added isDualMode flag).
+  const charData = slot.character
+    ? { ...(DataLoader.characterDB[slot.character] || {}), ...(editedBaseStats[slot.character] || {}) }
+    : null;
   const validWeapons = charData ? DataLoader.weaponsByType[charData.weaponType] || [] : [];
   const hasMode = !!charData?.isDualMode;
   const mode1Label = charData?.mode1Name || 'Mode 1';

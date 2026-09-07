@@ -79,6 +79,14 @@ export class DataLoaderClass {
     return `mechanics/${folder}/${this.mechanicFileName(itemName)}.json`;
   }
 
+  // The cache.mechanics Set key for (folder, itemName) -- the one place that combines folder
+  // with mechanicFileName's Generic->'generic' translation, so every caller (loadMechanic,
+  // clearMechanicCache, dataFreshness.ts) agrees on the same key regardless of which casing
+  // they were handed.
+  mechanicCacheKey(folder: string, itemName: string): string {
+    return `${folder}/${this.mechanicFileName(itemName)}`;
+  }
+
   // Derived from the manifest (populated before anything can call this -- see App.tsx's
   // initDatabases gate) rather than a hand-maintained list: a mechanics JSON file existing on
   // disk for `name` at app build time is exactly what "implemented" means.
@@ -150,10 +158,9 @@ export class DataLoaderClass {
 
   async loadMechanic(folder: string, itemName: string): Promise<void> {
     if (!itemName) return;
-    const fileName = this.mechanicFileName(itemName);
-    const cacheKey = `${folder}/${fileName}`;
+    const cacheKey = this.mechanicCacheKey(folder, itemName);
     if (this.cache.mechanics.has(cacheKey)) return;
-    const data = await this.loadJSON<Record<string, MechanicNode>>(CommonUtils.getData(`mechanics/${folder}/${fileName}.json`));
+    const data = await this.loadJSON<Record<string, MechanicNode>>(CommonUtils.getData(this.mechanicPath(folder, itemName)));
     if (data) {
       for (const [key, mechData] of Object.entries(data)) {
         this.mechanicsDB[key] = mechData;
@@ -184,9 +191,7 @@ export class DataLoaderClass {
 
   clearMechanicCache(folder: string, itemName: string): void {
     if (!itemName) return;
-    // Must use mechanicFileName's translation, or this eviction misses the cache-Set entry
-    // loadMechanic actually inserted and the next load silently skips re-fetching.
-    const cacheKey = `${folder}/${this.mechanicFileName(itemName)}`;
+    const cacheKey = this.mechanicCacheKey(folder, itemName);
 
     this.cache.mechanics.delete(cacheKey);
 

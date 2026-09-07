@@ -67,7 +67,7 @@ async function checkItems(items: FreshnessItem[]): Promise<FreshnessItem[]> {
   const evicted: FreshnessItem[] = [];
 
   for (const { folder, itemName } of items) {
-    const cacheKey = `${folder}/${itemName.replace(/\s+/g, '_')}`;
+    const cacheKey = DataLoader.mechanicCacheKey(folder, itemName);
     if (!DataLoader.cache.mechanics.has(cacheKey)) continue; // never loaded -- nothing to check
 
     const relPath = DataLoader.mechanicPath(folder, itemName);

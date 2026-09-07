@@ -1,5 +1,6 @@
 import type { MechanicNode } from '../types';
 import { CommonUtils } from './Common';
+import { DataLoader } from './DataLoader';
 import { MECHANICS_NOTATION } from '../data/db';
 
 export const BuilderUtils = {
@@ -152,7 +153,7 @@ export const BuilderUtils = {
         return '[' + inner.replace(/\s*\n\s*/g, ' ').trim() + ']';
       });
 
-      visualOutput += `// Save this exact JSON to: data/mechanics/${mechFolder}/${activeChar.replace(/\s+/g, '_')}.json\n${mechStr}`;
+      visualOutput += `// Save this exact JSON to: data/${DataLoader.mechanicPath(mechFolder, activeChar)}\n${mechStr}`;
     } else if (!hasBaseStats) {
       visualOutput += `// Add mechanic nodes to generate output!`;
     }

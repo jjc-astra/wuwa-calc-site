@@ -94,7 +94,10 @@ export const CombatCalculator = {
       statStr = `[${Math.floor(statBreakdown.base)}${pctStr}${flatStr}] ${label}`;
     }
 
-    const baseDmgStr = !hasScalarStat ? `${+(totalPctMult * 100).toFixed(4)}%${flatMult > 0 ? ` + ${Math.floor(flatMult)}` : ''}`
+    const baseDmgStr = !hasScalarStat
+                      ? (totalPctMult > 0 && flatMult > 0) ? `(${+(totalPctMult * 100).toFixed(4)}% + ${Math.floor(flatMult)})`
+                      : (totalPctMult > 0) ? `${+(totalPctMult * 100).toFixed(4)}%`
+                      : `${Math.floor(flatMult)}`
                       : (totalPctMult > 0 && flatMult > 0) ? `(${+(totalPctMult * 100).toFixed(4)}% * ${statStr} + ${Math.floor(flatMult)})`
                       : (totalPctMult > 0) ? `${+(totalPctMult * 100).toFixed(4)}% * ${statStr}`
                       : `${Math.floor(flatMult)}`;

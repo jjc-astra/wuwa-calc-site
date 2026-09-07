@@ -40,7 +40,7 @@
         "duration": 8
       }
     ],
-    "hitMults": [1600],
+    "hitMults": ["1600%"],
     "priority": "@Default.IntroPriority - 10",
     "actionDuration": 120,
     "freezeTime": 120
