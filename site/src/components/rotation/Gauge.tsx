@@ -84,8 +84,12 @@ export const MultiForteGauge: React.FC<MultiForteGaugeProps> = ({ unit, stateDat
 
           // Forte 1 shows the live hold-release cursor position (and glows inside the
           // release window) while a Hold action is in progress, matching the old site.
+          // Hold_Start/Hold_Unit are flat trackers shared across every row regardless of unit,
+          // so a lingering hold from a different character (e.g. swapped out mid-hold) must be
+          // ignored here too, or this row would render someone else's cursor state.
           const holdStart = stateData?.trackers?.Hold_Start;
-          if (num === 1 && holdStart !== undefined) {
+          const holdOwnedByUnit = stateData?.trackers?.Hold_Unit === unit;
+          if (num === 1 && holdStart !== undefined && holdOwnedByUnit) {
             const d = MECHANICS_NOTATION.HOLD_DEFAULTS;
             const speed = d.CURSOR_SPEED;
             const maxVal = d.MAX_CURSOR_VAL;

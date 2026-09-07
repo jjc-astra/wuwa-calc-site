@@ -146,7 +146,7 @@ export class TimelineEngineClass {
       currentData.cdWaitTime = wCD;
       this._applyDecay(currentData, toFrames(finalWaitTime), toFrames(finalWaitTime), i > 0, activeTeam, activeRows, team);
 
-      if (dbMove.inputType === 'Release' && currentData.trackers && currentData.trackers.Hold_Start !== undefined) {
+      if (dbMove.inputType === 'Release' && currentData.trackers && currentData.trackers.Hold_Start !== undefined && currentData.trackers.Hold_Unit === currentData.unit) {
         const holdStart = currentData.trackers.Hold_Start;
         const config = dbMove.holdConfig || {};
         const speed = config.cursorSpeed ?? MECHANICS_NOTATION.HOLD_DEFAULTS.CURSOR_SPEED;
@@ -289,7 +289,10 @@ export class TimelineEngineClass {
       currentData.offsetReasons = reasons;
 
       const isRelease = dbMove.inputType === 'Release' || dbMove.holdConfig;
-      const isHolding = currentData.trackers && currentData.trackers.Hold_Start !== undefined;
+      const isHolding =
+        currentData.trackers &&
+        currentData.trackers.Hold_Start !== undefined &&
+        currentData.trackers.Hold_Unit === currentData.unit;
       if (isRelease || isHolding) {
         let config = dbMove.holdConfig;
         if (!config) {
@@ -1251,7 +1254,7 @@ export class TimelineEngineClass {
     this._executeEffectsStream(instantEffects, currentData, activeTeam, activeRows, currentData.timeStart, unitName, team);
     this.damageQueue.sort((a, b) => a.executeAt - b.executeAt);
 
-    if (moveData.inputType === 'Release' && currentData.trackers) {
+    if (moveData.inputType === 'Release' && currentData.trackers && currentData.trackers.Hold_Unit === unitName) {
       const config = moveData.holdConfig || {};
       const retain = config.retainCursor ?? MECHANICS_NOTATION.HOLD_DEFAULTS.RETAIN_CURSOR;
       if (retain && currentData.trackers.Hold_Start !== undefined) {
@@ -1261,6 +1264,7 @@ export class TimelineEngineClass {
         currentData.trackers.Cursor_Pos = 0;
       }
       delete currentData.trackers.Hold_Start;
+      delete currentData.trackers.Hold_Unit;
     }
 
     // A Simultaneous row never advances the shared clock (it's anchored inside a window the
@@ -1529,6 +1533,11 @@ export class TimelineEngineClass {
     if (delta === 0 && action !== 'detonate') return;
 
     currentData.trackers[effect.name || ''] = newVal;
+
+    // Hold_Start is a flat/global tracker key (like Cursor_Pos, Forte_Win_Center below), shared
+    // across every row regardless of unit -- stamp who owns this hold so the reserved forte
+    // hold/release logic can ignore a lingering hold when a different unit's row runs in between.
+    if (effect.name === 'Hold_Start') currentData.trackers.Hold_Unit = unitName;
 
     if (action !== 'detonate') {
       const payloads: Effect[] = [];
