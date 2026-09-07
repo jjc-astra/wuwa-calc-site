@@ -128,8 +128,11 @@ export const CommonUtils = {
     return CommonUtils.getImage(`${folder}/Icon_${n.replaceAll(' ', '')}${EXTENSION}`);
   },
 
-  getImage: (path: string): string => `/images/${path}`,
-  getData: (path: string): string => `/data/${path}`,
+  // BASE_URL is Vite's configured `base` (see vite.config.ts) -- these are plain fetch()/img-src
+  // strings the browser resolves at runtime, so unlike a module import Vite can't rewrite them
+  // for the GitHub Pages project-page path (/wuwa-calc/) on its own.
+  getImage: (path: string): string => `${import.meta.env.BASE_URL}images/${path}`,
+  getData: (path: string): string => `${import.meta.env.BASE_URL}data/${path}`,
 
   parseMixed: (val: any): number | string | undefined => {
     if (val === undefined || val === null || val === '') return undefined;
