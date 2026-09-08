@@ -872,6 +872,7 @@
     align-items: center;
     width: 100%;
 }
+.builder-view .mech-name-flags { margin-top: 2px; }
 .builder-view .tag-add-btn {
     flex-shrink: 0;
     width: 16px;

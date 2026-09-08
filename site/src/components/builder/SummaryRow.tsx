@@ -3,6 +3,7 @@
 // the matching sub-panel (rendered by the parent MechanicNodeCard) in a detail row underneath.
 import React from 'react';
 import type { MechanicNode } from '../../types';
+import { useBuilderStore } from '../../store/useBuilderStore';
 import { TypeTag } from '../common/TypeTag';
 import { GAME_DEFAULTS } from '../../data/db';
 import { displayTimeVal, fmtNum, resAbbr, resFullName, sumNumeric, castTagColor, dmgTagColor, tip, resolveDefaultNum, makeTimeBlur } from './mechanicNodeHelpers';
@@ -68,6 +69,16 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
   const physicsSummaryLabel = `${data.input || '—'}${data.inputType ? ` · ${data.inputType}` : ''}`;
   const hitResourceKeys = Object.keys(data.hitResources || {});
 
+  // 'both'/unset means this node applies regardless of mode -- not worth a tag, since it's the
+  // default/common case and would just add noise to every row.
+  const { baseStats } = useBuilderStore();
+  const nameFlagTags: { label: string; tooltip: string }[] = [
+    ...(data.isPassive ? [{ label: 'Passive', tooltip: 'Fires automatically, not a player-cast action' }] : []),
+    ...(data.isSwapInDefault ? [{ label: 'Default Swap-In', tooltip: 'Used automatically when swapping onto this unit' }] : []),
+    ...(data.modeScope === 'mode1' ? [{ label: baseStats.mode1Name || 'Mode 1', tooltip: 'Only available in Mode 1' }] : []),
+    ...(data.modeScope === 'mode2' ? [{ label: baseStats.mode2Name || 'Mode 2', tooltip: 'Only available in Mode 2' }] : [])
+  ];
+
   // Cancel/Freeze/Swap/Priority/Combo Window all edit together in one "Timing Modifiers"
   // sub-panel -- the summary column lists a small tag per field that's actually set, rather
   // than reserving a whole column for each (most of these are empty on most moves).
@@ -109,6 +120,13 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
         onMouseLeave={onFieldMouseLeave}
       >
         <span className="mech-name-display">{data.name || 'New Mechanic'}</span>
+        {nameFlagTags.length > 0 && (
+          <div className="mech-tag-row mech-name-flags">
+            {nameFlagTags.map((t, i) => (
+              <TypeTag key={i} val={t.label} label={t.label} tooltip={t.tooltip} />
+            ))}
+          </div>
+        )}
       </td>
 
       <td
