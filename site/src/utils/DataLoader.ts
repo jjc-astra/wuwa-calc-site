@@ -149,7 +149,12 @@ export class DataLoaderClass {
 
   // Loads every mechanic a team composition needs. Shared by the roster store and the calc
   // worker, which has its own separate DataLoader instance.
+  //
+  // Generic/System (Dodge, Jump, Tune Break, ...) applies to every rotation regardless of team
+  // composition, so it's always loaded here too -- calc.worker.ts's builder-override path clears
+  // it along with the rest of the team before calling this, and relies on this to bring it back.
   async loadTeamMechanics(team: Array<{ character?: string; weapon?: string; mainSet?: string; subSet?: string; mainEcho?: string }>): Promise<void> {
+    await this.loadMechanic('generic', 'generic');
     for (const slot of team) {
       if (slot.character) await this.loadMechanic('characters', slot.character);
       if (slot.weapon) await this.loadMechanic('weapons', slot.weapon);
