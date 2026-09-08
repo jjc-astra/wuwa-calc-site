@@ -77,9 +77,14 @@ export const RankingRow: React.FC<RankingRowProps> = ({ rank, entry, activeWindo
         <div className="ranking-row-main">
           <div className="ranking-row-label-line">
             <span className="ranking-row-label">{label || 'Empty Team'}</span>
-            <span className={`ranking-row-type-badge ranking-row-type-${entry.rotationType ?? 'unclassified'}`}>
-              {entry.rotationType === 'linear' ? 'Linear' : entry.rotationType === 'quickswap' ? 'Quickswap' : 'Unclassified'}
-            </span>
+            <div className="ranking-row-badges">
+              <span className={`ranking-row-type-badge ranking-row-type-${entry.rotationType ?? 'unclassified'}`}>
+                {entry.rotationType === 'linear' ? 'Linear' : entry.rotationType === 'quickswap' ? 'Quickswap' : 'Unclassified'}
+              </span>
+              {entry.author && (
+                <span className="ranking-row-author-badge">By: {entry.author}</span>
+              )}
+            </div>
           </div>
           <StackedContributionBar
             segments={segments}

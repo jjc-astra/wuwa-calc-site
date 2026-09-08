@@ -281,10 +281,16 @@
     font-weight: bold; color: var(--text-main); font-size: 0.85rem;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+/* Groups the type/author badges so .ranking-row-label-line's space-between only splits
+   {label} vs {this whole cluster} -- a 3rd bare child there would space all three apart evenly
+   instead of keeping the badges pinned together on the right. */
+.ranking-row-badges { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
 /* Rotation-style classification (linear vs quickswap) -- not implemented yet upstream, so this
    only ever renders once a submitted rotation actually carries a rotationType; see
    character_results/index.json's rotationType field. */
-.ranking-row-type-badge {
+.ranking-row-type-badge,
+.ranking-row-author-badge {
     flex-shrink: 0;
     display: inline-block;
     text-transform: uppercase;
@@ -300,6 +306,9 @@
 }
 .ranking-row-type-linear { color: color-mix(in srgb, #3987e5 70%, white); border-color: color-mix(in srgb, #3987e5 50%, var(--border)); }
 .ranking-row-type-quickswap { color: color-mix(in srgb, #d55181 70%, white); border-color: color-mix(in srgb, #d55181 50%, var(--border)); }
+/* Author stays plain grey (like Unclassified) -- it's a credit, not a classification, so it
+   doesn't get a color identity of its own. */
+.ranking-row-author-badge { text-transform: none; letter-spacing: normal; }
 
 /* Wraps RotationTimeline (src/assets/css/timeline.css) when a row is expanded -- owns the card
    chrome here (Rankings-specific) so the timeline component itself stays page-agnostic. */

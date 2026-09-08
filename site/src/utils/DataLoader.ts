@@ -16,6 +16,9 @@ export interface CharacterResultData {
   team: TeamSlot[];
   settings: { startEnergy?: boolean; startConcerto?: boolean; endingRotationEnabled?: boolean; endRotationStartsEarlier?: boolean };
   rotationType: 'linear' | 'quickswap' | null;
+  // Free-text credit, entered in the Save Results dialog. Optional so older saved files (from
+  // before this existed) still load fine -- just render with no author tag.
+  author?: string;
   // Present when the file was produced by History's "Save Results", letting the Rankings loader
   // skip re-running the calc worker. Absent for a plain Export Rotation file. dmgOverTimeSeries
   // is left out either way -- cheap to regenerate via a real recalculate.

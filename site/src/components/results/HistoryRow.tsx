@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { TeamPreview } from '../common/TeamPreview';
 import { StackedContributionBar } from '../rankings/StackedContributionBar';
 import { ConfirmDialog } from '../common/ConfirmDialog';
+import { ExportResultsDialog } from '../common/ExportResultsDialog';
 import { ActionsMenuButton } from '../common/ActionsMenuButton';
 import { useRotationHistoryStore } from '../../store/useRotationHistoryStore';
 import type { HistoryEntry } from '../../store/useRotationHistoryStore';
@@ -24,6 +25,7 @@ export const HistoryRow: React.FC<HistoryRowProps> = ({ entry }) => {
   const toggleFavorite = useRotationHistoryStore(s => s.toggleFavorite);
   const removeEntry = useRotationHistoryStore(s => s.removeEntry);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [saveResultsOpen, setSaveResultsOpen] = useState(false);
 
   const unitNames = entry.team.filter(s => s.character).map(s => s.character);
   const label = unitNames.join(' · ');
@@ -31,7 +33,7 @@ export const HistoryRow: React.FC<HistoryRowProps> = ({ entry }) => {
   const segments = entry.results.contribution.twoMin?.team ?? [];
   const unitBreakdowns = entry.results.contribution.twoMin?.units ?? {};
 
-  const handleSaveResults = () => {
+  const handleSaveResultsConfirm = (filename: string, author: string) => {
     // A superset of what Export Rotation writes (same rotation/team/settings shape, so this
     // file alone round-trips through Restore Rotation with no separate export needed) plus the
     // already-computed results -- drop straight into public/data/character_results/ and the
@@ -42,9 +44,16 @@ export const HistoryRow: React.FC<HistoryRowProps> = ({ entry }) => {
     // Guide page would need this file to carry.
     const { dmgOverTimeSeries, ...resultsWithoutDmgOverTime } = entry.results;
     CommonUtils.downloadJson(
-      { rotation: entry.rotation, team: entry.team, settings: entry.settings, results: resultsWithoutDmgOverTime },
-      buildFilename(entry, '_Results')
+      {
+        rotation: entry.rotation,
+        team: entry.team,
+        settings: entry.settings,
+        ...(author && { author }),
+        results: resultsWithoutDmgOverTime
+      },
+      filename
     );
+    setSaveResultsOpen(false);
   };
 
   const handleRestoreConfirm = async () => {
@@ -92,7 +101,7 @@ export const HistoryRow: React.FC<HistoryRowProps> = ({ entry }) => {
             triggerClassName="base-btn icon-btn"
             iconSize={14}
             items={[
-              { label: 'Save Results', onClick: handleSaveResults },
+              { label: 'Save Results', onClick: () => setSaveResultsOpen(true) },
               { label: 'Restore Rotation', onClick: () => setConfirmOpen(true) },
               // Instant -- this entry already carries a full RotationResults (dmgOverTimeSeries
               // included) from the live Calculate press that produced it.
@@ -110,6 +119,14 @@ export const HistoryRow: React.FC<HistoryRowProps> = ({ entry }) => {
           confirmLabel="Restore"
           onConfirm={handleRestoreConfirm}
           onCancel={() => setConfirmOpen(false)}
+        />
+      )}
+
+      {saveResultsOpen && (
+        <ExportResultsDialog
+          defaultFilename={buildFilename(entry, '_Results')}
+          onConfirm={handleSaveResultsConfirm}
+          onCancel={() => setSaveResultsOpen(false)}
         />
       )}
     </div>

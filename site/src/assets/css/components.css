@@ -782,6 +782,34 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 .modal-close-x:hover { color: var(--text-main); }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: var(--space-6); }
 
+/* A modal that needs its own text inputs (e.g. ExportResultsDialog) -- unscoped, unlike the
+   Mechanics Builder's near-identical .form-group/.form-label/.form-input (builder.css), since a
+   modal can be opened from any page, not just the builder. */
+.modal-field { margin-top: var(--space-4); }
+.modal-field-label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-dim);
+}
+.modal-field-input {
+    width: 100%;
+    box-sizing: border-box;
+    height: 28px;
+    padding: 10px 15px;
+    font-size: 0.9rem;
+    font-family: monospace;
+    background: var(--bg-well);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-main);
+    outline: none;
+    transition: border-color 0.2s;
+}
+.modal-field-input:focus { border-color: var(--accent); }
+
 /* --- Webkit Scrollbars --- */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: var(--bg-dark); border-radius: 4px; }

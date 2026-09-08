@@ -8,6 +8,7 @@ import { useCollapseMaxHeight } from '../../hooks/useCollapseMaxHeight';
 import { CommonUtils, getCharacterThemeColor } from '../../utils/Common';
 import { DataLoader } from '../../utils/DataLoader';
 import { ConfirmDialog } from '../common/ConfirmDialog';
+import { ExportResultsDialog } from '../common/ExportResultsDialog';
 
 interface RotationBuilderProps {
   isOpen: boolean;
@@ -299,6 +300,10 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     setDragOverInfo(null);
   };
 
+  // Built up-front by handleExport, then only actually downloaded once the dialog below is
+  // confirmed -- lets the user rename the file and credit themselves before it's written.
+  const [exportPending, setExportPending] = useState<{ exportObject: Record<string, unknown>; filename: string } | null>(null);
+
   const handleExport = () => {
     if (rows.length === 0) return alert('Rotation is empty.');
 
@@ -328,7 +333,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     const names = CommonUtils.buildTeamIds(team);
     const suffix = includeResults ? '_Results' : '';
     const filename = names.length > 0 ? `Rotation_${names.join('_')}${suffix}.json` : `Rotation_Config${suffix}.json`;
-    CommonUtils.downloadJson(exportObject, filename);
+    setExportPending({ exportObject, filename });
   };
 
   // Set only when an imported file's team shares characters+sequences with the roster already
@@ -510,6 +515,18 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
             await applyImport(pendingImport.rawData, pendingImport.rotData, false);
             setPendingImport(null);
           }}
+        />
+      )}
+
+      {exportPending && (
+        <ExportResultsDialog
+          defaultFilename={exportPending.filename}
+          onConfirm={(filename, author) => {
+            const exportObject = author ? { ...exportPending.exportObject, author } : exportPending.exportObject;
+            CommonUtils.downloadJson(exportObject, filename);
+            setExportPending(null);
+          }}
+          onCancel={() => setExportPending(null)}
         />
       )}
     </div>

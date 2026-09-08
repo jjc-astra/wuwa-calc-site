@@ -16,6 +16,7 @@ export interface RankingEntry {
   // [main DPS, sub DPS, support] sequence, i.e. team[0..2].sequence -- 0 when a slot is empty.
   sequences: number[];
   rotationType: 'linear' | 'quickswap' | null;
+  author?: string;
   dpsStats: RotationResults['dpsStats'];
   contribution: RotationResults['contribution'];
 }
@@ -235,6 +236,7 @@ export const useRankingsStore = create<RankingsState>()(
             team: data.team,
             sequences: [0, 1, 2].map(i => Number(data.team[i]?.sequence) || 0),
             rotationType: data.rotationType,
+            author: data.author,
             dpsStats: results.dpsStats,
             contribution: results.contribution
           };
