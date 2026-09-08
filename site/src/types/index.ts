@@ -189,6 +189,9 @@ export interface HitConfig {
   actionId?: string;
   moveName?: string;
   gameTime?: Frames;
+  // Which sub-hit of actionId this is (0 for a single-hit move, 0/1/2/... for a multi-hit one).
+  // Together, actionId+hitIndex identify "the same move slot" across an Avg Loop's repeated reps.
+  hitIndex?: number;
 }
 
 export interface DamageInstanceResult {

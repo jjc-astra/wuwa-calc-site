@@ -280,17 +280,58 @@ function buildDmgOverTimeForWindow(
   return { label, points, bossMaxHp, killTime, windowEnd };
 }
 
-// Folds AVG_LOOP_REPS reps into one loop-length window (each hit's time modulo loopDuration)
-// and divides the cumulative total by AVG_LOOP_REPS at every point. A hit landing exactly on a
-// rep boundary belongs to the rep that just finished, not t=0 of the next.
+// Folds AVG_LOOP_REPS reps into one loop-length window and divides the cumulative total by
+// AVG_LOOP_REPS at every point. The loop template doesn't branch between repetitions, so instead
+// of folding each hit independently by raw time (which scatters "the same" hit across a few
+// hundredths of a second of rep-to-rep wait-time jitter into several tiny steps), hits are
+// matched by which move produced them -- actionId+hitIndex identifies "the same slot" across
+// reps exactly, rather than merely by chronological position (which a stray extra/dropped tick
+// near a rep boundary could throw off). A repeated action within one loop is disambiguated by
+// its Nth occurrence, matched in order against the other reps' Nth occurrence of that same move.
+// Both the damage AND the time are averaged across whichever reps had that hit, so a move landing
+// at 12.0s in one rep and 12.2s in another folds to one point at 12.1s instead of two near-
+// duplicates. The line comes out as one clean step per move, and since the bar chart's per-hit
+// bars are just deltas between consecutive points, that carries straight through to bar mode too.
 function buildAvgLoopDmgOverTime(hits: RotationHit[], openerEndTime: Frames, loopDuration: Frames, bossMaxHp: number): DmgOverTimeSeries {
   const windowHits = windowedHits(hits, openerEndTime, toFrames(openerEndTime + AVG_LOOP_REPS * loopDuration));
-  const folded = windowHits
-    .map(h => {
-      const rel = (h.gameTime - openerEndTime) % loopDuration;
-      return { t: toFrames(rel === 0 ? loopDuration : rel), total: h.total, label: hitLabel(h) };
-    })
-    .sort((a, b) => a.t - b.t);
+  const moveKey = (h: RotationHit) => `${h.config.actionId ?? h.provider}::${h.config.hitIndex ?? 0}`;
+
+  // One hit-list per rep, further split by move key -- so "the same" repeated action within a
+  // single loop (e.g. two separate Basic Attacks) is matched by its own occurrence order, not
+  // pooled together with the other occurrence.
+  const repGroups: Map<string, RotationHit[]>[] = Array.from({ length: AVG_LOOP_REPS }, () => new Map());
+  for (const h of windowHits) {
+    const repIndex = Math.min(AVG_LOOP_REPS - 1, Math.max(0, Math.ceil((h.gameTime - openerEndTime) / loopDuration) - 1));
+    const key = moveKey(h);
+    const list = repGroups[repIndex].get(key);
+    if (list) list.push(h);
+    else repGroups[repIndex].set(key, [h]);
+  }
+
+  const allKeys = new Set<string>();
+  repGroups.forEach(m => m.forEach((_, k) => allKeys.add(k)));
+
+  const foldedRel = (h: RotationHit) => {
+    const rel = (h.gameTime - openerEndTime) % loopDuration;
+    return rel === 0 ? loopDuration : rel;
+  };
+
+  const folded: { t: Frames; total: number; label: string }[] = [];
+  for (const key of allKeys) {
+    const perRepLists = repGroups.map(m => m.get(key) ?? []);
+    const occurrences = Math.max(0, ...perRepLists.map(l => l.length));
+    for (let occ = 0; occ < occurrences; occ++) {
+      const matched = perRepLists.map(l => l[occ]).filter((h): h is RotationHit => h !== undefined);
+      if (matched.length === 0) continue;
+      const avgRel = matched.reduce((sum, h) => sum + foldedRel(h), 0) / matched.length;
+      folded.push({
+        t: toFrames(avgRel),
+        total: matched.reduce((sum, h) => sum + h.total, 0),
+        label: hitLabel(matched[0])
+      });
+    }
+  }
+  folded.sort((a, b) => a.t - b.t);
 
   const points: DmgOverTimePoint[] = [{ t: toFrames(0), dmg: 0 }];
   let cumulative = 0;

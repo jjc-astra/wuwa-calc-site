@@ -973,7 +973,8 @@ export class TimelineEngineClass {
             isOpen: false,
             actionId: nextHit.originActionId,
             moveName: nextHit.originMoveData.name,
-            gameTime: hitGameTime
+            gameTime: hitGameTime,
+            hitIndex: nextHit.hitIndex
           },
           context: JSON.parse(JSON.stringify(cleanData))
         });
