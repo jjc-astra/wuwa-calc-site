@@ -47,7 +47,9 @@ function parseHash(): Route {
 }
 
 function routeToHash(view: ViewId, step: 1 | 2): string {
-  if (view === 'landing') return '#/';
+  // No hash at all for the homepage -- '#/' would parse identically, but leaves a bare trailing
+  // "#" in the address bar that a plain "/" load never had.
+  if (view === 'landing') return '';
   // Both steps get their own explicit segment -- see parseHash's comment on why step 1 can't
   // just be "the bare #/calculator path" without becoming ambiguous with "no step specified".
   if (view === 'calculator') return `#/calculator/step-${step}`;
@@ -61,9 +63,17 @@ export function useHashRoute(): [Route, (view: ViewId, step?: 1 | 2) => void] {
   const [route, setRoute] = useState<Route>(() => parseHash());
 
   useEffect(() => {
-    const onHashChange = () => setRoute(parseHash());
-    window.addEventListener('hashchange', onHashChange);
-    return () => window.removeEventListener('hashchange', onHashChange);
+    // 'popstate' covers back/forward through the pushState-based landing entries below (which
+    // never fire 'hashchange' on their own); 'hashchange' covers every other route, which still
+    // navigates via a plain location.hash assignment. Both firing for the same transition is
+    // harmless -- parseHash() is idempotent.
+    const onRouteChange = () => setRoute(parseHash());
+    window.addEventListener('hashchange', onRouteChange);
+    window.addEventListener('popstate', onRouteChange);
+    return () => {
+      window.removeEventListener('hashchange', onRouteChange);
+      window.removeEventListener('popstate', onRouteChange);
+    };
   }, []);
 
   const navigate = (view: ViewId, step?: 1 | 2) => {
@@ -72,9 +82,17 @@ export function useHashRoute(): [Route, (view: ViewId, step?: 1 | 2) => void] {
     const resolvedStep = step ?? (view === 'calculator' ? getLastStep() : 1);
     const nextHash = routeToHash(view, resolvedStep);
     if (window.location.hash === nextHash) {
-      // Hash isn't actually changing (e.g. re-clicking the same nav item), so 'hashchange' won't
-      // fire to re-run parseHash() -- update local state directly instead, same as parseHash
+      // Hash isn't actually changing (e.g. re-clicking the same nav item), so neither event above
+      // will fire to re-run parseHash() -- update local state directly instead, same as parseHash
       // would've resolved.
+      setRoute({ view, step: resolvedStep });
+      return;
+    }
+    if (nextHash === '') {
+      // location.hash = '' still leaves a bare trailing "#" in the address bar -- rewrite the URL
+      // directly instead so the homepage's URL is fully clean. pushState doesn't fire
+      // hashchange/popstate on its own, so the state update needs to happen right here.
+      history.pushState(null, '', window.location.pathname + window.location.search);
       setRoute({ view, step: resolvedStep });
       return;
     }
