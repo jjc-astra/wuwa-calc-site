@@ -1,9 +1,10 @@
 /* src/assets/css/rankings.css
-   Rotation Rankings page -- a WoW-Logs-style DPS leaderboard. Reuses the site's existing
-   tokens/components throughout (ChromeTabs, .segmented-toggle, .results-empty, TooltipManager's
-   .tooltip-key/.tooltip-val) rather than introducing a parallel set of one-off styles -- see
-   RotationRankingsPage.tsx for the component wiring. */
+   Rotation Rankings page -- reuses the site's existing tokens/components throughout
+   (ChromeTabs, .segmented-toggle, TooltipManager) rather than one-off styles. */
 
+/* =========================================
+   1. PAGE LAYOUT
+   ========================================= */
 .rankings-page {
     flex: 1;
     display: flex;
@@ -13,7 +14,6 @@
     overflow: hidden;
 }
 
-/* Search-and-filter sidebar on the left, Rankings taking the remaining width on the right. */
 .rankings-page-body {
     flex: 1;
     min-height: 0;
@@ -24,9 +24,6 @@
     gap: var(--space-6);
 }
 
-/* No explicit width -- shrinks to fit its widest child (the filter toolbar's own content-driven
-   width: label + slider + card padding), so the search box's width: 100% below matches that
-   exactly instead of stretching past it into empty space. */
 .rankings-sidebar {
     flex-shrink: 0;
     display: flex;
@@ -42,11 +39,6 @@
     gap: var(--space-3);
 }
 
-/* Same combined recipe as the Mechanics Builder's own #grid-search-input -- .builder-view
-   .form-input's base (border/color/font-family/height/box-sizing, builder.css) plus that
-   input's own inline overrides (padding/background/border-radius/font-size, MechanicsBuilder
-   .tsx) -- reproduced directly here since .form-input itself is scoped to .builder-view and
-   this page sits outside it. */
 .rankings-search-input {
     width: 100%;
     box-sizing: border-box;
@@ -64,7 +56,9 @@
 .rankings-search-input:focus { border-color: var(--accent); }
 .rankings-search-input::placeholder { color: var(--text-dim); }
 
-/* --- Filter toolbar: Sequence Filter (3 stacked slot rows) then Rotation Type below it. --- */
+/* =========================================
+   2. FILTER TOOLBAR
+   ========================================= */
 .ranking-toolbar {
     display: flex;
     flex-direction: column;
@@ -74,10 +68,6 @@
     border: 1px solid var(--border);
     border-radius: 8px;
 }
-/* Both toggle rows stretch to the column's full width (the default for a flex-column child) so
-   Rotation Type's 3-button toggle and Best Only's 2-button toggle read as the same width -- the
-   buttons themselves grow to fill that width evenly (flex: 1 below) rather than leaving unfilled
-   dead space in a toggle with fewer buttons. */
 .ranking-toolbar .segmented-toggle-btn { flex: 1; }
 
 .ranking-seq-row { display: flex; align-items: center; gap: var(--space-3); }
@@ -87,7 +77,7 @@
     color: var(--text-dim);
 }
 
-/* --- DMG Type filter: two independent checkbox facets (Element, Category) side by side. --- */
+/* --- DMG Type Filter (two independent checkbox facets: Element, Category) --- */
 .ranking-dmgtype-columns { display: flex; gap: var(--space-3); }
 .ranking-dmgtype-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .ranking-dmgtype-col-header {
@@ -98,21 +88,13 @@
     font-size: 0.65rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.3px;
     color: var(--text-dim);
 }
-/* Select All / Hide All is a momentary action, not a persistent 2-state toggle like every other
-   .segmented-toggle on this page -- deliberately never gets .is-active, and shrinks to fit its
-   own short "All"/"None" labels instead of inheriting .ranking-toolbar's stretch-to-fill rule. */
 .ranking-dmgtype-col-header .segmented-toggle-btn { flex: none; padding: 2px 6px; font-size: 0.62rem; }
 .ranking-dmgtype-checkbox-row {
     display: flex; align-items: center; gap: var(--space-2);
     padding: 2px 0;
     cursor: pointer;
-    /* Per-row color (element or category), read by both the checked-box fill below and
-       .ranking-dmgtype-tag -- set inline per option (RankingFilterToolbar.tsx). */
 }
 
-/* Same hidden-native-input + custom box pattern as calculator.css's .check-wrap/.check-visual
-   (the Rotation Row's own row-select checkbox), just not absolutely positioned -- this isn't
-   overlaying a row index -- and tinted per row via --tag-color instead of always --accent. */
 .ranking-dmgtype-check-wrap {
     position: relative;
     display: flex; align-items: center; justify-content: center;
@@ -134,8 +116,6 @@
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.3);
 }
 
-/* Same small-pill idiom as .ranking-row-type-badge (Linear/Quickswap), just parameterized by
-   --tag-color instead of two hardcoded classes, since this covers 11 different options. */
 .ranking-dmgtype-tag {
     display: inline-block;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -150,16 +130,7 @@
     color: color-mix(in srgb, var(--tag-color, var(--text-dim)) 70%, white);
 }
 
-/* --- Dual-handle range slider (RangeSlider.tsx) -- two overlapping native <input type=range>
-   with their own tracks hidden, sitting over one visible static track + a highlighted fill
-   showing the selected span -- styled to match .base-slider (the echo card's own substat
-   sliders) for track/thumb, since this is a filter control for the same 0-6 sequence values
-   those substat rows show elsewhere. Integer tick marks below double as the range's numeric
-   readout (gold inside the selected span, dim outside), so no separate "S0-S6" label is
-   needed beside it. --- */
-/* padding-right (not extra width) so the track/tick children -- sized to fill this box's own
-   content width -- stay at their original 160px and the trailing space lands purely between the
-   "6" tick label and whatever sits to its right (here, the toolbar card's own edge). */
+/* --- Dual-Handle Range Slider (RangeSlider.tsx) --- */
 .range-slider { position: relative; width: 160px; padding-right: var(--space-3); flex-shrink: 0; }
 .range-slider-track-wrap { position: relative; height: 20px; }
 .range-slider-track {
@@ -216,10 +187,9 @@
 }
 .range-slider-tick-label.is-active { color: var(--accent); }
 
-/* --- Tab panel (Opener/First Loop/Avg Loop/2-Min) -- ChromeTabs expects to sit on top of a
-   surface it visually merges into via .chrome-tab.is-active's color-mix background, so this
-   wrapper provides that surface + the rounded/bordered card shell around tabs + body, the same
-   way .results-panel/.results-panel-body do for the Results sidebar's own ChromeTabs. --- */
+/* =========================================
+   3. TAB PANEL
+   ========================================= */
 .rankings-tab-panel {
     display: flex;
     flex-direction: column;
@@ -230,7 +200,9 @@
 }
 .rankings-tab-panel-body { padding: var(--space-4); }
 
-/* --- Leaderboard rows --- */
+/* =========================================
+   4. LEADERBOARD ROWS
+   ========================================= */
 .ranking-list { display: flex; flex-direction: column; gap: var(--space-2); }
 
 .ranking-pagination {
@@ -255,8 +227,6 @@
     border-radius: 8px;
     cursor: pointer;
 }
-/* Flattened bottom corners while its Timeline panel is open below, so the two read as one
-   continuous card instead of two separate ones. */
 .ranking-row.is-expanded {
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
@@ -281,14 +251,9 @@
     font-weight: bold; color: var(--text-main); font-size: 0.85rem;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-/* Groups the type/author badges so .ranking-row-label-line's space-between only splits
-   {label} vs {this whole cluster} -- a 3rd bare child there would space all three apart evenly
-   instead of keeping the badges pinned together on the right. */
 .ranking-row-badges { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 
-/* Rotation-style classification (linear vs quickswap) -- not implemented yet upstream, so this
-   only ever renders once a submitted rotation actually carries a rotationType; see
-   character_results/index.json's rotationType field. */
+/* --- Type / Author Badges --- */
 .ranking-row-type-badge,
 .ranking-row-author-badge {
     flex-shrink: 0;
@@ -306,12 +271,9 @@
 }
 .ranking-row-type-linear { color: color-mix(in srgb, #3987e5 70%, white); border-color: color-mix(in srgb, #3987e5 50%, var(--border)); }
 .ranking-row-type-quickswap { color: color-mix(in srgb, #d55181 70%, white); border-color: color-mix(in srgb, #d55181 50%, var(--border)); }
-/* Author stays plain grey (like Unclassified) -- it's a credit, not a classification, so it
-   doesn't get a color identity of its own. */
 .ranking-row-author-badge { text-transform: none; letter-spacing: normal; }
 
-/* Wraps RotationTimeline (src/assets/css/timeline.css) when a row is expanded -- owns the card
-   chrome here (Rankings-specific) so the timeline component itself stays page-agnostic. */
+/* --- Timeline Panel (wraps RotationTimeline.tsx) --- */
 .ranking-timeline-panel {
     margin-top: -1px;
     padding: var(--space-3);
@@ -326,14 +288,8 @@
     from { opacity: 0; } to { opacity: 1; }
 }
 
-/* Anchors the "..." menu's .pin-menu dropdown (reused as-is from Pin Comparison/History --
-   see results.css) to this row instead of the row list's own scroll container. */
 .ranking-row-menu-wrap { position: relative; flex-shrink: 0; }
 
-/* The "..." trigger itself -- deliberately not .base-btn.icon-btn (a bordered 32x32 square):
-   in a dense leaderboard list that reads as too heavy a control for "show a menu", so this is
-   a slim, borderless strip instead -- just the (larger) dots glyph, with a soft hover tint for
-   feedback instead of an outline. */
 .ranking-row-menu-btn {
     display: flex;
     align-items: center;
@@ -350,9 +306,7 @@
 .ranking-row-menu-btn:hover { color: var(--accent); background: var(--surface-lighten-strong); }
 .ranking-row-menu-btn svg { display: block; }
 
-/* Outer track is the full available width; .ranking-bar-fill is scaled to this row's DPS
-   relative to the #1 entry (100% = the top row), and is itself split into per-source colored
-   segments whose widths sum to 100% of the fill -- i.e. a stacked bar within a scaled bar. */
+/* --- DPS Bar (stacked bar within a scaled bar) --- */
 .ranking-bar-track {
     position: relative;
     height: 26px;
@@ -365,17 +319,12 @@
     display: flex;
     height: 100%;
     min-width: 2px;
-    /* Thin gap between adjacent segments -- the bar-chart equivalent of PieChart's GAP_DEG
-       spacing between wedges, so a multi-source row still reads as distinct slices. */
     gap: 2px;
     transition: width 0.3s ease;
 }
 .ranking-bar-segment {
     height: 100%;
     cursor: pointer;
-    /* Same hover rule as PieChart's arcs: the hovered segment stays fully opaque, every other
-       segment on the row dims to 0.45 -- opacity itself is set inline per-segment in JS since
-       it depends on which index (if any) is currently hovered. */
     transition: opacity 0.15s;
 }
 .ranking-bar-label {
@@ -393,10 +342,6 @@
 .ranking-bar-dps-value { font-weight: bold; font-size: 0.85rem; }
 .ranking-bar-dps-unit { font-size: 0.65rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.3px; opacity: 0.85; }
 
-/* This row's DPS relative to the #1 entry (100% = top row) -- sits right at the end of the
-   bar. .is-inside is used once the fill is wide enough to comfortably hold it (right-aligned,
-   same white-on-color treatment as the DPS label); .is-outside sits just past the fill's own
-   right edge instead, in the track's plain background, for a shorter bar. */
 .ranking-bar-pct {
     position: absolute;
     top: 50%;
@@ -416,10 +361,7 @@
     color: var(--text-dim);
 }
 
-/* --- Bar hover tooltip: hovering a unit's segment shows that unit's own cast-type breakdown
-   (swatch + label + %), the same shape as the DMG Contribution panel's per-unit pie-chart
-   legend/center-label -- just rendered as tooltip markup via TooltipManager instead of an
-   always-visible donut + list. --- */
+/* --- Bar Hover Tooltip --- */
 .ranking-tooltip-unit-label {
     color: var(--text-dim);
     font-size: 0.65rem;

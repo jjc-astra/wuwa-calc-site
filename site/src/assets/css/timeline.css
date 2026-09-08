@@ -1,7 +1,5 @@
 /* src/assets/css/timeline.css
-   The reusable "video editor" rotation Timeline (src/components/timeline/*) -- page-agnostic,
-   used for now only from Rankings' RankingTimelinePanel (rankings.css owns that wrapper's own
-   card chrome), but not scoped to any one page so later reuse elsewhere needs no new CSS. */
+   The reusable "video editor" rotation Timeline -- page-agnostic, not scoped to any one page. */
 
 .timeline-root { width: 100%; }
 
@@ -9,9 +7,6 @@
     overflow-x: auto;
     overflow-y: hidden;
     position: relative;
-    /* The top lane's spam/wait corner dot (.timeline-flag-label-spam/-wait::after) pokes a few
-       px above its own flag label -- without this, the lane-0 dots get clipped flush against
-       this container's own top edge by overflow-y: hidden. */
     padding-top: 4px;
 }
 
@@ -22,7 +17,7 @@
 }
 
 /* =========================================
-   UNIT ROWS (clip tracks)
+   1. UNIT ROWS (clip tracks)
    ========================================= */
 .timeline-row {
     display: flex;
@@ -38,14 +33,6 @@
     padding: 0 var(--space-3);
     position: sticky;
     left: 0;
-    /* Above every absolutely-positioned overlay in RotationTimeline.tsx (flag poles=1, the
-       Ending Rotation cut band=2, loop/end-rotation marker lines+arrows=3) -- those are
-       positioned in *content* space and scroll underneath this sticky column, so without
-       outranking their z-index they'd paint over the unit name/icon at whatever scroll position
-       happens to put them there (this is exactly what a longer rotation made visible: the loop
-       marker/cut band sit further along the timeline, so reaching them means scrolling past a
-       point where they align with this sticky column). See also .timeline-flag-track and
-       .timeline-ruler-spacer below, which need the same treatment for their own bands. */
     z-index: 5;
     background: var(--surface-card-flat);
     overflow: hidden;
@@ -58,14 +45,10 @@
 
 .timeline-row-track { flex: 1; min-width: 0; position: relative; }
 
-/* True time-boundary hit target -- unmodified left/width, so the gap below never eats into
-   real clip boundaries (hover/tooltip still cover the exact segment). */
 .timeline-clip-hit {
     position: absolute;
     top: 6px; bottom: 6px;
 }
-/* The visible fill -- its left/width (device-pixel-snapped, TimelineClip.tsx) leave a thin gap
-   from its neighbor, the same idea as StackedContributionBar's .ranking-bar-fill `gap: 2px`. */
 .timeline-clip {
     position: absolute;
     top: 0; bottom: 0;
@@ -82,10 +65,6 @@
     border: 1px dashed var(--danger);
 }
 
-/* Additive indicator for a Simultaneous-timed action -- drawn alongside (not instead of) its
-   own clip above, since that clip may itself overlap the tail of the previous action on this
-   same row. Spans until the action's own animation ends, or (for a Hold) until its matching
-   Release row fires. */
 .timeline-simultaneous-line {
     position: absolute;
     bottom: 0;
@@ -94,19 +73,13 @@
 }
 
 /* =========================================
-   RULER (bottom time axis, game time)
+   2. RULER (bottom time axis, game time)
    ========================================= */
 .timeline-ruler {
     display: flex;
     border-top: 1px solid var(--border);
     flex-shrink: 0;
 }
-/* Sticky + opaque so this bottom-left corner joins the row headers above it into one
-   continuous solid column -- .timeline-ruler itself isn't positioned, so this becomes a direct
-   participant in .timeline-content's own stacking context (same reasoning as .timeline-row-
-   header above) rather than being trapped at a lower effective z-index inside a non-positioned
-   parent. Shared with TimelineFlagTrack.tsx's own use of this class at the top of the timeline
-   -- see .timeline-flag-track below for why that one needs its z-index bumped instead. */
 .timeline-ruler-spacer {
     flex-shrink: 0;
     position: sticky;
@@ -114,24 +87,12 @@
     z-index: 5;
     background: var(--surface-card-flat);
 }
-/* The top usage of this spacer (TimelineFlagTrack.tsx) needs to reach 4px higher than its own
-   flex-stretched box -- .timeline-scroll's padding-top exists specifically so lane-0's spam/wait
-   corner dot (.timeline-flag-label-spam/-wait::after, offset top:-3px off its own label) isn't
-   clipped by overflow-y: hidden, but that same 4px sliver sits *above* .timeline-content
-   entirely, outside every sticky element's own box -- nothing was covering it, so a dot that
-   scrolls to align with the header column (same underlying issue as any other overlay content,
-   just literally out of reach of the fix elsewhere) stayed visible there regardless of z-index.
-   Negative margin-top + matching extra height grows this box upward into that sliver without
-   shifting the rest of the flex row's layout. */
 .timeline-flag-track > .timeline-ruler-spacer {
     margin-top: -4px;
     height: calc(100% + 4px);
 }
 .timeline-ruler-track { flex: 1; min-width: 0; position: relative; height: 100%; }
 
-/* Marks hang from the top of the ruler (flush against the border shared with the last unit
-   row) and grow downward; labels sit below the marks -- ticks read as "pushed up against the
-   rows," with the numeric labels underneath them, not the other way around. */
 .timeline-ruler-tick { position: absolute; top: 0; }
 .timeline-ruler-tick-mark { display: block; background: var(--border); }
 .timeline-ruler-tick-major .timeline-ruler-tick-mark { height: 10px; }
@@ -149,7 +110,7 @@
 }
 
 /* =========================================
-   FLAG TRACK (top marker lane -- player inputs + swaps)
+   3. FLAG TRACK (top marker lane -- player inputs + swaps)
    ========================================= */
 .timeline-flag-track {
     display: flex;
@@ -157,22 +118,10 @@
     border-bottom: 1px solid var(--border);
     position: relative;
     flex-shrink: 0;
-    /* Being position:relative makes this its own stacking context, so its z-index has to beat
-       every top-level overlay in RotationTimeline.tsx as a whole unit -- flag poles (1), the
-       Ending Rotation cut band (2), and the loop/end-rotation marker lines+arrows (3) -- not
-       just win internally against its own flag labels. Otherwise this track's sticky spacer
-       (the top-left corner of the header column, see .timeline-ruler-spacer) would still lose
-       to those overlays despite its own z-index, since a child's z-index only ranks it within
-       its parent's stacking context, not against siblings of that parent. Matches
-       .timeline-row-header/.timeline-ruler-spacer's z-index so the whole header column -- top
-       spacer, every row, bottom spacer -- stacks as one consistent unit. */
     z-index: 5;
 }
 .timeline-flag-track-lanes { flex: 1; min-width: 0; position: relative; }
 
-/* border-color/color are set inline per flag (RotationTimeline.tsx/TimelineFlagTrack.tsx) to
-   the acting unit's own theme color -- whichever character is being swapped to or is pressing
-   the input -- so the flag track visually ties back to that unit's row below it. */
 .timeline-flag-label {
     position: absolute;
     display: flex;
@@ -182,17 +131,7 @@
     font-weight: 800;
     line-height: 1.3;
     padding: 2px 3px;
-    /* Height set inline from timelineLayout.ts's FLAG_LABEL_HEIGHT_PX (TimelineFlagTrack.tsx) --
-       keep these vertical metrics (padding + border) within that budget if either changes. */
-    /* Square on the left, rounded only on the right -- a rounded bottom-left corner would curve
-       away from the exact point (this label's left edge) its own pole connects at below, leaving
-       a visible gap between the straight pole and the arc instead of a flush join. */
     border-radius: 0 3px 3px 0;
-    /* Opaque, not var(--surface-lighten) directly -- with .timeline-flag-track stacked above the
-       poles (see its z-index), a translucent fill would still let a pole show through underneath
-       and cut across the text. Pre-mixed against the panel's own --surface-card-flat backdrop so
-       the *visible* color still matches --surface-lighten's usual translucent look everywhere
-       else, just opaque here. */
     background: color-mix(in srgb, white 3%, var(--surface-card-flat));
     border: 1px solid var(--border);
     white-space: nowrap;
@@ -202,11 +141,6 @@
 }
 .timeline-flag-label svg { flex-shrink: 0; }
 
-/* Spam-click indicator -- a small corner dot on an input flag showing whether mashing that key
-   early is safe ('spam', can't cut short whatever's currently playing) or has to actually be
-   waited for ('wait', pressing early risks interrupting the current move). See timelineLayout.ts's
-   describeSpamState for the priority comparison this comes from. Positioned outside the label's
-   own rounded corner rather than overlapping its text. */
 .timeline-flag-label-spam::after,
 .timeline-flag-label-wait::after {
     content: '';
@@ -221,10 +155,6 @@
 .timeline-flag-label-spam::after { background: var(--success); }
 .timeline-flag-label-wait::after { background: var(--warning); }
 
-/* Rendered by RotationTimeline.tsx directly (not TimelineFlagTrack), which computes each
-   flag's own top/height -- starting right below its own label (not above it, into another
-   flag's lane) and stopping at the bottom of the last row, before the ruler. Background is set
-   inline to the same per-flag theme color as its label. */
 .timeline-flag-pole {
     position: absolute;
     pointer-events: none;
@@ -232,23 +162,14 @@
 }
 
 /* =========================================
-   LOOP START INDICATOR
+   4. LOOP & ENDING ROTATION MARKERS
    ========================================= */
-/* top/height are always set inline (RotationTimeline.tsx's TimelineMarkerLine) -- the line
-   spans only the unit rows, stopping before the ruler, so it never visually collides with the
-   ruler's own tick marks/second labels. The ruler gets its own arrow marker instead (below). */
 .timeline-loop-start-line {
     position: absolute;
     background: var(--accent);
     z-index: 3;
     pointer-events: none;
 }
-
-/* =========================================
-   ENDING ROTATION -- LOOP END / END ROTATION markers, matching the same accent-colored line
-   convention as LOOP START, plus the gap between them (see RotationTimeline.tsx's comment on
-   why that gap is genuinely empty timeline, not a layout gap to be closed).
-   ========================================= */
 .timeline-loop-end-line,
 .timeline-end-rotation-line {
     position: absolute;
@@ -256,9 +177,6 @@
     z-index: 3;
     pointer-events: none;
 }
-/* The "playhead" marker at the ruler -- a solid triangle pointing up at the line above it,
-   same glyph-based solid-arrow convention as .toggle-icon/.ranking-row-expand-icon elsewhere in
-   the app (a plain colored Unicode character, not a bespoke SVG shape). */
 .timeline-marker-arrow {
     position: absolute;
     transform: translate(-50%, 0);

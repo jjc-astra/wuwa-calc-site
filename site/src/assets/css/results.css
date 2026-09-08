@@ -1,7 +1,9 @@
-/* src/assets/css/results.css */
+/* src/assets/css/results.css
+   Rotation Calculator's right-hand Results panel -- DPS, Substat Worth, Team Contribution,
+   History tabs, plus the Pin Comparison control shared across them. */
 
 /* =========================================
-   LAYOUT
+   1. LAYOUT
    ========================================= */
 .calculator-layout {
     display: flex;
@@ -26,19 +28,13 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
-    /* Same translucent card surface as the Mechanics Builder's .mechanic-category / this
-       page's .char-row and .idle-stat-card, instead of a flat --bg-well fill. */
     background: var(--surface-card);
     border: 1px solid var(--border);
     border-radius: 8px;
     overflow: hidden;
     position: relative;
-    /* Both bounds are concrete px values (unlike a height auto-collapse), so a plain
-       width transition is enough here -- no measure-then-flip dance needed. */
     transition: width 0.3s ease-in-out;
 }
-/* Its info only applies once a rotation is being built (Step 2) -- collapse to a rail
-   while Step 1 (team setup) is open instead of showing stale/irrelevant results. */
 .results-panel.is-collapsed {
     width: 44px;
 }
@@ -89,7 +85,7 @@
 }
 
 /* =========================================
-   CHROME TABS
+   2. CHROME TABS
    ========================================= */
 .chrome-tabs {
     display: flex;
@@ -121,11 +117,6 @@
 }
 .chrome-tab:hover { color: var(--text-main); background: var(--surface-lighten-strong); }
 .chrome-tab.is-active {
-    /* .chrome-tabs already sits on its own rgba(0,0,0,0.4) backdrop, so a plain
-       rgba(0,0,0,0.2) here would stack on top of that and render visibly darker than
-       .results-panel's single 20%-black-over-page overlay. color-mix reconstructs that
-       same 20%-over-page result directly (independent of whatever's behind this tab),
-       so the active tab always matches the panel surface exactly. */
     background: color-mix(in srgb, black 20%, var(--bg-dark));
     color: var(--accent);
     border-color: var(--border);
@@ -133,7 +124,7 @@
 }
 
 /* =========================================
-   SHARED CARD / EMPTY / COMING SOON
+   3. SHARED CARD / EMPTY / COMING SOON
    ========================================= */
 .results-tab-grid { display: flex; flex-direction: column; gap: var(--space-4); }
 
@@ -179,9 +170,6 @@
 .results-coming-soon h3 { margin: var(--space-1) 0 0 0; color: var(--accent); }
 .results-coming-soon p { margin: 0; font-size: 0.85rem; max-width: 280px; }
 
-/* Shown in place of the 4 result cards until the first Calculate press -- same centered-
-   placeholder shape as .results-coming-soon, distinct class since the meaning differs
-   (nothing calculated yet, not an unbuilt feature). */
 .results-uncalculated {
     display: flex;
     flex-direction: column;
@@ -195,12 +183,10 @@
 .results-uncalculated h3 { margin: 0; color: var(--accent); }
 .results-uncalculated p { margin: 0; font-size: 0.85rem; max-width: 280px; }
 
-/* Results exist but the rotation has changed since the last Calculate press -- dim rather
-   than hide, so the (now out of date) numbers stay visible for reference. */
 .results-tab-grid.is-stale { opacity: 0.45; pointer-events: none; transition: opacity 0.15s; }
 
 /* =========================================
-   DPS PANEL
+   4. DPS PANEL
    ========================================= */
 .dps-table-label {
     color: var(--text-main);
@@ -210,9 +196,6 @@
     letter-spacing: 0.5px;
 }
 
-/* A distinct chip-styled bar (its own background/radius) rather than plain text, so it
-   reads as UI chrome labeling the series below -- not as a caption glued to content.
-   Shared across any results panel comparing "Current" against a pinned rotation. */
 .results-legend {
     display: flex; justify-content: space-between; align-items: center;
     font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.3px;
@@ -233,11 +216,7 @@
 .dps-delta-good { color: var(--success); }
 .dps-delta-bad { color: var(--danger-text); }
 
-/* The "tug of war" bar: two proportional segments (green = higher/better side, red = the
-   other), split point offset from center by the delta% so the direction and rough margin
-   both read at a glance. Segment styling (tinted fill + colored border + colored text)
-   matches this site's other status badges (.offset-pos/.offset-neg, .pin-chip) rather than
-   a solid-fill bar. */
+/* --- Tug-of-War Comparison Bar (two segments, split offset from center by delta%) --- */
 .dps-compare-bar {
     display: flex;
     align-items: stretch;
@@ -250,18 +229,11 @@
     border-radius: 4px;
     transition: width 0.2s ease-in-out;
 }
-/* Repeats the legend's identity color on every row, right on the value it belongs to --
-   so which side is which team never depends on remembering the legend above. */
 .dps-compare-segment-swatch { width: 6px; height: 6px; border-radius: 1px; flex-shrink: 0; }
 .dps-compare-segment.is-winner { background-color: rgba(50, 220, 50, 0.15); border-color: var(--success); }
 .dps-compare-segment.is-loser { background-color: rgba(220, 50, 50, 0.15); border-color: var(--danger-text); }
-/* Named classes rather than :first-child/:last-child -- the midline div is also a child of
-   .dps-compare-bar, so the segment is never actually the structural last child. */
 .dps-compare-segment-left { justify-content: flex-end; padding-right: var(--space-3); }
 .dps-compare-segment-right { justify-content: flex-start; padding-left: var(--space-3); padding-right: 10px; }
-/* No pinned rotation to compare against yet -- same bar shape as the compare rows, just one
-   segment (width set inline, normalized to the group's highest DPS value) in the accent tint
-   (matching .pin-chip) instead of a red/green split. */
 .dps-compare-segment-solo {
     justify-content: flex-start; padding-left: 10px;
     background-color: var(--accent-selected); border-color: var(--accent);
@@ -272,7 +244,7 @@
 .dps-compare-segment.is-loser span { color: var(--danger-text); }
 
 /* =========================================
-   PIN COMPARISON CONTROL
+   5. PIN COMPARISON CONTROL
    ========================================= */
 .pin-control { position: relative; }
 .pin-menu-backdrop { position: fixed; inset: 0; z-index: 99; }
@@ -288,9 +260,6 @@
     color: var(--text-main); font-size: 0.78rem; cursor: pointer;
 }
 .pin-menu-item:hover:not(:disabled) { background: var(--surface-lighten-strong); }
-/* History's "Remove" entry -- only destructive item currently in any .pin-menu, so it's called
-   out in the same red used elsewhere for irreversible actions rather than reading identically
-   to Save Results/Restore Rotation above it. */
 .pin-menu-item-danger { color: var(--danger-text); }
 .pin-menu-item-danger:hover:not(:disabled) { background: var(--danger-tint); }
 .pin-menu-item:disabled { color: var(--text-dim); cursor: not-allowed; }
@@ -306,28 +275,19 @@
     line-height: 1; padding: 2px;
 }
 
-/* --- Pin Comparison: "From History"/"From Rankings" picker panel --- */
-/* Invisible click-catcher covering the full viewport, same pattern as .pin-menu-backdrop --
-   the panel itself (below) is what's visually bounded to Step 1/2's own footprint. */
+/* --- Picker Panel ("From History" / "From Rankings") --- */
 .pin-picker-backdrop { position: fixed; inset: 0; z-index: 900; }
 .pin-picker-panel {
     position: fixed;
     z-index: 901;
     display: flex;
     flex-direction: column;
-    /* Same visual tone as .results-panel/.results-card/.rankings-page's own --surface-card, but
-       the pre-flattened opaque form -- this panel floats *over* Step 1/2's own busy content
-       (not the plain page background those other cards sit on), so the plain translucent
-       version would let that content show through underneath instead of reading as a card. */
     background: var(--surface-card-flat);
     border: 1px solid var(--border);
     border-radius: 8px;
     box-shadow: 0 10px 25px var(--overlay-b4);
     overflow: hidden;
 }
-/* Same treatment as .section-header (Step 1/2's own collapsible headers, calculator.css) --
-   darker well than the card body, gold title/icon -- so this reads as the same "section header"
-   chrome instead of a plain generic dialog title. */
 .pin-picker-header {
     display: flex; align-items: center; justify-content: space-between;
     flex-shrink: 0;
@@ -336,25 +296,15 @@
     border-bottom: 1px solid var(--border);
     font-weight: bold; color: var(--accent); font-size: 1.1rem;
 }
-/* .modal-close-x is normally absolutely-positioned inside a position:relative .modal-box, and
-   dim by default (var(--text-dim)) -- this header lays it out inline in a flex row instead, gold
-   like .toggle-icon to match the rest of this header's chrome. */
 .pin-picker-header .modal-close-x { position: static; color: var(--accent); }
 .pin-picker-header .modal-close-x:hover { color: var(--accent); background: var(--accent-hover); border-radius: 4px; }
 .pin-picker-body { flex: 1; min-height: 0; overflow-y: auto; padding: var(--space-4); }
-/* Applied alongside .history-row/.ranking-row -- the whole row is the only interactive control
-   left once the favorite button/"..." menu are stripped out for picking. */
 .pin-picker-row { cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; }
 .pin-picker-row:hover { background: var(--surface-lighten-strong); border-color: var(--accent); }
 
 /* =========================================
-   DMG OVER TIME CHART
+   6. DMG OVER TIME CHART
    ========================================= */
-/* Fixed height (not auto) -- the chart's own viewBox width tracks its real rendered pixel
-   width (see the ResizeObserver in DmgOverTimeChart.tsx), so a wider container reveals more
-   plot area at the same 1:1 scale instead of stretching existing content (and its text)
-   vertically along with it, e.g. when the results panel goes full-width in the stacked
-   narrow-window layout below. */
 .dmg-time-chart { width: 100%; height: 220px; }
 .dmg-time-gridline { stroke: #2c2c2a; stroke-width: 1; }
 .dmg-time-axis-label { fill: #b4b2a9; font-size: 11px; }
@@ -365,19 +315,16 @@
 .dmg-time-marker-label { font-size: 11px; font-weight: bold; }
 .dmg-time-crosshair { stroke: rgba(255, 255, 255, 0.25); stroke-width: 1; }
 
-/* Rendered inside the shared floating .global-tooltip (see TooltipManager.showAtPoint) */
+/* --- Tooltip Content (rendered inside the shared .global-tooltip) --- */
 .dmg-time-tooltip-time { color: var(--text-dim); font-weight: bold; margin-bottom: 3px; }
 .dmg-time-tooltip-row { display: flex; align-items: center; gap: 5px; }
 .dmg-time-tooltip-row + .dmg-time-tooltip-row { margin-top: 2px; }
 .dmg-time-tooltip-key { width: 10px; height: 2px; display: inline-block; flex-shrink: 0; }
 
 /* =========================================
-   UNIT TABS (Substat Worth + Team Contribution)
+   7. UNIT TABS (Substat Worth + Team Contribution)
    ========================================= */
 .unit-tabs { display: flex; gap: var(--space-1); margin-bottom: 10px; flex-wrap: wrap; }
-/* --unit-theme defaults to the accent gold (e.g. the "Team" tab, which isn't one character);
-   a character tab overrides it inline with that character's own theme color, the same
-   color-mix theming convention .rotation-row uses. */
 .unit-tab {
     --unit-theme: var(--accent);
     padding: 4px 10px; background: var(--surface-lighten); border: 1px solid var(--border);
@@ -391,8 +338,7 @@
     color: color-mix(in srgb, var(--unit-theme) 55%, #ffffff);
 }
 
-/* A 2-option switch (Substat Worth's -1/+1 direction) -- same pill idiom as .unit-tab, just
-   two segments sharing one pill instead of separate buttons. */
+/* --- Segmented Toggle --- */
 .segmented-toggle {
     display: inline-flex;
     border: 1px solid var(--border);
@@ -416,18 +362,12 @@
     color: color-mix(in srgb, var(--accent) 55%, #ffffff);
 }
 
-/* Team Contribution's DPS-type window select, right-aligned in the card header next to the
-   title -- sized down from the default .base-select since it sits inline in a small header.
-   min-width covers the longest option ("First Loop") plus room for the chevron -- a native
-   <select> auto-sizes to its widest option for free, but this is a custom Dropdown trigger that
-   otherwise only sizes to whichever option is currently selected. */
 .results-dps-type-select { width: auto; min-width: 11ch; padding: 2px 6px; font-size: 0.7rem; }
 
-/* Dmg/DPS Over Time's own window select sits below the chart instead, centered under it. */
 .dmg-time-window-row { display: flex; justify-content: center; margin-top: var(--space-3); }
 
 /* =========================================
-   SUBSTAT WORTH CHART
+   8. SUBSTAT WORTH CHART
    ========================================= */
 .substat-chart { display: flex; flex-direction: column; gap: var(--space-1); }
 .substat-chart-headrow, .substat-row {
@@ -444,13 +384,7 @@
 }
 .substat-track-col { position: relative; }
 .substat-track { position: relative; display: block; width: 100%; height: 6px; background: var(--surface-lighten-strong); border-radius: 3px; }
-/* Same two yellows as the echo substat sliders (.base-slider): darker gold accent for the
-   range/track fill, lighter gold for the default-value marker/thumb. */
 .substat-range { position: absolute; top: 0; height: 100%; background: var(--accent); border-radius: 3px; }
-/* Centered via margin, not a translate(-50%) transform -- at the arbitrary fractional-%
-   `left` each row computes, a compositor transform lands this thin a bar on a different
-   sub-pixel offset per row and anti-aliases it to an inconsistent apparent width; margins
-   resolve in layout instead, so every marker rasterizes at the same crisp 3px. */
 .substat-default-marker {
     position: absolute; top: 50%; width: 3px; height: 14px; margin-left: -1.5px; margin-top: -7px;
     background: #f0d8a8; border-radius: 2px; cursor: pointer;
@@ -459,7 +393,7 @@
 .substat-row:hover { background: var(--surface-lighten); }
 
 /* =========================================
-   PIE / DONUT CHART
+   9. PIE / DONUT CHART
    ========================================= */
 .pie-chart { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .pie-chart svg path { cursor: pointer; }
@@ -473,12 +407,11 @@
 .pie-chart-legend-value { color: var(--text-dim); font-variant-numeric: tabular-nums; }
 
 /* =========================================
-   HISTORY TAB
+   10. HISTORY TAB
    ========================================= */
 .history-list { display: flex; flex-direction: column; gap: var(--space-2); }
 
-/* Two rows: icons + favorite toggle on top, the dmg contribution bar + "..." menu below it --
-   everything (including the menu button) stays inside this one bordered card. */
+/* Icons + favorite toggle on top row, dmg contribution bar + "..." menu on the bottom row. */
 .history-row {
     display: flex;
     flex-direction: column;
@@ -492,9 +425,6 @@
 .history-row-bottom { display: flex; align-items: center; gap: var(--space-3); }
 
 .history-row-icons { display: flex; align-items: center; gap: var(--space-1); }
-/* Same star glyph as .quick-build-btn (CharacterSlot's "Load Recommended Build"), but a
-   persistent toggle here instead of a one-shot action -- is-active fills it solid gold instead
-   of relying on :hover, so a favorited entry still reads as favorited once the cursor moves on. */
 .history-favorite-btn { flex-shrink: 0; }
 .history-favorite-btn.is-active {
     background: var(--accent);
@@ -509,6 +439,4 @@
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .history-row-timestamp { flex-shrink: 0; font-size: 0.68rem; color: var(--text-dim); white-space: nowrap; }
-/* Anchors the "..." menu's .pin-menu dropdown (reused as-is from Pin Comparison) to this
-   button rather than the whole row. */
 .history-row-menu-wrap { position: relative; flex-shrink: 0; }

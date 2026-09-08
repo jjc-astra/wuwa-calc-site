@@ -9,10 +9,10 @@
 /* --- Grid View --- */
 .char-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); 
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
     gap: var(--space-6) var(--space-4);
-    width: 100%; 
-    align-content: start; 
+    width: 100%;
+    align-content: start;
     padding: var(--space-6);
 }
 
@@ -24,8 +24,6 @@
     cursor: pointer;
     transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), filter 0.2s;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-    /* Anchors .char-grid-dirty-badge, which needs to hang outside .char-icon's own
-       overflow:hidden bounds to overlap the card's corner. */
     position: relative;
 }
 
@@ -35,8 +33,6 @@
     box-shadow: 0 8px 12px rgba(0, 0, 0, 0.5);
 }
 
-/* Not yet implemented (see data/db.ts DISABLE_UNIMPLEMENTED_CONTENT) -- greyed out, but still
-   clickable, since this grid is exactly where you'd go to start authoring its mechanics. */
 .char-grid-card.is-unimplemented {
     filter: grayscale(0.85) brightness(0.7);
 }
@@ -75,16 +71,8 @@
     z-index: 1;
 }
 
-/* Warning-triangle badge on a grid card whose entity has locally-cached builder edits (see
-   useBuilderStore's editedMechanics/editedBaseStats) -- styled like a phone app's notification
-   badge: a solid shape (here, the triangle itself, not a generic circle) sitting on the icon's
-   corner with its own drop shadow, rather than a translucent outline that can wash out against
-   a light/busy character portrait. */
 .char-grid-dirty-badge {
     position: absolute;
-    /* Negative offsets -- deliberately overlaps the card's top-right corner (half on the icon,
-       half hanging off it) instead of sitting fully inside, matching a phone app's own
-       notification-badge placement. */
     top: -6px;
     right: -6px;
     z-index: 3;
@@ -100,16 +88,12 @@
     width: 100%;
     height: 100%;
 }
-/* The triangle itself is the badge's "background" -- solid warning-yellow with a thin dark
-   outline so it still reads as a distinct shape against a similarly-colored icon. */
 .char-grid-dirty-badge .dirty-badge-shape {
     fill: var(--warning);
     stroke: var(--bg-dark);
     stroke-width: 1.5;
     stroke-linejoin: round;
 }
-/* The "!" sits on top in the same dark tone as the outline, for contrast against the solid
-   fill (matches the app-notification-badge look: dark glyph on a bright solid shape). */
 .char-grid-dirty-badge .dirty-badge-mark {
     stroke: var(--bg-dark);
     stroke-width: 2.25;
@@ -128,15 +112,26 @@
     text-overflow: ellipsis;
 }
 
+.builder-view .echo-set-icon {
+    border-radius: 6px 6px 0 0 !important;
+    background: transparent !important;
+    aspect-ratio: 1 / 1 !important;
+    padding: var(--space-2);
+}
+.builder-view .echo-set-icon .char-grid-img {
+    object-fit: contain !important;
+}
+
 /* --- Rarity Colors --- */
 .rarity-5 { border-bottom: 5px solid var(--warning); }
 .rarity-4 { border-bottom: 5px solid #b873f9; }
+.builder-view .rarity-none {
+    border-bottom: none !important;
+    border-radius: 6px !important;
+}
 
 /* --- Editor Split Pane --- */
 .editor-pane { flex: 3; padding: 10px; }
-/* Holds the "Outputs" header above the card, matching .editor-pane's own header-sits-on-the-
-   page (no surrounding box) treatment -- same 10px padding .editor-pane uses, so both panes'
-   content lines up. */
 .output-pane-wrapper {
     flex: 2;
     display: flex;
@@ -150,34 +145,31 @@
     flex-direction: column;
     min-height: 0;
     padding: var(--space-6);
-    /* Same surface as .mechanic-category / .base-stats-card in the editor pane opposite --
-       one consistent card tone across the whole builder view instead of a separate shade. */
     background: var(--surface-card);
     border-radius: 8px;
     border: 1px solid var(--border);
 }
 
-/* --- OUTPUT PANE & SYNTAX HIGHLIGHTING --- */
+/* --- Code Editor & Syntax Highlighting --- */
 .code-editor {
     flex: 1;
     width: 100%;
     background: var(--bg-dark);
     border: 1px solid var(--border);
-    border-radius: 6px; 
-    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.6); 
-    color: #d4d4d4; 
-    font-family: 'JetBrains Mono', monospace; 
-    font-size: 0.85rem; 
-    padding: 15px; 
-    margin: 0; 
-    line-height: 1.5; 
-    overflow-y: auto; 
-    overflow-x: hidden; 
-    white-space: pre-wrap; 
-    word-wrap: break-word; 
+    border-radius: 6px;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.6);
+    color: #d4d4d4;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    padding: 15px;
+    margin: 0;
+    line-height: 1.5;
+    overflow-y: auto;
+    overflow-x: hidden;
+    white-space: pre-wrap;
+    word-wrap: break-word;
 }
 
-/* --- HANGING INDENT & WRAP INDICATOR --- */
 .code-line {
     display: block;
     padding-left: calc(var(--indent, 0ch) + 3.5ch);
@@ -189,34 +181,19 @@
     content: "";
     position: absolute;
     left: var(--indent, 0ch);
-    top: 1.5em; 
-    bottom: 0; 
-    width: 3.5ch; 
-    pointer-events: none; 
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='14 12 19 17 14 22'/%3E%3Cpath d='M5 2v11a4 4 0 0 0 4 4h10'/%3E%3C/svg%3E"); 
-    background-size: 1.8ch 1.5em; 
+    top: 1.5em;
+    bottom: 0;
+    width: 3.5ch;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='14 12 19 17 14 22'/%3E%3Cpath d='M5 2v11a4 4 0 0 0 4 4h10'/%3E%3C/svg%3E");
+    background-size: 1.8ch 1.5em;
     background-repeat: repeat-y;
     background-position: center top;
 }
 
-/* Node-level (row hover) and field-level (cell/panel hover) highlights in JsonOutputPane -- CSS
-   classes only, background-color never set inline. Both JsonOutputPane effects toggle only
-   their own class; if either wrote element.style.backgroundColor directly, the other's cleanup
-   pass (which blanks that same inline property for every line it un-highlights) would wipe out
-   a highlight it doesn't own whenever the two overlap on the same line.
-   Same alpha, different layering property (background-color vs. an inset box-shadow) so the two
-   genuinely stack when both are active on the same line (hovering the row itself, where a
-   field's cell is also a descendant) -- reading visibly brighter -- while field-highlight alone
-   (hovering only the open panel's own body, which the row-hover deliberately excludes) renders
-   at the exact same dimness as a plain node hover, not a separate brighter color of its own.
-   .code-field-highlighted intentionally has no transition: applying instantly, not fading in --
-   a box-shadow transition FROM the "no rule matches" (none) state didn't reliably interpolate to
-   its target value in testing (computed style stuck at 0-spread/transparent well past the
-   transition's duration), unlike the plain background-color transition below, which did. */
 .code-highlighted { background-color: rgba(220, 165, 76, 0.25); transition: background-color 0.1s ease; }
 .code-field-highlighted { box-shadow: inset 0 0 0 9999px rgba(220, 165, 76, 0.25); }
 
-/* VS Code Theme Colors */
 .syntax-key { color: #9cdcfe; }
 .syntax-string { color: #ce9178; }
 .syntax-number { color: #b5cea8; }
@@ -227,7 +204,7 @@
 .builder-view .mechanic-category {
     background: var(--surface-card);
     border: 1px solid var(--border);
-    border-radius: 6px; 
+    border-radius: 6px;
     padding: 15px;
 }
 
@@ -242,28 +219,29 @@
     overflow-x: auto;
 }
 
-/* FORM ALIGNMENT FIXES SCOPED TO BUILDER ONLY */
+/* --- Form Fields --- */
 .builder-view .form-row {
     display: flex;
     gap: 10px;
     margin-bottom: var(--space-4);
-    flex-wrap: nowrap; 
+    flex-wrap: nowrap;
     align-items: flex-end;
 }
 
 .builder-view .form-group {
     display: flex;
     flex-direction: column;
-    flex: 1; 
+    flex: 1;
     min-width: 0;
 }
+.builder-view .form-group.relative { position: relative; }
 
 .builder-view .form-label {
     display: block;
-    font-size: 0.7rem; 
-    color: var(--text-dim); 
-    text-transform: uppercase; 
-    font-weight: bold; 
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    font-weight: bold;
     margin-bottom: var(--space-2);
 }
 
@@ -284,8 +262,6 @@
     outline: none;
 }
 
-/* Overlay div renders the colored tokens; the real <input> sits on top, transparent, so it
-   keeps native caret/selection/typing while the colored text shows through underneath. */
 .builder-view .dsl-highlight-overlay {
     display: flex;
     align-items: center;
@@ -295,8 +271,6 @@
     white-space: nowrap;
 }
 
-/* <input> elements don't inherit font-size like a <div> does -- pin it explicitly so the
-   overlay and the real input render pixel-identical (otherwise the caret drifts). */
 .builder-view .dsl-input {
     font-size: 13px;
 }
@@ -321,11 +295,17 @@
     opacity: 1;
 }
 
-/* --- Autocomplete Dropdown ---
-   Portaled to <body> and positioned in fixed coordinates (see AutocompleteInput.tsx's
-   positionPopup) so it always escapes the node sub-panel's clipping/scrolling ancestors, the
-   same approach Dropdown.tsx's popup uses -- position/top/bottom/left/width all come from that
-   inline style, not from here. */
+.builder-view .base-select {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-main);
+    border-radius: 4px;
+    padding: 0 4px;
+    height: 28px;
+    box-sizing: border-box;
+}
+
+/* --- Autocomplete Dropdown --- */
 .autocomplete-popup {
     z-index: 9999;
     background: var(--bg-panel);
@@ -349,20 +329,10 @@
 .autocomplete-item:hover { background: var(--accent-strong); color: var(--accent); }
 .autocomplete-item.is-active { background: var(--accent) !important; color: var(--bg-dark) !important; }
 
-.builder-view .base-select {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--text-main);
-    border-radius: 4px;
-    padding: 0 4px;
-    height: 28px;
-    box-sizing: border-box;
-}
-
 /* --- Type Tags & Chips --- */
 .builder-view .type-tag-container {
-    display: flex; 
-    flex-wrap: wrap; 
+    display: flex;
+    flex-wrap: wrap;
     gap: var(--space-2);
     min-height: 28px;
     padding: var(--space-1);
@@ -374,41 +344,38 @@
 }
 
 .builder-view .type-tag {
-    display: inline-flex; 
-    align-items: center; 
+    display: inline-flex;
+    align-items: center;
     gap: var(--space-2);
-    background: var(--accent-focus); 
-    border: 1px solid var(--accent); 
-    color: var(--accent); 
-    padding: 2px 8px; 
-    border-radius: 12px; 
-    font-size: 0.7rem; 
-    font-weight: bold; 
+    background: var(--accent-focus);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: bold;
     text-transform: uppercase;
 }
 
 .builder-view .type-tag-remove {
-    background: none; 
-    border: none; 
-    color: inherit; 
+    background: none;
+    border: none;
+    color: inherit;
     cursor: pointer;
-    padding: 0; 
-    font-size: 1.1rem; 
-    line-height: 1; 
+    padding: 0;
+    font-size: 1.1rem;
+    line-height: 1;
     opacity: 0.7;
 }
-
 .builder-view .type-tag-remove:hover { opacity: 1; }
 
-/* --- Autocomplete Dropdown --- */
-.builder-view .form-group.relative { position: relative; }
-
-/* --- BUILDER UTILITY CLASSES --- */
+/* --- Utility Classes --- */
 .builder-view .flex-1 { flex: 1; }
 .builder-view .flex-05 { flex: 0.5; }
 .builder-view .flex-wrap { flex-wrap: wrap; }
 .builder-view .align-start { align-items: flex-start; }
 .builder-view .align-self-start { align-self: flex-start; }
+.builder-view .align-center { align-items: center; }
 .builder-view .w-100 { width: 100%; }
 .builder-view .w-auto { width: auto; }
 .builder-view .w-150px { width: 150px; }
@@ -418,8 +385,9 @@
 .builder-view .mb-4px { margin-bottom: var(--space-1); }
 .builder-view .w-105px { width: 105px !important; flex-shrink: 0; }
 .builder-view .relative { position: relative; }
+.builder-view .dim { color: var(--text-disabled); }
 
-/* --- COMPONENT STYLES --- */
+/* --- Component Styles --- */
 .builder-view .input-readonly { background: var(--bg-well); color: var(--accent); border-color: var(--accent); }
 .builder-view .btn-danger { border-color: var(--danger); color: var(--danger); }
 
@@ -443,7 +411,6 @@
     user-select: none;
     transition: color 0.2s;
 }
-
 .builder-view .checkbox-label:hover { color: var(--text-main); }
 
 .builder-view .checkbox-label input[type="checkbox"] {
@@ -460,12 +427,10 @@
     cursor: pointer;
     transition: all 0.2s ease-in-out;
 }
-
 .builder-view .checkbox-label input[type="checkbox"]:checked {
     border-color: var(--accent);
     background: var(--accent-focus);
 }
-
 .builder-view .checkbox-label input[type="checkbox"]::before {
     content: "";
     width: 10px;
@@ -475,12 +440,11 @@
     background-color: var(--accent);
     clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
 }
-
 .builder-view .checkbox-label input[type="checkbox"]:checked::before {
     transform: scale(1);
 }
 
-.builder-view .icon-btn-sm { 
+.builder-view .icon-btn-sm {
     padding: 0;
     width: 28px;
     height: 28px;
@@ -491,83 +455,52 @@
     flex-shrink: 0;
 }
 
-/* --- MECHANIC NODE SECTIONS --- */
-.builder-view .align-center { align-items: center; }
-
-/* --- EFFECTS ARRAY LIST STYLE --- */
+/* --- Effects Array List --- */
 .builder-view .mech-effects-container {
     flex-direction: column;
     align-items: flex-start;
     gap: var(--space-2);
-    /* Strip the shared .type-tag-container's input-box chrome -- the tags should float
-       directly on the panel background, not sit inside their own bordered box. */
     background: transparent;
     border: none;
     padding: 0;
     min-height: 0;
 }
-
 .builder-view .mech-effects-container .type-tag {
     width: fit-content;
     max-width: 100%;
     justify-content: space-between;
     box-sizing: border-box;
 }
-
 .builder-view .mech-effects-container .type-tag span {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    /* .type-tag is itself a (row-direction) flex container, and a flex item's default
-       min-width is `auto` -- i.e. it refuses to shrink below its own content's intrinsic
-       width. With `white-space: nowrap` above, this span's intrinsic width is its *entire*
-       unwrapped text, so without this override the ellipsis above never actually engages on a
-       long effect summary (e.g. a buff's "During: @X(...), @Y(...), ..." list). */
     min-width: 0;
 }
 
-/* --- POLISHED NUMBER SPINNERS --- */
-.builder-view .form-input[type="number"]::-webkit-inner-spin-button, 
+/* --- Number Spinners --- */
+.builder-view .form-input[type="number"]::-webkit-inner-spin-button,
 .builder-view .form-input[type="number"]::-webkit-outer-spin-button {
     -webkit-appearance: inner-spin-button !important;
-    display: block !important; 
-    filter: invert(0.85) hue-rotate(180deg); 
-    opacity: 0.4; 
+    display: block !important;
+    filter: invert(0.85) hue-rotate(180deg);
+    opacity: 0.4;
     cursor: pointer;
     transition: opacity 0.2s ease-in-out;
-    margin-right: -8px; 
+    margin-right: -8px;
     margin-left: var(--space-3);
 }
-
 .builder-view .form-input[type="number"]:hover::-webkit-inner-spin-button,
 .builder-view .form-input[type="number"]:focus::-webkit-inner-spin-button {
     opacity: 1;
 }
 
-.builder-view .rarity-none {
-    border-bottom: none !important;
-    border-radius: 6px !important;
-}
-
-.builder-view .echo-set-icon {
-    border-radius: 6px 6px 0 0 !important;
-    background: transparent !important;
-    aspect-ratio: 1 / 1 !important;
-    padding: var(--space-2);
-}
-
-.builder-view .echo-set-icon .char-grid-img {
-    object-fit: contain !important;
-}
-
-/* --- BASE STATS PANEL (matches the mech-table's dense, accent-grouped look) --- */
+/* --- Base Stats Panel --- */
 .builder-view .base-stats-card {
     flex-direction: row;
     gap: var(--space-4);
     align-items: flex-start;
     padding: 10px 12px;
-    /* Same surface as .mechanic-category below it -- both are content cards sitting
-       directly on the editor pane's background, not the lighter flat --bg-card tone. */
     background: var(--surface-card);
 }
 .builder-view .base-stats-icon-col {
@@ -583,9 +516,6 @@
     flex-shrink: 0;
     margin: 0;
 }
-/* Sits directly under the icon rather than as its own base-stats-strip column, so an
-   unchecked/short Dual Mode panel doesn't stretch that whole grid row to match its taller
-   neighbors (Talent Nodes, Base Values). */
 .builder-view .base-stats-mode-panel {
     display: flex;
     flex-direction: column;
@@ -595,12 +525,6 @@
     flex: 1;
     min-width: 0;
 }
-/* One flat, dense strip instead of a stack of separate bordered/backgrounded boxes -- each
-   group is its own COLUMN (Identity | Base Values | Talent Nodes | Resources side by side),
-   with that group's own fields stacked vertically inside it. Grid auto-fit/minmax makes the
-   columns stretch to fill the row's width, wrapping a column down to the next row only once
-   it would otherwise get narrower than the minmax floor -- not content-width flex-wrap, which
-   wraps based on each group's natural (un-stretched) width instead. */
 .builder-view .base-stats-strip {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
@@ -648,8 +572,6 @@
     color: var(--text-dim);
     white-space: nowrap;
 }
-/* Same "dashed underline -> tinted hover -> solid accent focus" affordance as the move
-   table's .cell-value, so an editable stat here reads exactly like an editable table cell. */
 .builder-view .base-stat-value {
     background: transparent;
     border: none;
@@ -677,14 +599,7 @@
     min-width: 90px;
 }
 
-/* --- MOVE TABLE (frame-data style move list) --- */
-/* Column widths are percentages set via <colgroup><col> in MechanicsBuilder.tsx (12 cols
-   summing to 100%) -- colgroup is the one sizing method browsers reliably apply to a
-   colSpan={12} detail row further down the table, which per-cell nth-child width rules
-   didn't. width:100% lets the table actually fill a wide editor pane instead of sitting at
-   a fixed px width with dead space beside it; min-width is the floor (the pixel sum the
-   percentages were computed from) below which columns would get unreadably thin --
-   .nodes-container scrolls horizontally past that point instead of squeezing further. */
+/* --- Move Table (frame-data style move list) --- */
 .builder-view .mech-table {
     width: 100%;
     min-width: 1057px;
@@ -704,10 +619,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
 }
-/* Group-label row (Identity / Timing / Resources umbrellas) sits above the per-column
-   header row -- centered, and underlined in accent so each group reads as a clear bracket
-   over exactly its own columns (colSpan on the <th> makes the underline span only that
-   group's width), not just another header row blending into the one below it. */
 .builder-view .mech-table thead tr.mech-group-row th {
     text-align: center;
     font-size: 0.62rem;
@@ -720,31 +631,16 @@
 .builder-view .mech-table thead tr.mech-group-row th:not(:empty) {
     border-bottom: 2px solid var(--accent-underline);
 }
-/* Every group-row <th> owns exactly one true right boundary regardless of its colSpan width
-   (a 3-wide "Identity" cell is still one DOM cell), so a plain per-cell border-right here
-   already lands in the right place -- nth-child would target DOM position, not visual column,
-   and colSpan makes those two disagree in this specific row (unlike the per-column row and
-   body rows below, which have no colSpan and use nth-child further down). */
 .builder-view .mech-table thead tr.mech-group-row th {
     border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
 .builder-view .mech-table thead tr.mech-group-row th:last-child {
     border-right: none;
 }
-/* .mech-col-remove's own background tint is for the body rows, where it bookends the table
-   like .mech-col-expand does. Both header rows' remove-column cells are just empty header
-   cells like every other header cell (the expand column's blank cells included) -- keep the
-   sticky positioning (so they stay aligned with the pinned column below during horizontal
-   scroll) but not the tint. */
 .builder-view .mech-table thead th.mech-col-remove {
     background: transparent;
 }
 
-/* Vertical dividers between column clusters (a named group, or a lone ungrouped column) so
-   the table itself -- not just the header labels -- visibly separates which columns travel
-   together. Runs down through both header rows and every body row via nth-child, matching
-   the fixed 12-column layout: 1 Expand | 2-5 Identity (Name/Cast/Dmg/Inputs) | 6 Mult |
-   7-8 Timing | 9-10 Resources | 11 CD | 12 Remove. */
 .builder-view .mech-table th:nth-child(1),
 .builder-view .mech-table td:nth-child(1),
 .builder-view .mech-table th:nth-child(5),
@@ -759,8 +655,6 @@
 .builder-view .mech-table td:nth-child(11) {
     border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
-/* The detail row's single colSpan cell shouldn't inherit a mid-row divider from whichever
-   nth-child it happens to land on. */
 .builder-view .mech-table td.mech-detail-cell {
     border-right: none !important;
 }
@@ -778,23 +672,11 @@
 .builder-view .mech-col-name { min-width: 0; }
 .builder-view .mech-col-num { text-align: right; white-space: nowrap; }
 
-/* Scoped override of the shared .sub-panel-trigger (used as-is, un-padded, by the rotation
-   table) -- in this dense table its content (tag chips, summary text) sat flush against the
-   hover/active outline with no breathing room. */
 .builder-view .sub-panel-trigger {
     padding: 3px 5px;
     box-sizing: border-box;
 }
 
-/* Any summary cell that opens a sub-panel gets its hover/active highlight directly on the
-   <td> itself, not an inner wrapper div. A child with height:100% doesn't reliably fill a
-   table-cell's real (row-stretched) height in this engine -- the cell's own height is always
-   correct without that percentage-resolution step, so styling the <td> is what actually makes
-   the *whole* cell highlight instead of just a box hugging its content. */
-/* No transition, deliberately -- with many small cells packed edge-to-edge, fast mouse
-   movement across them can outrun an animated fade, leaving a cell's highlight caught
-   mid-transition (still partly visible) after the pointer's already moved elsewhere.
-   Instant on/off avoids that entirely. */
 .builder-view .mech-trigger-cell {
     cursor: pointer;
 }
@@ -807,9 +689,6 @@
     box-shadow: inset 0 0 0 1px var(--accent), inset 0 0 8px var(--accent-focus);
 }
 
-/* The dedicated "default expand" control (Trigger Rule & Effects) -- its own column, styled
-   with a permanent faint border/background rather than only-on-hover, so it reads as a
-   button at rest instead of empty space. */
 .builder-view .mech-col-expand {
     text-align: center;
     background: rgba(255, 255, 255, 0.02);
@@ -821,10 +700,6 @@
     transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .builder-view .mech-col-expand.is-active .collapse-icon { color: var(--text-main); }
-/* The rotation calculator's accordion triangle has no box around it -- just the icon itself
-   darkening/rotating. Suppress the shared .mech-trigger-cell active background/box-shadow
-   here specifically so the expand control matches that bare look instead of reading as a
-   bordered button. */
 .builder-view .mech-col-expand.mech-trigger-cell.is-active {
     background-color: rgba(255, 255, 255, 0.02);
     box-shadow: none;
@@ -836,11 +711,6 @@
 
 .builder-view .mech-col-disabled { color: var(--text-disabled); text-align: center; }
 
-/* Sticky to the right edge of the scroll area -- the table can now be wider than the visible
-   pane (horizontal scroll), and the delete button needs to stay reachable without having to
-   scroll all the way over to it every time. Same subtle tint as .mech-col-expand (the other
-   "controls" bookend column) instead of a flat opaque grey that stood out from the rest of
-   the table. */
 .builder-view .mech-col-remove {
     position: sticky;
     right: 0;
@@ -852,9 +722,6 @@
 .builder-view .mech-col-remove .icon-btn-sm { width: 18px; height: 18px; }
 .builder-view .mech-col-remove .icon-btn-sm svg { width: 10px; height: 10px; }
 
-/* Read-only display -- the actual rename input now lives in the Identity sub-panel, so
-   clicking anywhere in this cell (not just this text) opens that panel instead of editing
-   inline here. */
 .builder-view .mech-name-display {
     display: block;
     color: var(--text-main);
@@ -889,8 +756,6 @@
 .builder-view .tag-add-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-hover); }
 .builder-view .tag-add-btn.is-open { border-color: var(--accent); border-style: solid; color: var(--accent); background: var(--accent-focus); }
 
-/* Denser chip size inside the move table specifically -- the shared .type-tag styling is
-   sized for the wider identity/effects panels below, which is too big for a 15-column table. */
 .builder-view .mech-table .type-tag {
     padding: 1px 5px;
     font-size: 0.62rem;
@@ -901,8 +766,6 @@
     font-size: 0.85rem;
 }
 
-/* Read-only computed summaries (Mult/Resources/Physics/Priority totals) -- distinct from
-   .cell-value since these aren't directly typeable, just a trigger into their sub-panel. */
 .builder-view .mech-sum-text {
     font-family: monospace;
     font-size: 0.7rem;
@@ -938,10 +801,6 @@
     min-width: 120px;
 }
 
-/* A clear, distinct signal that a table-cell value is directly editable in place: dotted
-   underline at rest, tinted highlight on hover, solid accent border once actually focused --
-   deliberately different from the plain form-input look used in the panels below, since these
-   sit in dense rows where "this text is a button" needs to read at a glance. */
 .builder-view .cell-value {
     background: transparent;
     border: none;
@@ -965,9 +824,6 @@
 .builder-view .cell-value::placeholder { color: var(--text-disabled); font-style: italic; }
 .builder-view .mech-hit-table .cell-value { width: 38px; font-size: 0.68rem; }
 
-/* The detail row's <td> stays a plain table-cell (no display:flex -- that would break the
-   colSpan={15} width-from-colgroup sizing); .sub-panel below supplies all the actual chrome,
-   matching the rotation table's SubPanel look exactly. */
 .builder-view .mech-detail-cell {
     padding: 0 !important;
     background: transparent;
@@ -996,10 +852,6 @@
     color: var(--text-dim);
 }
 
-/* Deliberately NOT width:100% -- the outer .mech-table can now be very wide (it fills the
-   editor pane), and stretching this inner per-hit table to match blows huge gaps between its
-   few short columns and can push the last column past the visible edge. Auto width sizes it
-   to its own content instead; max-width just keeps it from overflowing its panel. */
 .builder-view .mech-hit-table {
     width: auto;
     max-width: 100%;
@@ -1025,8 +877,6 @@
 }
 .builder-view .mech-hit-table .accent { color: var(--accent); font-weight: bold; }
 
-/* Cancel-timings list inside its sub-panel -- each row is clickable to load it back into the
-   add-form below for editing (including the trigger rule), with its own remove button. */
 .builder-view .mech-list {
     display: flex;
     flex-direction: column;
@@ -1057,5 +907,3 @@
     padding: 0 2px;
 }
 .builder-view .mech-list-remove:hover { color: var(--accent); }
-
-.builder-view .dim { color: var(--text-disabled); }

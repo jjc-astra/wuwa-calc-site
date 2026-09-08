@@ -1,36 +1,20 @@
 /* src/assets/css/calculator.css
-   Everything specific to the Rotation Calculator page's Step 1 (Team Roster, roster/) and
-   Step 2 (Rotation Builder, rotation/) content -- the shared accordion shell both steps sit
-   in, the roster grid, the rotation grid, and every rotation-only widget (gauges, damage
-   accordion, buff cards' consumer, status icons/strips, drag-and-drop, character theming).
-   The page's own outer 2-column shell (.calculator-layout/.calculator-steps) and the Results
-   panel itself live in results.css, not here -- this file is just the two collapsible steps'
-   own content. Previously split across layout.css and components.css; consolidated here since
-   none of it is reused outside this page. */
+   Step 1 (roster/) and Step 2 (rotation/) content for the Rotation Calculator page. The outer
+   2-column shell and Results panel live in results.css, not here. */
 
 /* =========================================
    1. COLLAPSIBLE STEP SHELL
    ========================================= */
-/* Shared accordion pattern both Step 1 (TeamBuilder) and Step 2 (RotationBuilder) use --
-   not reused by any other page. */
 .section-wrapper {
     display: flex; flex-direction: column;
     background: var(--bg-well);
     border: 1px solid var(--border); border-radius: 8px;
     overflow: hidden; position: relative; z-index: 1;
-    /* Explicit floor so the header can never get squeezed away mid-transition, when both
-       panels' content briefly demand more space than is available. */
     min-height: 56px;
 }
-/* Bottom spacing comes from body's own padding now that the header sits flush with the top. */
-
-/* State: Open */
 .section-wrapper:not(.is-collapsed) {
     flex: 1 1 auto; z-index: 10;
 }
-/* State: Closed. flex-shrink stays 1 (not 0) so this panel shares the transient squeeze with
-   its opening sibling instead of dumping all of it there; headers are protected separately
-   via min-height above. */
 .section-wrapper.is-collapsed {
     flex: 0 1 auto;
     border-bottom: 1px solid var(--border); z-index: 0;
@@ -49,9 +33,6 @@
 .section-title { margin: 0; font-size: 1.1rem; color: var(--accent); font-weight: bold; }
 .header-left, .header-right { display: flex; align-items: center; gap: 10px; }
 
-/* .header-left is the shrinkable side (header-right's buttons must stay fully clickable);
-   within it, .header-preview is what actually yields, clipping gracefully in its own box
-   instead of spilling past the header. */
 .section-header .header-left {
     flex: 1 1 auto;
     min-width: 0;
@@ -76,38 +57,6 @@
 }
 .toggle-icon.collapsed { transform: rotate(-90deg); }
 
-/* --- Content Areas --- */
-.collapsible-content {
-    display: flex; flex-direction: column; flex: 1; min-height: 0;
-    overflow: hidden;
-    transition: max-height 0.3s ease-in-out;
-    /* max-height is driven by the useCollapseMaxHeight hook -- see there for the open/close
-       animation. Clipping via max-height (not display:none) reveals content gradually. */
-}
-
-/* Scrollbar Handling */
-#team-content .team-container,
-#rotation-content #rotation-builder {
-    /* min-height:0 stops this scrollable flex item from demanding its full unscrolled
-       content height (min-height:auto default), which would blow past the accordion's
-       available space and distort the whole transition. */
-    flex: 1; padding: 0; overflow-y: hidden; min-height: 0;
-}
-.section-wrapper.anim-done #team-content .team-container,
-.section-wrapper.anim-done #rotation-content #rotation-builder {
-    overflow-y: auto;
-}
-#team-content .team-container {
-    padding: 10px;
-    /* flex-basis:auto (not the "flex:1" 0-basis above) puts this in the same shrink pool as
-       its flex-basis:auto sibling <IdleStats>, so they resize proportionally together
-       instead of IdleStats claiming space first and .team-container waiting for leftovers. */
-    flex: 1 1 auto;
-}
-
-/* Header Preview Slot -- the collapsed Step 1 header's team preview wrapper (its own
-   .preview-slot/.preview-avatar-wrap/etc pieces are TeamPreview.tsx, a shared common/
-   component, so those stay in components.css; this wrapper is roster-only). */
 .header-preview {
     display: flex; align-items: center; gap: 15px; height: 100%;
     opacity: 0; max-width: 0; margin-left: 0; padding-left: 0;
@@ -119,6 +68,26 @@
     padding-left: var(--space-6); border-left-width: 1px;
 }
 
+/* --- Content Areas --- */
+.collapsible-content {
+    display: flex; flex-direction: column; flex: 1; min-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-in-out;
+}
+
+#team-content .team-container,
+#rotation-content #rotation-builder {
+    flex: 1; padding: 0; overflow-y: hidden; min-height: 0;
+}
+.section-wrapper.anim-done #team-content .team-container,
+.section-wrapper.anim-done #rotation-content #rotation-builder {
+    overflow-y: auto;
+}
+#team-content .team-container {
+    padding: 10px;
+    flex: 1 1 auto;
+}
+
 /* =========================================
    2. TEAM ROSTER GRID
    ========================================= */
@@ -126,13 +95,9 @@
 
 .char-row {
     display: grid;
-    /* Fixed Panels + Flexible Echoes */
     grid-template-columns: 175px 160px 160px 1fr;
     align-items: stretch;
     margin: 10px; padding: 10px;
-    /* Same translucent card surface as the Mechanics Builder's .mechanic-category, tinted by
-       the slot's character (mirrors .rotation-row's --char-theme-raw scheme) -- one consistent
-       "content card on the page" look instead of a flat --bg-panel fill. */
     --row-accent: var(--char-theme-raw, var(--text-disabled));
     background: color-mix(in srgb, var(--row-accent) 12%, var(--surface-card));
     border: 1px solid color-mix(in srgb, var(--row-accent) 40%, var(--border));
@@ -141,13 +106,10 @@
     transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
-/* Themed ring around the character portrait -- cheapest, clearest per-card identity cue. */
 .char-row .avatar-lg.avatar-circle {
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--row-accent) 55%, var(--border));
 }
 
-/* Apply the theme to the row's own dropdowns/number boxes, same scoping idea as
-   .rotation-row -- underline family here (not boxed), so only the accent-bearing parts move. */
 .char-row .base-select,
 .char-row .base-num-box {
     border-bottom-color: color-mix(in srgb, var(--row-accent) 45%, var(--input-underline));
@@ -155,9 +117,6 @@
 .char-row .base-select:hover,
 .char-row .base-num-box:hover {
     border-bottom-color: var(--row-accent);
-    /* background-color, not the `background` shorthand -- .base-select draws its dropdown
-       arrow via background-image, and the shorthand would reset that back to none here since
-       this rule outranks .base-select's own :hover/:focus on specificity. */
     background-color: color-mix(in srgb, var(--row-accent) 12%, transparent);
 }
 .char-row .base-select:focus,
@@ -171,7 +130,6 @@
     color: color-mix(in srgb, var(--row-accent) 55%, white);
 }
 
-/* Sub-panels inside row */
 .panel-col {
     display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
     padding: 0 5px; border-right: 1px solid var(--border);
@@ -184,24 +142,20 @@
     border-bottom: 1px solid var(--border);
 }
 
-/* Input Specifics */
 .seq-mode-row { width: 100%; display: flex; }
 .seq-box { display: flex; align-items: center; justify-content: space-between; }
 .mode-select { font-size: 0.75rem; padding: 0 5px; height: 100%; }
 .seq-input, .rank-input { width: 20px !important; text-align: right; }
 
-/* Mode Logic Toggles (Handled via class in JS) */
 .char-row.has-mode .seq-box, .char-row.has-mode .mode-select { flex: 1; }
 .char-row:not(.has-mode) .seq-box { flex: 1; }
 .char-row:not(.has-mode) .mode-select { display: none; }
 
-/* Echo Container Layout */
 .echo-container {
     display: grid; grid-template-columns: repeat(5, minmax(145px, 1fr));
     align-content: center; min-width: 800px;
 }
 
-/* Responsive */
 @media (max-width: 1400px) {
     .char-row {
         grid-template-columns: repeat(3, minmax(267px, 1fr));
@@ -216,33 +170,20 @@
     }
 }
 
-/* --- Echo Cards --- (base card surface, .base-card, is a shared primitive in components.css;
-   everything below is the echo-specific content inside it, roster-only) */
+/* --- Echo Cards --- */
 .echo-card-wrap {
     margin: 0 4px;
-    /* Nested inside .char-row, which already darkens the page background -- a second
-       black overlay on top would compound into something darker than its parent, so this
-       lightens instead (same --surface-lighten tint used for .panel-info-item / .chrome-tab
-       elsewhere) to read as one step up from .char-row, not sunken into it. */
     background: var(--surface-lighten);
     border: 1px solid var(--border);
     padding: var(--space-2); justify-content: flex-start;
 }
 
-/* Same grey-underline "section label" look as .set-header (Sonata Sets), not the gold-tinted
-   underline this used to have -- keeps every card-identity header in the roster row consistent. */
 .echo-header {
     font-weight: bold; color: var(--accent); font-size: 0.75rem;
     margin-bottom: var(--space-2); padding-bottom: 2px;
     border-bottom: 1px solid var(--border);
 }
 
-/* Static gold "section label" look (text + arrow), same idea as .set-header -- this is a card
-   identity element, not a themed input field, so it's exempted (via !important) from
-   .char-row's per-character row-accent tinting of .base-select/.base-select.has-value. The
-   arrow is the real <svg> chevron .dropdown-trigger renders (see components.css's Dropdown
-   block) -- forced gold here always, not just on hover, to match the "static" look; no
-   background-image chevron of its own, or it'd double up with that real element. */
 .echo-main-stat-select,
 .echo-main-stat-select:hover,
 .echo-main-stat-select:focus {
@@ -272,21 +213,14 @@
     font-size: 0.7rem; background-color: transparent; border: none;
     color: var(--text-dim); padding: 0; outline: none;
 }
-/* Stays dim/normal-weight even once a stat is picked -- this is a field label in a dense
-   grid (like the Mechanics Builder's .base-stat-label), not a standalone selection the
-   bold/bright .has-value treatment is meant for. */
 .stat-select.has-value { color: var(--text-dim); font-weight: normal; }
 .stat-num-box {
     width: 38px; min-width: 38px; height: 100%; flex-shrink: 0;
     padding: 0; display: flex; align-items: center; justify-content: center;
 }
-/* Calmer than the default bold 1rem .num-input -- matches .base-stat-value's weight/size
-   for the same dense-grid reason. */
 .stat-num-box input { font-size: 0.7rem; font-weight: normal; text-align: center; }
 
-/* =========================================
-   IDLE STATS & ENEMY CONFIGURATION
-   ========================================= */
+/* --- Idle Stats & Enemy Configuration --- */
 .idle-stats-wrapper {
     display: flex;
     gap: 10px;
@@ -298,14 +232,12 @@
 
 .idle-stat-card {
     flex: 1;
-    /* Same --char-theme-raw scheme as .char-row/.rotation-row, tinted per the card's character. */
     --row-accent: var(--char-theme-raw, var(--text-disabled));
-    /* Same translucent card surface as .char-row / the Mechanics Builder's .mechanic-category. */
     background: color-mix(in srgb, var(--row-accent) 10%, var(--surface-card));
     border: 1px solid color-mix(in srgb, var(--row-accent) 40%, var(--border));
     border-radius: 8px;
     padding: var(--space-4);
-    min-width: 340px; /* <-- INCREASED */
+    min-width: 340px;
     box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
     transition: background-color 0.2s ease, border-color 0.2s ease;
 }
@@ -372,9 +304,6 @@
 }
 
 /* --- The Builder List --- */
-/* Wraps #rotation-builder (the real scrolling list) and .rotation-scrollbar-map (a plain,
-   non-scrolling sibling painted underneath it) -- see that class below for why a real DOM
-   element, not scrollbar-track CSS, is what actually draws the map. */
 .rotation-list-wrap {
     position: relative;
     flex: 1;
@@ -390,59 +319,22 @@
     flex-direction: column;
     gap: 0;
     background: transparent;
-    /* Own stacking context, ranked above .rotation-scrollbar-map below -- without this,
-       #rotation-builder is a plain non-positioned block, which CSS's painting order puts
-       *before* a position:absolute sibling with z-index:auto regardless of DOM order. Since a
-       native scrollbar paints as part of its owning box's own render, that made the map's colored
-       segments cover the real scrollbar (thumb included) instead of the other way around --
-       exactly backwards from the "translucent scrollbar overlaying an opaque map" design. */
     position: relative;
     z-index: 1;
-    /* Same scrollbar-color mechanism components.css's `*` rule already uses everywhere else on
-       the site (not the legacy ::-webkit-scrollbar-track/-thumb pseudo-elements -- an earlier
-       attempt used those, which pushed Chromium into its classic scrollbar-button rendering
-       mode, showing an unstyled/blank arrow-button gap that doesn't exist anywhere else on the
-       site, plus a width that didn't line up with what scrollbar-width: thin actually renders).
-       Plain translucent grey (not tinted to the map's own colors) -- this scrollbar's only job
-       now is to act as a "window" showing which rows are currently in view, like VS Code's own
-       minimap slider; the color-coding lives entirely in .rotation-scrollbar-map underneath it.
-       Track is fully transparent so the map shows through everywhere except where the thumb
-       itself (the "window") sits. */
     scrollbar-color: color-mix(in srgb, white 22%, transparent) transparent;
 }
-/* The scrollbar "map" itself -- a plain, non-scrolling container sitting directly behind
-   #rotation-builder's own translucent scrollbar, holding one absolutely-positioned child per
-   .rotation-scrollbar-segment-* below (computed in RotationBuilder.tsx's
-   buildRotationScrollbarSegments). Width is measured there too (not assumed) since
-   scrollbar-color's rendered width doesn't correspond to any fixed pixel value -- see the
-   ResizeObserver effect. Being real elements (not a pseudo-element background), they render
-   exactly as authored, with no native-scrollbar-widget restrictions.
-   top/bottom are inset by that same measured thickness (RotationBuilder.tsx passes it inline) --
-   setting an explicit scrollbar-color pushes Windows Chrome/Edge into its "classic" scrollbar
-   rendering, which (unlike the overlay style) draws a square up/down arrow button at each end of
-   the track, roughly as tall as the scrollbar is wide. Without this inset the map's own segments
-   would run the full height and paint underneath (and visually bleed around) those buttons; this
-   keeps the color-coding scoped to the actual draggable track, which is also a closer match for
-   where the real thumb can travel. z-index:0 (explicit, not auto) keeps this reliably below
-   #rotation-builder's own z-index:1 above regardless of paint-order specifics. */
 .rotation-scrollbar-map {
     position: absolute;
     right: 0;
     z-index: 0;
     pointer-events: none;
 }
-/* One rounded, narrow bar per contiguous run of same-unit rows -- narrower than the gutter
-   (a "thinner colored bar", VS Code's own overview-ruler convention for non-decoration content)
-   and dimmed to match that unit's own input-field background (RotationRow's own color-mix
-   formula) rather than the full-strength theme color, so it reads as a quiet backdrop. */
 .rotation-scrollbar-segment-unit {
     position: absolute;
     left: 30%;
     right: 30%;
     border-radius: 2px;
 }
-/* Loop start/end -- wider than the gutter (a "wider but skinnier mark", VS Code's convention for
-   an actual decoration/annotation) and short, layered on top of the unit bars. */
 .rotation-scrollbar-segment-marker {
     position: absolute;
     left: -2px;
@@ -454,14 +346,10 @@
 .rotation-toolbar {
     display: flex; align-items: center; gap: 15px;
     padding: 10px 15px;
-    /* Same translucent card surface used across the app (.results-panel, .char-row,
-       .idle-stat-card, etc) instead of a separate lightening tint. */
     background: var(--surface-card);
     border-bottom: 1px solid var(--border); flex-shrink: 0;
     min-width: 900px;
 }
-/* Overrides the shared .base-btn/.icon-btn sizing (components.css) to fit this toolbar's
-   28px-tall control row. */
 .rotation-toolbar .base-btn {
     height: 28px; line-height: 1; display: inline-flex;
     align-items: center; justify-content: center; padding: 0 10px; box-sizing: border-box;
@@ -470,9 +358,6 @@
 .rotation-toolbar .icon-btn svg { display: block; width: 16px; height: 16px; }
 
 /* --- Grid Definitions --- */
-/* .rotation-row is NO LONGER A GRID. It is a wrapper. */
-/* .rotation-header-row and .row-grid-layer ARE the grids. */
-
 .rotation-header-row,
 .row-grid-layer {
     display: grid;
@@ -489,22 +374,13 @@
     text-align: center; flex-shrink: 0;
     transition: padding-right 0.1s;
 }
-
-/* Hide header scrollbar */
 .rotation-header-row::-webkit-scrollbar { width: 10px; background: transparent; }
 .rotation-header-row::-webkit-scrollbar-thumb { background: transparent; }
-
-/* Header Alignment overrides */
 .rotation-header-row > div:nth-child(2),
 .rotation-header-row > div:nth-child(3) { text-align: left; }
 
-/* Rotation rows keep the original solid-outline boxed look for their selects/number
-   boxes -- unlike the echo cards' dense stat grid, .base-select / .base-num-box's shared
-   dashed-underline default isn't right here, so restore the box explicitly. */
 .rotation-row .base-select,
 .rotation-row .base-num-box {
-    /* background-color, not the shorthand -- the shorthand would reset .base-select's
-       background-image arrow back to none since this rule outranks its own :hover/:focus. */
     background-color: transparent;
     border: 1px solid var(--border);
     border-radius: 4px;
@@ -516,17 +392,12 @@
     border-color: var(--accent);
 }
 
-/* --- Row Wrapper (Stacking Context) + Character Theming ---
-   Consolidated from two previously-separate rules (a plain layout.css base and a
-   components.css "theming" pass) that targeted this exact same selector -- merged into one,
-   keeping the transition value that was actually winning (the theming pass's, since it loaded
-   later) rather than carrying forward the other's already-dead one. */
+/* --- Row Wrapper (Stacking Context) + Character Theming --- */
 .rotation-row {
     width: 100%; box-sizing: border-box;
-    /* Flex Column to stack Grid Layer + Sub Panel */
     display: flex;
     flex-direction: column;
-    padding: 0; /* Remove padding here, move to .row-grid-layer */
+    padding: 0;
     border-bottom: 1px solid var(--border);
     border-top: 1px solid transparent;
 
@@ -541,20 +412,17 @@
     transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* Apply Theme ONLY to Dropdowns and Neutral (0.00) Number Boxes */
 .rotation-row .base-select,
 .rotation-row .base-num-box:not(.offset-pos):not(.offset-neg) {
     background-color: color-mix(in srgb, var(--row-accent) 30%, var(--row-theme-select-base)) !important;
     border-color: color-mix(in srgb, var(--row-accent) 50%, var(--row-theme-neutral)) !important;
 }
 
-/* Ensure inner input fields inherit their container's themed container background */
 .rotation-row .base-num-box:not(.offset-pos):not(.offset-neg) .num-input {
     background-color: transparent !important;
     border-color: transparent !important;
 }
 
-/* Text Contrast and State Handling */
 .rotation-row .base-select {
     color: var(--row-text-dim) !important;
 }
@@ -566,7 +434,6 @@
     color: var(--row-text-bright) !important;
 }
 
-/* Focus Handling for Themed Inputs */
 .rotation-row .base-select:focus,
 .rotation-row .base-num-box:not(.offset-pos):not(.offset-neg) .num-input:focus {
     border-color: var(--row-accent) !important;
@@ -577,21 +444,18 @@
 .row-grid-layer {
     width: 100%;
     height: 100%;
-    /* This inherits grid props from the group selector above */
 }
 
 .rotation-row:hover {
     background: var(--bg-panel);
 }
 
-/* Selection Highlight */
 .rotation-row.selected {
     background: var(--accent-row-selected) !important;
     border-bottom: 1px solid var(--accent);
     border-top: 1px solid var(--accent);
 }
 
-/* Drag and drop indicators */
 .rotation-row.drag-over-top {
     box-shadow: inset 0 2px 0 var(--accent);
 }
@@ -627,28 +491,22 @@
     opacity: 1; pointer-events: none;
 }
 
-/* Default: Hide Icons, Show Number */
 .status-icon {
     display: none;
     width: 18px; height: 18px;
     position: absolute;
-    z-index: 2; /* Above number, below checkbox */
-    pointer-events: none; /* Let clicks pass through to the row/checkbox */
-    /* icon-warn's "!" dot is a near-zero-length <line> -- without round caps it has no length
-       to render at all (same issue .calc-warning-msg svg had). */
+    z-index: 2;
+    pointer-events: none;
     stroke-linecap: round;
     stroke-linejoin: round;
 }
 
-/* Error State (Illegal) */
 .index-cell.is-error .row-index { display: none; }
 .index-cell.is-error .icon-error { display: block; color: var(--danger); }
 
-/* Warning State */
 .index-cell.is-warning .row-index { display: none; }
 .index-cell.is-warning .icon-warn { display: block; color: var(--warning); }
 
-/* Hide the icons when the checkbox appears (Hover or Selected) */
 .rotation-row:hover .status-icon,
 .rotation-row.selected .status-icon {
     display: none !important;
@@ -660,9 +518,8 @@
     padding: var(--space-4); cursor: pointer;
     opacity: 0; transform: scale(0.8);
     transition: all 0.15s ease-out;
-    z-index: 10; /* Above the status icons */
+    z-index: 10;
 }
-
 .check-wrap input { position: absolute; opacity: 0; cursor: pointer; height: 0; width: 0; }
 
 .check-visual {
@@ -672,7 +529,6 @@
     transition: all 0.15s;
     pointer-events: none;
 }
-
 .check-wrap input:checked ~ .check-visual,
 .end-rotation-check-wrap input:checked ~ .check-visual {
     background-color: var(--accent); border-color: var(--accent);
@@ -696,40 +552,26 @@
     width: 18px;
     height: 18px;
     box-sizing: border-box;
-
-    /* 1. Exact 3px ring thickness (18px outer, 12px inner) */
     border: 3px solid transparent;
     border-radius: 50%;
-
-    /* 2. Layer 1 (top): inner cutout | Layer 2 (bottom): conic ring. In-game gauges fill
-       starting at 3 o'clock and sweep counterclockwise -- conic-gradient always sweeps
-       clockwise, so "from 90deg" (3 o'clock) anchors the filled arc's end at 100% back to that
-       same start point, and its growing edge (the last calc(100% - p) of the sweep) is what
-       moves counterclockwise away from it as --p increases. */
     background-image:
         linear-gradient(var(--bg-panel), var(--bg-panel)),
         conic-gradient(from 90deg, var(--input-bg) 0%, var(--input-bg) calc(100% - var(--p, 0%)), var(--accent) calc(100% - var(--p, 0%)), var(--accent) 100%);
     background-origin: padding-box, border-box;
     background-clip: padding-box, border-box;
-
-    /* 3. Unclipped outer glow & shadow */
     box-shadow: 0 0 2px var(--overlay-b4);
     cursor: default;
     opacity: 0.4;
     position: relative;
     transition: opacity 0.3s ease, box-shadow 0.3s ease;
 }
-
-/* Pseudo-element is no longer needed */
 .gauge-dial::after {
     display: none;
 }
-/* --- Gauge State Rules --- */
 .gauge-dial.is-full {
     opacity: 1;
     box-shadow: 0 0 8px 1px var(--gauge-glow), inset 0 0 4px var(--gauge-glow);
 }
-
 
 .gauge-vertical {
     width: 8px; height: 24px; background: var(--bg-card); border-radius: 2px;
@@ -759,8 +601,6 @@
 /* =========================================
    5. SUB PANEL TRIGGER (row cell -> expandable damage/gauge breakdown)
    ========================================= */
-/* The panel it opens, .sub-panel, is shared with the Mechanics Builder's own expand/collapse
-   use and stays in components.css -- only the row-cell trigger control is rotation-only. */
 .sub-panel-trigger {
     cursor: pointer;
     position: relative;
@@ -772,12 +612,10 @@
     border-radius: 4px;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
-
 .sub-panel-trigger:hover {
     background-color: var(--overlay-w3);
     box-shadow: 0 0 0 1px var(--overlay-w5);
 }
-
 .sub-panel-trigger.is-active {
     background-color: var(--accent-selected);
     box-shadow: inset 0 0 0 1px var(--accent), 0 0 8px var(--accent-strong);
@@ -787,8 +625,6 @@
 /* =========================================
    6. DAMAGE BREAKDOWN SUB-PANEL
    ========================================= */
-
-/* --- Complex Damage Panel Layout --- */
 .dmg-panel-top-row {
     margin-bottom: var(--space-5);
     padding-bottom: var(--space-5);
@@ -797,7 +633,7 @@
 
 .dmg-panel-main-grid {
     display: grid;
-    grid-template-columns: 240px 1fr; /* Reduced stats width slightly to give buffs more room */
+    grid-template-columns: 240px 1fr;
     gap: 24px;
 }
 
@@ -808,11 +644,10 @@
     min-height: 100%;
 }
 
-/* --- Stat Table Polish (High Contrast) --- */
+/* --- Stat Table --- */
 .table-wrapper {
-    /* Removed the dark background to let it sit cleanly on the accordion body */
     background: var(--overlay-w1);
-    border: 1px solid var(--overlay-w4); /* Brighter, crisper border */
+    border: 1px solid var(--overlay-w4);
     border-radius: 6px;
     overflow: hidden;
 }
@@ -820,26 +655,22 @@
 .dmg-stat-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.85rem; /* Slightly larger for readability */
+    font-size: 0.85rem;
 }
-
 .dmg-stat-table tr {
-    border-bottom: 1px solid var(--surface-lighten-strong); /* Stronger dividing lines */
+    border-bottom: 1px solid var(--surface-lighten-strong);
 }
-
 .dmg-stat-table tr:last-child {
     border-bottom: none;
 }
-
 .dmg-stat-table tr:hover {
-    background: var(--overlay-w2); /* Brighter hover state */
+    background: var(--overlay-w2);
 }
 
 .stat-table-label {
-    padding: 8px 14px; /* Increased padding for breathing room */
+    padding: 8px 14px;
     color: var(--text-dim);
 }
-
 .stat-table-value {
     padding: 8px 14px;
     text-align: right;
@@ -852,7 +683,6 @@
 .dmg-formula-container {
     margin: var(--space-3) 0 var(--space-5) 0;
 }
-
 .dmg-formula-box {
     font-family: monospace;
     font-size: 1.05em;
@@ -866,7 +696,6 @@
 /* =========================================
    7. DAMAGE ACCORDION SYSTEM
    ========================================= */
-
 .dmg-accordion-container {
     display: flex;
     flex-direction: column;
@@ -881,7 +710,6 @@
     overflow: hidden;
     transition: border-color 0.2s;
 }
-
 .dmg-accordion-section:hover {
     border-bottom-color: var(--overlay-w5);
     border-top-color: var(--overlay-w5);
@@ -897,31 +725,29 @@
     transition: background 0.2s;
     user-select: none;
 }
-
 .dmg-accordion-header:hover {
     background: var(--surface-lighten-strong);
 }
 
 .dmg-accordion-icon {
-    width: 12px; /* Scaled down for the solid shape */
+    width: 12px;
     height: 12px;
     margin-right: 14px;
     color: var(--text-dim);
     transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
-
 .dmg-accordion-section.is-open .dmg-accordion-icon {
-    transform: rotate(90deg); /* Rotates the ▶ to a ▼ */
+    transform: rotate(90deg);
     color: var(--text-main);
 }
 
 .dmg-accordion-title {
     flex-grow: 1;
-    font-size: 0.95rem; /* Scaled down from 1.15rem */
+    font-size: 0.95rem;
     font-weight: 700;
     color: var(--text-main);
     letter-spacing: 0.05rem;
-    text-transform: uppercase; /* Added to make it feel more structural */
+    text-transform: uppercase;
 }
 
 .dmg-accordion-time {
@@ -945,18 +771,15 @@
     border-top: 1px solid var(--overlay-w2);
     background: var(--overlay-b2);
 }
-
 .dmg-accordion-section.is-open .dmg-accordion-body {
     display: block;
     animation: fadeInAccordion 0.3s ease-out;
 }
-
 @keyframes fadeInAccordion {
     from { opacity: 0; transform: translateY(-4px); }
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* Ensure the main grid inside the accordion body looks flush */
 .dmg-accordion-body .dmg-panel-top-row {
     margin-top: 0;
 }
@@ -964,31 +787,26 @@
 /* =========================================
    8. STATUS MESSAGE STRIP (AUTO-PANEL)
    ========================================= */
-
 .status-msg-strip {
     width: 100%;
-    display: none; /* Hidden by default */
-    padding: 4px 15px 4px 45px; /* 45px Left padding aligns text nicely past the index cell */
+    display: none;
+    padding: 4px 15px 4px 45px;
     font-size: 0.75rem;
     font-weight: bold;
     font-family: monospace;
     border-top: 1px solid var(--overlay-b3);
     animation: fadeIn 0.2s ease-out;
 }
-
 @keyframes fadeIn {
     from { opacity: 0; } to { opacity: 1; }
 }
 
-/* Error Style */
 .is-error-strip {
     display: block;
     background-color: var(--danger-tint);
     color: var(--danger-text);
     border-left: 3px solid var(--danger);
 }
-
-/* Warning Style */
 .is-warning-strip {
     display: block;
     background-color: var(--warning-tint);
@@ -996,11 +814,13 @@
     border-left: 3px solid var(--warning);
 }
 
-/* Fix for stacking: If both strip and sub-panel are open */
 .status-msg-strip + .sub-panel {
     border-top: 1px solid var(--border);
 }
 
+/* =========================================
+   9. LOOP & ENDING ROTATION TAGS
+   ========================================= */
 /* --- Loop Start Tag --- */
 .loop-start-tag {
     display: flex;
@@ -1050,8 +870,7 @@
 }
 .loop-tag-reset:hover { color: var(--text-main); }
 
-/* --- Loop End Tag --- (same look as Loop Start, but sits below its row's own content, closing
-   off the loop segment instead of opening one -- rounded on the bottom edge, not the top) */
+/* --- Loop End Tag --- */
 .loop-end-tag {
     display: flex;
     align-items: center;
@@ -1069,19 +888,13 @@
 }
 .loop-end-tag:active { cursor: grabbing; }
 
-/* --- Ending Rotation cut + End Rotation Tag --- (the "gap" between where the loop template
-   stops repeating and where the custom Ending Rotation content begins -- purely informational,
-   not draggable/interactive, since the split point itself is still controlled entirely by the
-   Loop End tag above it) */
+/* --- Ending Rotation Cut + End Rotation Tag --- */
 .ending-rotation-cut {
     display: flex;
     align-items: center;
     padding: 2px 4px;
     margin: 2px 0;
 }
-/* A diagonal-striped timeline track with a fast-forward glyph -- the same "sped up / time
-   remapped" convention video editors (Premiere, Resolve) use for a retimed clip on a timeline,
-   rather than an abstract line -- reads immediately as "skips ahead here". */
 .ending-rotation-cut-track {
     width: 100%;
     height: 14px;
@@ -1104,8 +917,6 @@
     flex-shrink: 0;
 }
 
-/* Same look as Loop Start (rounded top, sits above its row) -- not draggable, since its
-   position is always derived from the Loop End tag rather than its own marker. */
 .end-rotation-tag {
     display: flex;
     align-items: center;
@@ -1120,10 +931,6 @@
     border-radius: 4px 4px 0 0;
     letter-spacing: 0.02rem;
 }
-/* Same hidden-native-input + custom box pattern as .check-wrap/.check-visual (the row-select
-   checkbox) -- just without that one's absolute positioning/hover-reveal, since this toggle is
-   always visible rather than an overlay on the row-index cell. Label text first, checkbox last,
-   per the row-select checkbox's own reading order. */
 .end-rotation-check-wrap {
     margin-left: auto;
     flex-shrink: 0;
@@ -1139,11 +946,8 @@
 .end-rotation-check-wrap input { position: absolute; opacity: 0; cursor: pointer; height: 0; width: 0; }
 
 /* =========================================
-   9. CALCULATION STATES (rotation-only; .calc-warning-msg itself is shared with the
-   Mechanics Builder and stays in components.css)
+   10. CALCULATION STATES (rotation-only; .calc-warning-msg is shared, in components.css)
    ========================================= */
-
-/* Dimmed Damage Value */
 .dmg-dimmed {
     opacity: 0.4;
     color: var(--text-disabled-hover) !important;
@@ -1151,9 +955,6 @@
     transition: opacity 0.2s, color 0.2s;
 }
 
-/* Same pill shape as .calc-warning-msg, neutral/accent color instead of warning-yellow since
-   this just means "working", not "something needs attention". Shown while the calc worker is
-   running a recalculate/Calculate pass, so edits and the Calculate button never look frozen. */
 .calc-loading-msg {
     display: flex;
     align-items: center;

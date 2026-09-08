@@ -51,8 +51,6 @@
     align-items: flex-start;
     gap: var(--space-4);
     padding: 24px;
-    /* Same translucent card surface used across the app (Mechanics Builder's
-       .mechanic-category, .char-row, .idle-stat-card, etc). */
     background: var(--surface-card);
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -89,7 +87,6 @@
     line-height: 1.4;
 }
 
-/* Position only -- size/color come from the shared .coming-soon-badge base rule. */
 .landing-card .coming-soon-badge {
     position: absolute;
     top: 16px;
@@ -126,8 +123,6 @@
     max-width: 420px;
 }
 
-/* A step larger for a standalone full-page context; color/weight come from the shared
-   .coming-soon-badge base rule. */
 .coming-soon-page .coming-soon-badge {
     margin-top: var(--space-3);
     font-size: 0.7rem;

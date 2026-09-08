@@ -1,8 +1,6 @@
 /* src/assets/css/components.css
-   Shared, reusable styling: things used by 2+ pages, by a common/ component, or by the app
-   shell itself (nav header, page-agnostic html/body/#root). Page-specific layout lives in
-   that page's own file instead (builder.css, calculator.css, landing.css, results.css,
-   rankings.css) -- if a rule only ever applies on one page, it doesn't belong here. */
+   Shared styling used by 2+ pages or the app shell. Page-specific layout lives in that page's
+   own file instead (builder.css, calculator.css, etc). */
 
 /* =========================================
    1. APP SHELL
@@ -45,10 +43,10 @@ html, body {
     justify-content: space-between;
     align-items: center;
     padding: 10px 20px;
-    background: var(--bg-deep); /* Darker than section-wrapper to establish hierarchy */
+    background: var(--bg-deep);
     border: 1px solid var(--border);
-    border-top: none; /* flush with the window's top edge, no need for a border there */
-    border-radius: 0 0 8px 8px; /* top corners stay square against the window edge */
+    border-top: none;
+    border-radius: 0 0 8px 8px;
     flex-shrink: 0;
 }
 
@@ -58,7 +56,7 @@ html, body {
     gap: 24px;
 }
 
-/* Brand / Home link */
+/* --- Brand / Home link --- */
 .nav-brand {
     display: flex;
     align-items: center;
@@ -75,7 +73,7 @@ html, body {
 
 .nav-brand:hover { color: var(--accent); }
 
-/* Multi-page nav item list */
+/* --- Multi-page nav item list --- */
 .nav-items {
     display: flex;
     align-items: center;
@@ -110,8 +108,6 @@ html, body {
     color: var(--accent);
 }
 
-/* Smaller pill to fit inline in a nav item; everything else comes from the shared
-   .coming-soon-badge base rule below. */
 .nav-item-btn .coming-soon-badge {
     font-size: 0.6rem;
     padding: 1px 5px;
@@ -122,15 +118,14 @@ html, body {
 /* =========================================
    3. GLOBAL VARIABLES
    ========================================= */
-/* All color tokens now live in palette.css (imported before this file) -- see that file to
-   add or change a color. Nothing below this point should declare a new color token. */
+/* All color tokens live in palette.css (imported before this file). */
 
 /* =========================================
    4. UTILITY & RESET
    ========================================= */
 * {
-    box-sizing: border-box; 
-    scrollbar-width: thin; 
+    box-sizing: border-box;
+    scrollbar-width: thin;
     scrollbar-color: var(--text-disabled) var(--bg-dark);
 }
 
@@ -150,9 +145,6 @@ html, body {
 .text-dim    { color: var(--text-dim); }
 .text-gold   { color: var(--accent); }
 
-/* Shared base so every "Coming Soon" pill (nav item, landing card corner, coming-soon page,
-   chrome tabs, pin-rotation controls) looks the same by default; context-specific CSS only
-   needs to override size/position, not redeclare the whole recipe. */
 .coming-soon-badge {
     display: inline-block;
     background: var(--border);
@@ -170,15 +162,6 @@ html, body {
    5. FORM ELEMENTS
    ========================================= */
 /* --- Selects --- */
-/* Same dashed-underline-to-solid-accent affordance as the Mechanics Builder's dense-grid
-   fields (.cell-value / .base-stat-value) -- no boxed border, so a row of these doesn't
-   read as a wall of form fields. */
-/* Native <select>s can't be given a custom dropdown arrow via a real element, so the arrow is
-   a background-image chevron instead -- same shape/size IconSelect's button-based trigger
-   draws, so every dropdown site-wide (native or custom) reads as one consistent control. Colors
-   are baked into the data URI (can't reference CSS vars there); the resting shade mirrors
-   --text-main (bright, not --text-dim) so a small 12px arrow stays legible on its own without
-   needing a hover, and switches to --accent on hover/focus same as the rest of the control. */
 .base-select {
     background-color: transparent;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23dddddd' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
@@ -235,15 +218,7 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 }
 .num-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
-/* --- Icon Select (a <select> replacement that shows an icon per option -- native <select>
-   can't reliably render images inside its popup, so this is a positioned div list instead).
-   The trigger reuses .base-select for its background/border/theming; only the layout quirks
-   a <button> needs that a <select> didn't (flex row, left-aligned text, inherited font) are
-   added here. --- */
-/* min-width: 0 overrides the flexbox default of min-width: auto -- without it, a flex item
-   refuses to shrink below its own nowrap text's full width, so a long value like "NM Thundering
-   Mephis" would force this item wider than a short one like "Void Thunder" sitting in the exact
-   same flex row (avatar + select), even though both should share the row identically. */
+/* --- Icon Select --- */
 .icon-select { position: relative; width: 100%; min-width: 0; }
 .icon-select-trigger {
     display: flex; align-items: center; gap: var(--space-2);
@@ -253,11 +228,6 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 .icon-select-trigger-label {
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;
 }
-/* Position (fixed, left/top or bottom, min/max-width, max-height) is computed and set inline
-   per-open since this is portaled to <body> to escape any clipping/scrolling ancestor (e.g.
-   .char-row's overflow-x: auto) the way a native select's OS popup would. Width itself sizes to
-   the longest option label (never narrower than the trigger) rather than being pinned to the
-   trigger's own width, so a name like "NM Thundering Mephis" isn't clipped in a 160px column. */
 .icon-select-popup {
     width: max-content;
     z-index: 500;
@@ -284,31 +254,13 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 .icon-select-option.is-selected { color: var(--accent); font-weight: bold; }
 .icon-select-option.is-disabled { opacity: 0.4; cursor: not-allowed; }
 
-/* --- Dropdown (a <select> replacement with a fully CSS-styled popup, plain-text sibling of
-   Icon Select above -- a native <select>'s open list is OS-rendered and can't be restyled: e.g.
-   Windows Chrome always highlights the hovered/selected option with its own blue system-accent
-   color no matter what CSS targets .option, and optgroup labels get the OS's own look too. This
-   reimplements the dropdown as a positioned list of divs instead, portaled to <body> so it
-   always escapes any clipping/scrolling ancestor the way a native popup would. --- */
-/* display: contents makes this wrapper invisible to layout -- the trigger button becomes the
-   real flex/grid item in whatever context it sits in (exactly like the native <select> it
-   replaces did), instead of a hardcoded width: 100% wrapper always claiming full space and
-   fighting a compact per-site className (e.g. .results-dps-type-select's width: auto) applied
-   to the trigger inside it. The div still exists in the DOM for the click-outside .contains()
-   check -- display: contents only affects rendering/layout, not the DOM tree. */
+/* --- Dropdown --- */
 .dropdown { display: contents; }
 .dropdown-trigger {
     display: flex; align-items: center; gap: var(--space-2);
     text-align: left; font-family: inherit;
     min-width: 0;
-    /* The chevron is a real flex child now (see .dropdown-chevron), not a background-image, so
-       none of .base-select's padding-right reservation for its own baked-in chevron is needed
-       here -- keeping it would just double up on space and shrink the trigger unnecessarily. */
     padding-right: var(--space-1);
-    /* .base-select bakes its resting/hover chevron colors into a background-image data URI, so
-       it can't pick up a per-instance theme color -- suppressed here (in both states, since
-       .base-select:hover/:focus re-declare their own background-image at equal specificity) in
-       favor of the real <svg> chevron below, which can. */
     background-image: none;
 }
 .dropdown-trigger:hover, .dropdown-trigger:focus { background-image: none; }
@@ -316,9 +268,6 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 .dropdown-trigger-label {
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;
 }
-/* Resting color mirrors --text-main same as the old baked-in chevron; hover/focus switches to
-   --dropdown-accent (e.g. a rotation row's character theme color) instead of always going gold,
-   since this is a real element now instead of a fixed-color background-image. */
 .dropdown-chevron {
     flex-shrink: 0; width: 12px; height: 12px;
     color: var(--text-main);
@@ -326,9 +275,6 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 }
 .dropdown-trigger:hover .dropdown-chevron,
 .dropdown-trigger:focus .dropdown-chevron { color: var(--dropdown-accent, var(--accent)); }
-/* --dropdown-accent is set inline per-instance (e.g. a rotation row passes its character theme
-   color) to theme the popup's highlight; every other dropdown falls back to the site's gold
-   --accent, same as Icon Select. */
 .dropdown-popup {
     width: max-content;
     z-index: 500;
@@ -338,9 +284,6 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     overflow-y: auto;
     box-shadow: 0 8px 20px var(--overlay-b6);
 }
-/* Text color matches --row-text-bright's own formula (a rotation row's own value text, e.g.
-   the Action select's label once a move is picked) so a group header reads as the same "brand"
-   of text as the rest of that row instead of a separate, differently-mixed tone. */
 .dropdown-group-label {
     padding: var(--space-1) var(--space-3);
     font-size: 0.85rem; font-weight: 800;
@@ -369,7 +312,7 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     border-radius: 5px;
     outline: none;
     flex: 1 1 auto;
-    min-width: 20px; 
+    min-width: 20px;
     overflow: hidden;
     cursor: pointer;
 }
@@ -379,7 +322,7 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     width: 10px; height: 10px;
     border-radius: 50%;
     background: var(--accent-light); border: none;
-    box-shadow: -405px 0 0 400px var(--accent); 
+    box-shadow: -405px 0 0 400px var(--accent);
 }
 
 /* --- Buttons --- */
@@ -409,7 +352,6 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     box-shadow: none; background: transparent;
 }
 
-/* --- Toolbar Button Fixes (Added) --- */
 .btn-group { display: flex; align-items: center; }
 .btn-group .base-btn { border-radius: 0; border-right-width: 0; }
 .btn-group .base-btn:first-child { border-top-left-radius: 4px; border-bottom-left-radius: 4px; }
@@ -418,7 +360,7 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 .btn-primary { background-color: var(--accent); border-color: var(--accent); color: var(--text-main); }
 .btn-primary:hover { filter: brightness(1.1); }
 
-/* --- Toolbar Toggle Buttons (NEW) --- */
+/* --- Toolbar Toggle Buttons --- */
 .toolbar-toggle-label {
     display: inline-flex;
     align-items: center;
@@ -443,15 +385,13 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     color: var(--text-main);
 }
 
-/* "Pressed in" and filled state */
 .toolbar-toggle-label:has(input:checked) {
     background: var(--accent);
     color: var(--bg-dark);
     border-color: var(--accent);
-    box-shadow: inset 0 2px 6px var(--overlay-b4); /* Inner shadow for pressed look */
+    box-shadow: inset 0 2px 6px var(--overlay-b4);
 }
 
-/* Hide the actual native checkbox */
 .toolbar-toggle-label input[type="checkbox"] {
     display: none;
 }
@@ -494,8 +434,6 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 }
 
 .preview-slot {
-    /* Same --char-theme-raw scheme as .rotation-row/.char-row, so the collapsed header's mini
-       cards carry the same per-character tint as the full roster card. */
     --row-accent: var(--char-theme-raw, var(--text-disabled));
     display: flex; align-items: center; gap: var(--space-1);
     background: color-mix(in srgb, var(--row-accent) 15%, var(--overlay-b3));
@@ -536,31 +474,26 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 .tooltip-key { color: var(--text-dim); font-weight: bold; margin-right: var(--space-1); }
 .tooltip-val { color: var(--accent); font-weight: bold; }
 
-/* --- SUB PANEL SYSTEM --- (the trigger cell that opens one, .sub-panel-trigger, is
-   rotation-only and lives in calculator.css -- this container itself is shared with the
-   Mechanics Builder's own expand/collapse use) */
-/* --- THE PANEL CONTAINER --- */
+/* --- Sub Panel System (.sub-panel-trigger is rotation-only, in calculator.css) --- */
 .sub-panel {
-    width: 100%; 
+    width: 100%;
     background-color: var(--sub-panel-bg);
     border-top: 1px solid var(--overlay-w4);
-    display: none; 
+    display: none;
     padding: var(--space-4) var(--space-6) var(--space-5) var(--space-6);
     box-sizing: border-box;
-    /* Clean entrance animation */
     animation: slideDown 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-.sub-panel.is-open { 
-    display: block; 
+.sub-panel.is-open {
+    display: block;
 }
 
-@keyframes slideDown { 
-    from { opacity: 0; transform: translateY(-8px); } 
-    to { opacity: 1; transform: translateY(0); } 
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
-/* --- HEADER FORMATTING --- */
 .panel-header-main {
     color: var(--text-main);
     font-size: 0.85rem;
@@ -592,7 +525,6 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     gap: 10px;
 }
 
-/* Decorative line extending from title */
 .panel-header-tiny::after {
     content: "";
     flex-grow: 1;
@@ -600,17 +532,16 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     background: linear-gradient(to right, var(--overlay-w4), transparent);
 }
 
-/* --- CONTENT GRID & ITEMS --- */
-.panel-content-grid { 
-    display: grid; 
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); 
-    gap: var(--space-3); 
+.panel-content-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: var(--space-3);
 }
 
-.panel-info-item { 
-    background: var(--overlay-w1); 
-    padding: 10px 14px; 
-    border-radius: 6px; 
+.panel-info-item {
+    background: var(--overlay-w1);
+    padding: 10px 14px;
+    border-radius: 6px;
     border: 1px solid var(--overlay-w4);
     transition: border-color 0.2s;
 }
@@ -620,98 +551,97 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     background: var(--overlay-w2);
 }
 
-.panel-info-label { 
-    color: var(--text-dim); 
-    font-size: 0.65rem; 
+.panel-info-label {
+    color: var(--text-dim);
+    font-size: 0.65rem;
     text-transform: uppercase;
     font-weight: 600;
-    margin-bottom: var(--space-2); 
-    display: block; 
+    margin-bottom: var(--space-2);
+    display: block;
 }
 
-.panel-info-value { 
-    color: var(--text-main); 
-    font-weight: 700; 
-    font-family: 'JetBrains Mono', 'Roboto Mono', monospace; 
-    font-size: 0.95rem; 
+.panel-info-value {
+    color: var(--text-main);
+    font-weight: 700;
+    font-family: 'JetBrains Mono', 'Roboto Mono', monospace;
+    font-size: 0.95rem;
 }
 
-/* Special Highlighting */
 .panel-info-value.text-gold {
     color: var(--accent);
     text-shadow: 0 0 10px var(--accent-border);
 }
 
-/* Buff Cards */
+/* --- Buff Cards --- */
 .buff-provider-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: var(--space-6); 
-    flex: 1;       /* Take up remaining height below the header */
-    min-height: 0; /* Critical for scrolling flex children */
+    gap: var(--space-6);
+    flex: 1;
+    min-height: 0;
 }
 
 .buff-provider-col {
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
-    min-height: 0; /* Allows the column to shrink past content height */
+    min-height: 0;
 }
 
 .buff-provider-header {
     font-size: 0.75rem;
-    color: var(--text-main); /* Brighter text to anchor the column */
+    color: var(--text-main);
     text-transform: uppercase;
     font-weight: 800;
-    text-align: left; /* Aligned left to match the cards below it */
+    text-align: left;
     padding-bottom: var(--space-3);
-    border-bottom: 2px solid var(--overlay-w4); /* Thicker, cleaner underline */
+    border-bottom: 2px solid var(--overlay-w4);
     margin-bottom: var(--space-1);
     letter-spacing: 0.05rem;
 }
 
-.buff-list-container { 
-    display: flex; 
-    flex-direction: column; 
-    gap: var(--space-4); 
-    flex: 1;            /* Fill the column */
-    min-height: 0;      /* Prevents items from blowing out the height */
-    overflow-y: auto;   /* Enables the vertical scrollbar */
-    padding-right: var(--space-2); /* Adds breathing room so the scrollbar doesn't eat the text */
+.buff-list-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: var(--space-2);
 }
 
 .empty-buff-state {
     padding: var(--space-5);
     text-align: center;
     color: var(--text-dim);
-    background: transparent; /* Removed background to avoid muddying */
-    border: 1px dashed var(--overlay-w5); /* Stronger dashed line */
+    background: transparent;
+    border: 1px dashed var(--overlay-w5);
     border-radius: 6px;
     font-size: 0.85rem;
     opacity: 0.7;
 }
 
 .buff-card {
-    background: var(--overlay-w1); /* Brighter background */
-    border: 1px solid var(--overlay-w4); /* Crisper edge */
-    border-left: 3px solid var(--accent); 
-    border-radius: 6px; 
-    padding: 12px 14px; /* Slightly more internal padding */
-    box-shadow: 0 4px 6px var(--surface-card); /* Shadow to lift it off the page */
+    background: var(--overlay-w1);
+    border: 1px solid var(--overlay-w4);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 12px 14px;
+    box-shadow: 0 4px 6px var(--surface-card);
     transition: transform 0.1s, background 0.2s, box-shadow 0.2s;
 }
 
 .buff-card:hover {
     background: var(--overlay-w2);
-    transform: translateY(-2px); /* Lift up instead of right for a better tactile feel */
+    transform: translateY(-2px);
     box-shadow: 0 6px 12px var(--overlay-b3);
 }
 
-.buff-card-header { 
-    display: flex; 
-    justify-content: space-between; 
+.buff-card-header {
+    display: flex;
+    justify-content: space-between;
     align-items: center;
-    margin-bottom: var(--space-3); 
+    margin-bottom: var(--space-3);
 }
 
 .buff-source {
@@ -729,22 +659,22 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     color: var(--text-dim);
 }
 
-.buff-effect-row { 
-    display: flex; 
-    align-items: center; 
-    gap: var(--space-3); 
-    font-size: 0.8rem; 
-    margin-bottom: var(--space-2); 
+.buff-effect-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    font-size: 0.8rem;
+    margin-bottom: var(--space-2);
 }
 
 .buff-effect-row:last-child {
     margin-bottom: 0;
 }
 
-.buff-arrow { 
-    width: 14px; 
-    height: 14px; 
-    color: var(--accent); 
+.buff-arrow {
+    width: 14px;
+    height: 14px;
+    color: var(--accent);
     opacity: 0.7;
 }
 
@@ -753,17 +683,17 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     flex-grow: 1;
 }
 
-.buff-val-box { 
-    background: var(--overlay-b3); 
-    border: 1px solid var(--overlay-w4); 
-    padding: 2px 6px; 
-    border-radius: 4px; 
-    font-family: 'JetBrains Mono', 'Roboto Mono', monospace; 
+.buff-val-box {
+    background: var(--overlay-b3);
+    border: 1px solid var(--overlay-w4);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', 'Roboto Mono', monospace;
     font-weight: bold;
     color: var(--text-main);
 }
 
-/* --- MODAL (NEW) --- */
+/* --- Modal --- */
 .modal-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: var(--overlay-b6); z-index: 1000;
@@ -782,9 +712,6 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 .modal-close-x:hover { color: var(--text-main); }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: var(--space-6); }
 
-/* A modal that needs its own text inputs (e.g. ExportResultsDialog) -- unscoped, unlike the
-   Mechanics Builder's near-identical .form-group/.form-label/.form-input (builder.css), since a
-   modal can be opened from any page, not just the builder. */
 .modal-field { margin-top: var(--space-4); }
 .modal-field-label {
     display: block;
@@ -821,43 +748,34 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
    8. CALCULATION STATES
    ========================================= */
 
-/* Warning Label (Styled like the Warning Strip) -- shared by the Rotation Calculator's
-   "STATS CHANGED" and the Mechanics Builder's "MECHANICS CHANGED". Its rotation-only sibling
-   .calc-loading-msg, plus row-status-icon/status-strip/loop-tag/damage-accordion/drag-and-drop
-   pieces that used to live in this section, all moved to calculator.css. */
+/* Shared by the Rotation Calculator's "STATS CHANGED" and Builder's "MECHANICS CHANGED" strips. */
 .calc-warning-msg {
-    /* Layout */
-    display: none; /* Hidden by default */
+    display: none;
     align-items: center;
-    justify-content: flex-end; /* Use flex alignment instead of text-align */
-    width: auto;               /* Allow box to stretch */
-    white-space: nowrap;       /* Force text to one line */
+    justify-content: flex-end;
+    width: auto;
+    white-space: nowrap;
     height: 100%;
-    
-    /* Visuals (Match .is-warning-strip) */
+
     background-color: var(--warning-tint);
     color: var(--warning);
     border-left: 3px solid var(--warning);
     border-right: 3px solid var(--warning);
     padding: var(--space-1) var(--space-4);
     border-radius: 0 4px 4px 0;
-    
-    /* Text */
+
     font-size: 0.75rem;
     font-weight: bold;
     font-family: monospace;
     text-transform: uppercase;
 }
 
-/* Ensure the SVG matches the text color and size */
 .calc-warning-msg svg {
     width: 16px;
     height: 16px;
     display: block;
     stroke: currentColor;
     stroke-width: 2;
-    /* The "!" dot is drawn as a near-zero-length <line> -- without round caps it has no
-       length to render at all, so the mark reads as an incomplete "!" (just the stem). */
     stroke-linecap: round;
     stroke-linejoin: round;
     fill: none;
