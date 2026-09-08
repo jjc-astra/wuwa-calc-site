@@ -97,30 +97,6 @@ export const BaseStatsForm: React.FC = () => {
         {isChar && (
           <div className="base-stats-mode-panel">
             {makeCheckbox('isDualMode', 'Dual Mode')}
-            {!!baseStats.isDualMode && (
-              <>
-                <div className="form-group">
-                  <label className="form-label">Mode 1 Name</label>
-                  <input
-                    type="text"
-                    className="form-input text-xs"
-                    value={baseStats.mode1Name || ''}
-                    placeholder="e.g. Strain"
-                    onChange={e => setBaseStat('mode1Name', e.target.value)}
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Mode 2 Name</label>
-                  <input
-                    type="text"
-                    className="form-input text-xs"
-                    value={baseStats.mode2Name || ''}
-                    placeholder="e.g. Rupture"
-                    onChange={e => setBaseStat('mode2Name', e.target.value)}
-                  />
-                </div>
-              </>
-            )}
           </div>
         )}
       </div>
@@ -135,6 +111,12 @@ export const BaseStatsForm: React.FC = () => {
                   {makeInput('weaponType', 'Weapon Type')}
                   {makeInput('element', 'Element')}
                   {makeInput('rarity', 'Rarity', 5)}
+                  {!!baseStats.isDualMode && (
+                    <>
+                      {makeInput('mode1Name', 'Mode 1 Name', '', 'e.g. Strain')}
+                      {makeInput('mode2Name', 'Mode 2 Name', '', 'e.g. Rupture')}
+                    </>
+                  )}
                 </>
               ))}
 
