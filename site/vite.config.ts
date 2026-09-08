@@ -2,10 +2,9 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
-export default defineConfig(({ command }) => ({
-  // Project page (github.io/wuwa-calc-site/), not a user/org root page -- must match the repo
-  // name exactly. Only needed for the production build; the dev server stays at the root so
-  // localhost URLs don't change.
-  base: command === 'build' ? '/wuwa-calc-site/' : '/',
+export default defineConfig({
+  // Served from wuwacalc.com's root via the custom domain, not the github.io/wuwa-calc-site/
+  // subpath, so assets resolve from '/' for both dev and production builds.
+  base: '/',
   plugins: [react()],
-}))
+})
