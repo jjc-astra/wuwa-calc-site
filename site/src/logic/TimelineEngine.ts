@@ -155,6 +155,20 @@ export class TimelineEngineClass {
         currentData.waitTime = finalWaitTime;
       }
 
+      // The previous row's gauges should read as "what's available right before this next
+      // action starts" rather than "whatever landed within the previous row's own truncated
+      // duration" -- otherwise a gauge can look short of a requirement that the timeline is
+      // about to (via the wait above) actually satisfy, with nothing on screen explaining why.
+      // Safe to backfill prevData here: its own dicts were already cloned into currentData by
+      // _applyInheritance above, and nothing later re-reads prevData's resource pools.
+      if (i > 0) {
+        prevData.energy = { ...currentData.energy };
+        prevData.concerto = { ...currentData.concerto };
+        for (let k = 1; k <= 6; k++) prevData[`forte${k}`] = { ...currentData[`forte${k}`] };
+        prevData.enemyTune = currentData.enemyTune;
+        prevData.enemyMaxTune = currentData.enemyMaxTune;
+      }
+
       if (dbMove.inputType === 'Release' && currentData.trackers && currentData.trackers.Hold_Start !== undefined && currentData.trackers.Hold_Unit === currentData.unit) {
         const holdStart = currentData.trackers.Hold_Start;
         const config = dbMove.holdConfig || {};
