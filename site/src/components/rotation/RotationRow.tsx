@@ -282,23 +282,17 @@ export const RotationRow: React.FC<RotationRowProps> = ({
     { val: 'Full', label: 'Full', title: 'Full Duration' }
   ];
 
-  const hasError = !!row.errorMsg;
-  const hasWarning = !!row.warningMsg;
+  const rowErrors: string[] = row.errorMsgs || [];
+  const rowWarnings: string[] = row.warningMsgs || [];
+  const hasError = rowErrors.length > 0;
+  const hasWarning = rowWarnings.length > 0;
 
-  // Every error/warning analyzeLoop found across the loop's second rep, so the tag's tooltip
-  // gives the full picture instead of hiding all but one issue behind repeated hover-fix cycles.
+  // Every error/warning analyzeLoop found across the loop's second rep -- each gets its own
+  // panel below the tag instead of collapsing into a truncated "(+N more)" label.
   const loopIssues = [
     ...(loopErrors || []).map(text => ({ text, isError: true })),
     ...(loopWarnings || []).map(text => ({ text, isError: false }))
   ];
-  const loopTagMsg = loopIssues.length > 0
-    ? `${loopIssues[0].text}${loopIssues.length > 1 ? ` (+${loopIssues.length - 1} more)` : ''}`
-    : null;
-  const loopTagTooltip = loopIssues.length > 0
-    ? loopIssues.map(({ text, isError }) =>
-        `<div style="color:${isError ? 'var(--danger-text)' : 'var(--warning)'}">${isError ? '✕' : '⚠'} ${text}</div>`
-      ).join('')
-    : '<div>Loop begins here — drag to move</div>';
 
   let dragClass = '';
   if (dragOverPosition === 'top') dragClass = 'drag-over-top';
@@ -352,37 +346,46 @@ export const RotationRow: React.FC<RotationRowProps> = ({
       )}
 
       {isLoopStart && (
-        <div
-          className={`loop-start-tag ${loopIssues.some(i => i.isError) ? 'loop-tag-error' : loopIssues.length > 0 ? 'loop-tag-warning' : ''}`}
-          draggable
-          onDragStart={onLoopMarkerDragStart}
-          onDragEnd={onLoopMarkerDragEnd}
-          onMouseEnter={e => TooltipManager.show(e.currentTarget, loopTagTooltip)}
-          onMouseLeave={() => TooltipManager.hide()}
-        >
-          <span className="loop-tag-icon">⟳</span>
-          <span className="loop-tag-label">LOOP START</span>
-          {loopTagMsg && <span className="loop-tag-msg">{loopTagMsg}</span>}
-          {isLoopStartOverride && (
-            <button
-              className="loop-tag-reset"
-              onClick={e => { e.stopPropagation(); onResetLoopStart?.(); }}
-              onMouseEnter={e => { e.stopPropagation(); TooltipManager.show(e.currentTarget, '<div>Reset to auto-detected position</div>'); }}
-              onMouseLeave={() => TooltipManager.hide()}
-            >
-              ↺
-            </button>
-          )}
-        </div>
+        <>
+          <div
+            className="loop-start-tag"
+            draggable
+            onDragStart={onLoopMarkerDragStart}
+            onDragEnd={onLoopMarkerDragEnd}
+            onMouseEnter={e => { if (loopIssues.length === 0) TooltipManager.show(e.currentTarget, '<div>Loop begins here — drag to move</div>'); }}
+            onMouseLeave={() => TooltipManager.hide()}
+          >
+            <span className="loop-tag-icon">⟳</span>
+            <span className="loop-tag-label">LOOP START</span>
+            {isLoopStartOverride && (
+              <button
+                className="loop-tag-reset"
+                onClick={e => { e.stopPropagation(); onResetLoopStart?.(); }}
+                onMouseEnter={e => { e.stopPropagation(); TooltipManager.show(e.currentTarget, '<div>Reset to auto-detected position</div>'); }}
+                onMouseLeave={() => TooltipManager.hide()}
+              >
+                ↺
+              </button>
+            )}
+          </div>
+          {loopIssues.map(({ text, isError }, i) => (
+            <div key={i} className={`loop-issue-strip ${isError ? 'is-error-strip' : 'is-warning-strip'}`}>
+              {isError ? '✕' : '⚠'} {text}
+            </div>
+          ))}
+        </>
       )}
       <div className="row-grid-layer">
         {/* Index & Checkbox Cell */}
         <div
           className={`index-cell ${hasError ? 'is-error' : hasWarning ? 'is-warning' : ''}`}
           onMouseEnter={e => {
-            const msg = row.errorMsg || row.warningMsg;
-            if (!msg) return;
-            TooltipManager.show(e.currentTarget, `<span class="${hasError ? 'text-red' : 'text-gold'} text-bold">${msg}</span>`);
+            if (rowErrors.length === 0 && rowWarnings.length === 0) return;
+            const html = [
+              ...rowErrors.map(msg => `<div class="text-red text-bold">${msg}</div>`),
+              ...rowWarnings.map(msg => `<div class="text-gold text-bold">${msg}</div>`)
+            ].join('');
+            TooltipManager.show(e.currentTarget, html);
           }}
           onMouseLeave={() => TooltipManager.hide()}
         >
@@ -532,13 +535,13 @@ export const RotationRow: React.FC<RotationRowProps> = ({
         </div>
       )}
 
-      {/* Error / Warning Strip */}
-      {row.errorMsg && (
-        <div className="status-msg-strip is-error-strip">{row.errorMsg}</div>
-      )}
-      {!row.errorMsg && row.warningMsg && (
-        <div className="status-msg-strip is-warning-strip">{row.warningMsg}</div>
-      )}
+      {/* Error / Warning Strips -- one panel per message, not just the first */}
+      {rowErrors.map((msg, i) => (
+        <div key={`err-${i}`} className="status-msg-strip is-error-strip">{msg}</div>
+      ))}
+      {rowWarnings.map((msg, i) => (
+        <div key={`warn-${i}`} className="status-msg-strip is-warning-strip">{msg}</div>
+      ))}
 
       {/* Sub Panel Container */}
       {activeTrigger && (

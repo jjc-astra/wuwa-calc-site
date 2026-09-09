@@ -838,24 +838,17 @@
     letter-spacing: 0.02rem;
 }
 .loop-start-tag:active { cursor: grabbing; }
-.loop-start-tag.loop-tag-error {
-    color: var(--danger-text);
-    background: var(--danger-tint);
-    border-color: var(--danger-tint-border);
-}
-.loop-start-tag.loop-tag-warning {
-    color: var(--warning);
-    background: var(--warning-tint);
-    border-color: var(--warning-tint-border);
-}
 .loop-tag-icon { flex-shrink: 0; }
 .loop-tag-label { flex-shrink: 0; }
-.loop-tag-msg {
-    color: var(--text-dim);
-    font-weight: normal;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+
+/* One panel per loop issue -- reuses .is-error-strip/.is-warning-strip (STATUS MESSAGE STRIP,
+   above) for color, just with its own compact layout instead of the row strip's icon-column
+   indent. Flush against the tag and each other -- no border between them -- so the tag and its
+   issue panels read as one continuous block. */
+.loop-issue-strip {
+    padding: 4px 10px;
+    font-size: 0.7rem;
+    font-weight: 600;
 }
 .loop-tag-reset {
     margin-left: auto;

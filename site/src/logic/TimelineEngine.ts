@@ -386,10 +386,10 @@ export class TimelineEngineClass {
 
       this._runValidation(currentData, prevData, team, dbMove);
 
-      if (currentData.warningMsg || currentData.errorMsg) {
+      if (currentData.warningMsgs.length > 0 || currentData.errorMsgs.length > 0) {
         console.warn(`[TimelineEngine] Row #${i + 1} (${currentData.unit} - ${currentData.action}):`, {
-          error: currentData.errorMsg,
-          warning: currentData.warningMsg,
+          errors: currentData.errorMsgs,
+          warnings: currentData.warningMsgs,
           prevAction: currentData.unitCombos?.[currentData.unit]?.action,
           prevUnit: prevData?.unit
         });
@@ -515,19 +515,19 @@ export class TimelineEngineClass {
       const row = extendedResult[i];
       const moveName = row.moveName || row.action;
 
-      if (row.errorMsg) {
-        errors.push(`${moveName}: ${row.errorMsg}`);
-        continue;
-      }
-      // A cooldown-blocked move fails its trigger rule too, but it's just a wait, not illegal --
-      // check cdWaitTime first so it's never promoted to the error case below.
+      (row.errorMsgs || []).forEach((msg: string) => errors.push(`${moveName}: ${msg}`));
+
+      // A cooldown-blocked move fails its trigger rule too, but it's just a wait, not illegal.
       if (row.cdWaitTime > 3) {
         warnings.push(`${moveName} needs ${formatFramesAsSeconds(row.cdWaitTime)} more (on cooldown).`);
-      } else if (row.warningMsg && /^Combo requirement not met/.test(row.warningMsg)) {
-        errors.push(`${moveName}: ${row.warningMsg}`);
-      } else if (row.warningMsg && /out of the required .* (Resonance Energy|Forte \d+|Tune)/.test(row.warningMsg)) {
-        warnings.push(`${moveName}: ${row.warningMsg}`);
       }
+      (row.warningMsgs || []).forEach((msg: string) => {
+        if (/^Combo requirement not met/.test(msg)) {
+          errors.push(`${moveName}: ${msg}`);
+        } else if (/out of the required .* (Resonance Energy|Forte \d+|Tune)/.test(msg)) {
+          warnings.push(`${moveName}: ${msg}`);
+        }
+      });
     }
 
     return { errors, warnings };
@@ -1376,8 +1376,10 @@ export class TimelineEngineClass {
   }
 
   _runValidation(currentData: any, prevData: any, team: any[], dbMove: MechanicNode): void {
-    currentData.errorMsg = null;
-    currentData.warningMsg = null;
+    const errors: string[] = [];
+    const warnings: string[] = [];
+    currentData.errorMsgs = errors;
+    currentData.warningMsgs = warnings;
     const moveData = dbMove;
     const moveName = moveData.name || currentData.action;
     const castRes: Record<string, any> = moveData.castResources || (moveData as any).resources || {};
@@ -1401,8 +1403,8 @@ export class TimelineEngineClass {
     const validateRes = (key: string, myVal: number, label: string) => {
       const req = (costs[key] || 0) + (castRes[key] < 0 ? Math.abs(castRes[key]) : 0);
       if (req > 0 && myVal < req) {
-        if (key === 'energy') currentData.warningMsg = buildEnergyShortfallMsg(myVal, req);
-        else currentData.errorMsg = `Not enough ${label} (Needs ${req}).`;
+        if (key === 'energy') warnings.push(buildEnergyShortfallMsg(myVal, req));
+        else errors.push(`Not enough ${label} (Needs ${req}).`);
       }
     };
 
@@ -1413,15 +1415,23 @@ export class TimelineEngineClass {
       validateRes(`forte${i}`, currentData[`forte${i}`]?.[currentData.unit] || 0, `Forte ${i}`);
     }
 
+    // Surfaces a cooldown wait directly, even for moves with no trigger rule -- independent of
+    // any resource shortfall above, so both can show at once (e.g. an ER warning and a
+    // cooldown warning on the same Liberation cast).
+    if (currentData.cdWaitTime > 3) {
+      warnings.push(`${moveName} needs ${formatFramesAsSeconds(currentData.cdWaitTime)} more (on cooldown).`);
+    }
+
     if (moveData.triggerRule && !moveData.isPassive) {
       if (!moveData._compiledRule || typeof moveData._compiledRule.evaluate !== 'function') {
         moveData._compiledRule = DSLParser.compile(moveData.triggerRule);
       }
       if (moveData._compiledRule && typeof moveData._compiledRule.evaluate === 'function') {
         const ctx = ContextManager.buildContext(currentData, currentData.unit, team);
-        // Only used when validateRes above found no more specific shortfall to report.
-        if (!moveData._compiledRule.evaluate(ctx, currentData.unit) && !currentData.warningMsg) {
-          currentData.warningMsg = `Combo requirement not met for ${moveName}.`;
+        // Only surfaced when nothing more specific (a shortfall or the cooldown wait above)
+        // already explains why the trigger rule failed.
+        if (!moveData._compiledRule.evaluate(ctx, currentData.unit) && errors.length === 0 && warnings.length === 0) {
+          warnings.push(`Combo requirement not met for ${moveName}.`);
         }
       }
     }
@@ -1429,32 +1439,26 @@ export class TimelineEngineClass {
     if (moveData.stanceReq && moveData.stanceReq !== 'Any') {
       const actualStance = prevData.stance || 'Grounded';
       if (currentData.unit === prevData.unit && actualStance !== moveData.stanceReq) {
-        currentData.warningMsg = (currentData.warningMsg ? currentData.warningMsg + ' | ' : '') + `Stance mismatch: Requires ${moveData.stanceReq}, but character is ${actualStance}.`;
+        warnings.push(`Stance mismatch: Requires ${moveData.stanceReq}, but character is ${actualStance}.`);
       }
-    }
-
-    // Surfaces a cooldown wait directly, even for moves with no trigger rule. Leaves a more
-    // specific validateRes shortfall message alone.
-    if (currentData.cdWaitTime > 3 && (!currentData.warningMsg || /^Combo requirement not met/.test(currentData.warningMsg))) {
-      currentData.warningMsg = `${moveName} needs ${formatFramesAsSeconds(currentData.cdWaitTime)} more (on cooldown).`;
     }
 
     const prevWasOutro = prevData.castTypes && prevData.castTypes.includes('Outro');
     const currIsOutro = currentData.castTypes && currentData.castTypes.includes('Outro');
     if (prevWasOutro && currentData.unit === prevData.unit) {
-      currentData.errorMsg = 'The next move after an outro must be on a different unit.';
+      errors.push('The next move after an outro must be on a different unit.');
     }
     if (prevData.timing === 'Swap' && !currIsOutro && currentData.unit === prevData.unit) {
-      currentData.errorMsg = 'The next move after a swap timing must be an Outro or different unit.';
+      errors.push('The next move after a swap timing must be an Outro or different unit.');
     }
     if (prevData.unit && currentData.unit !== prevData.unit) {
       const isIntro = currentData.castTypes && currentData.castTypes.includes('Intro');
       const myCombo = prevData.unitCombos?.[currentData.unit];
       const isSwapback = myCombo && currentData.gameTimeStart <= myCombo.expiration;
       if (prevWasOutro) {
-        if (!isIntro) currentData.errorMsg = 'Must use an Intro skill immediately after an Outro.';
+        if (!isIntro) errors.push('Must use an Intro skill immediately after an Outro.');
       } else {
-        if (isIntro) currentData.errorMsg = 'Intro skills can only be used immediately after an Outro.';
+        if (isIntro) errors.push('Intro skills can only be used immediately after an Outro.');
         else if (!isSwapback) {
           const expectedSwapIns: string[] = [];
           Object.values(DataLoader.mechanicsDB).filter(m => m.provider === currentData.unit && m.isSwapInDefault).forEach(m => {
@@ -1466,7 +1470,7 @@ export class TimelineEngineClass {
             if (isValid) expectedSwapIns.push(m.name);
           });
           if (expectedSwapIns.length > 0 && !moveData.isSwapInDefault) {
-            currentData.errorMsg = `Standard swap-in expected. Must use: ${expectedSwapIns.join(' or ')}.`;
+            errors.push(`Standard swap-in expected. Must use: ${expectedSwapIns.join(' or ')}.`);
           }
         }
       }
