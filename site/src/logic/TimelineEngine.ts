@@ -1301,11 +1301,12 @@ export class TimelineEngineClass {
     const castRes: Record<string, any> = moveData.castResources || (moveData as any).resources || {};
     const costs: Record<string, any> = (moveData as any).cost || {};
 
-    const buildShortfallMsg = (label: string, myVal: number, req: number, isEnergy: boolean) => {
-      const base = `${currentData.unit} has ${myVal.toFixed(1)} out of the required ${req} ${label}`;
-      if (!isEnergy || myVal <= 0) return `${base}.`;
-      // Backs out the ER% that would have closed the gap by now, as an "aim for this much ER"
-      // hint. No equivalent rate exists for Concerto/Forte/Tune, so they skip this suffix.
+    // Energy is the only resource whose shortfall stays a warning (the rotation can still limp
+    // forward on low energy); Concerto/Tune/Forte shortfalls are errors -- see validateRes.
+    const buildEnergyShortfallMsg = (myVal: number, req: number) => {
+      const base = `${currentData.unit} has ${myVal.toFixed(1)} out of the required ${req} Resonance Energy`;
+      if (myVal <= 0) return `${base}.`;
+      // Backs out the ER% that would have closed the gap by now, as an "aim for this much ER" hint.
       const validBuffs = Object.values(currentData.activeBuffs || {}).filter((b: any) =>
         b.target === currentData.unit || b.target === '@Team' || b.target === 'Active'
       );
@@ -1318,8 +1319,8 @@ export class TimelineEngineClass {
     const validateRes = (key: string, myVal: number, label: string) => {
       const req = (costs[key] || 0) + (castRes[key] < 0 ? Math.abs(castRes[key]) : 0);
       if (req > 0 && myVal < req) {
-        if (key === 'concerto') currentData.errorMsg = `Not enough Concerto (Needs ${req}).`;
-        else currentData.warningMsg = buildShortfallMsg(label, myVal, req, key === 'energy');
+        if (key === 'energy') currentData.warningMsg = buildEnergyShortfallMsg(myVal, req);
+        else currentData.errorMsg = `Not enough ${label} (Needs ${req}).`;
       }
     };
 
