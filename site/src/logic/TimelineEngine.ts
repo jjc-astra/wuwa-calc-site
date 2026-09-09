@@ -146,6 +146,15 @@ export class TimelineEngineClass {
       currentData.cdWaitTime = wCD;
       this._applyDecay(currentData, toFrames(finalWaitTime), toFrames(finalWaitTime), i > 0, activeTeam, activeRows, team);
 
+      // If this move would still error on a resource (Concerto/Tune/Forte -- Energy stays a
+      // warning, never worth forcing a wait over) because its own generation is sitting
+      // undrained in the queue, wait for it -- same mechanism as wCD/wBusy above.
+      const { waitFrames: resourceWaitFrames, label: resourceWaitLabel } = this._computeResourceWait(currentData, dbMove, team, activeTeam, activeRows);
+      if (resourceWaitFrames > 0) {
+        finalWaitTime += resourceWaitFrames;
+        currentData.waitTime = finalWaitTime;
+      }
+
       if (dbMove.inputType === 'Release' && currentData.trackers && currentData.trackers.Hold_Start !== undefined && currentData.trackers.Hold_Unit === currentData.unit) {
         const holdStart = currentData.trackers.Hold_Start;
         const config = dbMove.holdConfig || {};
@@ -257,6 +266,7 @@ export class TimelineEngineClass {
       const reasons: any[] = [];
       if (wCD > 0) reasons.push({ label: 'Waiting for Skill CD', valueFrames: wCD });
       if (wBusy > 0) reasons.push({ label: 'Off-Field Animation Lock', valueFrames: toFrames(wBusy) });
+      if (resourceWaitFrames > 0) reasons.push({ label: resourceWaitLabel || 'Waiting for Resource', valueFrames: toFrames(resourceWaitFrames) });
       if (baseActDur > 0) reasons.push({ label: 'Base Action Duration', valueFrames: toFrames(baseActDur) });
       else reasons.push({ label: 'Instant Cast', valueFrames: toFrames(0) });
 
@@ -921,6 +931,64 @@ export class TimelineEngineClass {
       this._processGameTimeDecay(currentData, gameTimePassed, activeTeam, activeRows, team);
       this.currentGlobalGameTime += gameTimePassed;
     }
+  }
+
+  // Auto (or any other) timing can leave the row about to run short on a resource it needs --
+  // e.g. an Outro right after a Swap whose own hits haven't landed yet -- purely because that
+  // generation is still sitting undrained in the queue. A static prediction can't be trusted
+  // here (passives/OnHit-chained resource grants aren't visible ahead of time -- see git
+  // history), so this actually drains the queue hit-by-hit via the real _decayState, exactly
+  // like a cooldown wait, stopping the moment the shortfall resolves or the queue can no longer
+  // help. Energy is excluded: its shortfall stays a warning, never worth forcing a wait over.
+  _computeResourceWait(currentData: any, dbMove: MechanicNode, team: any[], activeTeam: string[], activeRows: any[]): { waitFrames: number; label: string | null } {
+    const unit = currentData.unit;
+    if (!unit) return { waitFrames: 0, label: null };
+
+    const costs: Record<string, any> = (dbMove as any).cost || {};
+    const castRes: Record<string, any> = dbMove.castResources || (dbMove as any).resources || {};
+    const reqFor = (key: string): number => (costs[key] || 0) + (castRes[key] < 0 ? Math.abs(castRes[key]) : 0);
+    const currentValue = (key: string): number => key === 'tune' ? (currentData.enemyTune || 0) : (currentData[key]?.[unit] || 0);
+
+    const trackedKeys: Array<{ key: string; label: string }> = [
+      { key: 'concerto', label: 'Concerto' },
+      { key: 'tune', label: 'Tune' },
+      { key: 'forte1', label: 'Forte 1' }, { key: 'forte2', label: 'Forte 2' }, { key: 'forte3', label: 'Forte 3' },
+      { key: 'forte4', label: 'Forte 4' }, { key: 'forte5', label: 'Forte 5' }, { key: 'forte6', label: 'Forte 6' }
+    ];
+
+    let shortKeys = trackedKeys.filter(k => reqFor(k.key) > 0 && currentValue(k.key) < reqFor(k.key));
+    if (shortKeys.length === 0) return { waitFrames: 0, label: null };
+
+    let waitFrames = 0;
+    const resolvedLabels: string[] = [];
+    let guard = 0;
+
+    while (shortKeys.length > 0 && guard++ < 1000) {
+      let target: QueuedHit | null = null;
+      for (const hit of this.damageQueue) {
+        const limit = hit.isProc ? (hit.originMoveData.allowedHits !== undefined ? hit.originMoveData.allowedHits : Infinity) : hit.originRow.allowedHits;
+        if (hit.hitIndex >= limit) continue;
+        const hitRes = hit.originMoveData.hitResources;
+        if (!hitRes) continue;
+        const isRelevant = shortKeys.some(k => {
+          if (k.key !== 'tune' && hit.provider !== unit) return false;
+          const arr = hitRes[k.key];
+          return Array.isArray(arr) && arr.length > hit.hitIndex && (parseFloat(String(arr[hit.hitIndex])) || 0) !== 0;
+        });
+        if (isRelevant) { target = hit; break; }
+      }
+      if (!target) break;
+
+      const delta = Math.max(0, target.executeAt - this.currentGlobalRealTime);
+      this._decayState(currentData, toFrames(delta), toFrames(delta), activeTeam, activeRows, team);
+      waitFrames += delta;
+
+      const stillShort = shortKeys.filter(k => currentValue(k.key) < reqFor(k.key));
+      shortKeys.filter(k => !stillShort.includes(k)).forEach(k => resolvedLabels.push(k.label));
+      shortKeys = stillShort;
+    }
+
+    return { waitFrames, label: resolvedLabels.length > 0 ? `Waiting for ${resolvedLabels.join(' / ')}` : null };
   }
 
   _processQueuedHits(currentData: any, realTimePassed: Frames, activeTeam: string[], activeRows: any[], team: any[]): void {
