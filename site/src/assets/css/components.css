@@ -56,6 +56,12 @@ html, body {
     gap: 24px;
 }
 
+.global-nav-header .header-right {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+}
+
 /* --- Brand / Home link --- */
 .nav-brand {
     display: flex;
@@ -93,6 +99,7 @@ html, body {
     font-size: 0.8rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    text-decoration: none;
     cursor: pointer;
     transition: 0.2s;
 }
@@ -144,6 +151,10 @@ html, body {
 .text-xs     { font-size: 0.7rem; }
 .text-dim    { color: var(--text-dim); }
 .text-gold   { color: var(--accent); }
+
+.brand-discord { color: #5865f2; }
+.brand-patreon { color: #ff424d; }
+.brand-kofi    { color: #72a5f2; }
 
 .coming-soon-badge {
     display: inline-block;

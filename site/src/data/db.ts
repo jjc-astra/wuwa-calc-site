@@ -12,6 +12,17 @@ export const IMAGE_FOLDERS = {
 
 export type ImageFolder = typeof IMAGE_FOLDERS[keyof typeof IMAGE_FOLDERS];
 
+export const SITE_FEATURES = {
+  SHOW_DISCORD_BUTTON: false,
+  SHOW_SUPPORT_BUTTON: false
+};
+
+export const SITE_LINKS = {
+  DISCORD_INVITE_URL: 'https://discord.gg/REPLACE_ME',
+  PATREON_URL: 'https://patreon.com/REPLACE_ME',
+  KOFI_URL: 'https://ko-fi.com/REPLACE_ME'
+};
+
 export const MECHANICS_NOTATION = {
   HOLD_DEFAULTS: {
     CURSOR_SPEED: 100,

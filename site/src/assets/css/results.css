@@ -254,6 +254,7 @@
     box-shadow: 0 4px 12px var(--overlay-b4);
     z-index: 100; min-width: 170px; overflow-y: auto;
 }
+.pin-menu-narrow { min-width: 120px; }
 .pin-menu-item {
     display: flex; justify-content: space-between; align-items: center; gap: var(--space-3);
     width: 100%; text-align: left; padding: var(--space-3) var(--space-4); background: none; border: none;
