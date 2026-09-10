@@ -194,6 +194,55 @@
 .code-highlighted { background-color: rgba(220, 165, 76, 0.25); transition: background-color 0.1s ease; }
 .code-field-highlighted { box-shadow: inset 0 0 0 9999px rgba(220, 165, 76, 0.25); }
 
+/* --- Editable output (click a block to edit its raw JSON; live-applies to the Builder's
+   nodes/base stats as you type). Editing keeps syntax coloring via the classic transparent-
+   textarea-over-a-highlighted-backdrop trick: the backdrop <pre> renders the same syntax-
+   highlighted HTML as the read-only view (re-highlighted live from the draft text), the
+   textarea sits exactly on top with transparent text/background so only its caret and
+   selection are visible, and font/padding/line-height are identical on both (line-height/
+   font inherited from the wrapper's own .code-editor rules) so characters line up exactly. */
+.code-blocks { flex: 1; display: flex; flex-direction: column; gap: var(--space-3); min-height: 0; }
+.code-block-char { flex: 0 0 auto; display: flex; flex-direction: column; max-height: 220px; }
+.code-block-mech { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.code-block-section .code-editor { cursor: text; }
+.code-editor-editing {
+    position: relative;
+    overflow: hidden;
+    padding: 0;
+    border-color: var(--accent, #dca54c);
+}
+.code-editor-editing.has-error { border-color: #e05252; }
+.code-edit-backdrop,
+.code-edit-input {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 15px;
+    border: none;
+    background: transparent;
+    font: inherit;
+    line-height: inherit;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+.code-edit-backdrop {
+    overflow: hidden;
+    pointer-events: none;
+    color: inherit;
+}
+.code-edit-input {
+    width: 100%;
+    height: 100%;
+    resize: none;
+    outline: none;
+    overflow: auto;
+    color: transparent;
+    caret-color: #f0f0f0;
+}
+.code-editor-editing.has-error .code-edit-input { caret-color: #e05252; }
+.code-edit-input::selection { background: rgba(220, 165, 76, 0.35); color: transparent; }
+.code-error-msg { color: #e05252; font-size: 0.75rem; padding: 4px 2px 0; }
+
 .syntax-key { color: #9cdcfe; }
 .syntax-string { color: #ce9178; }
 .syntax-number { color: #b5cea8; }
