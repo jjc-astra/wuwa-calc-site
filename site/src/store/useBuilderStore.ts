@@ -130,6 +130,8 @@ export const useBuilderStore = create<BuilderState>()(
         set(state => {
           if (!state.activeChar) return { baseStats: { ...state.baseStats, [key]: value } };
           const nextBaseStats = { ...state.baseStats, [key]: value };
+          const target = DataLoader.characterDB[state.activeChar] || DataLoader.weaponDB[state.activeChar];
+          if (target) Object.assign(target, nextBaseStats);
           return {
             baseStats: nextBaseStats,
             editedBaseStats: { ...state.editedBaseStats, [state.activeChar]: nextBaseStats }
@@ -140,6 +142,8 @@ export const useBuilderStore = create<BuilderState>()(
       setAllBaseStats: stats => {
         set(state => {
           if (!state.activeChar) return { baseStats: stats };
+          const target = DataLoader.characterDB[state.activeChar] || DataLoader.weaponDB[state.activeChar];
+          if (target) Object.assign(target, stats);
           return {
             baseStats: stats,
             editedBaseStats: { ...state.editedBaseStats, [state.activeChar]: stats }
@@ -212,6 +216,9 @@ export const useBuilderStore = create<BuilderState>()(
 
       discardChanges: itemName => {
         const prefix = nodeIdPrefix(itemName);
+        const hadBaseStatEdit = !!get().editedBaseStats[itemName];
+        const isActive = get().activeChar === itemName;
+        const isWeapon = !!DataLoader.weaponDB[itemName];
         set(state => {
           const nextEditedBaseStats = { ...state.editedBaseStats };
           delete nextEditedBaseStats[itemName];
@@ -219,7 +226,6 @@ export const useBuilderStore = create<BuilderState>()(
             Object.entries(state.editedMechanics).filter(([id]) => !id.startsWith(prefix))
           );
           const nextDeletedMechanicIds = state.deletedMechanicIds.filter(id => !id.startsWith(prefix));
-          const isActive = state.activeChar === itemName;
           return {
             editedBaseStats: nextEditedBaseStats,
             editedMechanics: nextEditedMechanics,
@@ -227,6 +233,20 @@ export const useBuilderStore = create<BuilderState>()(
             ...(isActive ? { baseStats: {}, mechanics: {} } : {})
           };
         });
+        // setBaseStat/setAllBaseStats write straight onto the live DataLoader entry (see
+        // comment there) -- undo that here too, or a discarded edit keeps showing up outside
+        // the Builder (e.g. Gauge.tsx's forte-dial count) until a full page reload. Only the
+        // active entity's DataLoader entry can carry a live edit in the first place.
+        if (hadBaseStatEdit && isActive) {
+          DataLoader.loadMergedDB<Record<string, any>>(isWeapon ? 'db_weapons.json' : 'db_characters.json').then(fresh => {
+            const pristine = fresh[itemName];
+            const target = DataLoader.characterDB[itemName] || DataLoader.weaponDB[itemName];
+            if (!pristine || !target) return;
+            Object.keys(target).forEach(k => delete (target as any)[k]);
+            Object.assign(target, pristine);
+            if (get().activeChar === itemName) set({ baseStats: { ...pristine } });
+          });
+        }
       },
 
       getTeamOverrides: itemNames => {
