@@ -41,8 +41,13 @@ export const TeamBuilder: React.FC<TeamBuilderProps> = ({ isOpen, onToggle }) =>
     reader.onload = async (ev) => {
       try {
         const data = JSON.parse(ev.target?.result as string);
-        if (Array.isArray(data)) {
-          await importTeam(data);
+        // Accepts a plain team export (array) or a rotation export (team nested under .team).
+        const teamData = Array.isArray(data) ? data : Array.isArray(data?.team) ? data.team : null;
+        if (teamData) {
+          await importTeam(teamData);
+          if (!isOpen) onToggle();
+        } else {
+          alert('No team data found in this file.');
         }
       } catch (err) {
         console.error('[TeamBuilder] Error importing team:', err);
