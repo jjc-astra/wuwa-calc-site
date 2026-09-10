@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Local WIP mirror of the wuwa-calc-data repo (dev-only -- see utils/Common.ts's WIP_BASE_URL
+# and DataLoader.ts's loadJSON/loadMergedDB). Never committed; test data stays local.
+public/wip-data
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

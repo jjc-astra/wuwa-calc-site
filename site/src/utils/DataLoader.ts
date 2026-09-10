@@ -1,4 +1,4 @@
-import { CommonUtils } from './Common';
+import { CommonUtils, DATA_REPO_BASE_URL, WIP_BASE_URL } from './Common';
 import type { CharacterData, WeaponData, MechanicNode, TeamSlot, HoldConfig } from '../types/index';
 import type { RotationResults } from '../types/results';
 
@@ -48,21 +48,53 @@ export class DataLoaderClass {
   allMainEchoes: string[] = [];
   triggerSets: string[] = [];
 
-  async loadJSON<T>(path: string, opts: { skipHashTracking?: boolean } = {}): Promise<T | null> {
+  private async _fetchJSON<T>(path: string, silent = false): Promise<T | null> {
     try {
       const res = await fetch(`${path}?t=${new Date().getTime()}`);
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-      const data = await res.json();
-      // Records the manifest hash as "what we loaded" -- not a hash of `data` (that'd trivially always match).
-      if (!opts.skipHashTracking) {
-        const relPath = path.replace(/^\/data\//, '');
-        if (this.manifest[relPath]) this.loadedHashes[relPath] = this.manifest[relPath];
-      }
-      return data;
+      const text = await res.text();
+      // Vite's dev server serves index.html (200 OK, not a 404) for ANY path under public/ that
+      // doesn't exist -- its SPA history fallback. A missing WIP file hits this constantly, so
+      // check for it explicitly (JSON never starts with '<') instead of letting JSON.parse's
+      // syntax error do the job by accident.
+      if (/^\s*</.test(text)) throw new Error('Received HTML, not JSON (path does not exist).');
+      return JSON.parse(text) as T;
     } catch (e) {
-      console.error(`[DataLoader] Failed to load JSON from ${path}.`, e);
+      if (!silent) console.error(`[DataLoader] Failed to load JSON from ${path}.`, e);
       return null;
     }
+  }
+
+  // A dev build's `path` (from getData/getImage) points at the local WIP mirror first -- a
+  // path this specific entity doesn't have a WIP override for doesn't resolve there (see
+  // _fetchJSON), silently, and this falls back to the real data repo. A prod build's `path` is
+  // already the real repo, so this is a same-URL no-op fetch that never runs (isWipAttempt is
+  // always false).
+  async loadJSON<T>(path: string, opts: { skipHashTracking?: boolean } = {}): Promise<T | null> {
+    const isWipAttempt = import.meta.env.DEV && path.startsWith(WIP_BASE_URL);
+    let usedPath = path;
+    let data = await this._fetchJSON<T>(path, isWipAttempt);
+    if (data === null && isWipAttempt) {
+      usedPath = path.replace(WIP_BASE_URL, DATA_REPO_BASE_URL);
+      data = await this._fetchJSON<T>(usedPath);
+    }
+    // Records the manifest hash as "what we loaded" -- not a hash of `data` (that'd trivially always match).
+    if (data !== null && !opts.skipHashTracking) {
+      const relPath = usedPath.replace(/^\/data\//, '');
+      if (this.manifest[relPath]) this.loadedHashes[relPath] = this.manifest[relPath];
+    }
+    return data;
+  }
+
+  // For a combined multi-entity DB file (db_characters.json etc.) only -- a WIP copy is
+  // shallow-merged on top of the real file's entries instead of swapping it wholesale, since
+  // the WIP file only needs to hold the unit(s) under test, not a full duplicate of every
+  // shipped character/weapon. Prod builds skip the WIP fetch entirely.
+  async loadMergedDB<T extends Record<string, any>>(relPath: string): Promise<T> {
+    const real = (await this.loadJSON<T>(CommonUtils.getRealData(relPath))) || ({} as T);
+    if (!import.meta.env.DEV) return real;
+    const wip = await this._fetchJSON<T>(CommonUtils.getWipData(relPath), true);
+    return wip ? ({ ...real, ...wip } as T) : real;
   }
 
   // On-disk filename for a mechanic entity. Rest of the app calls the Generic/System entity
@@ -116,9 +148,9 @@ export class DataLoaderClass {
 
   async initDatabases(): Promise<void> {
     await this.refreshManifest(true);
-    this.characterDB = await this.loadJSON<Record<string, CharacterData>>(CommonUtils.getData('db_characters.json')) || {};
-    this.weaponDB = await this.loadJSON<Record<string, WeaponData>>(CommonUtils.getData('db_weapons.json')) || {};
-    this.buildDB = await this.loadJSON<Record<string, any>>(CommonUtils.getData('db_builds.json')) || {};
+    this.characterDB = await this.loadMergedDB<Record<string, CharacterData>>('db_characters.json');
+    this.weaponDB = await this.loadMergedDB<Record<string, WeaponData>>('db_weapons.json');
+    this.buildDB = await this.loadMergedDB<Record<string, any>>('db_builds.json');
 
     this.charList = Object.keys(this.characterDB);
     this.weaponsByType = { Broadblade: [], Sword: [], Rectifier: [], Gauntlets: [], Pistols: [] };
@@ -128,7 +160,10 @@ export class DataLoaderClass {
       if (this.weaponsByType[type]) this.weaponsByType[type].push(weaponName);
     });
 
-    const echoData = await this.loadJSON<any>(CommonUtils.getData('db_echoes.json')) || {};
+    // Note: loadMergedDB only merges top-level keys, so a WIP db_echoes.json's own
+    // SET_ECHO_MAPPING replaces the real one wholesale rather than merging per-set -- fine for
+    // adding a standalone new sonata set (the common case), just include the whole mapping.
+    const echoData = await this.loadMergedDB<any>('db_echoes.json');
     this.setEchoMapping = echoData.SET_ECHO_MAPPING || {};
     this.sonataSets = Object.keys(this.setEchoMapping);
     this.allMainEchoes = Array.from(new Set(Object.values(this.setEchoMapping).flat()));
