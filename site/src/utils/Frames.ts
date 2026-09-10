@@ -1,29 +1,25 @@
 // src/utils/Frames.ts
-// The engine's action/animation-timing math ("durations": actionDuration, freezeTime, damage
-// timeframes, offsets, hit scheduling, combo windows) runs on a fixed 60fps integer-frame grid
-// instead of floating-point seconds, so it can't accumulate the drift/rounding error continuous
-// seconds math is prone to. Cooldowns and buff/effect lifetimes are a deliberate exception and
-// stay in seconds (see TimelineEngine.ts's _processGameTimeDecay for the one place these two
-// domains cross). Every user-facing time value is still shown in seconds -- conversion happens
-// only at render time via formatFramesAsSeconds, never inside calculation logic.
+// Timing math (actionDuration, freezeTime, damage timeframes, hit scheduling, combo windows)
+// runs on a fixed 60fps integer-frame grid, not float seconds -- avoids drift/rounding error.
+// Cooldowns and buff/effect lifetimes are the exception and stay in seconds -- see
+// TimelineEngine.ts's _processGameTimeDecay for where the two domains cross.
+// User-facing time is always seconds, converted only at render via formatFramesAsSeconds.
 //
-// Frames is a branded number, not a wrapper object/class: TimelineEngine.ts does native
-// +/-/*/comparisons on time fields throughout, and a real class would force all of that into
-// method calls. Branding keeps existing arithmetic legal while TypeScript rejects assigning a
-// bare seconds-number into a Frames slot without an explicit conversion.
+// Frames is a branded number, not a class: TimelineEngine.ts does native +/-/* on time
+// fields, and a class would force those into method calls. Branding keeps that arithmetic
+// legal while blocking an unconverted seconds-number from being assigned into a Frames slot.
 export type Frames = number & { readonly __frameBrand: unique symbol };
 
 export const FPS = 60;
 
-// Trust-cast for a value already known to be a whole frame count (e.g. a JSON literal that's
-// already been through the frame migration). Does not round -- use roundFrames if the value
-// might be fractional.
+// Trust-cast for a value already known to be whole frames (e.g. JSON already migrated).
+// Does not round -- use roundFrames if the value might be fractional.
 export function toFrames(n: number): Frames {
   return n as Frames;
 }
 
-// Rounds an already-frames-domain but possibly-fractional value (DSL math output, hit-time
-// interpolation) to the nearest whole frame.
+// Rounds a frames-domain, possibly-fractional value (DSL math output, hit-time interpolation)
+// to the nearest whole frame.
 export function roundFrames(n: number): Frames {
   return Math.round(n) as Frames;
 }
@@ -36,24 +32,20 @@ export function framesToSeconds(frames: Frames): number {
   return frames / FPS;
 }
 
-// The one shared display formatter -- every seconds-string shown in the UI should go through
-// this instead of an ad hoc `.toFixed(2)+'s'`.
+// Shared display formatter -- every UI seconds-string should go through this, not an ad hoc `.toFixed(2)+'s'`.
 export function formatFramesAsSeconds(frames: Frames, decimals = 2): string {
   return `${framesToSeconds(frames).toFixed(decimals)}s`;
 }
 
 // Mechanics Builder's shared timing-input parser. Accepts "30f" (frames), "0.5s" (seconds), a
-// bare number (interpreted as the field's native unit -- keeps existing JSON like
-// `"cooldown": 25` meaning unchanged), or a DSL expression ("@Default.SwapTime",
-// "10 + (20 * @Self.BuffStacks(Clarity))"), which is returned completely unchanged so the
-// existing DSL passthrough keeps working. Returns a plain number in the field's canonical
-// unit, or the original string if it didn't parse as a plain literal.
+// bare number (native unit, keeps existing JSON like `"cooldown": 25` unchanged), or a DSL
+// expression ("@Default.SwapTime", "10 + ...") which passes through unchanged.
+// Returns a plain number in the field's canonical unit, or the original string if unparsed.
 export function parseTimeInput(raw: string, nativeUnit: 'frames' | 'seconds'): number | string {
   const trimmed = raw.trim();
   if (trimmed === '') return raw;
 
-  // DSL passthrough: an '@' pointer, or an arithmetic operator after the first character
-  // (so a leading '-' for a negative literal doesn't false-positive as an expression).
+  // DSL passthrough: '@' pointer, or an operator after char 1 (so a leading '-' isn't mistaken for an expression).
   if (/@/.test(trimmed) || /[+\-*/](?!$)/.test(trimmed.slice(1))) return raw;
 
   const match = /^(-?\d+(?:\.\d+)?)\s*(f|s)?$/i.exec(trimmed);

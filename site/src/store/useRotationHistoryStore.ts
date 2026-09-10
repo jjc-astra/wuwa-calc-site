@@ -1,7 +1,6 @@
 // src/store/useRotationHistoryStore.ts
-// Records a snapshot every time the Rotation Calculator's "Calculate" button successfully
-// finishes (wired in from useRotationStore.calculateDamage) -- one row per calculation, shown
-// newest-first in the Results panel's History tab.
+// One row per successful Calculate press (wired in from useRotationStore.calculateDamage).
+// Newest-first in the Results panel's History tab.
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { TeamSlot } from '../types/index';
@@ -18,8 +17,8 @@ export interface HistoryEntry {
   results: RotationResults;
 }
 
-// Favorited entries are never auto-evicted; only the 10 most recent *non*-favorite entries are
-// kept, so favoriting something is the way to keep it around past the rolling window.
+// Favorited entries are never auto-evicted; only the 10 most recent non-favorite entries are
+// kept. Favoriting is how you keep something past the rolling window.
 const MAX_NON_FAVORITE = 10;
 
 interface RotationHistoryState {

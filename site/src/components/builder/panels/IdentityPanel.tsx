@@ -13,10 +13,8 @@ interface IdentityPanelProps {
 export const IdentityPanel: React.FC<IdentityPanelProps> = ({ nodeId, data, updateNode }) => {
   const { activeChar, renameMechanicNode } = useBuilderStore();
 
-  // Renaming a node regenerates its ID (provider is always the active char, matching
-  // the old site's ID = `${activeChar}_${name}` derivation). The re-key only happens on
-  // blur -- doing it on every keystroke would change the store key (and thus this card's
-  // React list key) mid-typing, remounting the input and dropping keyboard focus.
+  // Renaming regenerates the ID (`${activeChar}_${name}`, matching the old site). Re-keys on
+  // blur only -- per-keystroke would change the store/React-list key and drop focus mid-typing.
   const handleNameBlur = () => {
     const currentName = data.name || '';
     const owner = activeChar === 'Generic' ? 'System' : (activeChar || '');

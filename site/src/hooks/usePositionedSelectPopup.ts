@@ -13,20 +13,15 @@ interface UsePositionedSelectPopupOptions {
   findTypeaheadMatch: (term: string) => number;
   /** Fired on Enter with the active index -- callers apply their own disabled-option guard here. */
   onSelectIndex: (index: number) => void;
-  /** Horizontal anchor: 'left' (default) matches the popup's left edge to the trigger's, sized
-   * at least as wide as the trigger -- right for a <select>-style trigger that's already as wide
-   * as its content. 'right' matches the popup's right edge to the trigger's instead, for a
-   * narrow icon-only trigger pinned to the right side of its row (e.g. a "..." menu button) --
-   * left-anchoring one of those would let the popup hang off past the row into whatever's beside
-   * it instead of opening back over the row like the trigger visually suggests. */
+  /** Horizontal anchor: 'left' (default) aligns the popup's left edge to the trigger's (for a
+   * <select>-style trigger). 'right' aligns the popup's right edge instead, for a narrow
+   * icon-only trigger pinned to the row's right (e.g. "..." menu), so it doesn't hang off. */
   align?: 'left' | 'right';
 }
 
-/** Shared lifecycle for a <select> replacement whose popup is a portaled, fixed-position list of
- * divs rather than a real (OS-styled, un-stylable) native popup -- open/close state, click-outside
- * and scroll/resize auto-close, fixed-position placement (flips upward if there isn't room below),
- * active-index bookkeeping, scroll-into-view, and arrow/enter/escape/typeahead keyboard nav. Used
- * by both IconSelect and Dropdown, which differ only in how options are rendered and matched. */
+/** Shared lifecycle for a <select> replacement popup (portaled, fixed-position divs, not a
+ * native popup): open/close, click-outside and scroll/resize auto-close, flip-upward
+ * placement, active-index + scroll-into-view, and keyboard nav. Used by IconSelect and Dropdown. */
 export function usePositionedSelectPopup({
   itemCount, popupMaxHeight, activeOptionSelector, findInitialActiveIndex, findTypeaheadMatch, onSelectIndex,
   align = 'left'
@@ -52,11 +47,9 @@ export function usePositionedSelectPopup({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
-  // A native select's OS popup stays anchored through page scroll/resize -- ours can't cheaply
-  // do the same across every scrollable ancestor, so just close instead of drifting off-anchor.
-  // Scroll events don't bubble but capture-phase listeners on window still see them, including
-  // the popup's own internal list scrolling (e.g. the scrollIntoView below) -- those must be
-  // ignored or the popup would close itself the instant it opens.
+  // A native select stays anchored through scroll/resize -- ours can't do that cheaply, so it
+  // just closes instead. Capture-phase listeners also see the popup's own internal scrolling
+  // (e.g. scrollIntoView below), which must be ignored or it'd close itself on open.
   useEffect(() => {
     if (!isOpen) return;
     const handleScroll = (e: Event) => {
@@ -78,14 +71,10 @@ export function usePositionedSelectPopup({
     const spaceBelow = window.innerHeight - rect.bottom;
     const spaceAbove = rect.top;
     const openUpward = spaceBelow < popupMaxHeight && spaceAbove > spaceBelow;
-    // Every branch below sets both members of each offset pair (top/bottom, left/right) --
-    // never just one -- so this always fully overrides whatever a caller's own CSS class
-    // happens to default that pair to (e.g. .pin-menu's own position:absolute;top:...;right:0,
-    // still needed as-is by PinRotationControl's non-portaled use of the same class). Leaving
-    // one side unset lets that leftover class value keep applying alongside this inline style
-    // (top and bottom, unlike most CSS pairs, can both be "on" at once), which silently squashes
-    // the popup's computed height toward zero -- exactly the "menu doesn't visibly open" bug this
-    // guards against, not just a cosmetic mispositioning.
+    // Every branch sets both members of each offset pair (top/bottom, left/right), never just
+    // one -- so this fully overrides a caller's CSS default (e.g. .pin-menu's own
+    // position:absolute;top:...;right:0). Leaving one side unset lets top+bottom both apply at
+    // once, silently squashing computed height to zero -- the actual "menu won't open" bug.
     setPopupPos({
       position: 'fixed',
       ...(align === 'right'

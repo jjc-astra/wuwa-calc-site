@@ -1,8 +1,6 @@
 // src/components/common/FreshnessConflictDialog.tsx
-// Mounted once at the App root. Renders whenever useFreshnessConflictStore has a pending
-// conflict -- a data-freshness check (src/utils/dataFreshness.ts) found that an entity's
-// mechanic JSON changed on the server while the user still has unsaved local edits to it in the
-// Mechanics Builder, so it can't be silently evicted the way an unedited stale entry would be.
+// Mounted once at App root; renders when useFreshnessConflictStore has a pending conflict --
+// server data changed while the user has unsaved local edits, so it can't be silently evicted.
 import React from 'react';
 import { useFreshnessConflictStore } from '../../utils/dataFreshness';
 

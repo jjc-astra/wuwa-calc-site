@@ -16,18 +16,12 @@ interface TimelineDataState {
 
 const IDLE_STATE: TimelineDataState = { status: 'idle', evaluatedRows: [], loopStartIndex: null, team: [], error: null };
 
-// Lazily recalculates a saved Rankings result's rotation through the calc worker to get the
-// evaluated rows (game-time-positioned moves) a Timeline needs -- only fires while `resultId`
-// is non-null, so a collapsed row never pays for a worker round trip. Mirrors the
-// postToWorker('recalculate', ...) call useRankingsStore.load()/useComparisonStore already make;
-// only `evaluatedRows`/`loopStartIndex` are needed here (no 'calculateDamage' pass), since the
-// Timeline never needs per-hit damage numbers. Unlike those two, this DOES attach
-// buildBuilderPayload -- the Timeline is a visualization of a mechanic's timing as currently
-// configured, so an in-progress edit in the Mechanics Builder (e.g. retuning an Outro's
-// cancelTimings) should show up here immediately, the same way it already does in the live
-// Rotation Calculator's own "Calculate" press. The Rankings leaderboard's own DPS number stays
-// deliberately pristine (see useRotationStore.ts's buildBuilderPayload comment) -- only this
-// Timeline view diverges from that.
+// Lazily recalculates a saved result via the calc worker for evaluatedRows/loopStartIndex --
+// only fires while `resultId` is set, so a collapsed row costs nothing. Mirrors
+// useRankingsStore.load()'s postToWorker('recalculate', ...) but skips 'calculateDamage'
+// (Timeline needs no per-hit damage). Unlike those callers, this attaches buildBuilderPayload
+// so in-progress Builder edits show immediately -- Rankings' own DPS stays deliberately
+// pristine (useRotationStore.ts), only this Timeline view diverges.
 export function useRotationTimelineData(resultId: string | null): TimelineDataState {
   const [state, setState] = useState<TimelineDataState>(IDLE_STATE);
   const requestIdRef = useRef(0);
@@ -54,11 +48,9 @@ export function useRotationTimelineData(resultId: string | null): TimelineDataSt
           team: data.team,
           options: data.settings || {},
           enemy: ENEMY_DEFAULTS,
-          // Pulled out to top-level payload keys (not left nested in `options`) because that's
-          // where calc.worker.ts's 'recalculate' handler actually reads them from -- without
-          // this, a saved rotation with an Ending Rotation split would silently show it starting
-          // right after the one authored loop rep instead of after the real skip-ahead, the same
-          // bug previewEndingRotationTiming exists to fix for the live Rotation Calculator.
+          // Top-level payload keys, not nested in `options` -- that's where calc.worker.ts's
+          // 'recalculate' handler reads them from. Without this, an Ending Rotation split would
+          // silently start after just the one authored loop rep instead of the real skip-ahead.
           endingRotationEnabled: data.settings?.endingRotationEnabled,
           endRotationStartsEarlier: data.settings?.endRotationStartsEarlier,
           ...buildBuilderPayload(data.team)

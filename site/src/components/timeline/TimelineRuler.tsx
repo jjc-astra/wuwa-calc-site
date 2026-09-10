@@ -1,8 +1,6 @@
 // src/components/timeline/TimelineRuler.tsx
-// Time axis along the bottom, game-time domain. 3 tick tiers riffing on RangeSlider's own
-// tick-mark convention (src/components/common/RangeSlider.tsx / rankings.css's
-// .range-slider-tick-mark/.range-slider-tick-label) -- that component has no major/minor
-// distinction, so this is a new tiered variant rather than a literal reuse.
+// Time axis, game-time domain, 3 tick tiers -- riffs on RangeSlider's tick-mark convention
+// (RangeSlider.tsx / rankings.css) but adds major/minor tiers that component doesn't have.
 import React from 'react';
 import { HEADER_COL_WIDTH_PX, RULER_HEIGHT_PX, hairlinePx } from './timelineLayout';
 import type { Tick } from './timelineLayout';

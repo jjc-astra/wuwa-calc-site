@@ -1,12 +1,10 @@
 import { useEffect, useState } from 'react';
 import type { RefObject } from 'react';
 
-// Marks a section "anim-done" (enabling internal scrolling) once its wrapper has actually
-// stopped resizing, rather than after a fixed timer -- the wrapper's growth is driven by a
-// sibling's transition via flex reflow, not one on itself, so no fixed duration reliably
-// matches it. A timer that fires a hair early flips to overflow-y:auto before the box
-// reaches final size, flashing a scrollbar in and out. Waiting for a quiet period of no
-// further ResizeObserver events avoids that regardless of what's driving the resize.
+// Marks "anim-done" once the wrapper's resize actually settles, not after a fixed timer --
+// growth here is driven by a sibling's transition via flex reflow, so no fixed duration
+// reliably matches it (an early timer flips to overflow-y:auto and flashes a scrollbar).
+// Waits for a quiet period of ResizeObserver events instead.
 const SETTLE_QUIET_MS = 60;
 
 export function useAccordionAnimDone(isOpen: boolean, wrapperRef: RefObject<HTMLElement | null>): boolean {

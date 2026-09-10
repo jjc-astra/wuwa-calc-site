@@ -1,7 +1,6 @@
 // src/components/common/ConfirmDialog.tsx
-// A styled confirmation prompt for destructive actions (e.g. Restore Rotation, which overwrites
-// whatever's currently in Step 1/2; Reset Cache, which discards local mechanic edits) -- reuses
-// the site's own .modal-* CSS (components.css) instead of the browser's plain confirm().
+// Styled confirmation prompt for destructive actions (Restore Rotation, Reset Cache, etc.) --
+// reuses the site's .modal-* CSS instead of the browser's plain confirm().
 import React from 'react';
 
 interface ConfirmDialogProps {

@@ -1,11 +1,8 @@
 // src/components/results/PinComparisonPicker.tsx
-// "Pin from History" / "Pin from Rankings" -- a floating panel that mirrors those pages'
-// row list (icons, label, DPS bar) but strips every action *except* picking the row: no
-// favorite star, no "..." menu, no hover tooltips on those controls (they don't exist here).
-// Clicking anywhere on a row pins it and closes the panel. Deliberately reuses each source's
-// own row markup/CSS classes (.history-row/.ranking-row and friends) and, for Rankings, the
-// exact same search/filter toolbar and filtering logic the full page uses -- this is a
-// different *shell* around the same data and rules, not a parallel implementation of them.
+// Floating "Pin from History/Rankings" panel -- mirrors those pages' row lists but strips
+// every action except picking a row (no favorite, menu, or tooltips). Click a row to pin
+// and close. Reuses each source's own row markup/CSS and, for Rankings, its exact
+// search/filter logic -- a shell around the same data, not a reimplementation.
 import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useComparisonStore } from '../../store/useComparisonStore';
@@ -39,10 +36,9 @@ interface PanelRect {
   height: number;
 }
 
-// History's row is a simple single-column list -- as wide as it'd be in its actual home (the
-// Results panel's own History tab) reads better than stretching it across the full Step 1/2
-// footprint. Rankings' row has a full DPS bar (StackedContributionBar) alongside its sidebar --
-// at half width that bar gets cut down to almost nothing, so it gets the full footprint instead.
+// History's row is a simple single-column list -- reads better at its natural width (the
+// History tab's) than stretched across the full Step 1/2 footprint. Rankings' row has a full
+// DPS bar that gets crushed at half width, so it gets the full footprint instead.
 function measurePanelRect(source: 'history' | 'rankings'): PanelRect | null {
   const stepsEl = document.querySelector('.calculator-steps');
   if (!stepsEl) return null;
@@ -57,9 +53,8 @@ function measurePanelRect(source: 'history' | 'rankings'): PanelRect | null {
   return { top: stepsRect.top, left: stepsRect.left, width, height: stepsRect.height };
 }
 
-// Floats over Step 1/Step 2 (measured live off .calculator-steps, and for History off
-// .results-panel too) rather than a page-centered modal -- the Results panel (and the Pin
-// Comparison trigger inside it) stay visible beside it.
+// Floats over Step 1/Step 2 (measured off .calculator-steps, plus .results-panel for History)
+// rather than a page-centered modal, so the Results panel stays visible beside it.
 export const PinComparisonPicker: React.FC<PinComparisonPickerProps> = ({ source, onClose }) => {
   const [rect, setRect] = useState<PanelRect | null>(null);
 
@@ -164,9 +159,8 @@ const RankingsPickerBody: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const maxDps = visibleEntries.length > 0 ? (visibleEntries[0].dpsStats[RANKING_DPS_FIELD[activeWindow]] ?? 0) : 0;
 
   const pick = (entry: RankingEntry) => {
-    // Async (recalculates through the worker -- a RankingEntry never carries dmgOverTimeSeries)
-    // but not awaited here, matching pinFromFile's own JSON-import UX: close immediately and
-    // let the Pin Comparison trigger's own "Calculating..." state carry the rest.
+    // Async (recalculates via the worker; RankingEntry never carries dmgOverTimeSeries) but not
+    // awaited -- matches pinFromFile's UX: close immediately, let "Calculating..." carry the rest.
     pinFromRankingEntry(entry.id);
     onClose();
   };

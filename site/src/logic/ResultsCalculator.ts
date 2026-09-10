@@ -1,6 +1,5 @@
-// Turns one Calculate press into the Results panel's data. Builds a single flat, time-ordered
-// hit list from an extended (opener + N-loop-repetition) simulation; every output (DPS numbers,
-// dmg-over-time, contribution pies, substat worth) is a pure filter/aggregation over that list.
+// Turns one Calculate press into the Results panel's data -- builds one flat, time-ordered hit
+// list from an extended opener+N-loop simulation. Every output below just filters/aggregates it.
 import { TimelineEngine } from './TimelineEngine';
 import { CombatCalculator } from './CombatCalculator';
 import { STAT_DB, STAT_NAME_MAP } from '../data/db';
@@ -22,9 +21,8 @@ const TWO_MIN = toFrames(120 * 60);
 // Fixed avg-loop sample size: first loop + 2 more, regardless of how short a loop is.
 const AVG_LOOP_REPS = 3;
 
-// dmgType identities the pie chart buckets hits by (deliberately dmgTypes, not castTypes --
-// a move's cast/animation category can differ from its damage-bonus-scaling category).
-// Anything else folds into "Other".
+// dmgTypes the pie chart buckets hits by (deliberately dmgTypes, not castTypes -- a move's
+// cast/animation category can differ from its dmg-bonus-scaling category). Rest folds into "Other".
 const PRIMARY_DMG_TYPES = ['Basic', 'Heavy', 'Skill', 'Liberation', 'Intro', 'Outro', 'Echo'];
 
 interface RotationHit {
@@ -33,15 +31,13 @@ interface RotationHit {
   provider: string;
   dmgTypes: string[];
   formulaUsed: string;
-  // Kept for substat-worth re-simulation, which re-runs just the formula per hit with a
-  // stat-patched team.
+  // Kept for substat-worth re-sim, which re-runs just the formula per hit with a stat-patched team.
   config: HitConfig;
   context: any;
 }
 
-// A non-Standard-formula hit (Tune Break, negative status) isn't caused by any unit's own
-// combat kit, so it's labeled by dmgType instead (e.g. "Aero Erosion", "TuneBreak"). Shared by
-// the contribution pie and dmg-over-time chart for consistency.
+// A non-Standard-formula hit (Tune Break, negative status) isn't any unit's own combat kit,
+// so it's labeled by dmgType instead (e.g. "Aero Erosion"). Shared by the pie and dmg-over-time chart.
 function hitLabel(h: RotationHit): string {
   return h.formulaUsed !== 'Standard' ? (h.dmgTypes[0] || 'Status Effect') : h.provider;
 }
@@ -54,8 +50,8 @@ const cloneAuthored = (r: any) => ({
   ...(r.manualOffset !== undefined && { manualOffset: r.manualOffset })
 });
 
-// Splits a rotation's content rows into opener / loop-template / (optional) Ending Rotation
-// tail. Shared by buildExtendedTimeline and previewEndingRotationTiming so both agree on segments.
+// Splits content rows into opener / loop-template / optional Ending Rotation tail. Shared by
+// buildExtendedTimeline and previewEndingRotationTiming so both agree on segments.
 function splitLoopSegments(
   contentRows: any[],
   loopStartIndex: number,
@@ -76,8 +72,8 @@ function splitLoopSegments(
   return { openerRows, loopTemplate, endingRows };
 }
 
-// Opener + N loop reps, run through the real engine once. N is at least AVG_LOOP_REPS and
-// enough whole reps to cross 120s; every per-window series below clips to its own window.
+// Opener + N loop reps run through the real engine once. N is at least AVG_LOOP_REPS and
+// enough to cross 120s; each per-window series below clips to its own window.
 function buildExtendedTimeline(
   rows: any[],
   team: any[],
@@ -111,10 +107,9 @@ function buildExtendedTimeline(
     return { evaluatedRows: runSimple([...openerRows, ...loopTemplate, ...endingRows]), openerEndTime, loopDuration: null };
   }
 
-  // With an Ending Rotation, floor (not ceil) the reps so it fills whatever's left of 120s
-  // rather than following an arbitrarily-truncated partial loop. endRotationStartsEarlier
-  // subtracts one more rep so the Ending Rotation replaces/extends the final loop instead of
-  // tacking on after it. Math.max(AVG_LOOP_REPS, ...) still guarantees 3 full reps regardless.
+  // With Ending Rotation, floor (not ceil) the reps to fill what's left of 120s rather than a
+  // truncated partial loop. endRotationStartsEarlier subtracts one rep so Ending Rotation
+  // replaces/extends the final loop instead of tacking on after. Math.max guarantees 3 reps min.
   const repsToSimulate = endingRows.length > 0
     ? Math.max(AVG_LOOP_REPS, Math.max(0, Math.floor((TWO_MIN - openerEndTime) / loopDuration) - (endRotationStartsEarlier ? 1 : 0)))
     : Math.max(AVG_LOOP_REPS, Math.ceil((TWO_MIN - openerEndTime) / loopDuration));
@@ -126,10 +121,9 @@ function buildExtendedTimeline(
 }
 
 // Live-preview counterpart to buildExtendedTimeline, used by calc.worker.ts's cheap
-// 'recalculate' pass. A plain recalculateState(rows, ...) call would show the Ending Rotation
-// starting right after the single loop rep in the table, which is wrong -- it only really runs
-// after however many whole loops fill the rest of 120s. Re-derives that skip-ahead timing and
-// splices it onto evaluatedRows' tail, without touching the opener/loop rows' own preview.
+// 'recalculate' pass. Re-derives when Ending Rotation actually starts (after enough whole
+// loops fill 120s, not right after the table's single loop rep) and splices it onto
+// evaluatedRows' tail.
 export function previewEndingRotationTiming(
   evaluatedRows: any[],
   team: any[],
@@ -158,9 +152,8 @@ export function previewEndingRotationTiming(
   const previewInput = [...extendedContent.map(cloneAuthored), { unit: '', action: '', timing: 'Auto', offset: 0 }];
   const previewEvaluated = TimelineEngine.recalculateState(previewInput, team, options, enemyConfig);
 
-  // Mirrors calc.worker.ts's populateDamageInstances so the Ending Rotation's re-timed rows
-  // get their own DMG column filled in too (starts from full enemy HP, same simplification
-  // the caller's own pass already uses).
+  // Mirrors calc.worker.ts's populateDamageInstances so Ending Rotation's re-timed rows get
+  // their own DMG column too (starts from full enemy HP, same simplification the caller uses).
   if (populateDamage) {
     let runningEnemyHp = enemyConfig.hp;
     previewEvaluated.forEach((row: any) => {
@@ -178,8 +171,8 @@ export function previewEndingRotationTiming(
 
   const evaluatedEndingRows = previewEvaluated.filter((r: any) => r && r.unit).slice(-endingRows.length);
 
-  // Overwrite just the Ending Rotation's tail with its re-timed counterparts, preserving
-  // loopStartOverride/loopEndOverride flags that cloneAuthored strips out.
+  // Overwrites just the Ending Rotation tail with its re-timed counterparts, preserving the
+  // loopStartOverride/loopEndOverride flags cloneAuthored strips out.
   const endingStartContentIdx = openerRows.length + loopTemplate.length;
   let contentIdx = 0;
   return evaluatedRows.map(row => {
@@ -215,8 +208,8 @@ function buildHitList(evaluatedRows: any[], team: any[], enemyConfig: { level: n
     });
   });
 
-  // A hit's origin row isn't necessarily its global resolve order (delayed procs/DoT ticks
-  // can land after a later row's instant hit), so sort once here rather than trusting row order.
+  // A hit's origin row isn't its global resolve order (delayed procs/DoT ticks can land after
+  // a later row's instant hit) -- sort once here instead of trusting row order.
   return hits.sort((a, b) => a.gameTime - b.gameTime);
 }
 
@@ -280,25 +273,17 @@ function buildDmgOverTimeForWindow(
   return { label, points, bossMaxHp, killTime, windowEnd };
 }
 
-// Folds AVG_LOOP_REPS reps into one loop-length window and divides the cumulative total by
-// AVG_LOOP_REPS at every point. The loop template doesn't branch between repetitions, so instead
-// of folding each hit independently by raw time (which scatters "the same" hit across a few
-// hundredths of a second of rep-to-rep wait-time jitter into several tiny steps), hits are
-// matched by which move produced them -- actionId+hitIndex identifies "the same slot" across
-// reps exactly, rather than merely by chronological position (which a stray extra/dropped tick
-// near a rep boundary could throw off). A repeated action within one loop is disambiguated by
-// its Nth occurrence, matched in order against the other reps' Nth occurrence of that same move.
-// Both the damage AND the time are averaged across whichever reps had that hit, so a move landing
-// at 12.0s in one rep and 12.2s in another folds to one point at 12.1s instead of two near-
-// duplicates. The line comes out as one clean step per move, and since the bar chart's per-hit
-// bars are just deltas between consecutive points, that carries straight through to bar mode too.
+// Folds AVG_LOOP_REPS reps into one loop-length window, averaging damage and timing per move
+// so rep-to-rep jitter doesn't scatter "the same" hit into near-duplicate points. Bar mode
+// (deltas between points) inherits one clean step per move for free.
 function buildAvgLoopDmgOverTime(hits: RotationHit[], openerEndTime: Frames, loopDuration: Frames, bossMaxHp: number): DmgOverTimeSeries {
   const windowHits = windowedHits(hits, openerEndTime, toFrames(openerEndTime + AVG_LOOP_REPS * loopDuration));
+  // actionId+hitIndex identifies "the same slot" across reps exactly, not by chronological
+  // position (a stray extra/dropped tick near a rep boundary could throw that off).
   const moveKey = (h: RotationHit) => `${h.config.actionId ?? h.provider}::${h.config.hitIndex ?? 0}`;
 
-  // One hit-list per rep, further split by move key -- so "the same" repeated action within a
-  // single loop (e.g. two separate Basic Attacks) is matched by its own occurrence order, not
-  // pooled together with the other occurrence.
+  // One hit-list per rep, split by move key -- so a repeated action within one loop (e.g. two
+  // Basic Attacks) matches by its own occurrence order, not pooled with the other occurrence.
   const repGroups: Map<string, RotationHit[]>[] = Array.from({ length: AVG_LOOP_REPS }, () => new Map());
   for (const h of windowHits) {
     const repIndex = Math.min(AVG_LOOP_REPS - 1, Math.max(0, Math.ceil((h.gameTime - openerEndTime) / loopDuration) - 1));
@@ -323,6 +308,8 @@ function buildAvgLoopDmgOverTime(hits: RotationHit[], openerEndTime: Frames, loo
     for (let occ = 0; occ < occurrences; occ++) {
       const matched = perRepLists.map(l => l[occ]).filter((h): h is RotationHit => h !== undefined);
       if (matched.length === 0) continue;
+      // Averages damage and time across whichever reps had this hit -- e.g. a move at 12.0s
+      // in one rep and 12.2s in another folds into one point at 12.1s, not two near-duplicates.
       const avgRel = matched.reduce((sum, h) => sum + foldedRel(h), 0) / matched.length;
       folded.push({
         t: toFrames(avgRel),
@@ -391,8 +378,8 @@ function buildAllDmgOverTime(
 
 function buildContributionForWindow(windowHits: RotationHit[], teamNames: string[], divisor: number): ContributionForWindow {
   const teamGroups = groupSum(windowHits, hitLabel);
-  // Sort by roster slot order (stable across all windows) instead of insertion order (whichever
-  // unit acted first in this window), which visibly reordered the legend when switching tabs.
+  // Sorts by roster slot order (stable across windows), not insertion order -- insertion order
+  // visibly reordered the legend when switching tabs.
   const teamNameSet = new Set(teamNames);
   const orderedLabels = [
     ...teamNames.filter(name => teamGroups[name] !== undefined),
@@ -435,14 +422,12 @@ function buildAllContribution(
   };
 }
 
-// Basis: 2-minute total damage, independent of the DPS window the user is looking at elsewhere.
-// Each roll's worth is expressed as "team" (% of the rotation's 2-min total) and "personal"
-// (% of just that unit's own 2-min total).
+// Basis: 2-min total damage. Each roll's worth = "team" (% of rotation total) and "personal"
+// (% of that unit's own total).
 //
-// Avoids re-running the full engine simulation 78 times (13 substats x 3 rolls x 2 directions):
-// calculateFinalStats is pure and a hit's damage formula never reads another hit's outcome, so
-// a stat change to one unit can only change that unit's own hits. Reproducing it is just
-// re-calling calculateDamageInstance on the cached hit/context pairs with a stat-patched team.
+// Avoids re-running the full sim 78x (13 substats x 3 rolls x 2 dirs): a stat change only
+// affects that unit's own hits (calculateFinalStats is pure, hits don't read each other), so
+// this just re-calls calculateDamageInstance on cached hit/context pairs with a patched team.
 function buildSubstatWorth(twoMinHits: RotationHit[], team: TeamSlot[]): Record<string, SubstatWorthRow[]> {
   const baselineTotal = sumTotal(twoMinHits);
   const out: Record<string, SubstatWorthRow[]> = {};
@@ -460,7 +445,7 @@ function buildSubstatWorth(twoMinHits: RotationHit[], team: TeamSlot[]): Record<
       const def = values[defaultIndex];
       const statKey = STAT_NAME_MAP[substat];
 
-      // Returns [team%, personal%] of this roll's share of the rotation's / this unit's 2-min total.
+      // Returns [team%, personal%] share of this roll -- vs rotation total, vs this unit's total.
       const worthFor = (rollValue: number, sign: 1 | -1): [number, number] => {
         if (unitHits.length === 0) return [0, 0];
         const modifiedTeam = team.map(s =>

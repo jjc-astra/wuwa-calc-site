@@ -1,8 +1,6 @@
 // src/components/timeline/MouseClickIcon.tsx
-// A mouse glyph with its left button filled solid -- stands in for writing out "Left Click" in
-// the timeline's cramped input-flag pills. currentColor throughout, so it automatically picks
-// up each flag's own per-unit theme color (set on the parent element), matching how every other
-// icon in this app (src/components/common/icons.tsx) inherits color rather than hardcoding it.
+// Mouse glyph, left button filled -- stands in for "Left Click" text in cramped flag pills.
+// currentColor throughout, so it inherits each flag's theme color like other icons do.
 import React from 'react';
 
 export const MouseClickIcon: React.FC<{ size?: number }> = ({ size = 11 }) => (

@@ -34,14 +34,10 @@ export const HistoryRow: React.FC<HistoryRowProps> = ({ entry }) => {
   const unitBreakdowns = entry.results.contribution.twoMin?.units ?? {};
 
   const handleSaveResultsConfirm = (filename: string, author: string) => {
-    // A superset of what Export Rotation writes (same rotation/team/settings shape, so this
-    // file alone round-trips through Restore Rotation with no separate export needed) plus the
-    // already-computed results -- drop straight into public/data/character_results/ and the
-    // Rankings page's loader picks up dpsStats/contribution instead of recalculating them.
-    // dmgOverTimeSeries is the one piece left out -- Rankings/Restore never read it, and it's
-    // cheap to regenerate from the rotation if something later needs it (just recalculate).
-    // substatWorth stays in even though nothing reads it yet -- it's what a future Character
-    // Guide page would need this file to carry.
+    // Superset of Export Rotation's shape (rotation/team/settings) plus computed results --
+    // round-trips through Restore Rotation, and drops into public/data/character_results/ for
+    // Rankings to read without recalculating. dmgOverTimeSeries is left out (unused, cheap to
+    // regenerate); substatWorth stays in for a future Character Guide page.
     const { dmgOverTimeSeries, ...resultsWithoutDmgOverTime } = entry.results;
     CommonUtils.downloadJson(
       {
@@ -103,8 +99,7 @@ export const HistoryRow: React.FC<HistoryRowProps> = ({ entry }) => {
             items={[
               { label: 'Save Results', onClick: () => setSaveResultsOpen(true) },
               { label: 'Restore Rotation', onClick: () => setConfirmOpen(true) },
-              // Instant -- this entry already carries a full RotationResults (dmgOverTimeSeries
-              // included) from the live Calculate press that produced it.
+              // Instant -- this entry already carries full RotationResults (dmgOverTimeSeries included).
               { label: 'Pin to Comparison', onClick: () => useComparisonStore.getState().pinFromHistoryEntry(entry.team, entry.results) },
               { label: 'Remove', onClick: () => removeEntry(entry.id), danger: true }
             ]}

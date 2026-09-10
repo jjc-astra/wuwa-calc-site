@@ -1,7 +1,6 @@
-// Runs the rotation-simulation pipeline (TimelineEngine + CombatCalculator + ResultsCalculator)
-// off the main thread. Has its own separate DataLoader instance, fetching mechanics JSON
-// independently -- there's no way to share it across postMessage anyway, since compiled DSL
-// trigger-rule functions attached to mechanic data can't be structured-cloned.
+// Runs the simulation pipeline (TimelineEngine + CombatCalculator + ResultsCalculator) off the
+// main thread, with its own separate DataLoader -- compiled DSL trigger-rule functions can't be
+// structured-cloned, so there's no way to share one instance across postMessage anyway.
 import { TimelineEngine } from '../logic/TimelineEngine';
 import { CombatCalculator } from '../logic/CombatCalculator';
 import { buildRotationResults, previewEndingRotationTiming } from '../logic/ResultsCalculator';
@@ -75,9 +74,8 @@ worker.onmessage = async (e: MessageEvent) => {
       (overrides.deletedMechanicIds || []).length > 0
     );
 
-    // A real Calculate press forces every entity the team uses back to a pristine re-fetch,
-    // or an edit removed in the Mechanics Builder (Reset Cache, a deleted node) would have no
-    // way to un-stick from this worker's long-lived mechanicsDB/characterDB.
+    // Calculate press forces every entity to a pristine re-fetch -- otherwise a Builder edit
+    // removal (Reset Cache, a deleted node) can't un-stick from this worker's long-lived cache.
     if (type === 'calculateDamage' && hasOverrides && payload.builderEntityRefs) {
       await DataLoader.initDatabases();
       payload.builderEntityRefs.forEach((ref: { name: string; folder: string }) =>
@@ -97,8 +95,8 @@ worker.onmessage = async (e: MessageEvent) => {
     if (type === 'recalculate') {
       const { rows, team, options, enemy } = payload;
       let evaluatedRows = TimelineEngine.recalculateState(rows, team, options, enemy);
-      // Optional -- a plain live-preview recalculate skips this to stay cheap, but
-      // RotationBuilder's mount-effect refresh asks for it so the DMG column is populated on load too.
+      // Optional -- plain live-preview recalculate skips this to stay cheap; RotationBuilder's
+      // mount-effect refresh asks for it to populate the DMG column on load too.
       if (payload.includeDamage) populateDamageInstances(evaluatedRows, enemy, team);
       const { index: loopStartIndex, isOverride: loopStartIsOverride } = TimelineEngine.findLoopStart(evaluatedRows, team[0]?.character);
       const { errors: loopErrors, warnings: loopWarnings } = TimelineEngine.analyzeLoop(

@@ -44,8 +44,8 @@ interface RotationState {
   loopErrors: string[];
   loopWarnings: string[];
   endingRotationEnabled: boolean;
-  // When true, simulates one fewer loop rep before splicing in the Ending Rotation, so the
-  // authored content replaces/extends the final loop instead of tacking on after it.
+  // True: sim one fewer loop rep before the Ending Rotation splice, so it replaces/extends
+  // the final loop instead of tacking on after it.
   endRotationStartsEarlier: boolean;
   results: RotationResults | null;
   isCalculating: boolean;
@@ -66,16 +66,16 @@ interface RotationState {
   resetLoopStart: () => void;
   setLoopEndOverride: (index: number) => void;
   resetLoopEnd: () => void;
-  // First enable tags the last content row as loop end and appends a copy of the loop segment
-  // as starting "Ending Rotation" content. Disabling removes the tag and appended rows.
+  // Enabling tags the last content row as loop end and appends a copy of the loop segment as
+  // "Ending Rotation" content. Disabling removes the tag and appended rows.
   setEndingRotationEnabled: (val: boolean) => void;
   // No-op while there's no active Ending Rotation split.
   setEndRotationStartsEarlier: (val: boolean) => void;
 
   executeCommand: (cmd: Command) => void;
   // markStale: false for an informational refresh that shouldn't flip isStale back on.
-  // includeDamage: true only for the one-time mount refresh, so a rehydrated rotation's DMG
-  // column is populated without a live-preview recalculate paying for the extra damage pass.
+  // includeDamage: true only for the one-time mount refresh, so DMG column populates without
+  // every live-preview recalc paying for the extra damage pass.
   recalculate: (markStale?: boolean, includeDamage?: boolean) => Promise<void>;
   calculateDamage: () => Promise<void>;
   undo: () => void;
@@ -85,11 +85,10 @@ interface RotationState {
 
 const historyManager = new HistoryManager();
 
-// TimelineEngine/CombatCalculator/ResultsCalculator run in a worker (postToWorker) so a long
-// rotation's simulation never blocks the UI thread.
+// Simulation pipeline runs in a worker (postToWorker) so long rotations never block the UI thread.
 
-// Staleness is tracked per request type, not globally, so a background recalculate() can never
-// invalidate a deliberate calculateDamage() (Calculate button press) that just landed.
+// Tracked per request type, not globally -- a background recalculate() can't invalidate a
+// just-landed calculateDamage() (Calculate press).
 const latestSeqByType: Record<'recalculate' | 'calculateDamage', number> = { recalculate: 0, calculateDamage: 0 };
 
 export const useRotationStore = create<RotationState>()(
@@ -165,8 +164,8 @@ export const useRotationStore = create<RotationState>()(
           historyManager.execute(cmd);
         },
 
-        // 1-to-1 overwrite of selected rows; extra clipboard rows are inserted; leftover
-        // selected rows are deleted. With nothing selected, rows insert before the trailing blank row.
+        // 1-to-1 overwrite of selected rows; extra clipboard rows insert; leftover selected
+        // rows delete. Nothing selected -- rows insert before the trailing blank row.
         pasteRows: () => {
           const state = get();
           const clipboard = state.clipboard;
@@ -262,7 +261,7 @@ export const useRotationStore = create<RotationState>()(
           const endIdx = rows.findIndex(r => r.loopEndOverride === true);
           const wasEnabled = get().endingRotationEnabled;
           const wasStartingEarlier = get().endRotationStartsEarlier;
-          // Flag flip rides in the same CompositeCommand as the row changes so undo restores both together.
+          // Flag flip rides in the same CompositeCommand, so undo restores both together.
           const flagCommand: Command = {
             execute: () => set({ endingRotationEnabled: false, endRotationStartsEarlier: false }),
             undo: () => set({ endingRotationEnabled: wasEnabled, endRotationStartsEarlier: wasStartingEarlier })
@@ -355,8 +354,8 @@ export const useRotationStore = create<RotationState>()(
           // A newer recalculate() already landed -- drop this stale result.
           if (seq !== latestSeqByType.recalculate) return;
 
-          // Preserve existing per-row damageInstances unless this result actually has fresh
-          // ones (TimelineEngine always resets them to [], which is truthy but not "fresh").
+          // Preserve existing damageInstances unless the result has fresh ones (TimelineEngine
+          // always resets them to [], truthy but not "fresh").
           const existingDamageMap = new Map(get().rows.map((r, i) => [i, r.damageInstances]));
           const evaluatedRows = data.evaluatedRows;
           evaluatedRows.forEach((row: any, i: number) => {

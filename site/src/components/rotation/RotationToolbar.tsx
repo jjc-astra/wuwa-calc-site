@@ -30,11 +30,9 @@ export const RotationToolbar: React.FC = () => {
 
   const lastIndex = rows.length - 1;
   const hasSelection = selectedIndices.some(i => i !== lastIndex);
-  // endingRotationEnabled can outlive the actual split -- e.g. the loop-end-tagged row gets
-  // deleted through a plain multi-row delete rather than the marker's own reset button (which
-  // clears the flag itself, see useRotationStore.resetLoopEnd) -- so the checkbox's checked
-  // state is gated on an actual tag existing, not just the stored flag, rather than showing
-  // "on" for a rotation that no longer has an Ending Rotation defined.
+  // endingRotationEnabled can outlive its tag -- e.g. a plain multi-row delete removes the
+  // loop-end row without going through resetLoopEnd, which is what normally clears the flag.
+  // So "checked" is gated on the tag actually existing, not just the stored flag.
   const hasEndingRotationMarker = rows.some(r => r.loopEndOverride === true);
 
   const handleCopy = () => {

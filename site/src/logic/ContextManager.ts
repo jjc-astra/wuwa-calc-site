@@ -93,10 +93,8 @@ export const ContextManager = {
         self: selfContext,
         active: { name: onFieldUnit },
         // timeStart/gameTimeStart/duration/gameTimePassed/freezeTime/damageTimeframe/swapTiming
-        // are all frames (the row-scheduling/animation-duration domain) -- DSL authors writing
-        // trigger rules or math expressions against @Move.* should treat these as frame counts,
-        // not seconds. Cooldown-related pointers (@Self.Cooldown(...) etc.) stay seconds, since
-        // cooldowns/buff lifetimes are a deliberate exception to the frame migration.
+        // are all FRAMES, not seconds -- DSL math against @Move.* should treat them as frame
+        // counts. Cooldown pointers (@Self.Cooldown etc) stay SECONDS -- a deliberate exception.
         move: {
           id: actionId,
           name: activeState.moveName || actionId,

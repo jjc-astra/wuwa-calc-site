@@ -11,9 +11,8 @@ export { tip } from '../../utils/Common';
 export const flattenDslShorthand = (v: string): string =>
   v.replace(/@([A-Za-z0-9_]+)\(([^)]+)\)/g, (_match, p1, p2) => `${p1}_${p2.trim()}`);
 
-// Cast types get a fixed non-elemental palette; dmg types get the real elemental color when
-// they match one exactly, or the color of whichever element name appears in the label (e.g.
-// "Aero Erosion" reads as Aero) so status-effect dmgTypes still land on a sensible hue.
+// Cast types: fixed non-elemental palette. Dmg types: exact elemental match, or the element
+// name found in the label (e.g. "Aero Erosion" -> Aero) so status effects still get a sensible hue.
 export function dmgTagColor(tag: string): string {
   if (ELEMENT_COLORS[tag]) return ELEMENT_COLORS[tag];
   const match = Object.keys(ELEMENT_COLORS).find(el => tag.includes(el));
@@ -29,8 +28,7 @@ export function resAbbr(key: string): string {
   return map[key] || key.slice(0, 2).toUpperCase();
 }
 
-// Full resource name for tooltips -- resAbbr's short form (e.g. "ER") is for the compact chip
-// label, not for a hover tooltip, which should spell the resource out ("Energy").
+// Full name for tooltips -- resAbbr's "ER" etc. is for compact chip labels only.
 export function resFullName(key: string): string {
   const forte = key.match(/^forte(\d+)$/i);
   if (forte) return `Forte ${forte[1]}`;
@@ -45,21 +43,15 @@ export const sumNumeric = (v: string | number | number[] | undefined): number =>
 
 export const fmtNum = (n: number): string => (Number.isInteger(n) ? String(n) : n.toFixed(2));
 
-// Displays a stored Frames/seconds value with its unit suffix ("30f" / "12s") once it's a
-// plain number, so the field always reads as unambiguous without the user having to type the
-// unit themselves -- a DSL string (e.g. "@Default.SwapTime") is shown untouched.
+// Adds unit suffix ("30f"/"12s") to a plain numeric value so the field reads unambiguous.
+// A DSL string (e.g. "@Default.SwapTime") is shown untouched.
 export const displayTimeVal = (v: number | string | undefined, unit: 'f' | 's'): string => {
   if (v === undefined || v === '') return '';
   return typeof v === 'number' ? `${v}${unit}` : v;
 };
 
-// Effects Array chip label -- was type|name|stat, which silently dropped everything else the
-// panel below actually lets you set (target, stacks, duration, stack/expire behavior, etc.),
-// leaving chips that looked identical even when the effects behind them were configured very
-// differently. Now surfaces every field the effect actually has set, in roughly the same order
-// TriggerRuleEffectsPanel's own fields read top-to-bottom, so the chip is a real summary instead
-// of just an identifier. Only includes segments that are actually set -- an unset field (e.g.
-// most effects have no stacks/duration at all) doesn't pad every chip with empty noise.
+// Effects Array chip label -- every set field, ordered like TriggerRuleEffectsPanel's own
+// fields, so it reads as a full summary. Unset fields are omitted to avoid empty segments.
 export function effectLabel(eff: Effect): string {
   const parts: string[] = [String(eff.type || '').toUpperCase()];
   if (eff.name) parts.push(eff.name);
@@ -83,10 +75,8 @@ export function effectLabel(eff: Effect): string {
   return parts.join(' | ');
 }
 
-// Normalizes a timing field's "30f"/"0.5s"/bare-number/DSL-expression text on blur, not on
-// every keystroke -- these fields commit their raw typed string on every onChange (so DSL
-// passthrough and mid-type values like "1." or "30f" aren't clobbered), and only get
-// re-derived into the field's canonical unit once the user's actually done typing.
+// Normalizes a timing field's text ("30f"/"0.5s"/DSL) on blur, not every keystroke -- raw
+// typed text is committed on onChange so mid-type values like "1." aren't clobbered.
 export const makeTimeBlur = (
   data: MechanicNode,
   updateNode: (patch: Partial<MechanicNode>) => void,
@@ -99,10 +89,8 @@ export const makeTimeBlur = (
   if (parsed !== raw) updateNode({ [field]: parsed } as Partial<MechanicNode>);
 };
 
-// Resolves a Timing Modifiers field to its actual number for display -- DSL values like
-// "@Default.BasicPriority + 1" are evaluated rather than shown as raw DSL text. @Default is
-// the only pointer guaranteed resolvable without a live rotation context (@Self/@Move etc.
-// need one), which covers the common case for these fields.
+// Resolves a Timing Modifiers field to a display number, evaluating DSL like
+// "@Default.BasicPriority + 1". Only @Default resolves without a live rotation context.
 export function resolveDefaultNum(v: number | string | undefined, dslEvalCtx: Record<string, any>): number | null {
   if (v === undefined || v === '') return null;
   if (typeof v === 'number') return v;

@@ -4,8 +4,8 @@ import { DSLParser } from './DSLParser';
 import { CHARACTER_DEFAULTS, SIM_CONSTANTS, ENEMY_DEFAULTS, STAT_NAME_MAP } from '../data/db';
 import type { Effect, HitConfig, DamageInstanceResult, BuffTotals, CalculatedStats } from '../types';
 
-// Resolves an '@'-expression buff value against the provider's own unbuffed stats,
-// so calculateFinalStats never has to recursively re-derive its own buff context.
+// Resolves '@' buff exprs against the provider's own unbuffed stats -- avoids recursive
+// buff-context re-derivation in calculateFinalStats.
 function resolveBuffValue(rawVal: any, selfStats: Record<string, number> | null): any {
   if (typeof rawVal !== 'string' || !rawVal.includes('@') || !selfStats) return rawVal;
   const ctx = { self: { getStat: (key: string) => selfStats[key] ?? 0 } };
@@ -14,8 +14,8 @@ function resolveBuffValue(rawVal: any, selfStats: Record<string, number> | null)
   return isPctExpr ? `${evaluated * 100}%` : evaluated;
 }
 
-// Shared by aggregateBuffTotals and aggregateNegativeStatusBuffTotals, so the stat-name -> bucket
-// rules (what "reduce res"/"taken"/"multiplicative"/etc. match) never drift apart between them.
+// Shared by aggregateBuffTotals and aggregateNegativeStatusBuffTotals so their stat-name ->
+// bucket rules can't drift apart.
 function classifyBuffIntoTotals(sLower: string, totalVal: number, isPct: boolean, buffTotals: BuffTotals): void {
   if (sLower.includes('amp') || sLower.includes('deepen')) buffTotals.dmgAmp += totalVal;
   // Separate bucket from dmgAmp/Deepen; only calcTuneDmg reads dmgBoost.
@@ -46,8 +46,8 @@ const DEFAULT_ECHO_STATS = {
 };
 
 export const CombatCalculator = {
-  // Keyed by negative-status NAME (not element -- "Fusion Burst" the status and "Fusion" the
-  // element are unrelated; a status never scales off elemental dmg bonus). Index = stack count.
+  // Keyed by status NAME, not element -- "Fusion Burst" the status and "Fusion" the element
+  // are unrelated. Index = stack count.
   NEGATIVE_STATUS_MULTS: {
     'Fusion Burst':    [0, 8400, 15229, 22058, 28888, 35717, 42546, 49375, 56204, 63034, 69863, 93150, 116438, 139726, 163013, 186301, 209588],
     'Electro Flare':   [0, 5000, 9065, 13130, 17195, 21260, 25325, 29390, 33455, 37520, 41585, 55447, 69308, 83170, 97032, 110893, 124755],
@@ -128,9 +128,9 @@ export const CombatCalculator = {
                       : (totalPctMult > 0) ? `${+(totalPctMult * 100).toFixed(4)}% * ${statStr}`
                       : `${Math.floor(flatMult)}`;
 
-    // Tune's fixed base multiplier shown as its own leading term to match calculatedTotal.
-    // NegativeStatus ignores the move's own mult entirely -- its base comes from the enemy's
-    // stack count, so there's no baseDmgStr term at all.
+    // Tune shows its fixed base mult as its own leading term, matching calculatedTotal.
+    // NegativeStatus ignores the move's own mult -- base comes from enemy stack count, so
+    // there's no baseDmgStr term.
     const breakdownParts = formulaUsed === 'Tune' ? [`${SIM_CONSTANTS.TUNE_BASE_DMG}`, baseDmgStr]
                           : formulaUsed === 'NegativeStatus' ? [`${Math.floor(statusBaseDmg)}`]
                           : [baseDmgStr];
@@ -204,8 +204,8 @@ export const CombatCalculator = {
     injectPassiveStat(dbUnit.talentStat1, dbUnit.talentVal1);
     injectPassiveStat(dbUnit.talentStat2, dbUnit.talentVal2);
 
-    // Per-provider cache of unbuffed stats for resolving '@' buff expressions -- keyed by
-    // provider since "@Self" refers to whoever authored the buff, not who consumes it.
+    // Per-provider cache of unbuffed stats for '@' buff exprs -- keyed by provider since
+    // "@Self" means the buff's author, not its consumer.
     const providerStatsCache: Record<string, Record<string, number>> = {};
     const getProviderStats = (providerName: string): Record<string, number> => {
       if (!providerStatsCache[providerName]) {
@@ -310,8 +310,8 @@ export const CombatCalculator = {
 
       if (!(appliesToSelf || appliesToTeam || appliesToActive)) continue;
 
-      // applyTo, when set, is the authoritative scope gate and overrides the name-based
-      // inference below (a stat named "Skill DMG Amp" can still be scoped to Basic Attacks).
+      // applyTo, when set, is authoritative and overrides the name-based inference below --
+      // e.g. a stat named "Skill DMG Amp" can still be scoped to Basic Attacks.
       const applyToList = Array.isArray(buff.applyTo) ? buff.applyTo : (buff.applyTo ? [buff.applyTo] : []);
       const hasExplicitApplyTo = applyToList.length > 0;
       if (hasExplicitApplyTo) {
@@ -365,11 +365,10 @@ export const CombatCalculator = {
     return { buffTotals, appliedBuffs };
   },
 
-  // Negative-status damage never reads a unit's own combat buffs (dmgAmp/dmgBonus/crit/ATK from
-  // whoever's kit applied the stacks) -- only debuffs targeting @Enemy (RES/DEF shred, dmgTaken)
-  // or buffs that specifically name this status ("<Status Name> DMG Bonus/Amp/...", mirroring
-  // "Aero DMG Bonus" for elements) ever apply. No unit-target or applyTo/hitModifiers scoping --
-  // a status tick isn't "cast" by anyone in that sense.
+  // Negative-status dmg ignores the unit's own combat buffs -- only @Enemy-targeted debuffs
+  // (RES/DEF shred, dmgTaken) or buffs naming this status directly ("<Status> DMG Bonus/Amp",
+  // like "Aero DMG Bonus") apply. No applyTo/hitModifiers scoping; a status tick isn't "cast"
+  // by anyone.
   aggregateNegativeStatusBuffTotals: (stateData: any, statusName: string, team: any[] = []): { buffTotals: BuffTotals; appliedBuffs: Record<string, Effect> } => {
     const buffTotals: BuffTotals = {
       percentAtk: 0, flatAtk: 0, percentHP: 0, flatHP: 0, percentDef: 0, flatDef: 0,
@@ -449,12 +448,12 @@ export const CombatCalculator = {
     ].map(m => String(m).toLowerCase())));
 
     const titleLower = titleStr.toLowerCase();
-    // Tune Break/Rupture damage never scales off ATK/HP/DEF, forced here since some Tune
-    // movesets have no scalar field at all (would otherwise default to ATK).
+    // Tune Break/Rupture never scales off ATK/HP/DEF -- forced here since some Tune movesets
+    // have no scalar field (would otherwise default to ATK).
     const isTuneDmg = castTypes.some(c => c.toLowerCase().includes('tune')) || titleLower.includes('tune');
-    // A move is negative-status damage when dmgTypes names ONLY a known status -- mixing it
-    // with other dmgTypes (e.g. ["Heavy","Spectro Frazzle","Spectro"]) means the status name is
-    // cosmetic and the move still uses the Standard formula.
+    // A move is negative-status dmg only when dmgTypes names JUST a known status -- mixed in
+    // with other dmgTypes (e.g. ["Heavy","Spectro Frazzle","Spectro"]) means the name is
+    // cosmetic and Standard formula still applies.
     const isNegativeStatusDmg = !isTuneDmg && dmgTypes.length === 1 && dmgTypes[0] in CombatCalculator.NEGATIVE_STATUS_MULTS;
     // ?? not || -- an explicit "None" scalar is '', which is falsy but must not fall back to ATK.
     const scalarType = isTuneDmg ? '' : (hitConfig.scalar ?? 'ATK').toLowerCase();
@@ -463,8 +462,8 @@ export const CombatCalculator = {
 
     const { buffTotals, appliedBuffs } = CombatCalculator.aggregateBuffTotals(stateData, executingUnit, hitModifiers, team);
 
-    // dmgTypes only, not hitModifiers -- damage-bonus category can differ from cast-type
-    // category (e.g. castType "Heavy" with dmgType "Basic" should only pick up basicDmgBonus).
+    // dmgTypes only, not hitModifiers -- dmg-bonus category can differ from cast-type category
+    // (e.g. castType "Heavy" + dmgType "Basic" should only pick up basicDmgBonus).
     let baseDmgBonus = 0;
     dmgTypes.forEach(type => {
       const key = String(type).toLowerCase();
@@ -506,9 +505,8 @@ export const CombatCalculator = {
     let critDmg = 0;
     let formulaUsed: 'Standard' | 'Tune' | 'NegativeStatus' = 'Standard';
 
-    // For Standard/Tune, the unit-scoped buffTotals/resMultiplier/defMult already computed
-    // above apply as-is. NegativeStatus overrides these three with a narrower aggregation
-    // (see aggregateNegativeStatusBuffTotals) before the breakdown/return below reads them.
+    // Standard/Tune use the unit-scoped buffTotals/resMultiplier/defMult computed above as-is.
+    // NegativeStatus overrides these three via aggregateNegativeStatusBuffTotals instead.
     let resolvedBuffTotals = buffTotals;
     let resolvedAppliedBuffs = appliedBuffs;
     let resMult = resMultiplier;

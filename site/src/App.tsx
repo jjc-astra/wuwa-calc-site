@@ -28,11 +28,9 @@ export default function App() {
   const [{ view: currentView, step: activeStep }, navigate] = useHashRoute();
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Re-checks whichever entity the Mechanics Builder has open against the manifest, replaying
-  // setActiveChar if it changed upstream. `force` skips the "did anything change" gate (needed
-  // at mount, since `mechanics`/`baseStats` aren't persisted) -- everywhere else must NOT force,
-  // since a no-op replay still produces new object references and flickers JsonOutputPane's
-  // highlight effect on every poll tick.
+  // Re-checks the Builder's open entity against the manifest, replaying setActiveChar if it
+  // changed. `force` skips the "did anything change" gate -- needed at mount (mechanics/baseStats
+  // aren't persisted), but elsewhere a no-op replay still flickers JsonOutputPane's highlight.
   const refreshActiveBuilderItem = async (force = false) => {
     const { activeChar, activeFolder, activeRarity, setActiveChar } = useBuilderStore.getState();
     if (!activeChar) return;

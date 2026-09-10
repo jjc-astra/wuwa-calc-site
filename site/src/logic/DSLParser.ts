@@ -62,10 +62,8 @@ export const DSLParser = {
     if (modMatch) {
       modifiers = modMatch[1].split(',').map(s => {
         let mStr = s.trim();
-        // Keep the @Namespace(Move Name) shape intact (just lowercased/whitespace-trimmed)
-        // rather than flattening to Namespace_MoveName -- TimelineEngine.ts's castModifiers
-        // set (what this is matched against for OnCast/etc.) carries the cast move as
-        // `@${unit}(${moveName})`.toLowerCase()`, not an underscore-joined form.
+        // Keeps @Namespace(Move Name) shape intact (lowercased/trimmed) rather than flattening
+        // to Namespace_MoveName -- must match TimelineEngine's castModifiers format exactly.
         mStr = mStr.replace(/@([A-Za-z0-9_]+)\(((?:[^)(]+|\([^)(]*\))*)\)/g, (_, p1, p2) => `@${p1}(${p2.trim()})`);
         return mStr.toLowerCase();
       });
@@ -134,13 +132,10 @@ export const DSLParser = {
     return jsStr;
   },
 
-  // Frames vs seconds cheat sheet for anyone authoring/reading DSL against this pointer table:
-  // @Move.TimeStart/Duration/GameTime/FreezeTime/DamageStart/DamageEnd/SwapTime, and the
-  // scalarMap's .TimeStart/.GameTimeStart/.SwapTime/.ComboWindow/.EchoSummonTime suffixes, are
-  // all FRAMES (the row-scheduling/animation-duration domain). .Cooldown(...)/getCooldown and
-  // .PermanentDuration stay SECONDS -- cooldowns and buff/effect lifetimes are a deliberate
-  // exception to the frame migration (see TimelineEngine.ts's _processGameTimeDecay for the one
-  // place these two domains cross).
+  // Frames vs seconds: @Move.TimeStart/Duration/GameTime/FreezeTime/DamageStart/DamageEnd/
+  // SwapTime, and scalarMap's Time/GameTimeStart/SwapTime/ComboWindow/EchoSummonTime suffixes,
+  // are all FRAMES. .Cooldown()/.PermanentDuration stay SECONDS -- see TimelineEngine's
+  // _processGameTimeDecay for where the two domains cross.
   _translatePointers: (jsStr: string): string => {
     if (typeof jsStr !== 'string') return jsStr;
     let processing = true;

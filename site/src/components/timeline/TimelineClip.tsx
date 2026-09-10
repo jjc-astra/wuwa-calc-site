@@ -28,11 +28,9 @@ function buildTooltipHtml(segment: TimelineSegment): string {
 }
 
 export const TimelineClip: React.FC<TimelineClipProps> = ({ segment }) => {
-  // The outer box is the true, unmodified time-boundary hit target (hover/tooltip). The fill's
-  // own gap from its neighbor (the same idea as StackedContributionBar's .ranking-bar-fill
-  // `gap`) is computed here rather than left to a static CSS inset, so it can use the same
-  // device-pixel-snapped hairline every other edge in this timeline uses -- a plain "1px" CSS
-  // inset would itself land at a different sub-pixel offset per clip and blur inconsistently.
+  // Outer box is the true, unmodified hit target (hover/tooltip). The fill's gap from its
+  // neighbor (same idea as StackedContributionBar's .ranking-bar-fill gap) is computed here,
+  // not a static CSS inset, so it uses the same device-pixel-snapped hairline as every other edge.
   const hairline = hairlinePx();
   const fillWidth = Math.max(0, segment.widthPx - hairline * 2);
 

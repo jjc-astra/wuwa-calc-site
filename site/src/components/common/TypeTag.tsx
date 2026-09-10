@@ -7,11 +7,9 @@ interface TypeTagProps {
   onRemove?: () => void;
   onClick?: (e: React.MouseEvent) => void;
   extraAttrs?: Record<string, string>;
-  // Overrides the default gold styling -- e.g. an elemental color for a dmg-type tag, or a
-  // cast-type color -- keeping the same pill shape/size so tags stay visually consistent.
+  // Overrides default gold styling -- e.g. elemental/cast-type color, same pill shape/size.
   color?: string;
-  // Uses the site's shared TooltipManager (.global-tooltip) instead of a native title
-  // attribute, so it matches the rest of the app's hover styling instead of the browser default.
+  // Uses shared TooltipManager (.global-tooltip) instead of native title, to match app hover styling.
   tooltip?: string;
 }
 

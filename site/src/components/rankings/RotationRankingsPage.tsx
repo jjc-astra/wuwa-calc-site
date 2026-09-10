@@ -37,13 +37,10 @@ export const RotationRankingsPage: React.FC = () => {
 
   const maxDps = visibleEntries.length > 0 ? (visibleEntries[0].dpsStats[RANKING_DPS_FIELD[activeWindow]] ?? 0) : 0;
 
-  // A new search/filter/window means a different result set -- start back at page 1 rather than
-  // risk landing mid-list (or past the end) of whatever this now shows. Two things this must NOT
-  // fire on: before rehydration (hasHydrated false -- search/filters/activeWindow are still just
-  // their pre-persistence defaults, not a real "change"), and the render right as rehydration
-  // lands (zustand's persist swaps in new, if deeply-equal, object references for
-  // search/filters/activeWindow *after* the first render, which would otherwise look like a
-  // "change" and stomp the just-restored page number straight back to 1).
+  // New search/filter/window -- reset to page 1 (avoid landing mid-list/past-the-end). Skipped
+  // before rehydration (values are still pre-persistence defaults) and on the render right after
+  // hydration lands (persist swaps in new refs then, which would look like a change and stomp
+  // the just-restored page back to 1).
   const skippedHydrationRun = useRef(false);
   useEffect(() => {
     if (!hasHydrated) return;
@@ -52,9 +49,8 @@ export const RotationRankingsPage: React.FC = () => {
   }, [search, filters, activeWindow, hasHydrated, setPage]);
 
   const totalPages = Math.max(1, Math.ceil(visibleEntries.length / pageSize));
-  // Clamped rather than trusting `page` outright -- entries can shrink out from under an already
-  //-deep page (a data-freshness reload evicting a stale result, say) between the effect above
-  // and this render.
+  // Clamped, not trusted outright -- entries can shrink out from under an already-deep page
+  // (e.g. a stale result evicted by a freshness reload) between the effect above and this render.
   const safePage = Math.min(page, totalPages);
   const pageEntries = visibleEntries.slice((safePage - 1) * pageSize, safePage * pageSize);
 

@@ -33,10 +33,8 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
   useEffect(() => { setImgErrors(p => ({ ...p, subSet: false })); setImgLoaded(p => ({ ...p, subSet: false })); }, [slot.subSet]);
   useEffect(() => { setImgErrors(p => ({ ...p, mainEcho: false })); setImgLoaded(p => ({ ...p, mainEcho: false })); }, [slot.mainEcho]);
 
-  // Builder edits only get replayed onto the shared DataLoader.characterDB entry when that
-  // character is actually opened in the Builder (see useBuilderStore.setActiveChar) -- so a
-  // character edited only in the Builder this session (never opened here) still needs its
-  // local edits overlaid here to show up in the roster (e.g. a builder-added isDualMode flag).
+  // Builder edits only replay onto DataLoader.characterDB once opened in the Builder
+  // (setActiveChar) -- so un-opened edits still need overlaying here (e.g. isDualMode).
   const charData = slot.character
     ? { ...(DataLoader.characterDB[slot.character] || {}), ...(editedBaseStats[slot.character] || {}) }
     : null;

@@ -1,7 +1,5 @@
-// Orchestrates one MechanicNode's row in the mech-table: owns which sub-panel is open, the
-// "add" fields shared between the summary row's click-to-edit chips and their sub-panel, and
-// renders the summary row plus whichever panel is active. Each panel is self-contained in
-// its own component under ./panels.
+// One MechanicNode's row: owns which sub-panel is open, shared "add" fields between the
+// summary row's chips and sub-panels, and renders the row + active panel.
 import React, { useState, useRef, useEffect } from 'react';
 import type { MechanicNode } from '../../types';
 import { useBuilderStore } from '../../store/useBuilderStore';
@@ -25,8 +23,8 @@ interface MechanicNodeCardProps {
 
 export type PanelKey = 'identity' | 'inputs' | 'timeMods' | 'hits' | 'castTags' | 'dmgTags' | 'castRes' | 'default';
 
-// Which JSON fields each sub-panel edits, driving JsonOutputPane's field highlight. Keep in
-// sync with each panel's own updateNode calls.
+// Fields each sub-panel edits, for JsonOutputPane's highlight.
+// Keep in sync with each panel's own updateNode calls.
 const PANEL_FIELDS: Record<PanelKey, string[]> = {
   identity: ['name', 'provider'],
   inputs: ['input', 'inputType', 'stanceReq', 'stanceResult', 'stanceTime', 'holdConfig'],
@@ -41,21 +39,18 @@ const PANEL_FIELDS: Record<PanelKey, string[]> = {
 export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data }) => {
   const { setMechanicNode, removeMechanicNode, activeChar, baseStats, setHighlightedNodeId, setHoveredFieldHighlight } = useBuilderStore();
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Single ref shared by every field-hover source, so a fast leave-then-enter across adjacent
-  // hover targets cancels the pending "clear" instead of flashing the highlight off and back on.
-  // Symmetric 50ms debounce on both enter and leave avoids that flicker.
+  // Single ref shared by every field-hover source, so a fast leave-then-enter across
+  // adjacent targets cancels the pending clear instead of flickering (50ms debounce both ways).
   const fieldHoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Which column's sub-panel is open, if any -- exactly one at a time, like the rotation
-  // table's activeTrigger/SubPanel pattern.
+  // Which sub-panel is open, if any -- one at a time (like the rotation table's activeTrigger).
   const [activeTrigger, setActiveTrigger] = useState<PanelKey | null>(null);
   const toggleTrigger = (key: PanelKey) => (e: React.MouseEvent) => {
     e.stopPropagation();
     setActiveTrigger(activeTrigger === key ? null : key);
   };
 
-  // Previews a sub-panel's edited fields on hover over its summary-row cell or its open body.
-  // Independent of highlightedNodeId (whole-node, row-only).
+  // Previews a sub-panel's fields on hover (cell or open body) -- independent of highlightedNodeId.
   const enterFieldHover = (key: PanelKey) => {
     if (fieldHoverTimeoutRef.current) clearTimeout(fieldHoverTimeoutRef.current);
     fieldHoverTimeoutRef.current = setTimeout(() => {
@@ -69,8 +64,7 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
     }, 50);
   };
 
-  // Shared between the summary row (clicking a chip seeds these back in) and their matching
-  // "Add" panel below.
+  // Shared between summary row (chip click seeds these) and the matching "Add" panel.
   const [castSelect, setCastSelect] = useState(BuilderState.CAST_OPTIONS[0]);
   const [dmgSelect, setDmgSelect] = useState(BuilderState.DMG_OPTIONS[0]);
   const [castResType, setCastResType] = useState('energy');
@@ -103,7 +97,6 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
     ? DataLoader.characterDB[activeChar]
     : ({} as Record<string, any>);
 
-  // Checks live baseStats first, falls back to DB.
   const forteCount = parseInt((baseStats.forteCount as any) || dbC.forteCount || 1, 10);
   const forteOptions: DropdownOption[] = [];
   for (let i = 1; i <= forteCount; i++) {

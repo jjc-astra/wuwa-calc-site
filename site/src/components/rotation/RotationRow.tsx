@@ -108,8 +108,8 @@ export const RotationRow: React.FC<RotationRowProps> = ({
     const slot = team.find(t => t.character === selectedUnit);
     const activeMode = slot?.mode && slot.mode !== 'None' ? slot.mode : null;
 
-    // Genuine validity only -- the "always retain currently selected" carve-out is handled
-    // separately below, so it doesn't look like a real contender when picking a group's winner.
+    // Genuine validity only -- the "keep selected" carve-out is handled separately below,
+    // so it can't look like a real contender when picking a group's winner.
     const checkValid = (m: any) => {
       if (!m || m.isPassive) return false;
       if (m.modeScope && m.modeScope !== 'both' && activeMode && m.modeScope !== activeMode) return false;
@@ -165,12 +165,9 @@ export const RotationRow: React.FC<RotationRowProps> = ({
     });
 
     // --- COLLAPSE CANDIDATES THAT SHARE THE SAME INPUT ---
-    // Only one resolved mechanic can fire for a given input, so when several valid candidates
-    // share (input, inputType), only the highest-priority one is real. stanceReq is excluded
-    // from the collapse key since this simulator only estimates airborne state, not tracks it
-    // truly -- both variants stay selectable. The already-selected action is never collapsed
-    // away even if it's no longer the priority winner, but the winner itself comes only from
-    // genuinely-valid members, so a stale selection can't shadow the option the author needs.
+    // Only one mechanic fires per (input, inputType) -- keep the highest-priority valid one.
+    // stanceReq excluded from the key (airborne state is estimated, not tracked): both variants stay selectable.
+    // Current selection is never dropped, but the winner is chosen only from valid members.
     const byInputKey = new Map<string, Candidate[]>();
     const finalCandidates: Candidate[] = [];
     candidates.forEach(c => {
@@ -206,9 +203,8 @@ export const RotationRow: React.FC<RotationRowProps> = ({
     });
 
     // --- ORDER GROUPS TO MATCH THE UNIT PAGE ---
-    // groupLabel is a bare category or '<category>: <skillGroupName>' -- strip the suffix
-    // before matching BUILDER_CATEGORIES so groups sort like the Mechanics Builder's accordion.
-    // Echo Skill goes right after the unit's own categories; System always sorts last.
+    // groupLabel may be '<category>: <skillGroupName>' -- strip the suffix before matching
+    // BUILDER_CATEGORIES. Echo Skill sorts right after the unit's own categories; System sorts last.
     const groupOrder = [...BUILDER_CATEGORIES, 'Echo Skill'];
     const groupRank = (label: string): number => {
       if (label === 'System') return groupOrder.length;
@@ -249,8 +245,8 @@ export const RotationRow: React.FC<RotationRowProps> = ({
     updateRowField(index, 'timing', newTiming);
   };
 
-  // Buffered locally so reformatting to "X.XX" on every keystroke doesn't stomp a lone "-" or
-  // trailing "." mid-typing. Commit only on blur/Enter.
+  // Buffered locally so live "X.XX" formatting doesn't stomp a lone "-" or trailing "." mid-typing.
+  // Committed on blur/Enter.
   const handleOffsetInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     setOffsetDraft(e.target.value);
   };
@@ -287,8 +283,8 @@ export const RotationRow: React.FC<RotationRowProps> = ({
   const hasError = rowErrors.length > 0;
   const hasWarning = rowWarnings.length > 0;
 
-  // Every error/warning analyzeLoop found across the loop's second rep -- each gets its own
-  // panel below the tag instead of collapsing into a truncated "(+N more)" label.
+  // Every error/warning analyzeLoop found in the loop's second rep -- each gets its own panel
+  // instead of collapsing into a truncated "(+N more)" label.
   const loopIssues = [
     ...(loopErrors || []).map(text => ({ text, isError: true })),
     ...(loopWarnings || []).map(text => ({ text, isError: false }))

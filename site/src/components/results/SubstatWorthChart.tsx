@@ -19,11 +19,10 @@ export const SubstatWorthChart: React.FC = () => {
   const [mode, setMode] = useState<Mode>('team');
   const unit = units.includes(activeUnit) ? activeUnit : units[0] || '';
 
-  // Each row's min/max/default here are the % worth of a roll of this substat at that roll
-  // value, in the selected -1/+1 direction and team/personal mode -- not the substat's own raw
-  // roll values (those only feed which roll value was tested, via logic/ResultsCalculator).
-  // Rows where the roll moved nothing at all (already-overcapped stats, or a stat this unit's
-  // kit never touches) are dropped rather than shown as a dead 0.0% line.
+  // min/max/default are the % DPS worth of a roll at that value, in the selected direction/mode
+  // -- not the substat's own raw roll values (those only pick which value was tested).
+  // Rows with zero effect (overcapped stat, or one this kit never touches) are dropped
+  // instead of shown as a dead 0.0% line.
   const rows = useMemo(() => {
     const raw = unit ? results?.substatWorth[unit] ?? [] : [];
     return raw
@@ -37,19 +36,17 @@ export const SubstatWorthChart: React.FC = () => {
   }, [unit, results, direction, mode]);
   const scaleMax = Math.max(1, ...rows.map(r => r.max)) * 1.08;
 
-  // Every row's track is the same width (shared CSS Grid column), so one measurement covers
-  // them all. Positioning the marker with a raw `left: X%` lands each row's 3px marker on a
-  // different fractional pixel of that width, and the browser anti-aliases each one
-  // differently -- some read thicker, some thinner. Snapping to a whole pixel here makes
-  // every marker rasterize identically regardless of its underlying percentage.
+  // Every row's track shares the same CSS Grid width, so one measurement covers them all.
+  // A raw `left: X%` marker lands on a different fractional pixel per row, and anti-aliasing
+  // makes some read thicker than others. Snapping to a whole pixel fixes that.
   const trackRef = useRef<HTMLSpanElement>(null);
   const [trackWidth, setTrackWidth] = useState(0);
 
   useLayoutEffect(() => {
     const el = trackRef.current;
     if (!el) return;
-    // Measure synchronously before paint so the very first render is already pixel-snapped
-    // -- ResizeObserver's callback is async and only needed for later resizes from here.
+    // Measured synchronously before paint so the first render is already pixel-snapped;
+    // ResizeObserver only needed for later resizes.
     setTrackWidth(el.getBoundingClientRect().width);
     const observer = new ResizeObserver(entries => setTrackWidth(entries[0].contentRect.width));
     observer.observe(el);
@@ -115,17 +112,15 @@ export const SubstatWorthChart: React.FC = () => {
               <span className="substat-col-header">Max</span>
             </div>
             {rows.map((row, idx) => {
-              // Worth doesn't strictly increase with roll size near a stat's overcap (e.g. a
-              // big Crit Rate roll can be worth *less* than a smaller one if it crosses 100%
-              // crit) -- guard the low/high bar edges rather than assuming min <= max.
+              // Worth doesn't strictly increase with roll size near overcap (e.g. a big Crit Rate
+              // roll can be worth *less* than a smaller one past 100% crit) -- guard edges, don't assume min <= max.
               const lo = Math.min(row.min, row.max);
               const hi = Math.max(row.min, row.max);
               const minPct = (lo / scaleMax) * 100;
               const maxPct = (hi / scaleMax) * 100;
               const defPct = (row.default / scaleMax) * 100;
 
-              // Snap the range bar's own edges the same way, rather than a raw min%/width%,
-              // so it doesn't reintroduce the same fractional-pixel inconsistency.
+              // Snap the range bar's edges the same way (not raw min%/width%) to avoid the same pixel inconsistency.
               const rangeLeft = trackWidth > 0 ? Math.round((minPct / 100) * trackWidth) : null;
               const rangeRight = trackWidth > 0 ? Math.round((maxPct / 100) * trackWidth) : null;
 

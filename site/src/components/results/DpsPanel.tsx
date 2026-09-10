@@ -20,15 +20,13 @@ const ROWS: Array<{ key: keyof DpsStats; label: string }> = [
   { key: 'twoMinDps', label: '2-Minute DPS' }
 ];
 
-// How far the bar's split point can travel from the center (50%) per point of delta%,
-// so the split visibly moves even for the modest deltas DPS comparisons usually produce
-// (a raw value-share split barely moves off 50/50 even for a 20%+ real difference).
+// How far the split point can move from center (50%) per point of delta% -- makes modest
+// deltas visible (a raw value-share split barely moves off 50/50 even at 20%+ difference).
 const DELTA_SCALE = 40 / 50;
 const MIN_SPLIT = 10;
 const MAX_SPLIT = 90;
 
-// Floor for the solo (no comparison) bars, so the lowest-DPS metric still renders a readable
-// bar instead of shrinking to a sliver next to the group's highest value.
+// Floor for solo bars so the lowest-DPS metric stays readable next to the group's highest value.
 const MIN_SOLO_WIDTH = 20;
 
 export const DpsPanel: React.FC = () => {

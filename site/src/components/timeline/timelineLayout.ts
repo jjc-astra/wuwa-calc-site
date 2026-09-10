@@ -56,9 +56,8 @@ export interface TimeCompression {
   compressedWidthPx: number;
 }
 
-// Mirrors RotationBuilder/RotationTimeline's loopEndOverride + row-adjacency logic so the row
-// table and this Timeline never disagree on where an Ending Rotation split sits. Returns null
-// when there's no split, or the real gap is already smaller than the compressed width.
+// Mirrors RotationBuilder/RotationTimeline's loopEndOverride + row-adjacency logic, so the row
+// table and Timeline agree on split location. Null if no split, or gap < compressed width.
 export function buildTimeCompression(evaluatedRows: any[]): TimeCompression | null {
   const loopEndIndex = evaluatedRows.findIndex(r => r && r.unit && r.loopEndOverride === true);
   if (loopEndIndex === -1) return null;
@@ -76,9 +75,8 @@ export function buildTimeCompression(evaluatedRows: any[]): TimeCompression | nu
   return { gapStartFrames, gapEndFrames, compressedWidthPx: ENDING_ROTATION_CUT_WIDTH_PX };
 }
 
-// Like timeToPx, but frames inside the gap collapse into a fixed compressedWidthPx band and
-// everything after shifts left to match. All layout in this module should route through this
-// instead of timeToPx directly, so clips/flags/ticks agree on the same compressed axis.
+// Like timeToPx, but frames inside the gap collapse to a fixed compressedWidthPx band and
+// everything after shifts left -- all layout here should route through this, not timeToPx.
 export function compressedTimeToPx(frames: number, compression: TimeCompression | null): number {
   if (!compression) return timeToPx(frames);
   const { gapStartFrames, gapEndFrames, compressedWidthPx } = compression;
@@ -146,9 +144,8 @@ function deriveSegments(rows: any[], compression: TimeCompression | null): Timel
   return segments;
 }
 
-// Thin bottom-of-row line for a Simultaneous action's own duration, separate from its normal
-// (possibly overlapping) on/off-field clip. Runs until its animation ends, or for a Hold action
-// until the matching Release row.
+// Thin bottom-of-row line for a Simultaneous action's duration, separate from its normal
+// on/off-field clip. Runs until its animation ends, or (Hold) until the matching Release row.
 function deriveSimultaneousLines(rows: any[], compression: TimeCompression | null): SimultaneousLine[] {
   const lines: SimultaneousLine[] = [];
   rows.forEach((row, i) => {
@@ -205,12 +202,10 @@ export interface LaidOutFlag extends TimelineFlag {
   lane: number;
 }
 
-// A strictly higher cancel-priority action (Basic < Heavy < Skill < Echo < Dodge/Jump <
-// Liberation < Intro < Outro, see GAME_DEFAULTS in db.ts) can always cut off whatever is
-// currently playing. So: if the previous row outranks this one, this row can't preempt it and
-// is safe to mash early ('spam'); otherwise mashing early risks cutting the current move short
-// ('wait'). Same (input, inputType) as the previous row means it's a same-string combo
-// continuation, not a cancel contest, so it's always safe to mash.
+// Priority order Basic < Heavy < Skill < Echo < Dodge/Jump < Liberation < Intro < Outro (see
+// GAME_DEFAULTS) -- if the previous row outranks this one, it's safe to mash early ('spam');
+// otherwise mashing risks cutting the current move short ('wait'). Same (input, inputType) as
+// prev = combo continuation, always 'spam'.
 function describeSpamState(prevRow: any, row: any): SpamState | undefined {
   if (!prevRow) return undefined;
   if (prevRow.input === row.input && (prevRow.inputType || 'Press') === (row.inputType || 'Press')) return 'spam';
@@ -300,8 +295,7 @@ export interface Tick {
 export function generateTicks(totalFrames: number, compression: TimeCompression | null = null): Tick[] {
   const ticks: Tick[] = [];
   for (let f = 0; f <= totalFrames; f += 15) {
-    // Skip ticks inside the compressed gap -- illegible at that resolution and their spacing
-    // no longer represents real elapsed time there.
+    // Skip ticks inside the compressed gap -- illegible there, and spacing no longer means real time.
     if (compression && f > compression.gapStartFrames && f < compression.gapEndFrames) continue;
     const tier: TickTier = f % 60 === 0 ? 'major' : f % 30 === 0 ? 'secondary' : 'minor';
     ticks.push({

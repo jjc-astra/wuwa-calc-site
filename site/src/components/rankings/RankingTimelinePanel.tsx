@@ -1,7 +1,6 @@
 // src/components/rankings/RankingTimelinePanel.tsx
-// The only file that imports both RotationTimeline and Rankings types -- keeps the timeline
-// component itself reusable/page-agnostic while this wrapper owns the Rankings-specific
-// data-fetching (recalculating a saved result's raw rotation through the calc worker).
+// Only file importing both RotationTimeline and Rankings types -- keeps the timeline component
+// page-agnostic while this wrapper owns Rankings-specific data fetching.
 import React from 'react';
 import { RotationTimeline } from '../timeline/RotationTimeline';
 import { useRotationTimelineData } from '../timeline/useRotationTimelineData';

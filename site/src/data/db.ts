@@ -118,15 +118,14 @@ export const SIM_CONSTANTS = {
   MAX_SEQUENCE: 6,
   MAX_WEAPON_RANK: 5,
   LEVEL_CAP: 90,
-  // Tune Break/Rupture damage is hitMults% times this fixed base (see calcTuneDmg). Named here
-  // so formatDamageBreakdown can display the same constant instead of omitting it.
+  // Tune Break/Rupture dmg = hitMults% * this base (calcTuneDmg). Also read by formatDamageBreakdown.
   TUNE_BASE_DMG: 10027,
   // Negative-status damage = (getNegativeStatusMult(status, stacks) / this) * ENEMY_DEFAULTS.statusBaseDmg.
   NEGATIVE_STATUS_BASE_MULT: 10000
 };
 
-// Duration fields (swapTime, comboWindow, echoSummonTime, holdLookahead*) are FRAMES at 60fps;
-// swapCooldown and permanentDuration are cooldown/buff-lifetime values and stay SECONDS.
+// FRAMES @ 60fps: swapTime, comboWindow, echoSummonTime, holdLookahead*.
+// SECONDS (cooldown/buff-lifetime): swapCooldown, permanentDuration.
 export const GAME_DEFAULTS = {
   swapTime: 9,
   swapCooldown: 1.0,
@@ -239,8 +238,8 @@ export const STAT_OPTIONS = [
   'CR Rate', 'CR DMG', 'ER %', 'Healing Bonus'
 ];
 
-// Hover-tooltip copy for DSL autocomplete options in the Mechanics Builder, grounded in the
-// actual formula in CombatCalculator.ts (e.g. Deepen and DMG Amp share a multiplier bucket).
+// Hover copy for DSL autocomplete in the Mechanics Builder.
+// Grounded in CombatCalculator.ts's actual formula (e.g. Deepen/DMG Amp share a bucket).
 export const DSL_TOOLTIPS: {
   events: Record<string, string>;
   modifiers: Record<string, string>;
@@ -380,10 +379,9 @@ export const DSL_TOOLTIPS: {
       OutroPriority: 'Default action-priority value for Outro Skills.'
     }
   },
-  // Matches CombatCalculator.ts's keyword buckets: damage = baseDmg * critMult * (1 + DMG
-  // Bonus) * (1 + DMG Amp/Deepen) * (1 + DMG Taken) * (1 + Multiplicative Mult) * resMult * defMult.
-  // Tune Break/Rupture (calcTuneDmg) skips DMG Bonus/crit/scalar scaling but uses DMG Boost
-  // in place of DMG Amp/Deepen.
+  // Formula (CombatCalculator.ts): baseDmg * critMult * (1+DMG Bonus) * (1+DMG Amp/Deepen) *
+  // (1+DMG Taken) * (1+Multiplicative Mult) * resMult * defMult.
+  // TuneBreak/Rupture (calcTuneDmg): skips DMG Bonus/crit/scalar; uses DMG Boost instead of Amp/Deepen.
   statModifiers: {
     'DMG Bonus': 'Adds to the additive damage-bonus multiplier (1 + Base DMG Bonus + this), applied before crit.',
     'DMG Amp': 'Multiplies final damage by (1 + this). Shares the same multiplier bucket as Deepen.',
@@ -516,8 +514,7 @@ export const BUILDER_TEMPLATES: Record<string, MechanicNode> = {
       { type: 'buff', name: 'Inherent Buff', target: '@Self', duration: 9999, stat: 'ATK %', value: '10%' }
     ]
   },
-  // castTypes/dmgTypes must stay ['TuneBreak'] (or 'TuneRupture') -- CombatCalculator keys off
-  // this to route through calcTuneDmg instead of the Standard formula.
+  // Keep castTypes/dmgTypes as ['TuneBreak']/['TuneRupture'] -- CombatCalculator routes on this to calcTuneDmg.
   'Tune Break': {
     name: 'Tune Break',
     triggerRule: 'IF (@Enemy.Tune >= 40)',

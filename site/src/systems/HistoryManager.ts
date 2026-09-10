@@ -3,9 +3,8 @@ export interface Command {
   undo: () => void;
 }
 
-// Rows carry live `prevRow`/`nextRow` back-references (attached by TimelineEngine for
-// @Prev/@Next DSL lookups) that make a plain JSON.stringify throw on circular structure.
-// Those links are always rebuilt by the next recalculate(), so it's safe to drop them here.
+// Rows carry live `prevRow`/`nextRow` back-refs (TimelineEngine's @Prev/@Next lookups) that
+// break JSON.stringify on circular structure. Safe to drop -- recalculate() rebuilds them.
 const cloneRowsSansLinks = (rows: any[]): any[] =>
   JSON.parse(JSON.stringify(rows, (key, value) => (key === 'prevRow' || key === 'nextRow' ? undefined : value)));
 
@@ -225,10 +224,9 @@ export class EditValueCommand implements Command {
   }
 }
 
-// Same as EditValueCommand but sets several fields on a row as one atomic step, so a
-// single edit (e.g. Simultaneous offset, which mirrors into both `offset` and
-// `manualOffset`) undoes/redoes in one step and never leaves the fields transiently
-// out of sync where an intermediate recalc could observe only one of them updated.
+// Same as EditValueCommand but sets several fields on a row as one atomic step (e.g.
+// Simultaneous offset, which mirrors into both `offset` and `manualOffset`) -- undoes/redoes
+// together so an intermediate recalc never sees just one field updated.
 export class EditFieldsCommand implements Command {
   private getRows: () => any[];
   private setRows: (rows: any[]) => void;
@@ -272,9 +270,8 @@ export class EditFieldsCommand implements Command {
   }
 }
 
-// Only one row may carry `loopStartOverride` at a time. Moves the flag from wherever it
-// currently sits (if anywhere) to `newIndex` in one atomic step -- pass `newIndex: null`
-// to clear it entirely (falling back to auto-detection) without setting a new one.
+// Only one row may carry `loopStartOverride` at a time. Moves the flag to `newIndex` in one
+// atomic step -- pass `newIndex: null` to clear it (falls back to auto-detection).
 export class SetLoopStartCommand implements Command {
   private getRows: () => any[];
   private setRows: (rows: any[]) => void;
@@ -318,10 +315,9 @@ export class SetLoopStartCommand implements Command {
   }
 }
 
-// Same shape as SetLoopStartCommand, targeting `loopEndOverride` instead -- marks the last row
-// of the repeating loop when the "Ending Rotation" feature is on. Unlike loop start, there's no
-// auto-detected fallback: absent means "no ending rotation" (the whole loop runs to the end of
-// the rows array, today's behavior), not "detect one."
+// Same shape as SetLoopStartCommand, targeting `loopEndOverride` -- marks the loop's last row
+// when "Ending Rotation" is on. No auto-detected fallback like loop start: absent just means
+// "no ending rotation" (loop runs to the end of the rows array).
 export class SetLoopEndCommand implements Command {
   private getRows: () => any[];
   private setRows: (rows: any[]) => void;

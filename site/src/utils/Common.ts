@@ -25,7 +25,7 @@ export function getCharacterThemeColor(dbChar: Record<string, any> | undefined):
 
 /**
  * Single shared, viewport-aware hover tooltip (mirrors the old site's TooltipManager).
- * One DOM node is reused for every caller instead of each element owning its own tooltip.
+ * One DOM node reused by every caller.
  */
 class TooltipManagerClass {
   private el: HTMLDivElement | null = null;
@@ -59,8 +59,7 @@ class TooltipManagerClass {
     el.style.left = `${left}px`;
   }
 
-  /** Like show(), but anchored to raw cursor coordinates instead of a target element's rect --
-   * for a crosshair-style hover that tracks the pointer across a continuous chart. */
+  /** Like show(), but anchored to raw cursor coords -- for crosshair-style hover on a chart. */
   showAtPoint(x: number, y: number, html: string | null): void {
     if (!html) return;
     const el = this.ensureEl();
@@ -87,8 +86,7 @@ class TooltipManagerClass {
 
 export const TooltipManager = new TooltipManagerClass();
 
-/** Spread onto an element in place of `title="..."` to use the shared TooltipManager instead
- * of the browser's default tooltip. */
+/** Spread onto an element instead of `title="..."` to use the shared TooltipManager. */
 export const tip = (text: string) => ({
   onMouseEnter: (e: MouseEvent) => TooltipManager.show(e.currentTarget as Element, text),
   onMouseLeave: () => TooltipManager.hide()
@@ -131,10 +129,9 @@ export const CommonUtils = {
     return CommonUtils.getImage(`${folder}/Icon_${n.replaceAll(' ', '')}${EXTENSION}`);
   },
 
-  // Data/images live in the separate wuwa-calc-data repo (public, so no auth needed) rather than
-  // this repo's own public/ folder -- publishing new character data no longer requires rebuilding
-  // or redeploying the site. raw.githubusercontent.com serves GET requests with CORS enabled and
-  // isn't subject to api.github.com's rate limits.
+  // Data/images live in the separate wuwa-calc-data repo (public, no auth) instead of this
+  // repo's public/ folder -- new character data ships without rebuilding/redeploying the site.
+  // raw.githubusercontent.com: CORS-enabled GETs, no api.github.com rate limit.
   getImage: (path: string): string => `${DATA_REPO_BASE_URL}/images/${path}`,
   getData: (path: string): string => `${DATA_REPO_BASE_URL}/data/${path}`,
 
@@ -160,13 +157,9 @@ export const CommonUtils = {
   },
 
   /**
-   * Builds the "Name-WI-S#" id fragments used in exported rotation/team filenames and labels,
-   * one per team slot that has a character (weapon initials appended if a weapon is set, then
-   * the sequence if it's above S0 -- omitted at S0 the same way a blank weapon is, since that's
-   * the common/base case and every fragment staying short matters more there than completeness).
-   * Sequence materially changes a build's damage output (see Sanhua's resonance chain passives),
-   * so a saved file's own name should be enough to tell two exports of the same character/weapon
-   * apart without having to open the file.
+   * Builds "Name-WI-S#" id fragments for exported rotation/team filenames, one per team slot
+   * with a character. Appends weapon initials (if set), then sequence (if above S0, since it
+   * affects damage output) -- so exports of the same character/weapon stay distinguishable.
    */
   buildTeamIds: (team: Array<{ character?: string; weapon?: string; sequence?: number }>): string[] => {
     return team
@@ -194,12 +187,10 @@ export const CommonUtils = {
   },
 
   /**
-   * Parses multiplier strings ("150%", "[50%, 100%]", "120") into an array of numbers/percent
-   * strings. A '%' suffix is preserved (as "N%"), not stripped -- CombatCalculator.
-   * calculateDamageInstance keys off exactly that suffix to decide whether a hit mult scales
-   * off the move's scalar stat ("150%" -> pctMult) or is a flat added value ("120" -> flatMult,
-   * e.g. Tune Break's stat-independent hitMults). Dropping the '%' here would silently turn
-   * every percent mult typed into this field into a flat value instead.
+   * Parses multiplier strings ("150%", "[50%, 100%]", "120") into numbers/percent strings.
+   * Keeps the '%' suffix ("N%") -- CombatCalculator.calculateDamageInstance uses it to tell a
+   * scaling hit mult ("150%" -> pctMult) from a flat one ("120" -> flatMult, e.g. Tune Break).
+   * Don't strip '%' here; that would silently turn percent mults into flat values.
    */
   parseMultiplierString: (raw: any): (number | string)[] | undefined => {
     if (raw === undefined || raw === null || raw === '') return undefined;

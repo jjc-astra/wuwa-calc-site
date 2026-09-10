@@ -1,7 +1,6 @@
 // src/components/common/ExportResultsDialog.tsx
 // Shown before a rotation-results JSON downloads (Export Rotation, History's Save Results) --
-// lets the author credit themselves and tweak the filename, reusing the site's own .modal-*
-// CSS (components.css) instead of the browser's plain prompt().
+// lets the author credit themselves/tweak filename. Reuses .modal-* CSS instead of prompt().
 import React, { useState } from 'react';
 
 interface ExportResultsDialogProps {

@@ -9,9 +9,8 @@ import { Dropdown, type DropdownOption } from '../../common/Dropdown';
 import { parseTimeInput } from '../../../utils/Frames';
 import { effectLabel, flattenDslShorthand } from '../mechanicNodeHelpers';
 
-// Mirrors the old site's makeInput/makeSelect wrapper: each effect field gets its own
-// labeled, min-width-protected flex slot so fields share row space evenly instead of
-// one AutocompleteInput's 100%-width wrapper swallowing its siblings.
+// Mirrors old site's makeInput/makeSelect wrapper: each field gets its own labeled,
+// min-width flex slot so fields share row space instead of one 100%-width input swallowing others.
 const EffField: React.FC<{ label: string; minWidth: number; children: React.ReactNode }> = ({ label, minWidth, children }) => (
   <div className="form-group flex-1" style={{ minWidth: `${minWidth}px`, margin: 0 }}>
     <label className="form-label text-dim">{label}</label>
@@ -183,15 +182,8 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
             ]}
           />
 
-          {/* min-width: 0 overrides this flex item's default min-width:auto, which otherwise
-              lets its content dictate a preferred width (flex-basis:auto) wide enough to fit
-              a long unwrapped value -- an Applies During field holding several @Namespace(Move)
-              references, say -- as if it had the *whole* row to itself. That silently ignored
-              the Dropdown/Add-button siblings actually sharing this row, computing a width equal
-              to the full row (e.g. 1017px) instead of (row width - dropdown - button - gaps), and
-              pushed the Add button that many px past the panel's right edge. min-width: 0 lets it
-              correctly shrink to the space actually left over, so its own flex-wrap can kick in
-              and wrap the field rows onto more lines instead. */}
+          {/* min-width: 0 overrides the flex item's default min-width: auto (which sizes to fit
+              long unwrapped values like @Namespace(Move) refs) so flex-wrap kicks in instead of overflowing. */}
           <div className="flex-col gap-sm flex-1 flex-wrap" style={{ minWidth: 0 }}>
             {effectType === 'buff' && (
               <>

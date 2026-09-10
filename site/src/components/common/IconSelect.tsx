@@ -25,12 +25,9 @@ interface IconSelectProps {
 
 const POPUP_MAX_HEIGHT = 260;
 
-/** A <select> replacement that renders each option with its character/weapon/set/echo icon,
- * styled the same as the roster card avatars. Native <select> can't reliably show images
- * inside its popup across browsers, so this reimplements the dropdown as a positioned list of
- * divs instead -- portaled to <body> and positioned in fixed coordinates so it always escapes
- * any scrollable/clipping ancestor (e.g. .char-row's overflow-x: auto) the way a native
- * select's OS-rendered popup would. */
+/** <select> replacement that renders each option with its icon (styled like roster card
+ * avatars) -- native <select> can't reliably show images in its popup cross-browser. Portaled
+ * to <body>, fixed-positioned, so it escapes clipping ancestors (e.g. .char-row's overflow-x). */
 export const IconSelect: React.FC<IconSelectProps> = ({
   value, options, onChange, iconFolder, iconShape, placeholder, className = '', disabled = false
 }) => {

@@ -11,12 +11,12 @@ interface BuilderState {
   baseStats: BaseStats;
   mechanics: Record<string, MechanicNode>;
   highlightedNodeId: string | null;
-  // Which node + JSON field names to highlight in JsonOutputPane, purely hover-driven and
-  // independent of highlightedNodeId (scoped to the summary row alone).
+  // Node/fields to highlight in JsonOutputPane -- hover-driven, independent of
+  // highlightedNodeId (summary row only).
   hoveredFieldHighlight: { nodeId: string; fields: string[] } | null;
-  // Persisted across every character/weapon/set/echo ever edited, not just the active one --
-  // setActiveChar replays these on top of a fresh pristine fetch each time an entity opens.
-  // `mechanics`/`baseStats` below stay as the current entity's live working copy.
+  // Edit log for every entity ever edited, not just the active one.
+  // setActiveChar replays these onto each fresh fetch when an entity opens.
+  // `mechanics`/`baseStats` below are just the active entity's working copy.
   editedBaseStats: Record<string, BaseStats>;
   editedMechanics: Record<string, MechanicNode>;
   deletedMechanicIds: string[];
@@ -30,8 +30,8 @@ interface BuilderState {
   resetCache: () => void;
   // Drives the "!" dirty badge on a grid card without switching to it first.
   hasChanges: (itemName: string) => boolean;
-  // Drops itemName's local edit log without touching DataLoader. Used by dataFreshness.ts when
-  // the server JSON changed and the user chose to discard local edits.
+  // Drops itemName's edit log (DataLoader untouched). Used by dataFreshness.ts to discard
+  // local edits when the server JSON changed.
   discardChanges: (itemName: string) => void;
   // Slices the edit log down to just `itemNames`, for the calc worker's roster overrides.
   getTeamOverrides: (itemNames: string[]) => {
@@ -47,8 +47,8 @@ let activeCharRequestSeq = 0;
 // Mirrors DataLoader.loadMechanic/clearMechanicCache's own prefix convention for mechanicsDB keys.
 export const nodeIdPrefix = (itemName: string) => (itemName === 'Generic' ? 'System_' : `${itemName}_`);
 
-// Maps a builder grid section's image folder to DataLoader's mechanic folder name. Shared by
-// setActiveChar, resetCache, and dataFreshness.ts's staleness check.
+// Maps a grid section's image folder to DataLoader's mechanic folder name.
+// Shared by setActiveChar, resetCache, and dataFreshness.ts's staleness check.
 export const mechFolderFor = (folder: string): string => {
   const lower = folder.toLowerCase();
   if (lower === 'weapons') return 'weapons';
@@ -89,8 +89,8 @@ export const useBuilderStore = create<BuilderState>()(
         // A newer call already landed while this load was in flight -- let it win.
         if (requestId !== activeCharRequestSeq) return;
 
-        // Replay this entity's cached edits on top of the just-fetched pristine data (must
-        // run after loadMechanic, which always overwrites mechanicsDB with pristine JSON).
+        // Replay cached edits onto the pristine fetch -- must run after loadMechanic, which
+        // overwrites mechanicsDB with pristine JSON.
         const { editedBaseStats, editedMechanics, deletedMechanicIds } = get();
         const prefix = nodeIdPrefix(charName);
         const charEdits = editedBaseStats[charName];
@@ -223,9 +223,8 @@ export const useBuilderStore = create<BuilderState>()(
         const matchesAny = (id: string) => prefixes.some(p => id.startsWith(p));
         return {
           editedBaseStats: Object.fromEntries(Object.entries(editedBaseStats).filter(([name]) => names.has(name))),
-          // Strips _compiledRule (a live function RotationRow.tsx's checkValid may have cached
-          // onto the shared DataLoader node) since a function can't cross the postMessage
-          // boundary into the calc worker; it gets recompiled there for free anyway.
+          // Strips _compiledRule (a cached live function) -- can't cross postMessage to the
+          // worker, and gets recompiled there anyway.
           editedMechanics: Object.fromEntries(
             Object.entries(editedMechanics)
               .filter(([id]) => matchesAny(id))
@@ -244,14 +243,11 @@ export const useBuilderStore = create<BuilderState>()(
 
         const mechFolder = mechFolderFor(activeFolder);
 
-        // 1. Evict item entries from DataLoader cache
         DataLoader.clearMechanicCache(mechFolder, activeChar);
-
-        // 2. Re-fetch core character & weapon base stats JSON
         await DataLoader.initDatabases();
 
-        // 3. Clear store state, including this entity's edit log (or setActiveChar below
-        // would just replay the same edits back onto the freshly-refetched data).
+        // Also clear this entity's edit log, or setActiveChar below just replays the same
+        // edits back onto the refetched data.
         const prefix = nodeIdPrefix(activeChar);
         set(state => {
           const nextEditedBaseStats = { ...state.editedBaseStats };
@@ -272,10 +268,9 @@ export const useBuilderStore = create<BuilderState>()(
     }),
     {
       name: 'wuwa_builder_cache',
-      // `mechanics`/`baseStats` are excluded -- they're derived (pristine DataLoader data +
-      // edits replayed on top via setActiveChar), not part of the durable edit log. Persisting
-      // them verbatim used to re-inject stale pristine keys on reload with nothing to prune a
-      // since-deleted one; re-deriving them always goes through the fresh-fetch path instead.
+      // `mechanics`/`baseStats` excluded -- derived (pristine data + edits replayed via
+      // setActiveChar), not part of the durable edit log. Persisting them verbatim used to
+      // re-inject stale keys on reload; re-deriving always re-fetches fresh instead.
       partialize: (state) => ({
         activeChar: state.activeChar,
         activeFolder: state.activeFolder,

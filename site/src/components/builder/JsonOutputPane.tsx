@@ -4,8 +4,8 @@ import { DataLoader } from '../../utils/DataLoader';
 import { BuilderUtils } from '../../utils/BuilderUtils';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 
-// Applies (or clears) the whole-node hover highlight. scroll=true only for a genuine
-// highlightedNodeId change -- the self-healing re-apply must never move the view.
+// Applies/clears the whole-node hover highlight.
+// scroll=true only on real highlightedNodeId change; self-heal re-apply must never scroll.
 function applyNodeHighlight(outBox: HTMLElement, nodeId: string | null, scroll: boolean): void {
   outBox.querySelectorAll('.code-highlighted').forEach(el => el.classList.remove('code-highlighted'));
   if (!nodeId) return;
@@ -28,8 +28,7 @@ function applyNodeHighlight(outBox: HTMLElement, nodeId: string | null, scroll: 
     }
 
     if (scroll) {
-      // Lands at the top of the visible area rather than centered, which pushed a tall node's
-      // start line out of view.
+      // Aligns to top, not centered -- centering pushed a tall node's start line off-screen.
       const outBoxRect = outBox.getBoundingClientRect();
       const lineRect = startLine.getBoundingClientRect();
       outBox.scrollTo({ top: outBox.scrollTop + (lineRect.top - outBoxRect.top) - 12, behavior: 'auto' });
@@ -38,8 +37,8 @@ function applyNodeHighlight(outBox: HTMLElement, nodeId: string | null, scroll: 
   }
 }
 
-// Applies (or clears) the field-level highlight for whichever sub-panel's fields are hovered
-// (see MechanicNodeCard's enterFieldHover/leaveFieldHover). Never scrolls.
+// Applies/clears field-level highlight for hovered sub-panel fields
+// (see MechanicNodeCard's enter/leaveFieldHover). Never scrolls.
 function applyFieldHighlight(
   outBox: HTMLElement,
   highlight: { nodeId: string; fields: string[] } | null
@@ -54,8 +53,8 @@ function applyFieldHighlight(
   const nodeStartLine = nodeKeySpan.closest('.code-line') as HTMLElement | null;
   if (!nodeStartLine) return;
 
-  // Collect the node's own lines first so a field-name search can't cross into a different
-  // node sharing the same field name (e.g. every node has "name").
+  // Collect the node's own lines first, so field search can't cross into another
+  // node with the same field name (e.g. every node has "name").
   const nodeLines: HTMLElement[] = [];
   let nodeCursor: HTMLElement | null = nodeStartLine;
   let nodeDepth = 0;
@@ -77,8 +76,7 @@ function applyFieldHighlight(
     const fieldStartLine = fieldKeySpan.closest('.code-line') as HTMLElement | null;
     if (!fieldStartLine) return;
 
-    // A scalar value highlights just this one line; an object/array value walks forward
-    // through its full block, same as applyNodeHighlight.
+    // Scalar value: highlights just this line. Object/array: walks its full block (like applyNodeHighlight).
     let fieldCursor: HTMLElement | null = fieldStartLine;
     let fieldDepth = 0;
     let opened = false;
@@ -100,8 +98,7 @@ export const JsonOutputPane: React.FC = () => {
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const isWeapon = activeChar ? !!DataLoader.weaponDB[activeChar] : false;
   const isDirty = activeChar ? hasChanges(activeChar) : false;
-  // Same folder DataLoader.loadMechanic/clearMechanicCache use, so the "Save this exact JSON
-  // to" comment names the real path.
+  // Must match the folder DataLoader.loadMechanic/clearMechanicCache use.
   const mechFolder = mechFolderFor(activeFolder);
 
   const [formatted, setFormatted] = useState(() =>
@@ -131,9 +128,8 @@ export const JsonOutputPane: React.FC = () => {
     applyFieldHighlight(outBox, hoveredFieldHighlight);
   }, [hoveredFieldHighlight, formatted.highlightedHTML]);
 
-  // Self-healing re-apply: dangerouslySetInnerHTML can swap in fresh .code-line elements
-  // slightly out of step with a hover-driven highlight, discarding its classes. Watches the
-  // DOM for that replacement and re-applies both highlights without scrolling.
+  // Self-healing re-apply: dangerouslySetInnerHTML swaps in fresh .code-line elements
+  // that drop highlight classes -- watches the DOM for that and reapplies without scrolling.
   const highlightStateRef = useRef({ highlightedNodeId, hoveredFieldHighlight });
   useEffect(() => {
     highlightStateRef.current = { highlightedNodeId, hoveredFieldHighlight };

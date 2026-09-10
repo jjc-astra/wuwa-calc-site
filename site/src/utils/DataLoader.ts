@@ -2,8 +2,8 @@ import { CommonUtils } from './Common';
 import type { CharacterData, WeaponData, MechanicNode, TeamSlot } from '../types/index';
 import type { RotationResults } from '../types/results';
 
-// Master switch gating content with no real mechanics data yet -- disabled/greyed out in the
-// Rotation Calculator, still selectable in the Mechanics Builder. Flip off during content authoring.
+// Gates content with no real mechanics yet: disabled in the Rotation Calculator, still
+// selectable in the Builder. Toggle during content authoring.
 export const DISABLE_UNIMPLEMENTED_CONTENT = true;
 
 export type ImplementedContentKind = 'character' | 'weapon' | 'set' | 'echo';
@@ -16,22 +16,19 @@ export interface CharacterResultData {
   team: TeamSlot[];
   settings: { startEnergy?: boolean; startConcerto?: boolean; endingRotationEnabled?: boolean; endRotationStartsEarlier?: boolean };
   rotationType: 'linear' | 'quickswap' | null;
-  // Free-text credit, entered in the Save Results dialog. Optional so older saved files (from
-  // before this existed) still load fine -- just render with no author tag.
+  // Free-text credit from the Save Results dialog. Optional -- older saved files just render with no author tag.
   author?: string;
-  // Present when the file was produced by History's "Save Results", letting the Rankings loader
-  // skip re-running the calc worker. Absent for a plain Export Rotation file. dmgOverTimeSeries
-  // is left out either way -- cheap to regenerate via a real recalculate.
+  // Set when saved via History's "Save Results" -- lets Rankings skip the calc worker.
+  // Absent for a plain Export. dmgOverTimeSeries is always omitted (cheap to regenerate).
   results?: Omit<RotationResults, 'dmgOverTimeSeries'>;
 }
 
 export class DataLoaderClass {
   cache = { mechanics: new Set<string>() };
-  // Content-hash manifest (public/data/manifest.json), letting the app cheaply detect a changed
-  // data file without re-downloading it. See dataFreshness.ts for the checks built on this.
+  // Content-hash manifest (public/data/manifest.json). Detects changed data files without
+  // re-downloading. See dataFreshness.ts.
   manifest: Record<string, string> = {};
-  // The manifest hash recorded when a path was last fetched, compared against a fresh manifest
-  // to tell "changed since loaded" apart from "never loaded" or "unchanged".
+  // Hash recorded at last fetch -- vs a fresh manifest, tells "changed" from "never loaded"/"unchanged".
   loadedHashes: Record<string, string> = {};
   private manifestFetchedAt = 0;
   characterDB: Record<string, CharacterData> = {};
@@ -40,8 +37,7 @@ export class DataLoaderClass {
   mechanicsDB: Record<string, MechanicNode> = {};
   mechanicsIndex: Record<string, string[]> = {};
   charList: string[] = [];
-  // Submitted rotation results for the Rankings page, loaded lazily (loadCharacterResults),
-  // not as part of initDatabases -- only the Rankings page needs this folder.
+  // Rankings page's submitted results, loaded lazily (loadCharacterResults) -- not part of initDatabases.
   characterResults: Record<string, CharacterResultData> = {};
   weaponsByType: Record<string, string[]> = {
     Broadblade: [], Sword: [], Rectifier: [], Gauntlets: [], Pistols: []
@@ -57,8 +53,7 @@ export class DataLoaderClass {
       const res = await fetch(`${path}?t=${new Date().getTime()}`);
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
-      // Records the path's current manifest hash as "what we just loaded" (not a hash of
-      // `data` itself, which would tautologically always match).
+      // Records the manifest hash as "what we loaded" -- not a hash of `data` (that'd trivially always match).
       if (!opts.skipHashTracking) {
         const relPath = path.replace(/^\/data\//, '');
         if (this.manifest[relPath]) this.loadedHashes[relPath] = this.manifest[relPath];
@@ -70,9 +65,8 @@ export class DataLoaderClass {
     }
   }
 
-  // The on-disk filename for a mechanic entity. Every other part of the app refers to the
-  // Generic/System entity as 'Generic', but the real file is lowercase generic.json -- this is
-  // the one place that translates between the two.
+  // On-disk filename for a mechanic entity. Rest of the app calls the Generic/System entity
+  // 'Generic', but the real file is lowercase generic.json -- this is the one place that translates.
   private mechanicFileName(itemName: string): string {
     return itemName === 'Generic' ? 'generic' : itemName.replace(/\s+/g, '_');
   }
@@ -82,24 +76,21 @@ export class DataLoaderClass {
     return `mechanics/${folder}/${this.mechanicFileName(itemName)}.json`;
   }
 
-  // The cache.mechanics Set key for (folder, itemName) -- the one place that combines folder
-  // with mechanicFileName's Generic->'generic' translation, so every caller (loadMechanic,
-  // clearMechanicCache, dataFreshness.ts) agrees on the same key regardless of which casing
-  // they were handed.
+  // cache.mechanics key for (folder, itemName) -- combines folder with mechanicFileName's
+  // Generic->'generic' translation, so every caller agrees on the same key regardless of casing.
   mechanicCacheKey(folder: string, itemName: string): string {
     return `${folder}/${this.mechanicFileName(itemName)}`;
   }
 
-  // Derived from the manifest (populated before anything can call this -- see App.tsx's
-  // initDatabases gate) rather than a hand-maintained list: a mechanics JSON file existing on
-  // disk for `name` at app build time is exactly what "implemented" means.
+  // Derived from the manifest (populated first -- see App.tsx's initDatabases gate), not a
+  // hand-maintained list: "implemented" = a mechanics JSON file exists on disk for `name`.
   isContentImplemented(kind: ImplementedContentKind, name: string): boolean {
     if (!DISABLE_UNIMPLEMENTED_CONTENT) return true;
     return !!this.manifest[this.mechanicPath(MECHANIC_FOLDER_BY_KIND[kind], name)];
   }
 
-  // Throttled (5s) so a burst of near-simultaneous callers collapses into one request. `force`
-  // bypasses the throttle for the startup call in initDatabases.
+  // Throttled (5s) so near-simultaneous callers collapse into one request.
+  // `force` bypasses the throttle for initDatabases's startup call.
   async refreshManifest(force = false): Promise<Record<string, string>> {
     const now = Date.now();
     if (!force && this.manifestFetchedAt && now - this.manifestFetchedAt < 5000) return this.manifest;
@@ -112,9 +103,8 @@ export class DataLoaderClass {
     return this.manifest;
   }
 
-  // Establishes a loadedHashes baseline for anything already cached that doesn't have one yet
-  // (e.g. useRosterStore's rehydration calling loadMechanic before any manifest fetch has
-  // started). Runs on every successful manifest fetch so a still-unhashed path gets another chance.
+  // Sets a loadedHashes baseline for anything cached but not yet hashed (e.g. useRosterStore
+  // rehydrating before any manifest fetch). Runs on every fetch so unhashed paths get another chance.
   private backfillLoadedHashes(manifest: Record<string, string>): void {
     for (const cacheKey of this.cache.mechanics) {
       const relPath = `mechanics/${cacheKey}.json`;
@@ -147,12 +137,11 @@ export class DataLoaderClass {
     await this.loadMechanic('generic', 'generic');
   }
 
-  // Loads every mechanic a team composition needs. Shared by the roster store and the calc
-  // worker, which has its own separate DataLoader instance.
+  // Loads every mechanic a team needs. Shared by the roster store and the calc worker's own
+  // separate DataLoader instance.
   //
-  // Generic/System (Dodge, Jump, Tune Break, ...) applies to every rotation regardless of team
-  // composition, so it's always loaded here too -- calc.worker.ts's builder-override path clears
-  // it along with the rest of the team before calling this, and relies on this to bring it back.
+  // Generic/System (Dodge, Jump, Tune Break...) applies regardless of team, so it's always
+  // loaded here -- calc.worker.ts's builder-override path clears it first and relies on this to restore it.
   async loadTeamMechanics(team: Array<{ character?: string; weapon?: string; mainSet?: string; subSet?: string; mainEcho?: string }>): Promise<void> {
     await this.loadMechanic('generic', 'generic');
     for (const slot of team) {
@@ -180,9 +169,8 @@ export class DataLoaderClass {
     }
   }
 
-  // Loads every submitted rotation result for the Rankings page. index.json (filenames +
-  // optional rotationType) stands in for a directory listing, since public/ can't be listed
-  // at runtime. Cached by filename so re-mounting the Rankings page doesn't re-fetch.
+  // Loads every submitted result for Rankings. index.json (filenames + optional rotationType)
+  // stands in for a directory listing (public/ can't be listed at runtime). Cached by filename.
   async loadCharacterResults(): Promise<string[]> {
     const manifest = await this.loadJSON<Array<{ file: string; rotationType?: 'linear' | 'quickswap' | null }>>(
       CommonUtils.getData('character_results/index.json')

@@ -324,10 +324,8 @@ export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row }) => {
               <div className="panel-content-grid">
                 {group.fields.map((f: any) => {
                   const rawVal = row[f.key] !== undefined ? row[f.key] : f.default;
-                  // Every field in this panel is a raw Frames value (row-scheduling domain) --
-                  // format through the shared frames->seconds display helper rather than the
-                  // old generic .toFixed(3), which would otherwise print an integer frame
-                  // count as-is (e.g. "88s" instead of "1.47s").
+                  // Every field here is a raw Frames value -- format via the shared frames->seconds helper.
+                  // A plain .toFixed(3) would print the raw frame count (e.g. "88s" instead of "1.47s").
                   const genericVal = typeof rawVal === 'number' && !Number.isInteger(rawVal) ? parseFloat(rawVal.toFixed(3)) : rawVal;
                   const displayVal =
                     typeof rawVal === 'number' && f.suffix === 's'

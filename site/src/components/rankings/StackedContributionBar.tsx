@@ -1,13 +1,8 @@
 // src/components/rankings/StackedContributionBar.tsx
-// A per-row leaderboard bar: its overall length is scaled relative to the top-ranked entry's
-// DPS (so #1 always reads 100% width, matching a standard DPS-leaderboard convention), and it's
-// internally split into one colored segment per damage source for that window -- same data
-// shape, color-resolution rule, and hover-dim interaction (hovered segment stays full opacity,
-// every other segment fades to 0.45 -- PieChart.tsx's exact rule) that TeamContributionPanel's
-// "DMG Contribution" pie chart already uses, reused here so this reads as the same chart, just
-// reshaped into a bar. Hovering a *unit's* segment shows that unit's own cast-type breakdown
-// (the same data TeamContributionPanel shows when you click that unit's own tab, not the Team
-// tab) -- a non-unit/general source has no cast-type breakdown, so it just shows its own value.
+// Per-row leaderboard bar -- length scaled to top entry's DPS (#1 = 100% width). One segment per
+// dmg source, reusing TeamContributionPanel's pie chart data/colors/hover-dim rule (hover = full
+// opacity, rest fade to 0.45, see PieChart.tsx). Hovering a *unit* segment shows its cast-type
+// breakdown (same as that unit's tab there); non-unit sources just show their own value.
 import React, { useState } from 'react';
 import { DataLoader } from '../../utils/DataLoader';
 import { getCharacterThemeColor, TooltipManager } from '../../utils/Common';
@@ -21,27 +16,24 @@ interface ContributionSlice {
 
 interface StackedContributionBarProps {
   segments: ContributionSlice[];
-  /** Team order (e.g. [Lumi, Sanhua]) -- segments are drawn in this order, matching the row's
-   * own TeamPreview icon order, with any non-unit/general source appended after. */
+  /** Team order (e.g. [Lumi, Sanhua]) -- segments draw in this order, matching TeamPreview's
+   * icon order; non-unit/general sources are appended after. */
   unitNames: string[];
   /** Per-unit cast-type breakdown for this window, keyed by character name -- same shape the
-   * DMG Contribution panel's own per-unit tab uses. */
+   * DMG Contribution panel's per-unit tab uses. */
   unitBreakdowns: Record<string, CastTypeSlice[]>;
   /** This row's bar length as a % of the top-ranked entry's, e.g. 100 for the #1 row. */
   widthPct: number;
   dpsValue: number;
-  /** The %-of-top-entry label only means something when there's an actual leaderboard to be a
-   * percentage of (Rankings); History has no such reference point (its bar is always drawn at
-   * a fixed 100% just to fill the row), so it passes false here to suppress a "100%" that
-   * wouldn't be measuring anything. Defaults to true for Rankings' own usage. */
+  /** Only meaningful when there's a real leaderboard to be a % of (Rankings); History has no
+   * such reference and always fills to 100%, so it passes false to suppress a meaningless label. */
   showPercentage?: boolean;
 }
 
 const formatValue = (v: number) => Math.round(v).toLocaleString();
 
-// Above this fill width, the row's own % label is drawn right-aligned *inside* the bar (like
-// the reference leaderboard's #1 row, whose bar already fills the whole track) instead of
-// past its right edge, so it never overflows past the track.
+// Above this width, the % label draws inside the bar (right-aligned) instead of past its edge,
+// so it never overflows the track.
 const PCT_INSIDE_THRESHOLD = 90;
 
 export const StackedContributionBar: React.FC<StackedContributionBarProps> = ({
@@ -57,8 +49,8 @@ export const StackedContributionBar: React.FC<StackedContributionBarProps> = ({
     return isUnit ? getCharacterThemeColor(DataLoader.characterDB[label]) : colorForLabel(label);
   };
 
-  // Draw in team-preview order (real units first, in their team-slot order), then any
-  // remaining general/status-effect source last -- matches the icons above the bar.
+  // Team-preview order (units first, in slot order), then any general/status-effect source
+  // last -- matches the icons above the bar.
   const ordered = [
     ...unitNames.map(name => slices.find(s => s.label === name)).filter((s): s is ContributionSlice => !!s),
     ...slices.filter(s => !unitNames.includes(s.label))
@@ -81,14 +73,13 @@ export const StackedContributionBar: React.FC<StackedContributionBarProps> = ({
         .join('');
       return `<div class="tooltip-val">${formatValue(unitTotal)}</div><div class="ranking-tooltip-unit-label">${seg.label} DMG</div>${rows}`;
     }
-    // Non-unit source (e.g. a status effect like "Aero Erosion") has no cast-type breakdown --
-    // just show its own share of this row's total.
+    // Non-unit source (e.g. "Aero Erosion") has no cast-type breakdown -- just show its share
+    // of the row's total.
     const pct = total > 0 ? (seg.dmg / total) * 100 : 0;
     return `<div class="tooltip-val">${formatValue(seg.dmg)} (${pct.toFixed(1)}%)</div><div style="margin-top:2px;">${seg.label}</div>`;
   };
 
-  // Follows the cursor (rather than staying pinned to the segment's own position) for as long
-  // as the pointer stays over the bar, and only disappears once it actually leaves.
+  // Follows the cursor (not pinned to the segment) while over the bar; disappears on leave.
   const handleMove = (e: React.MouseEvent, seg: ContributionSlice) => {
     TooltipManager.showAtPoint(e.clientX, e.clientY, buildTooltipHtml(seg));
   };

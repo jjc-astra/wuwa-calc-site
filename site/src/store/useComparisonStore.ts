@@ -15,19 +15,17 @@ interface ComparisonState {
   pinned: PinnedRotation | null;
   status: 'idle' | 'loading';
   pinFromFile: (file: File) => Promise<void>;
-  // History entries already carry a full RotationResults (including dmgOverTimeSeries) from the
-  // live Calculate press that produced them, so this pins instantly with no recalculation.
+  // History entries already carry dmgOverTimeSeries from the Calculate press that produced
+  // them -- pins instantly, no recalculation.
   pinFromHistoryEntry: (team: Array<{ character?: string }>, results: Pick<RotationResults, 'dpsStats' | 'dmgOverTimeSeries'>) => void;
-  // A Rankings entry only ever carries dpsStats/contribution (see useRankingsStore.RankingEntry)
-  // -- dmgOverTimeSeries is never kept around for it, so this re-runs the calc worker against the
-  // manifest's raw rotation/team/settings, the same way pinFromFile does for an imported file.
+  // Rankings entries only carry dpsStats/contribution, never dmgOverTimeSeries -- re-runs the
+  // calc worker against the manifest's rotation/team/settings, like pinFromFile does for a file.
   pinFromRankingEntry: (entryId: string) => Promise<void>;
   unpin: () => void;
 }
 
-// Character names only, no weapon initials -- unlike RotationBuilder's export filename (which
-// has room to spare), this label sits in a fixed-width chip alongside the DPS/dmg-over-time
-// charts, and 3 units' worth of "Name-WI" pairs runs out of room fast.
+// Character names only, no weapon initials -- unlike the export filename, this sits in a
+// fixed-width chip and runs out of room fast with "Name-WI" pairs for 3 units.
 function labelFromTeam(team: Array<{ character?: string }> | undefined): string {
   if (!team) return 'Imported Rotation';
   const names = team.filter(s => s.character).map(s => s.character as string);
@@ -37,15 +35,13 @@ function labelFromTeam(team: Array<{ character?: string }> | undefined): string 
 export const useComparisonStore = create<ComparisonState>()(
   persist(
     (set) => {
-      // Shared by pinFromFile and pinFromRankingEntry -- both end up needing the exact same
-      // "run it through the real calc worker, keep dpsStats + dmgOverTimeSeries" round trip,
-      // just sourced from a File vs. an already-loaded manifest entry.
+      // Shared by pinFromFile and pinFromRankingEntry -- same calc-worker round trip, just
+      // sourced from a File vs. an already-loaded manifest entry.
       const recalcAndPin = async (label: string, rotation: any[], team: any[], options: any) => {
         set({ status: 'loading' });
         try {
-          // Pulled out to top-level payload keys, not left nested in `options` -- that's where
-          // calc.worker.ts actually reads them from. Without this, a pinned rotation with an
-          // Ending Rotation split would silently compare against its plain truncated-loop tail.
+          // Top-level, not nested in `options` -- calc.worker.ts reads them from there.
+          // Otherwise an Ending Rotation split silently compares against its truncated tail.
           const endingRotationEnabled = options?.endingRotationEnabled;
           const endRotationStartsEarlier = options?.endRotationStartsEarlier;
           const { result: recalcResult } = postToWorker('recalculate', {
@@ -72,11 +68,9 @@ export const useComparisonStore = create<ComparisonState>()(
         pinned: null,
         status: 'idle',
 
-        // A pinned file only ever carries rotation/team/settings (a plain Export Rotation) or
-        // that plus a saved results object without dmgOverTimeSeries (History's "Save Results" --
-        // see DataLoader.CharacterResultData) -- the dmg-over-time chart needs real per-hit points
-        // either way, so this always re-runs the actual calc worker instead of trusting a
-        // possibly-absent saved dpsStats.
+        // A pinned file carries rotation/team/settings, sometimes plus saved results without
+        // dmgOverTimeSeries (History's "Save Results"). Either way the chart needs real per-hit
+        // points, so this always re-runs the calc worker instead of trusting a saved dpsStats.
         pinFromFile: async (file: File) => {
           const text = await file.text();
           let parsed: any;

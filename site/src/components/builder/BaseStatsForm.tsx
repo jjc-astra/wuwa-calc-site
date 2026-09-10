@@ -62,8 +62,7 @@ export const BaseStatsForm: React.FC = () => {
     </div>
   );
 
-  // Mirrors the mechanics table's own grouping language -- a small accent-underlined label
-  // bracketing just its own fields, not a separate bordered/backgrounded box per group.
+  // Small underlined label per group (matches mechanics table style), not a bordered box.
   const renderGroup = (title: string, children: React.ReactNode) => (
     <div className="base-stats-group">
       <div className="base-stats-group-title">{title}</div>

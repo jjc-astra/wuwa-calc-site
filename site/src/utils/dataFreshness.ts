@@ -1,11 +1,9 @@
-// Cheap "is my already-loaded data still current" checks built on DataLoader's manifest
-// (public/data/manifest.json, a relPath -> content-hash map), guarding against the site's data
-// files changing on the server while the SPA is left open.
+// Cheap "is my loaded data still current" checks, built on DataLoader's manifest
+// (relPath -> content hash). Guards against server data changing while the SPA stays open.
 //
-// A changed entity is safe to silently evict UNLESS the user has local unsaved edits to it in
-// the Mechanics Builder (useBuilderStore.hasChanges), in which case it's surfaced through
-// useFreshnessConflictStore for a conflict dialog instead. Rankings' results files have no
-// Builder-editable counterpart, so they're always just silently evicted.
+// A changed entity is safe to evict, unless the user has unsaved Builder edits to it
+// (useBuilderStore.hasChanges) -- then it surfaces via useFreshnessConflictStore instead.
+// Results files have no Builder counterpart, so they're always silently evicted.
 import { create } from 'zustand';
 import { DataLoader } from './DataLoader';
 import { useBuilderStore } from '../store/useBuilderStore';
@@ -21,8 +19,8 @@ interface FreshnessConflictState {
   raise: (items: FreshnessItem[]) => void;
   // Dismiss without touching anything -- edits stay until the user retriggers a check.
   keep: () => void;
-  // Drops local edit logs and evicts from DataLoader so the next load picks up the server
-  // version. Reloads the Builder's currently-open entity first if it was one of them.
+  // Drops local edit logs, evicts from DataLoader so the next load gets the server version.
+  // Reloads the Builder's open entity first, if it was one of them.
   discard: () => Promise<void>;
 }
 
@@ -57,9 +55,8 @@ export const useFreshnessConflictStore = create<FreshnessConflictState>((set, ge
   }
 }));
 
-// Compares each candidate's recorded loadedHash against a fresh manifest, silently evicting
-// anything changed-and-unedited (returned so a caller with its own separate cache, e.g. the calc
-// worker's DataLoader instance, can mirror the eviction), and raising anything locally edited.
+// Compares loadedHash against a fresh manifest. Evicts changed-and-unedited items (returned
+// so a separate cache, e.g. the calc worker's DataLoader, can mirror it) and raises edited ones.
 async function checkItems(items: FreshnessItem[]): Promise<FreshnessItem[]> {
   if (items.length === 0) return [];
   const manifest = await DataLoader.refreshManifest();
@@ -72,7 +69,7 @@ async function checkItems(items: FreshnessItem[]): Promise<FreshnessItem[]> {
 
     const relPath = DataLoader.mechanicPath(folder, itemName);
     const latestHash = manifest[relPath];
-    if (!latestHash) continue; // manifest doesn't know this path (e.g. it 404'd) -- nothing to compare against
+    if (!latestHash) continue; // manifest lacks this path (e.g. 404'd) -- nothing to compare
 
     const knownHash = DataLoader.loadedHashes[relPath];
     if (!knownHash) {
@@ -80,14 +77,13 @@ async function checkItems(items: FreshnessItem[]): Promise<FreshnessItem[]> {
       DataLoader.loadedHashes[relPath] = latestHash;
       continue;
     }
-    if (knownHash === latestHash) continue; // unchanged
+    if (knownHash === latestHash) continue;
 
     const builderItemName = folder === 'generic' ? 'Generic' : itemName;
     if (useBuilderStore.getState().hasChanges(builderItemName)) {
       conflicts.push({ folder, itemName });
     } else {
-      // Evict then immediately re-fetch, or the Rotation Row's Action dropdown would blank
-      // out until something else happens to call loadMechanic again.
+      // Evict then re-fetch immediately, or the Action dropdown blanks until something else calls loadMechanic.
       DataLoader.clearMechanicCache(folder, itemName);
       await DataLoader.loadMechanic(folder, itemName);
       evicted.push({ folder, itemName });
@@ -98,9 +94,8 @@ async function checkItems(items: FreshnessItem[]): Promise<FreshnessItem[]> {
   return evicted;
 }
 
-// Every mechanic loaded for a team's characters/weapons/sets/echoes, plus the always-loaded
-// 'generic' system mechanics. Returns whichever were evicted so a Calculate press can also tell
-// the calc worker's own separate DataLoader instance to drop the same entries.
+// Loads every mechanic for the team (chars/weapons/sets/echoes) plus 'generic' system mechanics.
+// Returns evicted items, so Calculate can mirror the drop in the calc worker's own DataLoader.
 export async function checkTeamFreshness(team: TeamSlot[]): Promise<FreshnessItem[]> {
   const items: FreshnessItem[] = [{ folder: 'generic', itemName: 'Generic' }];
   team.forEach(slot => {
@@ -113,17 +108,15 @@ export async function checkTeamFreshness(team: TeamSlot[]): Promise<FreshnessIte
   return checkItems(items);
 }
 
-// Checked before the Mechanics Builder opens an entity, and on every reload/refocus/poll
-// re-check of whatever's open (App.tsx's refreshActiveBuilderItem). Returns whichever items
-// were evicted (empty when nothing changed), so a caller can skip an unnecessary setActiveChar
-// replay -- which would otherwise re-trigger JsonOutputPane's highlight effect on every poll.
+// Checked before the Builder opens an entity, and on every reload/refocus poll of what's open
+// (App.tsx's refreshActiveBuilderItem). Returns evicted items (empty if unchanged), so callers
+// can skip a setActiveChar replay that would re-trigger JsonOutputPane's highlight effect.
 export async function checkBuilderItemFreshness(folder: string, itemName: string): Promise<FreshnessItem[]> {
   return checkItems([{ folder, itemName }]);
 }
 
-// No Builder-editable counterpart for results files, so anything changed is just silently
-// evicted from DataLoader.characterResults. Returns whether anything was evicted, so the
-// caller (useRankingsStore.load) knows to force a re-load even if status already says 'ready'.
+// Results files have no Builder counterpart -- changes are just evicted from characterResults.
+// Return value tells useRankingsStore.load to force a reload even when status says 'ready'.
 export async function checkResultsFreshness(): Promise<boolean> {
   const manifest = await DataLoader.refreshManifest();
   const indexPath = 'character_results/index.json';

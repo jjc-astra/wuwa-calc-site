@@ -61,13 +61,12 @@ interface MatchRule {
   dynamicAppend?: (val: string) => string | null;
   /** Marks a rule where multiple comma-separated values can be typed. */
   commaList?: boolean;
-  /** Bracket-close character the "Continue" prompt should also offer; omitted when there's no
-   *  enclosing bracket (e.g. Applies During). */
+  /** Bracket-close char the "Continue" prompt offers too; omitted with no enclosing bracket (e.g. Applies During). */
   commaCloses?: string;
 }
 
-// For a commaList rule's captured bracket content, splits on ',' to find the segment currently
-// being typed (for search/replace) and the segments already committed (to exclude from suggestions).
+// Splits a commaList's captured content on ',': the segment being typed (search/replace)
+// vs already-committed segments (excluded from suggestions).
 function getCommaSegmentInfo(fullCaptured: string): { currentTerm: string; replaceLength: number; chosenTerms: string[] } {
   const segments = fullCaptured.split(',');
   const rawLast = segments[segments.length - 1];
@@ -78,10 +77,8 @@ function getCommaSegmentInfo(fullCaptured: string): { currentTerm: string; repla
   return { currentTerm, replaceLength, chosenTerms };
 }
 
-// Effect names don't consistently carry their namespace the way node keys do (some repeat it,
-// e.g. "Lumi_Outro Skill DMG Amp"; some don't, e.g. "Fusion Burst"). Deriving the namespace from
-// the node an effect is defined in covers both: a self-prefix gets stripped for display, a bare
-// name is kept as authored.
+// Effect names don't consistently carry their namespace (some repeat it, e.g.
+// "Lumi_Outro..."; some don't). Deriving namespace from the defining node covers both.
 function collectEffectNamesByNamespace(builderMechanics: Record<string, MechanicNode>): Record<string, Set<string>> {
   const byNamespace: Record<string, Set<string>> = {};
   const addFrom = (mechanicsByKey: Record<string, MechanicNode>) => {
@@ -100,10 +97,8 @@ function collectEffectNamesByNamespace(builderMechanics: Record<string, Mechanic
   return byNamespace;
 }
 
-// Every mechanic node as an @Namespace(Move Name) reference. Uses `.name` (display name), not
-// the raw key, since that's what CombatCalculator.ts's hitModifiers carries as `moveName` for
-// runtime matching. Restricted to System + the currently-open unit -- a buff can only fire on
-// hits from its own owner or a shared System mechanic.
+// Every mechanic node as an @Namespace(Move Name) ref. Uses `.name`, not the raw key, since
+// that's what CombatCalculator's hitModifiers carries as `moveName`. Scoped to System + current unit.
 function collectMechanicReferences(builderMechanics: Record<string, MechanicNode>, currentNamespace: string | null): SuggestionItem[] {
   const seen = new Set<string>();
   const results: SuggestionItem[] = [];
@@ -143,8 +138,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
   const popupRef = useRef<HTMLDivElement>(null);
   const { mechanics, baseStats, activeChar } = useBuilderStore();
 
-  // Portaled to <body> (like Dropdown.tsx's popup) so it escapes the sub-panel's clipping,
-  // positioned in fixed coordinates from the real input's rect.
+  // Portaled to <body> (like Dropdown.tsx) to escape clipping, positioned via the real input's rect.
   const POPUP_MAX_HEIGHT = 260;
   const positionPopup = () => {
     const input = inputRef.current;
@@ -164,14 +158,12 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
     });
   };
 
-  // A portaled popup can't cheaply track every scrollable ancestor's offset -- close instead of
-  // drifting off-anchor (same tradeoff Dropdown.tsx's usePositionedSelectPopup makes).
+  // Can't cheaply track every scrollable ancestor -- close instead of drifting off-anchor (same as Dropdown.tsx).
   useEffect(() => {
     if (!isOpen) return;
     const handleScroll = (e: Event) => {
       if (popupRef.current && e.target instanceof Node && popupRef.current.contains(e.target)) return;
-      // The input's own internal text-scroll fires a 'scroll' event too (syncScroll's
-      // territory), not an "anchor moved" signal -- ignore it or the popup closes on typing.
+      // Input's own text-scroll fires 'scroll' too (syncScroll's job) -- ignore it or popup closes while typing.
       if (e.target === inputRef.current) return;
       setIsOpen(false);
     };
@@ -192,8 +184,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
     syncScroll();
   }, [value]);
 
-  // Closing the dropdown (select, blur, Escape) can unmount a hovered item without a
-  // mouseleave event ever firing, which would otherwise leave its tooltip stuck on screen.
+  // Closing (select/blur/Escape) can unmount a hovered item without mouseleave firing, leaving a stuck tooltip.
   useEffect(() => {
     if (!isOpen) TooltipManager.hide();
   }, [isOpen]);
@@ -284,8 +275,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
     }
 
     if (mode === 'eff-applies-during') {
-      // Cast Type or a specific move reference -- never a dmg type/element, which a Stat
-      // Modifier like "Fusion DMG Bonus" already scopes to on its own.
+      // Cast Type or a move ref -- never a dmg type/element, already scoped by a Stat Modifier like "Fusion DMG Bonus".
       const castTypes = Object.keys(CAST_TYPE_COLORS).map(ct => ({ val: ct, group: 'Cast Type' }));
       const currentNamespace = activeChar === 'Generic' ? 'System' : activeChar;
       const mechanicRefs = collectMechanicReferences(mechanics, currentNamespace);
@@ -298,8 +288,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
     }
 
     if (mode === 'dsl-value') {
-      // Plain math-expression fields (Priority, Combo Window, Freeze/Swap Time): just pointer +
-      // pointer-property completion, no event/bracket suggestions since these never hold a trigger rule.
+      // Math-only fields (Priority, Combo/Freeze/Swap Time): pointer+property completion, no events/brackets.
       return [
         {
           trigger: /@([a-zA-Z]*)$/,
@@ -340,8 +329,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
     const currentNamespace = activeChar === 'Generic' ? 'System' : activeChar;
     return [
       {
-        // OnCast[Self, ...] etc.: cast/dmg-type modifiers plus a specific move reference,
-        // scoped to System + the currently-open unit like Applies During's mechanic list.
+        // OnCast[Self, ...] etc.: modifiers + move refs, scoped to System + current unit (like Applies During).
         trigger: /\b(?:On|After|Detonate)[a-zA-Z]*\[([^\]]*)$/i,
         options: () => [
           ...DSL_SCHEMA.modifiers.map(v => ({ val: v, group: 'Modifiers' })),
@@ -499,8 +487,8 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
     if (!matched) setIsOpen(false);
   };
 
-  // After finishing one comma-list entry, offer to add another or close the bracket rather
-  // than guessing. closeChar is omitted for a bracket-less commaList field (Applies During).
+  // After one comma-list entry, offer add-another or close-bracket rather than guessing.
+  // closeChar is omitted for a bracket-less field (e.g. Applies During).
   const showContinueOptions = (closeChar?: string) => {
     const items: SuggestionItem[] = [{ val: ',', group: 'Continue', label: ',  (add another)' }];
     if (closeChar) items.push({ val: closeChar, group: 'Continue', label: `${closeChar}  (close)` });
@@ -561,8 +549,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
       const matchLength = match[groupIdx] !== undefined ? match[groupIdx].length : match[0].length;
       const replaceStart = cursorPos - matchLength;
 
-      // rule.prefix (e.g. '@') is only present in `val` when the regex matched it outside the
-      // captured group; otherwise it was never typed and must be inserted here.
+      // rule.prefix (e.g. '@') is in `val` only if the regex matched it outside the capture group; else insert it here.
       const matchedExtra = match[0].length - matchLength;
       const needsPrefix = !!rule.prefix && matchedExtra < rule.prefix.length;
       const insertedPrefix = needsPrefix ? rule.prefix! : '';

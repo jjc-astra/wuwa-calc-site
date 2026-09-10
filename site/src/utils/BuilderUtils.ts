@@ -5,9 +5,8 @@ import { MECHANICS_NOTATION } from '../data/db';
 
 export const BuilderUtils = {
   /**
-   * Mirrors the old site's DOM-extraction step: strips default-valued optional
-   * fields and coerces numeric-looking strings to numbers so the exported JSON
-   * matches the hand-authored mechanics files.
+   * Strips default-valued optional fields, coerces numeric strings to numbers.
+   * Matches the exported JSON to the hand-authored mechanics files (mirrors the old site).
    */
   cleanMechanicNode: (node: MechanicNode, activeChar: string | null): Record<string, any> => {
     const clean: Record<string, any> = { name: node.name };
@@ -65,9 +64,8 @@ export const BuilderUtils = {
       if (freezeTime !== undefined) clean.freezeTime = freezeTime;
     }
 
-    // damageTimeframe isn't scheduling-related like the fields above -- it's read by both a
-    // normal action's own hit-spread (_resolveTimings) and a passive/proc'd mechanic's own dmg
-    // delay (TimelineEngine._queueProccedMechanic), so it has to survive cleaning either way.
+    // Unlike the scheduling fields above, damageTimeframe is read by both normal hit-spread
+    // (_resolveTimings) and proc'd mechanic dmg delay (_queueProccedMechanic) -- must survive cleaning.
     const dmgStart = CommonUtils.parseMixed(node.damageTimeframe?.start);
     const dmgEnd = CommonUtils.parseMixed(node.damageTimeframe?.end);
     if (dmgStart !== undefined || dmgEnd !== undefined) {

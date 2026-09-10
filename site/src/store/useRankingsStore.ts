@@ -28,16 +28,15 @@ export const RANKING_DPS_FIELD: Record<DpsWindowKey, 'openerDps' | 'firstLoopDps
   twoMin: 'twoMinDps'
 };
 
-// "Same rotation" for the Best Only toggle: same characters in the same slots at the same
-// sequence. Gear/echoes and button order don't factor in.
+// "Same rotation" for Best Only: same characters, same slots, same sequence.
+// Gear/echoes and button order don't factor in.
 function rotationGroupKey(entry: RankingEntry): string {
   return entry.team.map((slot, i) => `${slot.character || ''}@S${entry.sequences[i] ?? 0}`).join('|');
 }
 
-// The single element / dmg category this team dealt the most damage as, for the DMG Type
-// filter. Element is attributed wholesale per-unit and weighted by contribution (so a Fusion
-// main + Aero sub reads as a "Fusion team"); category is summed from each unit's per-castType
-// breakdown, since one character's hits already mix several categories.
+// Element/category this team dealt the most damage as, for the DMG Type filter. Element is
+// attributed per-unit by contribution (a Fusion main + Aero sub reads as "Fusion team");
+// category sums each unit's per-castType breakdown, since one character mixes several.
 function majorityDmgTypes(entry: RankingEntry, window: DpsWindowKey): { element: string | null; category: RankingDmgCategory | null } {
   const c = entry.contribution[window];
   const teamNames = new Set(entry.team.map(s => s.character).filter(Boolean));
@@ -73,8 +72,8 @@ function majorityDmgTypes(entry: RankingEntry, window: DpsWindowKey): { element:
   };
 }
 
-/** Applies the sequence/style/search filters, then Best Only dedupe and DPS-descending sort.
- * Shared by the Rankings page and the Pin Comparison picker. */
+/** Applies sequence/style/search filters, then Best Only dedupe and DPS-descending sort.
+ * Shared by the Rankings page and Pin Comparison picker. */
 export function filterRankingEntries(
   entries: RankingEntry[],
   filters: RankingFilters,
@@ -82,14 +81,12 @@ export function filterRankingEntries(
   activeWindow: DpsWindowKey
 ): RankingEntry[] {
   const searchLower = search.trim().toLowerCase();
-  // Every box checked means the facet is inactive -- skip computing majorityDmgTypes per entry
-  // when nothing's been narrowed.
+  // All boxes checked = facet inactive -- skip majorityDmgTypes per entry when nothing's narrowed.
   const elementFilterActive = filters.elements.length < RANKING_ELEMENTS.length;
   const categoryFilterActive = filters.dmgCategories.length < RANKING_DMG_CATEGORIES.length;
 
-  // Sequence/style/search/DMG Type narrow the candidate set first; Best Only (below) only
-  // dedupes within whatever survives, so a group's best rotation is never hidden by a
-  // duplicate that would've been filtered out anyway.
+  // Sequence/style/search/DMG Type narrow candidates first; Best Only (below) only dedupes
+  // within what survives, so a group's best isn't hidden by an already-filtered duplicate.
   let candidates = entries.filter(entry => {
     for (let i = 0; i < 3; i++) {
       const slotChar = entry.team[i]?.character;
@@ -154,8 +151,7 @@ interface RankingsState {
   setPageSize: (pageSize: number) => void;
 
   // True once persist middleware finishes restoring localStorage. RotationRankingsPage's
-  // reset-page-on-filter-change effect needs this to tell rehydration apart from a real user
-  // change, or it would stomp the restored page number back to 1 on every load.
+  // reset-page-on-filter-change effect needs this to tell rehydration from a real user change.
   hasHydrated: boolean;
 }
 
@@ -261,9 +257,9 @@ export const useRankingsStore = create<RankingsState>()(
         page: state.page,
         pageSize: state.pageSize
       }),
-      // zustand's default merge is shallow at the top level, so an old persisted `filters`
-      // (from before the DMG Type filter existed) would replace the default wholesale and
-      // crash on undefined .length/.includes. Deep-merge filters so missing fields fall back.
+      // zustand's merge is shallow -- an old persisted `filters` (pre DMG-Type-filter) would
+      // replace the default wholesale and crash on undefined .length/.includes. Deep-merge
+      // filters so missing fields fall back.
       merge: (persistedState, currentState) => {
         const persisted = (persistedState || {}) as Partial<RankingsState>;
         return {

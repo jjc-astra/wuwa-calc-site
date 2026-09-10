@@ -82,11 +82,8 @@ export const MultiForteGauge: React.FC<MultiForteGaugeProps> = ({ unit, stateDat
           let max = dbChar[maxKey] !== undefined ? parseFloat(dbChar[maxKey]) : 100;
           let isGlowing = false;
 
-          // Forte 1 shows the live hold-release cursor position (and glows inside the
-          // release window) while a Hold action is in progress, matching the old site.
-          // Hold_Start/Hold_Unit are flat trackers shared across every row regardless of unit,
-          // so a lingering hold from a different character (e.g. swapped out mid-hold) must be
-          // ignored here too, or this row would render someone else's cursor state.
+          // Forte 1 shows the live hold-release cursor (glows in the release window) during a Hold.
+          // Hold_Start/Hold_Unit are flat trackers shared by every row -- ignore a hold owned by a different unit.
           const holdStart = stateData?.trackers?.Hold_Start;
           const holdOwnedByUnit = stateData?.trackers?.Hold_Unit === unit;
           if (num === 1 && holdStart !== undefined && holdOwnedByUnit) {
@@ -97,9 +94,8 @@ export const MultiForteGauge: React.FC<MultiForteGaugeProps> = ({ unit, stateDat
             const rowEndGameTime = (stateData.gameTimeStart || 0) + (stateData.gameTimePassed || 0);
             const currentHoldDuration = rowEndGameTime - holdStart;
             const accumulated = stateData.trackers.Cursor_Accumulated || 0;
-            // cursorSpeed is calibrated in cursor-units per real-time SECOND -- currentHoldDuration
-            // is frames (row-scheduling domain), so convert right at this multiplication, mirroring
-            // TimelineEngine.ts's identical hold-physics formula.
+            // cursorSpeed is per real-time second; currentHoldDuration is frames -- convert here.
+            // Mirrors TimelineEngine.ts's hold-physics formula.
             const progress = accumulated + (framesToSeconds(toFrames(currentHoldDuration)) * speed);
 
             if (mode === 'clamp') {

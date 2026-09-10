@@ -1,6 +1,6 @@
-// Lightweight tokenizer for the mechanics DSL, used to drive a syntax-highlight
-// overlay behind DSL input fields (see AutocompleteInput). Purely cosmetic --
-// it never feeds into DSLParser, so a token it misclassifies can't break a rule.
+// Lightweight tokenizer for the mechanics DSL -- drives the syntax-highlight overlay behind
+// DSL input fields (AutocompleteInput). Purely cosmetic: never feeds DSLParser, so a
+// misclassified token can't break a rule.
 
 export interface DSLToken {
   text: string;

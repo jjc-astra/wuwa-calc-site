@@ -9,8 +9,7 @@ interface AvatarIconProps {
   className?: string;
 }
 
-/** Same lazy-load-with-fallback-initial avatar used across roster cards, reused wherever a
- * character/weapon/set/echo icon needs to render (e.g. dropdown options). */
+/** Lazy-load-with-fallback avatar used across roster cards and anywhere an icon renders (e.g. dropdown options). */
 export const AvatarIcon: React.FC<AvatarIconProps> = ({ name, folder, className = '' }) => {
   const [loaded, setLoaded] = useState(false);
   const [errored, setErrored] = useState(false);

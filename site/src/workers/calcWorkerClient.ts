@@ -1,15 +1,12 @@
 // src/workers/calcWorkerClient.ts
-// Thin client around calc.worker.ts, shared by every caller that needs the real
-// TimelineEngine/CombatCalculator/ResultsCalculator pipeline off the main thread -- originally
-// lived only inside useRotationStore.ts (the live Rotation Calculator's "Calculate" button),
-// extracted here so the Rankings page's batch loader can reuse the exact same worker instance
-// and queue instead of duplicating this state-management dance.
+// Thin client around calc.worker.ts. Shared by every caller needing the simulation pipeline
+// off the main thread, so the Rankings batch loader reuses the same worker instance and queue
+// instead of duplicating this state management.
 import CalcWorker from './calc.worker.ts?worker';
 
-// Created lazily, on the first actual postToWorker() call, NOT at module load -- this module
-// is in the static import graph regardless of which page is showing, so an eagerly-created
-// worker here would spin up and start doing work on every single page load, including the
-// landing page.
+// Created lazily on the first postToWorker() call, not at module load -- this module is in
+// the static import graph regardless of page, so eager creation would spin up a worker on
+// every page load, including the landing page.
 let worker: Worker | null = null;
 function getWorker(): Worker {
   if (!worker) worker = new CalcWorker();
@@ -25,15 +22,10 @@ if (import.meta.hot) {
 
 let requestSeq = 0;
 
-// Requests are sent to the worker one at a time (queued here, not in parallel) even though
-// each call resolves independently. The worker's TimelineEngine/DataLoader hold shared,
-// stateful caches (compiled move data, loaded mechanics) -- two calls racing through them
-// concurrently can interleave mid-load and see a half-populated cache, not just a slow one.
-// Queuing avoids that at essentially no cost: the worker was never able to run two
-// simulations in true parallel anyway (it's one thread), so this doesn't reduce throughput,
-// it just stops requests from overlapping in a way that corrupts shared state. Sharing this
-// one module-level queue across every caller (live Calculator edits, a Rankings batch load,
-// anything else later) is what keeps that guarantee true app-wide, not just within one store.
+// Queued one at a time, not run in parallel, even though each call resolves independently --
+// the worker's TimelineEngine/DataLoader share stateful caches, and concurrent calls could
+// interleave mid-load into a half-populated cache. No throughput cost (one thread anyway);
+// this single module-level queue is what keeps the guarantee app-wide, not just per-store.
 let workerQueue: Promise<void> = Promise.resolve();
 
 export function postToWorker(type: 'recalculate' | 'calculateDamage', payload: any): { seq: number; result: Promise<any> } {

@@ -1,8 +1,8 @@
 // src/types/results.ts
-// Shared shapes for the Rotation Calculator's Results panel, used by both the real
-// calculation path (logic/ResultsCalculator.ts) and the comparison-pin path
+// Shared shapes for the Rotation Calculator's Results panel.
+// Used by both the real calc path (logic/ResultsCalculator.ts) and the comparison-pin path
 // (store/useComparisonStore.ts), which recalculates a pinned file through the same worker
-// pipeline and stores its output in these exact shapes.
+// pipeline into these same shapes.
 
 import type { Frames } from '../utils/Frames';
 
@@ -16,10 +16,9 @@ export interface DpsStats {
 export interface DmgOverTimePoint {
   t: Frames;
   dmg: number;
-  // Who/what caused this point's damage -- a character name, or a status-effect dmgType label
-  // (e.g. "Aero Erosion") for non-attributable ticks. Same identity TeamDmgSlice.label uses, so
-  // the same color lookup applies to both. Absent on the t=0 origin point (nothing has hit yet)
-  // and on DPS-mode's derived rolling-average points (no single hit "produced" those).
+  // Damage source: character name, or a status dmgType label (e.g. "Aero Erosion") for
+  // non-attributable ticks. Same identity as TeamDmgSlice.label (shared color lookup).
+  // Absent on the t=0 point and on DPS-mode's rolling-average points.
   label?: string;
 }
 
@@ -28,10 +27,8 @@ export interface DmgOverTimeSeries {
   points: DmgOverTimePoint[];
   bossMaxHp: number;
   killTime: Frames | null;
-  // Nominal duration of the window this series covers (openerEndTime, loopDuration, etc.) --
-  // used to size the chart's x-axis so it "zooms" to exactly that window's width, rather than
-  // however far the last real hit happened to land (which can undershoot the window's true
-  // end when nothing hits right at the boundary).
+  // Nominal window duration (openerEndTime, loopDuration, etc.) -- sizes the chart's x-axis to
+  // that width, rather than wherever the last real hit landed (can undershoot near the boundary).
   windowEnd: Frames;
 }
 
@@ -42,11 +39,9 @@ export interface SubstatWorthValues {
 }
 
 export interface SubstatWorthDirection {
-  // % change of the whole team's 2-minute total damage -- how much this roll is worth to the
-  // rotation as a whole.
+  // % change of the whole team's 2-min total damage -- this roll's worth to the whole rotation.
   team: SubstatWorthValues;
-  // % change of just this unit's own 2-minute damage -- how much this roll is worth to that
-  // unit's personal output, ignoring everyone else's share of the total.
+  // % change of just this unit's own 2-min damage -- this roll's worth to that unit alone.
   personal: SubstatWorthValues;
 }
 
@@ -55,9 +50,8 @@ export interface SubstatWorthRow {
   min: number;
   max: number;
   default: number;
-  // % change in the basis metric for a single roll of this substat at each roll value, in
-  // both directions -- "minus" = losing a roll you have, "plus" = gaining an extra one. Each
-  // direction carries both a team-relative and a personal (unit-relative) percentage.
+  // % change in the basis metric per roll of this substat. "minus" = losing a roll you have,
+  // "plus" = gaining one. Each direction has a team-relative and a personal percentage.
   minus: SubstatWorthDirection;
   plus: SubstatWorthDirection;
 }
@@ -82,8 +76,7 @@ export interface ContributionForWindow {
 
 export interface RotationResults {
   dpsStats: DpsStats;
-  // Same 4 windows as `contribution` below -- lets the Dmg/DPS Over Time chart zoom into just
-  // one window's own timeline instead of always showing the whole extended simulation.
+  // Same 4 windows as `contribution` below -- lets the chart zoom into one window's timeline.
   dmgOverTimeSeries: Record<DpsWindowKey, DmgOverTimeSeries>;
   contribution: Record<DpsWindowKey, ContributionForWindow>;
   // Per-unit substat worth rows, keyed by character name.

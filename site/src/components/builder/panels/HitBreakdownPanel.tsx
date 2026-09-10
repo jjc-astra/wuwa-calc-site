@@ -15,40 +15,29 @@ interface HitBreakdownPanelProps {
 }
 
 export const HitBreakdownPanel: React.FC<HitBreakdownPanelProps> = ({ nodeId, data, updateNode, forteOptions }) => {
-  // Which resource type "Add Hit Resource" will add next -- there was previously no way to add a
-  // *new* hitResources key at all (only edit an already-existing one's per-hit values), for any
-  // mechanic, passive or scheduled -- castResources had AddCastResourcePanel's equivalent control,
-  // hitResources never got one.
+  // Which resource type "Add Hit Resource" will add next.
   const [newHitResType, setNewHitResType] = useState('energy');
-  // Raw text mirror of hitMults — kept separate from the parsed store value so
-  // typing (e.g. "[50%, 100%]") isn't clobbered by the round-tripped parse on every keystroke.
+  // Raw text mirror of hitMults, kept separate so typing isn't clobbered by the round-tripped parse.
   const [multText, setMultText] = useState<string>(() => (data.hitMults ? JSON.stringify(data.hitMults) : ''));
   useEffect(() => {
     setMultText(data.hitMults ? JSON.stringify(data.hitMults) : '');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodeId]);
 
-  // Same raw-text-mirror trick, per hit-resource cell (keyed "resKey_hitIndex") -- each cell's
-  // onChange parses immediately (so calculation and other open views stay live), but the cell
-  // itself displays this raw string, not the round-tripped number, so a mid-typed "1." isn't
-  // snapped back to "1" before the user can type the digits after the decimal point.
+  // Same raw-text-mirror trick per hit-resource cell (keyed "resKey_hitIndex") -- onChange
+  // parses immediately for live calc, but the cell displays raw text so mid-typing isn't clobbered.
   const [hitResRaw, setHitResRaw] = useState<Record<string, string>>({});
   useEffect(() => {
     setHitResRaw({});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodeId]);
 
-  // Per-hit breakdown / timeline preview -- mirrors TimelineEngine._resolveTimings' own
-  // getHitTimeOffset interpolation, recomputed here purely for display (doesn't touch the
-  // real engine, doesn't affect calculation). The dmg window is INFERRED from this: hit 1's
-  // frame (if explicitly set) is damageTimeframe.start, the last hit's frame (if explicitly
-  // set) is damageTimeframe.end -- there's no separate dmg-window input anymore.
+  // Timeline preview mirrors TimelineEngine's getHitTimeOffset, purely for display. Dmg window is
+  // inferred: hit 1's frame -> damageTimeframe.start, last hit's frame -> damageTimeframe.end.
   const hitMultsArr = Array.isArray(data.hitMults) ? data.hitMults : [];
   const hitCount = hitMultsArr.length;
-  // actionDuration is only the dmg-window's fallback end when damageTimeframe.end isn't set
-  // directly -- a passive/proc'd mechanic (no actionDuration at all, since it's never a
-  // scheduled action) still needs to be able to set damageTimeframe on its own, so this no
-  // longer gates whether the panel renders at all (see the render condition below).
+  // actionDuration is only the dmg-window's fallback end when damageTimeframe.end is unset --
+  // a passive/proc'd mechanic has no actionDuration but can still set damageTimeframe directly.
   const durationFrames = typeof data.actionDuration === 'number' ? data.actionDuration : null;
   const tfStart = typeof data.damageTimeframe?.start === 'number' ? data.damageTimeframe.start : 0;
   const tfEnd = typeof data.damageTimeframe?.end === 'number' ? data.damageTimeframe.end : (durationFrames ?? 0);
@@ -97,9 +86,8 @@ export const HitBreakdownPanel: React.FC<HitBreakdownPanelProps> = ({ nodeId, da
     ...forteOptions,
     { value: 'tune', label: 'Tune' }
   ].filter(o => data.hitResources?.[o.value] === undefined);
-  // The dropdown's own selection can go stale once its current value is added/removed
-  // elsewhere -- fall back to the first still-available option rather than a value that no
-  // longer appears in the list, and use that same resolved value when actually adding.
+  // Selection can go stale when its value is added/removed elsewhere -- fall back to the
+  // first available option, and use that same resolved value when actually adding.
   const effectiveNewHitResType = availableHitResTypes.some(o => o.value === newHitResType)
     ? newHitResType
     : availableHitResTypes[0]?.value;

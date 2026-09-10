@@ -1,7 +1,6 @@
 // src/components/timeline/RotationTimeline.tsx
-// Core "video editor" style rotation timeline -- pure/presentational (already-evaluated rows +
-// team in, JSX out), no fetching or page-specific knowledge, so later reuse elsewhere (e.g. the
-// live Rotation Calculator) is just a new thin wrapper around this component, not a rewrite.
+// "Video editor" style rotation timeline -- pure/presentational (evaluated rows + team in, JSX
+// out), no fetching/page knowledge, so reuse elsewhere is just a thin wrapper, not a rewrite.
 import React, { useMemo } from 'react';
 import { TimelineFlagTrack } from './TimelineFlagTrack';
 import { TimelineRow } from './TimelineRow';
@@ -32,12 +31,9 @@ interface RotationTimelineProps {
   className?: string;
 }
 
-// A loop/ending-rotation marker is a line spanning just the unit rows (not a single line
-// crossing the whole height down through the ruler) plus a solid triangle sitting in the ruler
-// itself, pointing up at the line -- the same "playhead marker" idiom video editors use, and
-// the same solid-triangle styling as this app's own .toggle-icon/expand-caret glyphs (a plain
-// colored Unicode glyph, not a bespoke SVG) rather than a line that visually collides with the
-// ruler's own tick marks and second labels.
+// Loop/ending-rotation marker: a line spanning just the unit rows (not through the ruler), plus
+// a solid triangle in the ruler pointing up at it -- the "playhead marker" idiom, styled like
+// .toggle-icon/expand-caret's plain glyph rather than a line colliding with the ruler's ticks.
 interface MarkerLineProps {
   left: number;
   top: number;
@@ -53,10 +49,8 @@ const TimelineMarkerLine: React.FC<MarkerLineProps> = ({ left, top, height, widt
 );
 
 export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRows, team, loopStartIndex, className = '' }) => {
-  // Squeezes the Ending Rotation's silently-simulated gap (if any) down to a small fixed width
-  // instead of its true (potentially huge) span -- every x/width calculation below routes
-  // through compressedTimeToPx (a no-op passthrough to plain timeToPx when there's no gap to
-  // compress), so clips/flags/ticks/total-width all agree on the same compressed axis.
+  // Squeezes the Ending Rotation's silently-simulated gap down to a small fixed width. All
+  // x/width math below routes through compressedTimeToPx so clips/flags/ticks/width all agree.
   const compression = useMemo(() => buildTimeCompression(evaluatedRows), [evaluatedRows]);
   const flags = useMemo(() => assignFlagLanes(buildFlags(evaluatedRows, team), compression), [evaluatedRows, team, compression]);
   const unitRows = useMemo(() => buildUnitRows(evaluatedRows, team, compression), [evaluatedRows, team, compression]);
@@ -68,13 +62,10 @@ export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRow
   const loopStartRow = loopStartIndex !== null ? evaluatedRows[loopStartIndex] : null;
   const loopStartLeft = loopStartRow ? HEADER_COL_WIDTH_PX + compressedTimeToPx(loopStartRow.gameTimeStart, compression) : null;
 
-  // Same two-marker convention as the Rotation Calculator's own row table (RotationRow.tsx):
-  // LOOP END closes off the repeating loop template, and -- whenever the loop-end row is
-  // followed by real content -- END ROTATION marks where that custom replacement content
-  // starts. Both derived from loopEndOverride/row-adjacency rather than their own persisted
-  // flags, mirroring RotationBuilder.tsx's hasEndRotationContent exactly, so the two views can
-  // never disagree about where these markers sit. (buildTimeCompression above derives the same
-  // two rows internally, but doesn't expose them -- cheap enough to just re-derive here too.)
+  // Same two-marker convention as RotationRow.tsx: LOOP END closes the loop template; END
+  // ROTATION marks custom replacement content when the loop-end row is followed by real content.
+  // Both derived from loopEndOverride/row-adjacency (mirrors RotationBuilder.tsx's
+  // hasEndRotationContent) rather than persisted flags, so this view can't disagree with that one.
   const loopEndIndex = evaluatedRows.findIndex(r => r && r.unit && r.loopEndOverride === true);
   const loopEndRow = loopEndIndex !== -1 ? evaluatedRows[loopEndIndex] : null;
   const loopEndLeft = loopEndRow ? HEADER_COL_WIDTH_PX + compressedTimeToPx(loopEndRow.gameTimeStart + loopEndRow.gameTimePassed, compression) : null;
@@ -82,9 +73,8 @@ export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRow
   const endRotationRow = hasEndRotationContent ? evaluatedRows[loopEndIndex + 1] : null;
   const endRotationLeft = endRotationRow ? HEADER_COL_WIDTH_PX + compressedTimeToPx(endRotationRow.gameTimeStart, compression) : null;
 
-  // Poles stop at the bottom of the rows (never cross into the ruler's tick-mark section
-  // below), and start right at their own flag's label -- not above it, which would otherwise
-  // needlessly cross through whichever other flags' labels sit in a lower lane number above it.
+  // Poles stop at the bottom of the rows (never cross into the ruler below), and start right at
+  // their own flag's label -- not above it, where they'd cross through lower-lane flags' labels.
   const maxLane = flags.reduce((max, f) => Math.max(max, f.lane), -1);
   const flagTrackHeight = Math.max(FLAG_TRACK_MIN_HEIGHT_PX, (maxLane + 1) * LANE_HEIGHT_PX);
   const rowsBottom = flagTrackHeight + unitRows.length * ROW_HEIGHT_PX;
@@ -100,9 +90,8 @@ export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRow
           ))}
           <TimelineRuler ticks={ticks} />
 
-          {/* Vertical bar per flag -- starts right at the bottom of its own label (not the full
-              lane band, which would leave the lane gap floating disconnected above the bar) and
-              stops at the bottom of the last row, before the ruler. */}
+          {/* Vertical bar per flag -- starts at the bottom of its own label (not the full lane
+              band, which would leave a floating gap above), stops at the bottom of the last row. */}
           {flags.map((flag, i) => {
             const top = flag.lane * LANE_HEIGHT_PX + FLAG_LABEL_HEIGHT_PX;
             return (
@@ -120,9 +109,8 @@ export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRow
             );
           })}
 
-          {/* Starts at the top of the first unit row (not the flag track above it) and stops at
-              the bottom of the last row -- the ruler below gets its own arrow marker instead of
-              the line crossing through it and visually colliding with the tick marks/labels. */}
+          {/* Starts at the top of the first unit row (not the flag track) and stops at the last
+              row -- the ruler gets its own arrow marker instead of a line crossing its ticks. */}
           {loopStartLeft !== null && (
             <TimelineMarkerLine
               lineClassName="timeline-loop-start-line"
@@ -133,16 +121,12 @@ export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRow
             />
           )}
 
-          {/* Ending Rotation: the real gap between the loop-end row and the Ending Rotation's
-              first row (the silently-simulated repeat loops never get their own rows in
-              evaluatedRows -- only the tail's timing shifts to reflect them, see
-              previewEndingRotationTiming) has already been compressed down to a small fixed
-              width by buildTimeCompression -- endRotationLeft - loopEndLeft always equals
-              exactly ENDING_ROTATION_CUT_WIDTH_PX whenever this renders, by construction. The
-              striped fill below is scoped to just the unit rows (like the flag poles/marker
-              lines) -- the ruler communicates the skip on its own, via generateTicks already
-              omitting every tick inside the compressed gap (38s jumping straight to 118s), so it
-              doesn't also need the hatching drawn over it. */}
+          {/* Ending Rotation: gap between the loop-end row and Ending Rotation's first row
+              (silently-simulated repeat loops get no rows of their own, see
+              previewEndingRotationTiming) is compressed by buildTimeCompression --
+              endRotationLeft - loopEndLeft always equals ENDING_ROTATION_CUT_WIDTH_PX here.
+              Striped fill is scoped to unit rows only -- the ruler already shows the skip via
+              generateTicks omitting ticks inside the gap. */}
           {loopEndLeft !== null && (
             <TimelineMarkerLine
               lineClassName="timeline-loop-end-line"

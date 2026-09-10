@@ -23,9 +23,8 @@ interface ScrollbarSegment {
   color?: string;
 }
 
-// A VS Code "overview ruler" style minimap rendered onto .rotation-scrollbar-map, behind
-// #rotation-builder's own scrollbar. One dimmed bar per contiguous run of same-unit rows, plus
-// a wider accent-colored tick mark for each loop start/end boundary.
+// VS Code "overview ruler" style minimap for .rotation-scrollbar-map, behind the real scrollbar.
+// One dimmed bar per contiguous same-unit run, plus a tick mark for each loop start/end.
 function buildRotationScrollbarSegments(rows: any[], loopStartIndex: number, loopEndIndex: number): ScrollbarSegment[] {
   const n = rows.length;
   if (n === 0) return [];
@@ -69,8 +68,8 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
   const maxHeight = useCollapseMaxHeight(isOpen, contentRef);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Actual rendered scrollbar width (offsetWidth-clientWidth), so .rotation-scrollbar-map can
-  // match it exactly instead of guessing a constant. Re-measured on resize and row-count change.
+  // Actual scrollbar width (offsetWidth - clientWidth) so the minimap matches it exactly.
+  // Re-measured on resize and row-count change.
   const rotationBuilderRef = useRef<HTMLDivElement>(null);
   const [scrollbarWidth, setScrollbarWidth] = useState(0);
 
@@ -107,9 +106,8 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
 
   const { team, importTeam } = useRosterStore();
 
-  // Refreshes gauges/timings/per-row DMG once when the page opens, for a rotation rehydrated
-  // from a previous session but never recalculated since. markStale=false so this doesn't stamp
-  // a fresh "still fresh" result as stale; includeDamage=true since damageInstances isn't persisted.
+  // One-time refresh for a rehydrated rotation that's never been recalculated.
+  // markStale=false: don't flag a fresh result stale. includeDamage=true: damageInstances isn't persisted.
   useEffect(() => {
     recalculate(false, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -122,8 +120,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
-    // Re-measures after the accordion's open/close transition (useCollapseMaxHeight) settles,
-    // since a measurement mid-transition can under/over-report.
+    // Re-measures after the accordion transition settles -- mid-transition reads can be off.
     const settleTimer = setTimeout(measure, 350);
     return () => {
       ro.disconnect();
@@ -131,15 +128,13 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     };
   }, [rows.length]);
 
-  // Active Sub-Panel state: { rowIndex: number, trigger: string }
   const [activeSubPanel, setActiveSubPanel] = useState<{ rowIndex: number; trigger: string } | null>(null);
 
-  // Drag and Drop state
   const [draggedIndices, setDraggedIndices] = useState<number[]>([]);
   const [dragOverInfo, setDragOverInfo] = useState<{ index: number; position: 'top' | 'bottom' } | null>(null);
 
-  // Loop marker drag state: a separate gesture from row reordering -- relocates the loop
-  // start/end flag instead of moving rows. Shares dragOverInfo for the placement indicator.
+  // Loop marker drag: separate gesture from row reordering -- relocates the loop start/end
+  // flag, not rows. Reuses dragOverInfo for the placement indicator.
   const [draggedMarker, setDraggedMarker] = useState<'start' | 'end' | null>(null);
 
   // Global keyboard shortcuts (Delete, Undo/Redo, Copy/Paste, Insert Above/Below).
@@ -300,16 +295,15 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     setDragOverInfo(null);
   };
 
-  // Built up-front by handleExport, then only actually downloaded once the dialog below is
-  // confirmed -- lets the user rename the file and credit themselves before it's written.
+  // Built by handleExport, downloaded only once the dialog below confirms it --
+  // lets the user rename/credit themselves first.
   const [exportPending, setExportPending] = useState<{ exportObject: Record<string, unknown>; filename: string } | null>(null);
 
   const handleExport = () => {
     if (rows.length === 0) return alert('Rotation is empty.');
 
-    // Fold in results when they still match the on-screen rotation (not stale), so this export
-    // doubles as a Rankings-ready file. dmgOverTimeSeries is left out either way -- cheap to
-    // regenerate via a real recalculate.
+    // Include results only when not stale, so the export doubles as Rankings-ready.
+    // dmgOverTimeSeries omitted either way -- cheap to regenerate via recalculate.
     const includeResults = !!results && !isStale;
     const exportObject: Record<string, unknown> = {
       rotation: rows.map(({ unit, action, timing, loopStartOverride, loopEndOverride }) => ({
@@ -336,9 +330,8 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     setExportPending({ exportObject, filename });
   };
 
-  // Set only when an imported file's team shares characters+sequences with the roster already
-  // in Step 1 -- holds the parsed file while asking whether to overwrite that roster's build or
-  // keep it and only import the rotation/settings. Any other import applies immediately.
+  // Set only when the imported team matches Step 1's roster (same characters+sequences) --
+  // holds the parsed file while asking whether to overwrite the build. Other imports apply immediately.
   const [pendingImport, setPendingImport] = useState<{ rawData: any; rotData: any[] } | null>(null);
 
   const applyImport = async (rawData: any, rotData: any[], includeTeam: boolean) => {
@@ -346,8 +339,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
       await importTeam(rawData.team);
     }
     importRotation(rotData, rawData.settings);
-    // Open the rotation section first (it may still be collapsed) so the imported rows are
-    // visible, then scroll to reveal the end.
+    // Open the rotation section first (may be collapsed) so imported rows are visible, then scroll to the end.
     if (!isOpen) onToggle();
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -357,8 +349,8 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     });
   };
 
-  // Signature by character+sequence only, ignoring weapon/echoes/stats (the build details this
-  // prompt lets the user keep instead of losing to the imported file).
+  // Signature by character+sequence only -- ignores weapon/echoes/stats, which the prompt
+  // lets the user keep instead of losing to the imported file.
   const teamSignature = (t: any[]): string => (t || []).map(s => `${s?.character || ''}|${s?.sequence || 0}`).join(',');
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -451,9 +443,8 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
         </div>
 
         <div className="rotation-list-wrap">
-          {/* Painted behind #rotation-builder's own scrollbar as a sibling, since Chromium
-              ignores a background set directly on the native scrollbar track. Inset top/bottom
-              by scrollbar width to clear Windows' square arrow buttons at each end. */}
+          {/* Sibling layer behind the native scrollbar -- Chromium ignores backgrounds set on
+              the scrollbar track directly. Inset top/bottom clears Windows' arrow buttons. */}
           {scrollbarWidth > 0 && (
             <div className="rotation-scrollbar-map" style={{ width: scrollbarWidth, top: scrollbarWidth, bottom: scrollbarWidth }}>
               {scrollbarSegments.map(seg => (

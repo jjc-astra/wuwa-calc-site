@@ -9,8 +9,7 @@ import { Dropdown } from '../common/Dropdown';
 import { TooltipManager, tip } from '../../utils/Common';
 import { framesToSeconds } from '../../utils/Frames';
 
-// This chart's domain is plain display-seconds, converted once at the boundary (toDisplaySeries)
-// from the engine's Frames-typed series.
+// Domain is plain display-seconds, converted once at the boundary (toDisplaySeries) from Frames.
 interface DisplayPoint { t: number; dmg: number; label?: string; }
 interface DisplaySeries { label: string; points: DisplayPoint[]; bossMaxHp: number; killTime: number | null; windowEnd: number; }
 
@@ -25,7 +24,7 @@ function toDisplaySeries(s: DmgOverTimeSeries): DisplaySeries {
 }
 
 const TWO_MIN = 120;
-// Fallback width until the first ResizeObserver measurement lands (see chartWidth state below).
+// Fallback width until the first ResizeObserver measurement lands.
 const DEFAULT_WIDTH = 440;
 const HEIGHT = 220;
 const PAD = { top: 22, right: 16, bottom: 30, left: 62 };
@@ -39,8 +38,7 @@ type ViewMode = 'dmg' | 'dps';
 type ChartType = 'line' | 'bar';
 const DPS_WINDOW = 1;
 
-// Picks a readable tick spacing for whichever window is selected (an Opener might be 8s, a
-// 2-Min window 120s+).
+// Picks a readable tick spacing for whichever window is selected (Opener ~8s vs 2-Min 120s+).
 function pickTickStep(domainMaxT: number): number {
   if (domainMaxT <= 15) return 2;
   if (domainMaxT <= 40) return 5;
@@ -49,8 +47,8 @@ function pickTickStep(domainMaxT: number): number {
   return 60;
 }
 
-// A label centered at the plot's edge draws half off-chart (SVG text isn't clipped to the
-// viewBox) -- flip to "start"/"end" near either edge so it draws inward instead.
+// A label centered at the plot edge draws half off-chart (SVG text isn't viewBox-clipped) --
+// flip to "start"/"end" near an edge so it draws inward.
 const EDGE_ZONE = 22;
 function edgeAnchor(x: number, width: number): 'start' | 'middle' | 'end' {
   if (x <= PAD.left + EDGE_ZONE) return 'start';
@@ -60,8 +58,8 @@ function edgeAnchor(x: number, width: number): 'start' | 'middle' | 'end' {
 
 const formatDmg = (v: number) => (v >= 1_000_000 ? `${(v / 1_000_000).toFixed(2)}M` : `${(v / 1000).toFixed(0)}K`);
 const formatTime = (t: number) => `${Math.floor(t / 60)}:${String(Math.round(t % 60)).padStart(2, '0')}`;
-// Full precision for tooltip content -- axis labels/ticks stay abbreviated (formatDmg/formatTime
-// above) since those need to stay short, but a hovered value should read exactly.
+// Full precision for tooltips -- axis labels stay abbreviated (formatDmg/formatTime above),
+// but a hovered value should read exactly.
 const formatDmgPrecise = (v: number) => Math.round(v).toLocaleString();
 const formatTimePrecise = (t: number) => {
   const m = Math.floor(t / 60);
@@ -82,8 +80,7 @@ function valueAtTime(points: DisplayPoint[], t: number): number {
   return points[points.length - 1].dmg;
 }
 
-// Same lookup as valueAtTime, but for the point's label, to color the hover dot/tooltip to
-// match whichever unit's segment is under the cursor.
+// Same lookup as valueAtTime, but for the label -- colors the hover dot/tooltip by unit segment.
 function labelAtTime(points: DisplayPoint[], t: number): string | undefined {
   for (let i = 1; i < points.length; i++) {
     if (points[i].t >= t) return points[i].label;
@@ -91,8 +88,8 @@ function labelAtTime(points: DisplayPoint[], t: number): string | undefined {
   return points[points.length - 1].label;
 }
 
-// Derives a trailing-1s-average DPS line, sampled at every hit's timestamp and at that hit's
-// +1s "expiry" timestamp, to capture the actual rise/decay shape instead of smearing it.
+// Trailing 1s-average DPS line, sampled at each hit's timestamp and its +1s "expiry" --
+// captures the actual rise/decay shape instead of smearing it.
 function buildDpsPoints(points: DisplayPoint[], domainMaxT: number): DisplayPoint[] {
   const criticalTimes = new Set<number>([0, domainMaxT]);
   points.forEach(p => {
@@ -121,16 +118,16 @@ export const DmgOverTimeChart: React.FC = () => {
   const [WIDTH, setWidth] = useState(DEFAULT_WIDTH);
 
   const primarydmg = results ? toDisplaySeries(results.dmgOverTimeSeries[dpsType]) : EMPTY_SERIES;
-  // A solo series keeps its engine label (e.g. "Opener"). Once pinned, both need a name that
-  // identifies which rotation instead, matching DpsPanel's "Current" / pinned.label convention.
+  // Solo series keeps its engine label (e.g. "Opener"); once pinned, both need a rotation name
+  // instead, matching DpsPanel's "Current" / pinned.label convention.
   const dmgSeries: DisplaySeries[] = pinned
     ? [{ ...primarydmg, label: 'Current' }, { ...toDisplaySeries(pinned.dmgOverTimeSeries[dpsType]), label: pinned.label }]
     : [primarydmg];
   const domainMaxT = primarydmg.windowEnd;
   const hasChart = domainMaxT > 0;
 
-  // Tracks the svg's rendered pixel width so a wider panel reveals more plot area instead of
-  // stretching the layout. Re-runs when the svg mounts/unmounts (the placeholder renders no svg).
+  // Tracks the svg's rendered width so a wider panel reveals more plot area instead of stretching.
+  // Re-runs on svg mount/unmount (the placeholder renders no svg).
   useEffect(() => {
     const el = svgRef.current;
     if (!el) return;
@@ -142,19 +139,16 @@ export const DmgOverTimeChart: React.FC = () => {
     return () => observer.disconnect();
   }, [hasChart]);
 
-  // In DPS mode, points are replaced with the rolling-average line; label/bossMaxHp/killTime
-  // carry over unchanged so the rest of the chart doesn't need to know which mode it's in.
+  // DPS mode swaps in the rolling-average line; label/bossMaxHp/killTime carry over unchanged.
   const series: DisplaySeries[] =
     mode === 'dmg' ? dmgSeries : dmgSeries.map(s => ({ ...s, points: buildDpsPoints(s.points, domainMaxT) }));
 
-  // Bar view is DMG-only (a DPS step chart just duplicates the rolling-average line with extra
-  // steps) and single-series only (hidden whenever a comparison is pinned -- see the toggle
-  // below), so either of those falls back to the line view regardless of the last chosen type.
+  // Bar view is DMG-only (a DPS step chart would just duplicate the rolling-average line) and
+  // single-series only (hidden when a comparison is pinned) -- both fall back to line view.
   const effectiveChartType: ChartType = series.length > 1 || mode === 'dps' ? 'line' : chartType;
   const isBar = effectiveChartType === 'bar';
 
-  // Bars are per-hit damage, not the cumulative total the line plots -- each bar is the delta
-  // between consecutive cumulative points.
+  // Bars are per-hit damage (delta between consecutive cumulative points), not the line's cumulative total.
   const barHits: DisplayPoint[] = isBar
     ? series[0].points.slice(1).map((p, i) => ({ t: p.t, dmg: p.dmg - series[0].points[i].dmg, label: p.label }))
     : [];
@@ -171,16 +165,14 @@ export const DmgOverTimeChart: React.FC = () => {
   const DESIRED_BAR_WIDTH = 3;
   const MIN_BIN_SECONDS = 1;
   const MAX_BIN_SECONDS = 2;
-  // A 1-second bin alone can render too skinny on a wide/dense window (e.g. 2-Min) -- stretch
-  // the bin toward DESIRED_BAR_WIDTH's worth of screen space first, capped at 2 seconds, rather
-  // than settling for a 1px sliver. A short/sparse window already clears the desired width at
-  // 1 second, so it stays there unchanged.
+  // A 1s bin can render too skinny on a wide/dense window (e.g. 2-Min) -- stretch toward
+  // DESIRED_BAR_WIDTH's screen space, capped at 2s, instead of a 1px sliver. A sparse window
+  // already clears the desired width at 1s and stays there.
   const secondsForDesiredWidth = ((DESIRED_BAR_WIDTH + BAR_GAP) / plotW) * domainMaxT;
   const targetBinSeconds = Math.min(MAX_BIN_SECONDS, Math.max(MIN_BIN_SECONDS, secondsForDesiredWidth));
   const pxPerTargetBin = (targetBinSeconds / domainMaxT) * plotW;
   const barWidth = Math.min(MAX_BAR_WIDTH, Math.max(MIN_BAR_WIDTH, pxPerTargetBin - BAR_GAP));
-  // A slice of time exactly as wide as one bar+gap on screen -- however many hits land inside
-  // it, they stack into that one bar instead of drawing on top of each other.
+  // One bar+gap's worth of time-width -- hits landing inside it stack into that bar instead of overlapping.
   const binTimeWidth = ((barWidth + BAR_GAP) / plotW) * domainMaxT;
 
   interface BarBin { binIdx: number; x: number; t0: number; t1: number; hits: DisplayPoint[]; total: number; }
@@ -205,11 +197,11 @@ export const DmgOverTimeChart: React.FC = () => {
     }
   }
 
-  // Scaled to what's visible in the current window, not always up to Boss HP (a short zoomed-in
-  // window rarely gets near it). The Boss HP reference line below only renders when in range.
+  // Scaled to what's visible in-window, not always up to Boss HP (a short window rarely nears it).
+  // The Boss HP reference line below only renders when in range.
   const domainMaxDmg = Math.max(1, ...series.flatMap(s => s.points.map(p => p.dmg))) * 1.05;
-  // A binned stack's magnitude has nothing to do with the cumulative total, so bars get their
-  // own y-domain instead of sharing domainMaxDmg (which would flatten every bar to nothing).
+  // A binned stack's magnitude has nothing to do with the cumulative total -- bars get their own
+  // y-domain instead of sharing domainMaxDmg (which would flatten every bar to nothing).
   const activeDomainMax = isBar ? Math.max(1, ...barBins.map(b => b.total)) * 1.05 : domainMaxDmg;
   const yScale = (v: number) => PAD.top + plotH - (v / activeDomainMax) * plotH;
 
@@ -226,8 +218,7 @@ export const DmgOverTimeChart: React.FC = () => {
 
   useEffect(() => () => TooltipManager.hide(), []);
 
-  // Matches the line's per-segment coloring for a solo series, or falls back to a fixed
-  // per-series color once a pinned comparison needs two visually distinct lines.
+  // Matches the line's per-segment color for a solo series; fixed per-series color once pinned.
   const colorForSeriesAt = (s: DisplaySeries, i: number, t: number): string => {
     if (series.length > 1) return CATEGORICAL_PALETTE[i];
     const label = labelAtTime(s.points, t);
@@ -244,8 +235,7 @@ export const DmgOverTimeChart: React.FC = () => {
       )
       .join('');
 
-  // A bin's tooltip breaks its stack down by unit instead of showing one line -- several hits
-  // (possibly from different units) can share a bin.
+  // Breaks a bin's stack down by unit instead of one line -- several hits can share a bin.
   const buildBinTooltipHtml = (bin: BarBin) => {
     const byLabel = new Map<string, number>();
     for (const hit of bin.hits) {
@@ -356,8 +346,8 @@ export const DmgOverTimeChart: React.FC = () => {
           ));
         })()}
 
-        {/* Boss HP reference line -- only drawn in range; labeled from the left since kill
-            markers tend to land late in a window and would collide with a right-side label. */}
+        {/* Boss HP reference line -- only drawn in range. Labeled from the left since kill markers
+            tend to land late and would collide with a right-side label. */}
         {mode === 'dmg' && !isBar && primarydmg.bossMaxHp <= activeDomainMax && (
           <>
             <line
@@ -371,13 +361,12 @@ export const DmgOverTimeChart: React.FC = () => {
           </>
         )}
 
-        {/* No separate "2:00" reference line -- the 2-Min window already ends at t=120, so it
-            would just duplicate the x-axis's last tick. Hover-snapping to 2:00 still works. */}
+        {/* No separate "2:00" reference line -- the 2-Min window already ends at t=120 (last tick
+            would duplicate it). Hover-snapping to 2:00 still works. */}
 
-        {/* Series lines: colored per-segment by unit for a solo series (matches the Team
-            Contribution pie); one solid color per line once a pinned comparison needs them
-            visually distinguishable. Bars are DMG-only and single-series only -- one bin per
-            thin time slice, stacked by unit when more than one hit lands in it. */}
+        {/* Lines: per-segment color by unit for a solo series (matches the Team Contribution pie),
+            solid per-series color once pinned. Bars: DMG-only, single-series -- one bin per thin
+            time slice, stacked by unit when multiple hits land in it. */}
         {isBar
           ? barBins.map(bin => {
               let cumulative = 0;
@@ -386,8 +375,7 @@ export const DmgOverTimeChart: React.FC = () => {
                 cumulative += hit.dmg;
                 const topY = baselineY - (cumulative / activeDomainMax) * plotH;
                 const color = hit.label ? colorForProvider(hit.label) : CATEGORICAL_PALETTE[0];
-                // Shaved off each segment's top edge so consecutive hits in a stack read as
-                // distinct pieces instead of one solid blend.
+                // Shaved off each segment's top edge so stacked hits read as distinct pieces, not one blend.
                 const height = Math.max(0, bottomY - topY - STACK_GAP);
                 return (
                   <rect
@@ -415,9 +403,8 @@ export const DmgOverTimeChart: React.FC = () => {
               <path key={s.label} d={pathFor(s.points)} className="dmg-time-line" stroke={CATEGORICAL_PALETTE[i]} fill="none" />
             ))}
 
-        {/* Kill intercept markers, labeled for every series. Y position reads this series'
-            value at kill time (bossMaxHp in dmg mode; the DPS line's value in DPS mode) --
-            skipped in bar mode, which plots per-hit deltas on a different y-domain. */}
+        {/* Kill intercept markers, labeled per series -- Y is that series' value at kill time.
+            Skipped in bar mode (different y-domain, per-hit deltas). */}
         {!isBar && series.map((s, i) =>
           s.killTime !== null && s.killTime <= domainMaxT ? (
             <g key={`kill-${s.label}`}>
@@ -448,8 +435,8 @@ export const DmgOverTimeChart: React.FC = () => {
             />
           ))}
 
-        {/* Hover crosshair -- a bin's breakdown is in its tooltip already, so bar mode just
-            marks which slice is under the cursor instead of a per-series value dot. */}
+        {/* Hover crosshair -- bin mode just marks the slice under the cursor (breakdown is in
+            its tooltip already), instead of a per-series value dot. */}
         {isBar
           ? hoverBinIdx !== null && (
               <line

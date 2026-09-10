@@ -272,16 +272,9 @@ export const useRosterStore = create<RosterState>()(
         await DataLoader.loadTeamMechanics(merged);
         merged.forEach(slot => { slot.echoStats = calculateEchoStatsForSlot(slot); });
         set({ team: merged });
-        // Awaited (unlike other fire-and-forget recalculate() calls elsewhere in this store) --
-        // every caller of importTeam either awaits it directly or immediately follows it with an
-        // importRotation() call, which fires its own recalculate() right after. Without waiting
-        // here, that second call races this one: both read team/rows via get() and both hit the
-        // same async checkTeamFreshness() gap inside recalculate(), so the two can resolve out of
-        // call order -- if this one's (still team-stale-for-rows-only) response happens to land
-        // after the rotation import's, it silently overwrites the freshly-imported rows with
-        // whatever was on screen before the import. Awaiting it closes that window: the
-        // subsequent importRotation() call only starts once this one's response has already been
-        // applied, so there's never two in flight at once to race.
+        // Awaited (unlike sibling recalculate() calls) -- importRotation() fires its own
+        // recalculate() right after, and without waiting these two race on the same async
+        // checkTeamFreshness() gap, letting a stale response silently overwrite fresh rows.
         await useRotationStore.getState().recalculate();
       },
 
@@ -293,9 +286,8 @@ export const useRosterStore = create<RosterState>()(
         const activeBuffs: any[] = [];
         const mechanicsDB = DataLoader.mechanicsDB;
 
-        // `rank` is only passed for weapon sources -- when present, slash-delimited values
-        // (e.g. weapon-rank-scaled buffs like "12/15/18/21/24%") are resolved to that rank
-        // via CommonUtils.parseRankValue; character/set/echo sources never carry that syntax.
+        // `rank` only passed for weapon sources -- resolves slash-delimited rank-scaled values
+        // (e.g. "12/15/18/21/24%") via CommonUtils.parseRankValue; other sources never use it.
         const applyBuffsFromSource = (sourceName: string, isSelf: boolean, rank?: number) => {
           if (!sourceName) return;
           Object.keys(mechanicsDB)

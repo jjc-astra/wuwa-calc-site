@@ -1,6 +1,6 @@
 // src/components/builder/SummaryRow.tsx
-// The mech-table's single-line summary <tr> for one MechanicNode -- clicking most cells opens
-// the matching sub-panel (rendered by the parent MechanicNodeCard) in a detail row underneath.
+// Single-line summary <tr> for one MechanicNode.
+// Clicking most cells opens the matching sub-panel (in MechanicNodeCard) as a detail row below.
 import React from 'react';
 import type { MechanicNode } from '../../types';
 import { useBuilderStore } from '../../store/useBuilderStore';
@@ -46,9 +46,8 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
   setCastSelect, setDmgSelect, setCastResType, setCastResAmt
 }) => {
   const hitMultsArr = Array.isArray(data.hitMults) ? data.hitMults : [];
-  // A '%' in the entry's own string form is exactly what CombatCalculator checks to route a
-  // hit as percent- vs flat-scaling -- mirror that here so a flat value (e.g. Tune Break's
-  // fixed-magnitude hits) reads as flat instead of misleadingly always showing a trailing '%'.
+  // '%' in the string form is what CombatCalculator checks to route percent- vs flat-scaling --
+  // mirrored here so flat values (e.g. Tune Break's fixed hits) don't misleadingly show a '%'.
   const isPctEntry = (v: number | string) => typeof v === 'string' && v.includes('%');
   const sumEntries = (arr: (number | string)[]): number => arr.reduce<number>((sum, v) => {
     const n: number = typeof v === 'number' ? v : parseFloat(v.replace('%', ''));
@@ -69,8 +68,7 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
   const physicsSummaryLabel = `${data.input || '—'}${data.inputType ? ` · ${data.inputType}` : ''}`;
   const hitResourceKeys = Object.keys(data.hitResources || {});
 
-  // 'both'/unset means this node applies regardless of mode -- not worth a tag, since it's the
-  // default/common case and would just add noise to every row.
+  // 'both'/unset applies regardless of mode -- no tag, since it's the common case and would add noise.
   const { baseStats } = useBuilderStore();
   const nameFlagTags: { label: string; tooltip: string }[] = [
     ...(data.isPassive ? [{ label: 'Passive', tooltip: 'Fires automatically, not a player-cast action' }] : []),
@@ -79,9 +77,8 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
     ...(data.modeScope === 'mode2' ? [{ label: baseStats.mode2Name || 'Mode 2', tooltip: 'Only available in Mode 2' }] : [])
   ];
 
-  // Cancel/Freeze/Swap/Priority/Combo Window all edit together in one "Timing Modifiers"
-  // sub-panel -- the summary column lists a small tag per field that's actually set, rather
-  // than reserving a whole column for each (most of these are empty on most moves).
+  // Cancel/Freeze/Swap/Priority/Combo Window share one "Timing Modifiers" sub-panel --
+  // the summary column tags only the fields actually set, instead of a column each.
   const dslEvalCtx = { default: GAME_DEFAULTS };
   const cancelTimings = data.cancelTimings || [];
   const freezeVal = resolveDefaultNum(data.freezeTime, dslEvalCtx);
@@ -89,8 +86,7 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
   const priorityVal = data.isPassive ? null : resolveDefaultNum(data.priority, dslEvalCtx);
   const comboVal = resolveDefaultNum(data.comboWindow, dslEvalCtx);
 
-  // Each tag carries its own tooltip (the cancel rule, or just what the field is) so hovering
-  // a specific tag shows info about THAT tag, not one tooltip shared across the whole cell.
+  // Each tag has its own tooltip so hovering shows info about THAT tag, not the whole cell.
   const timingModTags: { label: string; tooltip: string }[] = [
     ...cancelTimings.map(ct => ({
       label: `Cancel ${ct.time}f${ct.hits ? `·${ct.hits}h` : ''}`,

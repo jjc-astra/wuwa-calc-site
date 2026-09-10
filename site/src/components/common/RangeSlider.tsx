@@ -1,12 +1,7 @@
 // src/components/common/RangeSlider.tsx
-// A dual-handle range slider (min + max on one track) -- no existing precedent in this
-// codebase to build on, so this is genuinely new. Implemented as two overlapping native
-// <input type="range"> elements sharing one track (a standard technique): each input's own
-// track is made transparent via CSS so only the thumbs render, with a separate static div
-// underneath drawing the visible track + the highlighted selected-range fill. Integer tick
-// marks are drawn below the track (assumes step=1, the only case this is used for today) and
-// double as the range's own numeric labels -- gold while inside the selected [min,max], dim
-// otherwise -- so the slider doesn't need a separate "S0-S6" text readout beside it.
+// Dual-handle range slider (min+max, one track): two overlapping native <input type="range">
+// elements with transparent tracks (CSS) over a static div drawing the fill. Tick marks
+// (step=1) double as labels -- gold inside [min,max], dim outside.
 import React from 'react';
 import { CommonUtils } from '../../utils/Common';
 

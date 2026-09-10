@@ -14,9 +14,8 @@ import { tip } from './mechanicNodeHelpers';
 import { TooltipManager } from '../../utils/Common';
 import { Dropdown } from '../common/Dropdown';
 
-// Maps a grid section's image folder to the isContentImplemented() kind it should be checked
-// against -- 'System' (the Generic entry) has no implemented-content notion, so it's always
-// treated as implemented.
+// Maps a grid section's image folder to the isContentImplemented() kind to check.
+// 'System' (Generic) has no implemented-content notion, so it's always treated as implemented.
 const IMPLEMENTED_KIND_BY_FOLDER: Partial<Record<ImageFolder, ImplementedContentKind>> = {
   [IMAGE_FOLDERS.CHARACTERS]: 'character',
   [IMAGE_FOLDERS.WEAPONS]: 'weapon',
@@ -56,17 +55,15 @@ const GridCard: React.FC<GridCardProps> = ({ itemName, imgFolder, dbRef, onClick
     <div
       className={`char-grid-card ${isImplemented ? '' : 'is-unimplemented'}`}
       onClick={() => {
-        // The whole grid unmounts on selection, so a hovered card never gets a natural
-        // mouseleave to clear its tooltip -- hide it explicitly before navigating away.
+        // Grid unmounts on selection -- no natural mouseleave fires, so hide tooltip explicitly.
         TooltipManager.hide();
         onClick(rarity);
       }}
       {...(!isImplemented ? tip('Not yet implemented -- click to start authoring its mechanics') : {})}
     >
       {hasChanges && (
-        // Rendered as a sibling of .char-icon (which clips via overflow:hidden for its rounded
-        // top corners), not a child of it -- so the badge can hang half outside the icon's own
-        // corner like a real app notification badge instead of being clipped to sit inside it.
+        // Sibling of .char-icon (not a child) -- .char-icon clips via overflow:hidden for its
+        // rounded corners, so this lets the badge hang half outside like a real notification badge.
         <span className="char-grid-dirty-badge" {...tip('Has locally cached changes')}>
           <svg viewBox="0 0 24 24">
             <path className="dirty-badge-shape" d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
@@ -148,10 +145,8 @@ export const MechanicsBuilder: React.FC = () => {
                 imgFolder={imgFolder}
                 dbRef={dbRef}
                 onClick={async rarity => {
-                  // Before opening this entity for editing, make sure its cached mechanic JSON
-                  // isn't stale relative to the server -- silently evicted (and re-fetched by
-                  // setActiveChar below) unless the user has unsaved local edits to it, in which
-                  // case a conflict dialog is raised instead (see useFreshnessConflictStore).
+                  // Check cached mechanic JSON isn't stale before opening -- silently evicted and
+                  // refetched (by setActiveChar below), unless unsaved edits raise a conflict dialog.
                   await checkBuilderItemFreshness(mechFolderFor(imgFolder), itemName);
                   setActiveChar(itemName, imgFolder, rarity);
                 }}
@@ -213,7 +208,6 @@ export const MechanicsBuilder: React.FC = () => {
   const isSonataSet = DataLoader.sonataSets.includes(activeChar);
   const isTriggerSet = DataLoader.triggerSets.includes(activeChar);
 
-  // Determine correct accordion categories based on entity type
   let targetCategories: string[] = [];
   if (activeChar === 'Generic') {
     targetCategories = ['System Mechanics'];
@@ -244,7 +238,6 @@ export const MechanicsBuilder: React.FC = () => {
       )
     );
 
-    // Swap default template element ('Glacio') with active character's element
     if (isCharacter && DataLoader.characterDB[activeChar]?.element) {
       const charElement = DataLoader.characterDB[activeChar].element;
       const elements = ['Glacio', 'Aero', 'Electro', 'Fusion', 'Spectro', 'Havoc', 'Physical'];

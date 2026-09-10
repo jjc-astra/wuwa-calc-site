@@ -1,7 +1,6 @@
 // src/components/common/TeamPreview.tsx
-// The mini character+weapon avatar row shown in the roster builder's collapsed header --
-// extracted out of TeamBuilder.tsx so the Rankings page's leaderboard rows can reuse the exact
-// same icon treatment for "which team is this" at a glance.
+// Mini character+weapon avatar row for the roster builder's collapsed header -- extracted from
+// TeamBuilder.tsx so Rankings' leaderboard rows can reuse the same "which team" icon treatment.
 import React, { useState } from 'react';
 import { CommonUtils, getCharacterThemeColor, tip } from '../../utils/Common';
 import { DataLoader } from '../../utils/DataLoader';

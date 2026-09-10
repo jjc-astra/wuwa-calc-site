@@ -5,10 +5,8 @@ import type { RangeValue } from '../common/RangeSlider';
 import { ELEMENT_COLORS } from '../../utils/Common';
 import { colorForLabel } from '../results/chartPalette';
 
-// The 6 elements, and the 5 castType categories worth filtering on -- everything else (Intro,
-// Outro, and any status-effect dmgType) is deliberately left out: those rarely account for a
-// team's *majority* damage, which is what this filter is keyed on (see
-// useRankingsStore.ts's majorityDmgTypes).
+// 6 elements + 5 castType categories only -- Intro/Outro/status dmgTypes rarely drive a team's
+// *majority* damage, the filter's key (see useRankingsStore.ts's majorityDmgTypes).
 export const RANKING_ELEMENTS = ['Spectro', 'Fusion', 'Glacio', 'Aero', 'Electro', 'Havoc'] as const;
 export type RankingElement = typeof RANKING_ELEMENTS[number];
 export const RANKING_DMG_CATEGORIES = ['Basic', 'Heavy', 'Skill', 'Liberation', 'Echo'] as const;
@@ -19,10 +17,8 @@ export interface RankingFilters {
   sequenceRanges: [RangeValue, RangeValue, RangeValue];
   rotationStyle: 'any' | 'linear' | 'quickswap';
   bestOnly: boolean;
-  // A standard faceted-checkbox convention: fully checked (the default, see below) means no
-  // filtering; unchecking narrows to just those; unchecking every box in a facet means nothing
-  // passes it (mirrors any e-commerce filter sidebar). Checked against each entry's team
-  // *majority* element/category -- see useRankingsStore.ts's majorityDmgTypes.
+  // Faceted-checkbox convention: all checked = no filtering, unchecking narrows, none checked =
+  // nothing passes. Matched against each entry's *majority* element/category (majorityDmgTypes).
   elements: RankingElement[];
   dmgCategories: RankingDmgCategory[];
 }
@@ -49,8 +45,8 @@ interface DmgTypeColumnProps<T extends string> {
   onChange: (next: T[]) => void;
 }
 
-// One checkbox list (Element or Category) with its own Select All / Hide All split button --
-// shared so both columns stay in exact sync rather than two hand-copied blocks drifting apart.
+// One checkbox list (Element or Category) with Select All / Hide All -- shared so both columns
+// stay in sync instead of drifting as separate hand-copied blocks.
 function DmgTypeColumn<T extends string>({ title, options, selected, colorFor, onChange }: DmgTypeColumnProps<T>) {
   const toggle = (option: T) => {
     onChange(selected.includes(option) ? selected.filter(o => o !== option) : [...selected, option]);
@@ -71,10 +67,9 @@ function DmgTypeColumn<T extends string>({ title, options, selected, colorFor, o
           className="ranking-dmgtype-checkbox-row"
           style={{ '--tag-color': colorFor(option) } as React.CSSProperties}
         >
-          {/* Same hidden-native-input + custom box pattern as the Rotation Row's own row-select
-              checkbox (calculator.css's .check-wrap/.check-visual), just not absolutely
-              positioned (this isn't overlaying a row index) and tinted per option instead of
-              always --accent. */}
+          {/* Same hidden-input + custom box pattern as Rotation Row's checkbox
+              (.check-wrap/.check-visual) -- not absolutely positioned here, tinted per option
+              instead of always --accent. */}
           <span className="ranking-dmgtype-check-wrap">
             <input type="checkbox" checked={selected.includes(option)} onChange={() => toggle(option)} />
             <span className="ranking-dmgtype-check-visual" />
@@ -121,8 +116,8 @@ export const RankingFilterToolbar: React.FC<RankingFilterToolbarProps> = ({ filt
           </button>
         ))}
       </div>
-      {/* Grouped with Rotation Type (not DMG Type below) -- both describe the rotation itself,
-          applied last in RotationRankingsPage's filtering order regardless of where it sits here. */}
+      {/* Grouped with Rotation Type, not DMG Type -- both describe the rotation itself, applied
+          last in RotationRankingsPage's filter order regardless of position here. */}
       <div className="segmented-toggle" role="group" aria-label="Best rotation only">
         <button
           type="button"

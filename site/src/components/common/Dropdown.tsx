@@ -37,13 +37,9 @@ const POPUP_MAX_HEIGHT = 420;
 const isGrouped = (options: DropdownOption[] | DropdownGroup[]): options is DropdownGroup[] =>
   options.length > 0 && (options[0] as DropdownGroup).options !== undefined;
 
-/** A <select> replacement whose popup is fully CSS-styled instead of the browser/OS-native
- * popup a real <select> renders -- e.g. Windows Chrome always highlights the hovered/selected
- * option with its own blue system-accent color no matter what CSS targets .option, and optgroup
- * labels get the OS's own styling too. This reimplements the dropdown as a positioned list of
- * divs instead, portaled to <body> and positioned in fixed coordinates so it always escapes any
- * clipping/scrolling ancestor the way a native select's OS popup would -- same approach as
- * IconSelect, minus the per-option icon, plus optgroup-style grouping. */
+/** <select> replacement with a fully CSS-styled popup (native popups use OS styling CSS can't
+ * override). Portaled to <body>, positioned in fixed coords to escape clipping ancestors --
+ * same approach as IconSelect, minus the icon, plus optgroup grouping. */
 export const Dropdown: React.FC<DropdownProps> = ({
   value, options, onChange, placeholder = '', className = '', disabled = false, accentColor
 }) => {

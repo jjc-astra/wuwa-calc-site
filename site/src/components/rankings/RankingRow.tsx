@@ -34,35 +34,28 @@ export const RankingRow: React.FC<RankingRowProps> = ({ rank, entry, activeWindo
   const segments = entry.contribution[activeWindow]?.team ?? [];
   const unitBreakdowns = entry.contribution[activeWindow]?.units ?? {};
 
-  // entry.id is the submitted file's name -- DataLoader.characterResults still has the full
-  // record (rotation/settings included) it was loaded from, since useRankingsStore.load() never
-  // clears that cache. RankingEntry itself only carries the computed dpsStats/contribution, not
-  // the raw rotation, so this is the only place left to get it from.
+  // entry.id is the source file name -- DataLoader.characterResults still caches the full record
+  // (rotation/settings); RankingEntry itself only carries computed dpsStats/contribution.
   const handleOpenInCalculator = async () => {
     const data = DataLoader.characterResults[entry.id];
     if (!data) return;
     await useRosterStore.getState().importTeam(entry.team);
     useRotationStore.getState().importRotation(data.rotation, data.settings);
-    // Mirrors useHashRoute's routeToHash('calculator', 2) -- no navigate() prop reaches this
-    // deep (Rankings doesn't otherwise need routing), and the hook's own hashchange listener
-    // picks this up the same as if it had called navigate() itself.
+    // Mirrors useHashRoute's routeToHash('calculator', 2) -- no navigate() prop reaches this deep,
+    // so this sets the hash directly; the hook's hashchange listener picks it up the same way.
     window.location.hash = '#/calculator/step-2';
   };
 
-  // A RankingEntry never carries dmgOverTimeSeries, so this recalculates through the worker
-  // (see useComparisonStore.pinFromRankingEntry) the same way Import JSON does. Rankings has no
-  // DPS/Dmg Over Time panel of its own to show the result in, so this also jumps to the
-  // Calculator page (same hash-route trick as handleOpenInCalculator above) instead of leaving
-  // the pin invisible until the user happens to navigate there themselves.
+  // No dmgOverTimeSeries on RankingEntry -- recalculates via worker like Import JSON does
+  // (pinFromRankingEntry), then jumps to Calculator since Rankings has no such panel to show it.
   const handlePinToComparison = () => {
     useComparisonStore.getState().pinFromRankingEntry(entry.id);
     window.location.hash = '#/calculator/step-2';
   };
 
   const handleOpenGuide = () => {
-    // Character Guide has no per-character route yet (still "Soon" in nav.ts) -- lands on its
-    // coming-soon page for now rather than a dead link, and starts working for real the moment
-    // that page exists.
+    // Character Guide has no per-character route yet (still "Soon" in nav.ts) -- lands on the
+    // coming-soon page for now instead of a dead link.
     window.location.hash = '#/guide';
   };
 
