@@ -82,13 +82,8 @@ export interface Effect {
   stackBehavior?: 'resettable' | 'separate';
   expireBehavior?: 'clear' | 'drop_one' | 'drop_half';
   removeOnSwap?: boolean;
-  // "Applies During" in the Builder UI -- gates which hits this stat counts toward: cast type
-  // (e.g. "Basic") or a specific move (e.g. "@Lumi(Pounce)"). Not dmg type/element -- that's
-  // scoped by the Stat Modifier's own name instead (e.g. "Fusion DMG Bonus").
-  // Set: sole gate in aggregateBuffTotals, overrides name-based auto-inference.
-  // Unset: name-based inference (e.g. a "skill" stat implies a skill-tagged hit) is the fallback.
   applyTo?: string | string[];
-  action?: 'add' | 'set' | 'copy' | 'consume' | 'detonate' | 'remove' | 'pause' | 'resume' | 'extend';
+  action?: 'add' | 'set' | 'copy' | 'consume' | 'detonate' | 'remove' | 'delete' | 'pause' | 'resume' | 'extend';
   provider?: string;
   source?: string;
   linkedTracker?: string;
@@ -101,15 +96,13 @@ export interface Effect {
 export interface HoldConfig {
   cursorSpeed?: number;
   cursorMode?: 'pingpong' | 'clamp' | 'loop';
+  // Whether releasing carries the cursor's current position into the next hold (Cursor_Accumulated)
   retainCursor?: boolean;
   // Which forte slot (e.g. 'forte1') the cursor's max value and 'clamp' full/empty state are
-  // measured against. Unset falls back to MECHANICS_NOTATION.HOLD_DEFAULTS.FORTE_SLOT.
   forteSlot?: string;
-  // Legacy manual override, from before the cursor was tied to a forte slot. Only read if
-  // forteSlot resolves to a slot the active character doesn't actually have.
+  // Legacy manual override, from before the cursor was tied to a forte slot.
   maxCursorVal?: number;
-  // 'clamp' mode has no window -- done is reaching the forte slot's full/empty end instead, so
-  // these are ignored (and hidden in the Builder) whenever cursorMode is 'clamp'.
+  // 'clamp' mode has no window
   windowCenter?: string;
   windowSize?: string;
 }

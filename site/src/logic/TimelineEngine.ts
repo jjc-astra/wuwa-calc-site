@@ -1382,19 +1382,10 @@ export class TimelineEngineClass {
     this._executeEffectsStream(instantEffects, currentData, activeTeam, activeRows, currentData.timeStart, unitName, team);
     this.damageQueue.sort((a, b) => a.executeAt - b.executeAt);
 
-    if (moveData.inputType === 'Release' && currentData.trackers && currentData.trackers.Hold_Unit === unitName) {
-      const config = moveData.holdConfig || {};
-      const retain = config.retainCursor ?? MECHANICS_NOTATION.HOLD_DEFAULTS.RETAIN_CURSOR;
-      if (retain && currentData.trackers.Hold_Start !== undefined) {
-        currentData.trackers.Cursor_Accumulated = currentData.trackers.Cursor_Pos || 0;
-      } else {
-        delete currentData.trackers.Cursor_Accumulated;
-        currentData.trackers.Cursor_Pos = 0;
-      }
-      delete currentData.trackers.Hold_Start;
-      delete currentData.trackers.Hold_Unit;
-      delete currentData.trackers.Hold_Input;
-    }
+    // Hold_Start/Cursor_Pos/Cursor_Accumulated cleanup is NOT automatic here -- a hold's own
+    // Release `effects` must explicitly clear them (see HoldConfig's doc comment). A Release
+    // that forgets to will just keep "holding" forever, the same visible way any other
+    // forgotten tracker cleanup would.
 
     // A Simultaneous row never advances the shared clock (anchored in a window surrounding
     // rows already own) -- decaying by its own duration here would double-count, so it decays
@@ -1642,8 +1633,33 @@ export class TimelineEngineClass {
     team: any[]
   ): void {
     if (!currentData.trackers) currentData.trackers = {};
-    const currentVal = currentData.trackers[effect.name || ''] || 0;
     const action = effect.action || 'add';
+
+    // True removal (the key stops existing), unlike 'remove'/'consume'
+    if (action === 'delete') {
+      const name = effect.name || '';
+      if (currentData.trackers[name] === undefined) return;
+      delete currentData.trackers[name];
+      // Hold_Unit/Hold_Input are pure ownership bookkeeping for Hold_Start
+      if (name === 'Hold_Start') {
+        delete currentData.trackers.Hold_Unit;
+        delete currentData.trackers.Hold_Input;
+        const config = DataLoader.mechanicsDB[currentData.action]?.holdConfig || {};
+        const retain = config.retainCursor ?? MECHANICS_NOTATION.HOLD_DEFAULTS.RETAIN_CURSOR;
+        if (retain) {
+          currentData.trackers.Cursor_Accumulated = currentData.trackers.Cursor_Pos || 0;
+        } else {
+          delete currentData.trackers.Cursor_Accumulated;
+          currentData.trackers.Cursor_Pos = 0;
+        }
+      }
+      const payloads = EventManager.emit('OnTrackerChanged', new Set([name]), currentData, unitName, team);
+      payloads.push(...EventManager.emit('OnTrackerRemove', new Set([name]), currentData, unitName, team));
+      this._executeEffectsStream(payloads, currentData, activeTeam, activeRows, this.currentGlobalRealTime, unitName, team);
+      return;
+    }
+
+    const currentVal = currentData.trackers[effect.name || ''] || 0;
     let newVal = currentVal;
     let eventToEmit: string | null = null;
 

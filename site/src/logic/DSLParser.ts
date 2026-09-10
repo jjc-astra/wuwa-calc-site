@@ -164,6 +164,7 @@ export const DSLParser = {
     jsStr = jsStr.replace(/@([A-Za-z0-9_]+)\(((?:[^)(]+|\([^)(]*\))*)\)/g, (_, p1, p2) => '"' + p1 + '_' + p2.trim() + '"');
 
     const pointerMap: Record<string, string> = {
+      '@Self\\.GameTimeStart': 'ctx.move.gameTimeStart',
       '@Self\\.PrevAction': 'ctx.self.prevAction',
       '@Prev\\.(Unit|name)': 'ctx.prev.unit',
       '@Prev\\.Action': 'ctx.prev.action',

@@ -108,6 +108,11 @@ export const RotationRow: React.FC<RotationRowProps> = ({
     const slot = team.find(t => t.character === selectedUnit);
     const activeMode = slot?.mode && slot.mode !== 'None' ? slot.mode : null;
 
+    // A move that sets Hold_Start (the Press half of a hold) vs. a Release carrying holdConfig
+    const isHoldStarter = (m: any): boolean =>
+      Array.isArray(m.effects) && m.effects.some((e: any) => e?.type === 'tracker' && e.name === 'Hold_Start' && e.action === 'set');
+    const isHoldReleaser = (m: any): boolean => m.inputType === 'Release' && !!m.holdConfig;
+
     // Genuine validity only -- the "keep selected" carve-out is handled separately below,
     // so it can't look like a real contender when picking a group's winner.
     const checkValid = (m: any) => {
@@ -118,8 +123,14 @@ export const RotationRow: React.FC<RotationRowProps> = ({
           m._compiledRule = DSLParser.compile(m.triggerRule);
         }
         if (m._compiledRule && typeof m._compiledRule.evaluate === 'function' && ctx) {
-          return m._compiledRule.evaluate(ctx, selectedUnit);
+          if (!m._compiledRule.evaluate(ctx, selectedUnit)) return false;
         }
+      }
+      // A hold's Press and Release sharing the same `input` are one group automatically
+      if (ctx) {
+        const holdingThisInput = ctx.self.getTracker('Hold_Unit') === selectedUnit && ctx.self.getTracker('Hold_Input') === m.input;
+        if (isHoldReleaser(m) && !holdingThisInput) return false;
+        if (isHoldStarter(m) && holdingThisInput) return false;
       }
       return true;
     };
@@ -452,11 +463,10 @@ export const RotationRow: React.FC<RotationRowProps> = ({
           accentColor={themeColor}
         />
 
-        {/* Offset Trigger -- also editable for Manual (a hold Release's user-set wait, see
-            TimelineEngine's timing==='Manual' branch), not just Simultaneous's position offset. */}
+        {/* Offset Trigger -- Disabled for Manual and Simultaneous*/}
         <div
           className={`sub-panel-trigger ${activeTrigger === 'offset' ? 'is-active' : ''}`}
-          onClick={() => { if (isOffsetEditable) onTriggerClick(index, 'offset'); }}
+          onClick={() => { if (!isOffsetEditable) onTriggerClick(index, 'offset'); }}
         >
           <div className={`base-num-box ${offsetVal > 0 ? 'offset-pos' : offsetVal < 0 ? 'offset-neg' : ''}`} style={{ width: '100%', padding: '2px 5px' }}>
             <input

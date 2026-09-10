@@ -477,7 +477,7 @@ export const BUILDER_TEMPLATES: Record<string, MechanicNode> = {
     input: 'Basic',
     inputType: 'Press',
     stanceReq: 'Grounded',
-    effects: [{ type: 'tracker', name: 'Hold_Start', action: 'set', value: '@Self.GameTime' }]
+    effects: [{ type: 'tracker', name: 'Hold_Start', action: 'set', value: '@Move.GameTimeStart' }]
   },
   'Forte Release': {
     name: 'Forte Hold Release',
@@ -488,6 +488,7 @@ export const BUILDER_TEMPLATES: Record<string, MechanicNode> = {
     input: 'Basic',
     inputType: 'Release',
     stanceReq: 'Grounded',
+    effects: [{ type: 'tracker', name: 'Hold_Start', action: 'delete' }],
     holdConfig: {
       cursorSpeed: 100,
       cursorMode: 'pingpong',
