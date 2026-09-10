@@ -102,7 +102,14 @@ export interface HoldConfig {
   cursorSpeed?: number;
   cursorMode?: 'pingpong' | 'clamp' | 'loop';
   retainCursor?: boolean;
+  // Which forte slot (e.g. 'forte1') the cursor's max value and 'clamp' full/empty state are
+  // measured against. Unset falls back to MECHANICS_NOTATION.HOLD_DEFAULTS.FORTE_SLOT.
+  forteSlot?: string;
+  // Legacy manual override, from before the cursor was tied to a forte slot. Only read if
+  // forteSlot resolves to a slot the active character doesn't actually have.
   maxCursorVal?: number;
+  // 'clamp' mode has no window -- done is reaching the forte slot's full/empty end instead, so
+  // these are ignored (and hidden in the Builder) whenever cursorMode is 'clamp'.
   windowCenter?: string;
   windowSize?: string;
 }

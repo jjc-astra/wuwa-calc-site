@@ -2,16 +2,20 @@
 import React from 'react';
 import type { MechanicNode } from '../../../types';
 import { AutocompleteInput } from '../../common/AutocompleteInput';
-import { Dropdown } from '../../common/Dropdown';
+import { Dropdown, type DropdownOption } from '../../common/Dropdown';
+import { MECHANICS_NOTATION } from '../../../data/db';
 import { displayTimeVal, makeTimeBlur } from '../mechanicNodeHelpers';
 
 interface InputsPhysicsPanelProps {
   data: MechanicNode;
   updateNode: (patch: Partial<MechanicNode>) => void;
+  forteOptions: DropdownOption[];
 }
 
-export const InputsPhysicsPanel: React.FC<InputsPhysicsPanelProps> = ({ data, updateNode }) => {
+export const InputsPhysicsPanel: React.FC<InputsPhysicsPanelProps> = ({ data, updateNode, forteOptions }) => {
   const holdCfg = data.holdConfig || {};
+  const d = MECHANICS_NOTATION.HOLD_DEFAULTS;
+  const isClamp = (holdCfg.cursorMode || d.CURSOR_MODE) === 'clamp';
 
   return (
     <div className="sub-panel is-open">
@@ -90,7 +94,7 @@ export const InputsPhysicsPanel: React.FC<InputsPhysicsPanelProps> = ({ data, up
               <label className="form-label">Cursor Mode</label>
               <Dropdown
                 className="base-select"
-                value={holdCfg.cursorMode || 'pingpong'}
+                value={holdCfg.cursorMode || d.CURSOR_MODE}
                 onChange={v => updateNode({ holdConfig: { ...holdCfg, cursorMode: v as any } })}
                 options={[
                   { value: 'pingpong', label: 'Ping-Pong' },
@@ -100,28 +104,36 @@ export const InputsPhysicsPanel: React.FC<InputsPhysicsPanelProps> = ({ data, up
               />
             </div>
             <div className="form-group flex-1">
-              <label className="form-label">Speed</label>
-              <input type="number" className="form-input" value={holdCfg.cursorSpeed ?? 100} onChange={e => updateNode({ holdConfig: { ...holdCfg, cursorSpeed: parseFloat(e.target.value) || 100 } })} />
+              <label className="form-label">Speed (Forte per Second)</label>
+              <input type="number" className="form-input" value={holdCfg.cursorSpeed ?? d.CURSOR_SPEED} onChange={e => updateNode({ holdConfig: { ...holdCfg, cursorSpeed: parseFloat(e.target.value) || d.CURSOR_SPEED } })} />
             </div>
             <div className="form-group flex-1">
-              <label className="form-label">Max Value</label>
-              <input type="number" className="form-input" value={holdCfg.maxCursorVal ?? 100} onChange={e => updateNode({ holdConfig: { ...holdCfg, maxCursorVal: parseFloat(e.target.value) || 100 } })} />
+              <label className="form-label">Forte Slot</label>
+              <Dropdown
+                className="base-select"
+                value={holdCfg.forteSlot || d.FORTE_SLOT}
+                onChange={v => updateNode({ holdConfig: { ...holdCfg, forteSlot: v } })}
+                options={forteOptions}
+              />
             </div>
             <label className="checkbox-label align-self-end" style={{ height: '32px', display: 'flex', alignItems: 'center' }}>
               <input type="checkbox" checked={!!holdCfg.retainCursor} onChange={e => updateNode({ holdConfig: { ...holdCfg, retainCursor: e.target.checked } })} />
               <span>Retain Cursor</span>
             </label>
           </div>
-          <div className="flex-row gap-sm w-100">
-            <div className="form-group relative flex-1">
-              <label className="form-label">Window Center (DSL)</label>
-              <AutocompleteInput mode="general" value={holdCfg.windowCenter ?? '65'} onValueChange={val => updateNode({ holdConfig: { ...holdCfg, windowCenter: val } })} placeholder="e.g. 65" />
+          {/* Clamp has no window -- full/empty is what "done" means, so center/size don't apply. */}
+          {!isClamp && (
+            <div className="flex-row gap-sm w-100">
+              <div className="form-group relative flex-1">
+                <label className="form-label">Window Center (DSL)</label>
+                <AutocompleteInput mode="general" value={holdCfg.windowCenter ?? d.WINDOW_CENTER} onValueChange={val => updateNode({ holdConfig: { ...holdCfg, windowCenter: val } })} placeholder={`e.g. ${d.WINDOW_CENTER}`} />
+              </div>
+              <div className="form-group relative flex-1">
+                <label className="form-label">Window Size (DSL)</label>
+                <AutocompleteInput mode="general" value={holdCfg.windowSize ?? d.WINDOW_SIZE} onValueChange={val => updateNode({ holdConfig: { ...holdCfg, windowSize: val } })} placeholder={`e.g. ${d.WINDOW_SIZE}`} />
+              </div>
             </div>
-            <div className="form-group relative flex-1">
-              <label className="form-label">Window Size (DSL)</label>
-              <AutocompleteInput mode="general" value={holdCfg.windowSize ?? '10'} onValueChange={val => updateNode({ holdConfig: { ...holdCfg, windowSize: val } })} placeholder="e.g. 10" />
-            </div>
-          </div>
+          )}
         </div>
       )}
     </div>

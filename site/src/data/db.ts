@@ -28,6 +28,7 @@ export const MECHANICS_NOTATION = {
     CURSOR_SPEED: 100,
     CURSOR_MODE: 'pingpong' as const,
     RETAIN_CURSOR: false,
+    FORTE_SLOT: 'forte1',
     MAX_CURSOR_VAL: 100,
     WINDOW_CENTER: '65',
     WINDOW_SIZE: '10'
@@ -465,13 +466,25 @@ export const BUILDER_TEMPLATES: Record<string, MechanicNode> = {
     inputType: 'Hold',
     stanceReq: 'Grounded'
   },
+  // Paired with 'Forte Release' below to demo the Press->Release hold-cursor system: this move
+  // starts the hold (Hold_Start), the Release move (matched by shared `input`) carries the
+  // holdConfig that TimelineEngine reads to auto-wait/track the cursor. See
+  // TimelineEngine._handleTracker's 'Hold_Start' branch and HoldConfig in types/index.ts.
+  'Forte Hold Press': {
+    name: 'Forte Hold Press',
+    castTypes: ['Heavy'],
+    actionDuration: toFrames(20),
+    input: 'Basic',
+    inputType: 'Press',
+    stanceReq: 'Grounded',
+    effects: [{ type: 'tracker', name: 'Hold_Start', action: 'set', value: '@Self.GameTime' }]
+  },
   'Forte Release': {
     name: 'Forte Hold Release',
     castTypes: ['Heavy'],
     dmgTypes: ['Glacio', 'Heavy'],
     hitMults: ['200%'],
     actionDuration: toFrames(30),
-    triggerRule: 'IF (@Self.HasBuff(Forte_Holding))',
     input: 'Basic',
     inputType: 'Release',
     stanceReq: 'Grounded',
@@ -479,7 +492,7 @@ export const BUILDER_TEMPLATES: Record<string, MechanicNode> = {
       cursorSpeed: 100,
       cursorMode: 'pingpong',
       retainCursor: false,
-      maxCursorVal: 100,
+      forteSlot: 'forte1',
       windowCenter: '50',
       windowSize: '20'
     }

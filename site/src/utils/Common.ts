@@ -1,5 +1,6 @@
 import type { MouseEvent } from 'react';
 import type { ImageFolder } from '../data/db';
+import { toFrames, framesToSeconds } from './Frames';
 
 export const EXTENSION = '.webp';
 export const TRANSPARENT_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
@@ -136,6 +137,28 @@ export const CommonUtils = {
     const img = new Image();
     img.src = src;
     return img.complete;
+  },
+
+  // Cursor position for a Hold's ping-pong/loop/clamp physics, given elapsed progress in cursor
+  // units. Shared by TimelineEngine's auto-timing lookahead + live tracking and Gauge's display
+  // so the three can't quietly diverge (they had -- Gauge's own copy skipped the wrap-to-positive
+  // step for 'loop', and ignored negative progress for 'pingpong', unlike here).
+  resolveHoldCursor: (progress: number, mode: string, maxVal: number): number => {
+    if (mode === 'clamp') return Math.max(0, Math.min(progress, maxVal));
+    if (mode === 'loop') return ((progress % maxVal) + maxVal) % maxVal;
+    const doubleMax = maxVal * 2;
+    const wrapped = ((progress % doubleMax) + doubleMax) % doubleMax;
+    return wrapped > maxVal ? doubleMax - wrapped : wrapped;
+  },
+
+  // Cursor position `holdDurationFrames` after a hold started, given how much progress was
+  // already `accumulated` (a retained cursor) and the hold's own cursorSpeed/mode/max. Wraps
+  // resolveHoldCursor so its 3 call sites (TimelineEngine's lookahead search, its per-row live
+  // tracking, and Gauge's display preview) don't each hand-roll the frames->seconds->progress
+  // conversion -- that's what let 'loop' and 'pingpong' drift out of sync before this existed.
+  resolveHoldCursorAtTime: (accumulated: number, holdDurationFrames: number, speed: number, mode: string, maxVal: number): number => {
+    const progress = accumulated + framesToSeconds(toFrames(holdDurationFrames)) * speed;
+    return CommonUtils.resolveHoldCursor(progress, mode, maxVal);
   },
 
   // Data/images live in the separate wuwa-calc-data repo (public, no auth) instead of this

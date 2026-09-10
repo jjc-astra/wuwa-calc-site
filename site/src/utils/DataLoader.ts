@@ -1,5 +1,5 @@
 import { CommonUtils } from './Common';
-import type { CharacterData, WeaponData, MechanicNode, TeamSlot } from '../types/index';
+import type { CharacterData, WeaponData, MechanicNode, TeamSlot, HoldConfig } from '../types/index';
 import type { RotationResults } from '../types/results';
 
 // Gates content with no real mechanics yet: disabled in the Rotation Calculator, still
@@ -185,6 +185,21 @@ export class DataLoaderClass {
     if (this.mechanicsIndex[indexKey]) {
       this.mechanicsIndex[indexKey] = this.mechanicsIndex[indexKey].filter(k => k !== key);
     }
+  }
+
+  // Finds a character's Hold "Release" mechanic (the one carrying holdConfig) -- optionally
+  // scoped to a specific `input` binding, since a dual-mode character can have two separate
+  // Hold mechanics (one per mode) that would otherwise be ambiguous to tell apart. Shared by
+  // TimelineEngine (auto-wait/live cursor tracking) and Gauge.tsx (display preview) so the
+  // lookup can't quietly diverge between the two.
+  findHoldReleaseConfig(charName: string, matchInput?: string): HoldConfig | null {
+    const releaseKey = Object.keys(this.mechanicsDB).find(k => {
+      const m = this.mechanicsDB[k];
+      if (!k.startsWith(`${charName}_`) || m.inputType !== 'Release' || !m.holdConfig) return false;
+      if (matchInput !== undefined && m.input !== matchInput) return false;
+      return true;
+    });
+    return releaseKey ? (this.mechanicsDB[releaseKey].holdConfig as HoldConfig) : null;
   }
 
   // Loads every submitted result for Rankings. index.json (filenames + optional rotationType)

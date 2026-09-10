@@ -108,7 +108,7 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
       case 'identity':
         return <IdentityPanel nodeId={nodeId} data={data} updateNode={updateNode} />;
       case 'inputs':
-        return <InputsPhysicsPanel data={data} updateNode={updateNode} />;
+        return <InputsPhysicsPanel data={data} updateNode={updateNode} forteOptions={forteOptions} />;
       case 'timeMods':
         return <TimingModsPanel data={data} updateNode={updateNode} />;
       case 'hits':

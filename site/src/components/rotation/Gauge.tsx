@@ -3,8 +3,7 @@
 import React from 'react';
 import { DataLoader } from '../../utils/DataLoader';
 import { MECHANICS_NOTATION } from '../../data/db';
-import { TooltipManager } from '../../utils/Common';
-import { toFrames, framesToSeconds } from '../../utils/Frames';
+import { TooltipManager, CommonUtils } from '../../utils/Common';
 
 const formatGaugeValue = (val: number): number => (Number.isInteger(val) ? val : parseFloat(val.toFixed(2)));
 
@@ -70,6 +69,19 @@ export const MultiForteGauge: React.FC<MultiForteGaugeProps> = ({ unit, stateDat
   const dbChar: Record<string, any> = unit ? DataLoader.characterDB[unit] || {} : {};
   const forteCount = dbChar.forteCount || 1;
 
+  // The active hold's own Release mechanic, so the cursor overlay below uses its real
+  // cursorSpeed/cursorMode/forteSlot instead of the generic defaults. Hold_Input (stamped at
+  // press time) disambiguates which Release this is, for a character with more than one Hold.
+  const holdStart = stateData?.trackers?.Hold_Start;
+  const holdOwnedByUnit = stateData?.trackers?.Hold_Unit === unit;
+  const d = MECHANICS_NOTATION.HOLD_DEFAULTS;
+  let holdConfig: Record<string, any> | undefined;
+  if (holdOwnedByUnit && holdStart !== undefined) {
+    const holdInput = stateData?.trackers?.Hold_Input;
+    holdConfig = DataLoader.findHoldReleaseConfig(unit, holdInput) || {};
+  }
+  const holdForteNum = parseInt((holdConfig?.forteSlot || d.FORTE_SLOT).replace('forte', ''), 10) || 1;
+
   return (
     <div className="gauge-cell" style={{ width: '100%' }}>
       <div className="multi-gauge-wrap" data-count={forteCount}>
@@ -82,36 +94,27 @@ export const MultiForteGauge: React.FC<MultiForteGaugeProps> = ({ unit, stateDat
           let max = dbChar[maxKey] !== undefined ? parseFloat(dbChar[maxKey]) : 100;
           let isGlowing = false;
 
-          // Forte 1 shows the live hold-release cursor (glows in the release window) during a Hold.
-          // Hold_Start/Hold_Unit are flat trackers shared by every row -- ignore a hold owned by a different unit.
-          const holdStart = stateData?.trackers?.Hold_Start;
-          const holdOwnedByUnit = stateData?.trackers?.Hold_Unit === unit;
-          if (num === 1 && holdStart !== undefined && holdOwnedByUnit) {
-            const d = MECHANICS_NOTATION.HOLD_DEFAULTS;
-            const speed = d.CURSOR_SPEED;
-            const maxVal = d.MAX_CURSOR_VAL;
-            const mode: string = d.CURSOR_MODE;
-            const rowEndGameTime = (stateData.gameTimeStart || 0) + (stateData.gameTimePassed || 0);
-            const currentHoldDuration = rowEndGameTime - holdStart;
-            const accumulated = stateData.trackers.Cursor_Accumulated || 0;
-            // cursorSpeed is per real-time second; currentHoldDuration is frames -- convert here.
-            // Mirrors TimelineEngine.ts's hold-physics formula.
-            const progress = accumulated + (framesToSeconds(toFrames(currentHoldDuration)) * speed);
-
+          if (holdConfig && num === holdForteNum) {
+            const mode: string = holdConfig.cursorMode || d.CURSOR_MODE;
+            const speed = holdConfig.cursorSpeed ?? d.CURSOR_SPEED;
             if (mode === 'clamp') {
-              val = Math.min(progress, maxVal);
-            } else if (mode === 'loop') {
-              val = progress % maxVal;
+              // Clamp ties the cursor to this forte slot -- TimelineEngine already keeps
+              // stateData[fKey][unit] (val, above) in lockstep, so no separate value to
+              // resolve here. Just add the empty-side glow (pct-based isFull only catches full).
+              isGlowing = speed < 0 && val <= 0;
             } else {
-              const doubleMax = maxVal * 2;
-              const wrapped = ((progress % doubleMax) + doubleMax) % doubleMax;
-              val = wrapped > maxVal ? doubleMax - wrapped : wrapped;
+              // Window modes (e.g. Sanhua's): the cursor is a separate live-timing preview, not
+              // the actual forte pool -- resolve where release would land right now.
+              const maxVal = max;
+              const rowEndGameTime = (stateData.gameTimeStart || 0) + (stateData.gameTimePassed || 0);
+              const currentHoldDuration = rowEndGameTime - holdStart;
+              const accumulated = stateData.trackers.Cursor_Accumulated || 0;
+              val = CommonUtils.resolveHoldCursorAtTime(accumulated, currentHoldDuration, speed, mode, maxVal);
+              const center = stateData.trackers.Forte_Win_Center ?? parseFloat(d.WINDOW_CENTER);
+              const size = stateData.trackers.Forte_Win_Size ?? parseFloat(d.WINDOW_SIZE);
+              isGlowing = Math.abs(val - center) <= size / 2;
+              max = maxVal;
             }
-            max = maxVal;
-
-            const center = stateData.trackers.Forte_Win_Center ?? parseFloat(d.WINDOW_CENTER);
-            const size = stateData.trackers.Forte_Win_Size ?? parseFloat(d.WINDOW_SIZE);
-            isGlowing = Math.abs(val - center) <= size / 2;
           }
 
           const pct = Math.min(100, Math.max(0, (val / (max || 100)) * 100));

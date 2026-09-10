@@ -39,14 +39,18 @@ export const BuilderUtils = {
         const cfg = node.holdConfig || {};
         const holdCfg: Record<string, any> = {};
         const d = MECHANICS_NOTATION.HOLD_DEFAULTS;
+        const mode = cfg.cursorMode || d.CURSOR_MODE;
         if (cfg.cursorMode && cfg.cursorMode !== d.CURSOR_MODE) holdCfg.cursorMode = cfg.cursorMode;
         if (cfg.cursorSpeed !== undefined && cfg.cursorSpeed !== d.CURSOR_SPEED) holdCfg.cursorSpeed = cfg.cursorSpeed;
-        if (cfg.maxCursorVal !== undefined && cfg.maxCursorVal !== d.MAX_CURSOR_VAL) holdCfg.maxCursorVal = cfg.maxCursorVal;
+        if (cfg.forteSlot && cfg.forteSlot !== d.FORTE_SLOT) holdCfg.forteSlot = cfg.forteSlot;
         if (cfg.retainCursor) holdCfg.retainCursor = true;
-        const wCenter = cfg.windowCenter !== undefined ? String(cfg.windowCenter).trim() : '';
-        if (wCenter && wCenter !== d.WINDOW_CENTER) holdCfg.windowCenter = wCenter;
-        const wSize = cfg.windowSize !== undefined ? String(cfg.windowSize).trim() : '';
-        if (wSize && wSize !== d.WINDOW_SIZE) holdCfg.windowSize = wSize;
+        // Clamp has no window -- these are hidden in the Builder and meaningless once clamped.
+        if (mode !== 'clamp') {
+          const wCenter = cfg.windowCenter !== undefined ? String(cfg.windowCenter).trim() : '';
+          if (wCenter && wCenter !== d.WINDOW_CENTER) holdCfg.windowCenter = wCenter;
+          const wSize = cfg.windowSize !== undefined ? String(cfg.windowSize).trim() : '';
+          if (wSize && wSize !== d.WINDOW_SIZE) holdCfg.windowSize = wSize;
+        }
         if (Object.keys(holdCfg).length > 0) clean.holdConfig = holdCfg;
       }
 

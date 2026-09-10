@@ -6,7 +6,7 @@ import { ContextManager } from './ContextManager';
 import { EventManager } from './EventManager';
 import { calculateEchoStatsForSlot } from '../store/useRosterStore';
 import { CHARACTER_DEFAULTS, ENEMY_DEFAULTS, GAME_DEFAULTS, MECHANICS_NOTATION } from '../data/db';
-import type { Effect, MechanicNode } from '../types';
+import type { Effect, MechanicNode, HoldConfig } from '../types';
 import { type Frames, toFrames, roundFrames, secondsToFrames, framesToSeconds, formatFramesAsSeconds } from '../utils/Frames';
 
 export interface QueuedHit {
@@ -99,6 +99,14 @@ export class TimelineEngineClass {
       const prevData = i > 0 ? activeRows[i - 1] : this._getDefaultData();
       currentData.damageInstances = [];
       currentData._pendingHits = [];
+      // Rows are recalculated in place -- clear so a fixed hold config doesn't keep showing
+      // last run's "unreachable" error.
+      currentData._holdUnreachable = undefined;
+
+      // Populated by the auto-wait lookahead below when this row's own action is a Release --
+      // the live cursor-tracking block further down reuses it instead of re-resolving the same
+      // holdConfig/DSL-window/maxCap work a second time for the same row.
+      let holdConfigCache: { config: HoldConfig; mode: string; speed: number; maxVal: number; center: number; size: number } | null = null;
 
       const dbMove =
         this._getModifiedMoveData(currentData.action) ||
@@ -172,13 +180,19 @@ export class TimelineEngineClass {
         const holdStart = currentData.trackers.Hold_Start;
         const config = dbMove.holdConfig || {};
         const speed = config.cursorSpeed ?? MECHANICS_NOTATION.HOLD_DEFAULTS.CURSOR_SPEED;
-        const maxVal = config.maxCursorVal ?? MECHANICS_NOTATION.HOLD_DEFAULTS.MAX_CURSOR_VAL;
+        const maxVal = this._getHoldMaxCap(currentData.unit, config);
         const mode = config.cursorMode || MECHANICS_NOTATION.HOLD_DEFAULTS.CURSOR_MODE;
-        const centerExpr = config.windowCenter ?? MECHANICS_NOTATION.HOLD_DEFAULTS.WINDOW_CENTER;
-        const sizeExpr = config.windowSize ?? MECHANICS_NOTATION.HOLD_DEFAULTS.WINDOW_SIZE;
-        const center = parseFloat(String(this._resolveDynamicMath(centerExpr, currentData, currentData.unit, team)));
-        const size = parseFloat(String(this._resolveDynamicMath(sizeExpr, currentData, currentData.unit, team)));
-        const halfWidth = size / 2;
+        // Clamp has no window -- don't bother resolving it (both here and in the live-tracking
+        // block below, via the cache this populates) when 'done' never reads it.
+        let center = 0;
+        let halfWidth = 0;
+        if (mode !== 'clamp') {
+          const centerExpr = config.windowCenter ?? MECHANICS_NOTATION.HOLD_DEFAULTS.WINDOW_CENTER;
+          const sizeExpr = config.windowSize ?? MECHANICS_NOTATION.HOLD_DEFAULTS.WINDOW_SIZE;
+          center = parseFloat(String(this._resolveDynamicMath(centerExpr, currentData, currentData.unit, team)));
+          halfWidth = parseFloat(String(this._resolveDynamicMath(sizeExpr, currentData, currentData.unit, team))) / 2;
+        }
+        holdConfigCache = { config, mode, speed, maxVal, center, size: halfWidth * 2 };
 
         let currentBaseStart = accumulatedGameTime + finalWaitTime;
         if (currentData.timing === 'Simultaneous' && i > 0) {
@@ -188,28 +202,28 @@ export class TimelineEngineClass {
 
         const accumulated = currentData.trackers.Cursor_Accumulated || 0;
         let holdReleaseDelay = 0;
+        let holdReachable = false;
         for (let delay = 0; delay <= GAME_DEFAULTS.holdLookaheadMax; delay += GAME_DEFAULTS.holdLookaheadStep) {
           const checkTime = currentBaseStart + delay;
           const holdDuration = checkTime - holdStart;
-          // cursorSpeed is cursor-units per real-time second, so convert elapsed frames here.
-          const progress = accumulated + framesToSeconds(toFrames(holdDuration)) * speed;
-          let cursor = 0;
-          if (mode === 'clamp') cursor = Math.min(progress, maxVal);
-          else if (mode === 'loop') cursor = progress % maxVal;
-          else {
-            const doubleMax = maxVal * 2;
-            cursor = progress % doubleMax > maxVal ? doubleMax - (progress % doubleMax) : progress % doubleMax;
-          }
-          if (Math.abs(cursor - center) <= halfWidth) {
+          const cursor = CommonUtils.resolveHoldCursorAtTime(accumulated, holdDuration, speed, mode, maxVal);
+          // No window in clamp mode -- full (speed >= 0) or empty (speed < 0) is what "done" means.
+          const done = mode === 'clamp' ? (speed >= 0 ? cursor >= maxVal : cursor <= 0) : Math.abs(cursor - center) <= halfWidth;
+          if (done) {
             holdReleaseDelay = delay;
+            holdReachable = true;
             break;
           }
         }
-        if (holdReleaseDelay > 0) {
+        if (holdReachable && holdReleaseDelay > 0) {
           finalWaitTime += holdReleaseDelay;
           currentData.waitTime = finalWaitTime;
           if (!currentData.offsetReasons) currentData.offsetReasons = [];
-          currentData.offsetReasons.push({ label: 'Forte Window Wait', valueFrames: toFrames(holdReleaseDelay) });
+          currentData.offsetReasons.push({ label: mode === 'clamp' ? 'Forte Full Wait' : 'Forte Window Wait', valueFrames: toFrames(holdReleaseDelay) });
+        } else if (!holdReachable) {
+          // Speed is 0 (or otherwise can't reach the target) -- surfaced by _runValidation as
+          // an error instead of silently releasing as if it were already ready.
+          currentData._holdUnreachable = mode === 'clamp' ? 'full/empty forte' : 'release window';
         }
       }
 
@@ -317,44 +331,55 @@ export class TimelineEngineClass {
         currentData.trackers.Hold_Start !== undefined &&
         currentData.trackers.Hold_Unit === currentData.unit;
       if (isRelease || isHolding) {
-        let config = dbMove.holdConfig;
-        if (!config) {
-          const releaseKey = Object.keys(DataLoader.mechanicsDB).find(
-            k => k.startsWith(currentData.unit + '_') && DataLoader.mechanicsDB[k].inputType === 'Release' && DataLoader.mechanicsDB[k].holdConfig
-          );
-          if (releaseKey) config = DataLoader.mechanicsDB[releaseKey].holdConfig;
+        let config: HoldConfig, mode: string, speed: number, maxVal: number, center: number, size: number;
+        if (holdConfigCache) {
+          ({ config, mode, speed, maxVal, center, size } = holdConfigCache);
+        } else {
+          config = dbMove.holdConfig || DataLoader.findHoldReleaseConfig(currentData.unit, currentData.trackers?.Hold_Input) || {};
+          mode = config.cursorMode || MECHANICS_NOTATION.HOLD_DEFAULTS.CURSOR_MODE;
+          speed = config.cursorSpeed ?? MECHANICS_NOTATION.HOLD_DEFAULTS.CURSOR_SPEED;
+          maxVal = this._getHoldMaxCap(currentData.unit, config);
+          if (mode === 'clamp') {
+            center = 0;
+            size = 0;
+          } else {
+            const centerExpr = config.windowCenter ?? MECHANICS_NOTATION.HOLD_DEFAULTS.WINDOW_CENTER;
+            const sizeExpr = config.windowSize ?? MECHANICS_NOTATION.HOLD_DEFAULTS.WINDOW_SIZE;
+            center = parseFloat(String(this._resolveDynamicMath(centerExpr, currentData, currentData.unit, team)));
+            size = parseFloat(String(this._resolveDynamicMath(sizeExpr, currentData, currentData.unit, team)));
+          }
         }
-        config = config || {};
-        const centerExpr = config.windowCenter ?? MECHANICS_NOTATION.HOLD_DEFAULTS.WINDOW_CENTER;
-        const sizeExpr = config.windowSize ?? MECHANICS_NOTATION.HOLD_DEFAULTS.WINDOW_SIZE;
-        const center = parseFloat(String(this._resolveDynamicMath(centerExpr, currentData, currentData.unit, team)));
-        const size = parseFloat(String(this._resolveDynamicMath(sizeExpr, currentData, currentData.unit, team)));
         const halfWidth = size / 2;
 
         if (!currentData.trackers) currentData.trackers = {};
-        currentData.trackers.Forte_Win_Center = center;
-        currentData.trackers.Forte_Win_Size = size;
+        // Clamp has no window -- skip storing meaningless center/size trackers for it.
+        if (mode !== 'clamp') {
+          currentData.trackers.Forte_Win_Center = center;
+          currentData.trackers.Forte_Win_Size = size;
+        }
 
         if (isHolding) {
-          const speed = config.cursorSpeed ?? MECHANICS_NOTATION.HOLD_DEFAULTS.CURSOR_SPEED;
-          const maxVal = config.maxCursorVal ?? MECHANICS_NOTATION.HOLD_DEFAULTS.MAX_CURSOR_VAL;
-          const mode = config.cursorMode || MECHANICS_NOTATION.HOLD_DEFAULTS.CURSOR_MODE;
           const holdDuration = currentData.gameTimeStart - currentData.trackers.Hold_Start;
           const accumulated = currentData.trackers.Cursor_Accumulated || 0;
-          // Same cursorSpeed conversion as the lookahead loop above.
-          const progress = accumulated + framesToSeconds(toFrames(holdDuration)) * speed;
-          let finalCursor = 0;
-          if (mode === 'clamp') finalCursor = Math.min(progress, maxVal);
-          else if (mode === 'loop') finalCursor = progress % maxVal;
-          else {
-            const doubleMax = maxVal * 2;
-            finalCursor = progress % doubleMax > maxVal ? doubleMax - (progress % doubleMax) : progress % doubleMax;
-          }
+          const finalCursor = CommonUtils.resolveHoldCursorAtTime(accumulated, holdDuration, speed, mode, maxVal);
           currentData.forteCursorPos = finalCursor;
           currentData.forteWinCenter = center;
           currentData.forteWinSize = size;
-          currentData.isInForteWindow = Math.abs(finalCursor - center) <= halfWidth;
+          // 'clamp' has no window -- "done" (and IsInHoldWindow for trigger rules) means
+          // reaching full (speed >= 0) or empty (speed < 0) instead.
+          currentData.isInForteWindow = mode === 'clamp'
+            ? (speed >= 0 ? finalCursor >= maxVal : finalCursor <= 0)
+            : Math.abs(finalCursor - center) <= halfWidth;
           currentData.trackers.Cursor_Pos = finalCursor;
+
+          // Clamp mode: the cursor *is* the forte value while holding (unlike a window mode
+          // like Sanhua's, where the cursor is just release timing and forte comes from
+          // separate hitResources/effects) -- keep the real pool in lockstep.
+          if (mode === 'clamp') {
+            const slot = config.forteSlot || MECHANICS_NOTATION.HOLD_DEFAULTS.FORTE_SLOT;
+            if (!currentData[slot]) currentData[slot] = {};
+            currentData[slot][currentData.unit] = finalCursor;
+          }
         }
       }
 
@@ -1342,6 +1367,7 @@ export class TimelineEngineClass {
       }
       delete currentData.trackers.Hold_Start;
       delete currentData.trackers.Hold_Unit;
+      delete currentData.trackers.Hold_Input;
     }
 
     // A Simultaneous row never advances the shared clock (anchored in a window surrounding
@@ -1413,6 +1439,13 @@ export class TimelineEngineClass {
     // resource shortfall above, so both can show at once (e.g. ER + cooldown warnings together).
     if (currentData.cdWaitTime > 3) {
       warnings.push(`${moveName} needs ${formatFramesAsSeconds(currentData.cdWaitTime)} more (on cooldown).`);
+    }
+
+    // Set by the hold-release lookahead above when the cursor can't reach its target within
+    // the lookahead window (holdLookaheadMax) -- e.g. cursorSpeed is 0, or the window is
+    // unreachable from the current position. Genuinely misconfigured, not a resource wait.
+    if (currentData._holdUnreachable) {
+      errors.push(`${moveName} never reaches its ${currentData._holdUnreachable} within ${GAME_DEFAULTS.holdLookaheadMax}f -- check the hold's speed/config.`);
     }
 
     if (moveData.triggerRule && !moveData.isPassive) {
@@ -1618,7 +1651,21 @@ export class TimelineEngineClass {
     // Hold_Start is a global tracker key (like Cursor_Pos, Forte_Win_Center) shared across
     // every row -- stamp the owner so hold/release logic can ignore a lingering hold from
     // another unit's row.
-    if (effect.name === 'Hold_Start') currentData.trackers.Hold_Unit = unitName;
+    if (effect.name === 'Hold_Start') {
+      currentData.trackers.Hold_Unit = unitName;
+      // Hold_Input disambiguates which Release mechanic this pairs with (e.g. a dual-mode
+      // character with one Hold per mode) -- Press and its matching Release always share an input.
+      const pressMove = DataLoader.mechanicsDB[currentData.action];
+      const inputTag = pressMove?.input;
+      if (inputTag) currentData.trackers.Hold_Input = inputTag;
+      // Clamp mode ties the cursor to a real forte pool -- pick up from wherever it already
+      // sits instead of assuming 0, unless a retained cursor already carried a value forward.
+      const releaseConfig = DataLoader.findHoldReleaseConfig(unitName, inputTag);
+      if (releaseConfig?.cursorMode === 'clamp' && currentData.trackers.Cursor_Accumulated === undefined) {
+        const slot = releaseConfig.forteSlot || MECHANICS_NOTATION.HOLD_DEFAULTS.FORTE_SLOT;
+        currentData.trackers.Cursor_Accumulated = currentData[slot]?.[unitName] || 0;
+      }
+    }
 
     if (action !== 'detonate') {
       const payloads: Effect[] = [];
@@ -1730,6 +1777,22 @@ export class TimelineEngineClass {
     }
     return Infinity;
   }
+
+  // A hold cursor's max is the forte slot it's tied to (forteSlot, defaulting to Forte 1) --
+  // maxCursorVal is only a fallback for a slot the active character doesn't actually have.
+  _getHoldMaxCap(charName: string, config: HoldConfig): number {
+    const slot = config.forteSlot || MECHANICS_NOTATION.HOLD_DEFAULTS.FORTE_SLOT;
+    const slotNum = parseInt(slot.replace('forte', ''), 10) || 1;
+    const forteCount = parseInt(String(DataLoader.characterDB[charName]?.forteCount), 10) || 1;
+    if (slotNum > forteCount) {
+      console.warn(`[TimelineEngine] ${charName}'s hold config targets ${slot}, but the character only has ${forteCount} forte slot(s) -- falling back to forte1.`);
+      return this._getMaxCap(charName, 'forte1');
+    }
+    const fromForte = this._getMaxCap(charName, slot);
+    if (fromForte > 0) return fromForte;
+    return config.maxCursorVal ?? MECHANICS_NOTATION.HOLD_DEFAULTS.MAX_CURSOR_VAL;
+  }
+
 }
 
 export const TimelineEngine = new TimelineEngineClass();
