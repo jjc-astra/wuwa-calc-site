@@ -11,13 +11,16 @@ interface AvatarIconProps {
 
 /** Lazy-load-with-fallback avatar used across roster cards and anywhere an icon renders (e.g. dropdown options). */
 export const AvatarIcon: React.FC<AvatarIconProps> = ({ name, folder, className = '' }) => {
-  const [loaded, setLoaded] = useState(false);
-  const [errored, setErrored] = useState(false);
-
-  useEffect(() => { setLoaded(false); setErrored(false); }, [name, folder]);
-
   const hasVal = !!name;
   const path = hasVal ? CommonUtils.getIconPath(name, folder) : TRANSPARENT_PIXEL;
+
+  const [loaded, setLoaded] = useState(() => CommonUtils.isImageCached(path));
+  const [errored, setErrored] = useState(false);
+
+  // A cache hit (e.g. this icon was already on screen before a remount) skips the fade-in --
+  // only a genuinely new image needs onLoad to reveal it.
+  useEffect(() => { setLoaded(CommonUtils.isImageCached(path)); setErrored(false); }, [path]);
+
   const showImage = hasVal && !errored && loaded;
 
   return (

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useBuilderStore } from '../../store/useBuilderStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { CommonUtils } from '../../utils/Common';
@@ -7,19 +7,26 @@ import { Dropdown } from '../common/Dropdown';
 
 export const BaseStatsForm: React.FC = () => {
   const { activeChar, baseStats, setBaseStat } = useBuilderStore();
-  const [imgLoaded, setImgLoaded] = useState(false);
+
+  // Computed ahead of the early returns below since the hooks that depend on it must stay
+  // unconditional (Rules of Hooks).
+  const isChar = !!activeChar && !!DataLoader.characterDB[activeChar];
+  const iconFolder = isChar ? IMAGE_FOLDERS.CHARACTERS : IMAGE_FOLDERS.WEAPONS;
+  const iconPath = activeChar ? CommonUtils.getIconPath(activeChar, iconFolder) : '';
+
+  // A cache hit (e.g. this portrait was already on screen before a remount) skips the fade-in
+  // -- only a genuinely new image needs onLoad to reveal it.
+  const [imgLoaded, setImgLoaded] = useState(() => CommonUtils.isImageCached(iconPath));
   const [imgError, setImgError] = useState(false);
+  useEffect(() => { setImgLoaded(CommonUtils.isImageCached(iconPath)); setImgError(false); }, [iconPath]);
 
   if (!activeChar) return null;
 
-  const isChar = !!DataLoader.characterDB[activeChar];
   const isWep = !!DataLoader.weaponDB[activeChar];
 
   if (!isChar && !isWep) return null;
 
   const talentOpts = ['', 'ATK %', 'HP %', 'DEF %', 'CR Rate', 'CR DMG', 'Healing Bonus', 'Glacio DMG', 'Fusion DMG', 'Electro DMG', 'Aero DMG', 'Spectro DMG', 'Havoc DMG', 'Physical DMG'];
-  const iconFolder = isChar ? IMAGE_FOLDERS.CHARACTERS : IMAGE_FOLDERS.WEAPONS;
-  const iconPath = CommonUtils.getIconPath(activeChar, iconFolder);
   const forteCount = parseInt(baseStats.forteCount as any, 10) || 1;
 
   const makeInput = (key: string, label: string, defaultVal: string | number = '', placeholder = '') => (

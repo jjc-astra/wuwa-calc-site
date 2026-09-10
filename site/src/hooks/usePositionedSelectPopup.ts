@@ -103,7 +103,9 @@ export function usePositionedSelectPopup({
     if (activeEl) activeEl.scrollIntoView({ block: 'nearest' });
   }, [activeIndex, isOpen]);
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+  // HTMLElement, not HTMLButtonElement -- IconSelect's searchable variant also wires this to a
+  // popup <input>, and only .key/.preventDefault() are used here, both element-agnostic.
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
     if (!isOpen) {
       if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();

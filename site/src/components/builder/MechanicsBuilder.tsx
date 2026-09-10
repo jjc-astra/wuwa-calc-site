@@ -32,8 +32,11 @@ interface GridCardProps {
 }
 
 const GridCard: React.FC<GridCardProps> = ({ itemName, imgFolder, dbRef, onClick, hasChanges }) => {
+  const iconPath = CommonUtils.getIconPath(itemName, imgFolder);
   const [imgError, setImgError] = useState(false);
-  const [imgLoaded, setImgLoaded] = useState(false);
+  // A cache hit (e.g. this card was already on screen before a remount) skips the fade-in --
+  // only a genuinely new image needs onLoad to reveal it.
+  const [imgLoaded, setImgLoaded] = useState(() => CommonUtils.isImageCached(iconPath));
 
   let rarity = 5;
   let rarityClass = 'rarity-none';
@@ -47,7 +50,6 @@ const GridCard: React.FC<GridCardProps> = ({ itemName, imgFolder, dbRef, onClick
   }
 
   const fontSize = imgFolder === IMAGE_FOLDERS.CHARACTERS ? '0.8em' : '0.65em';
-  const iconPath = CommonUtils.getIconPath(itemName, imgFolder);
   const implementedKind = IMPLEMENTED_KIND_BY_FOLDER[imgFolder];
   const isImplemented = !implementedKind || DataLoader.isContentImplemented(implementedKind, itemName) || hasChanges;
 

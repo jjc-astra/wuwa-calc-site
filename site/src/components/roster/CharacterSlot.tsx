@@ -25,13 +25,36 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
     DataLoader.isContentImplemented(kind, name) || hasBuilderChanges(name);
 
   const [imgErrors, setImgErrors] = useState({ char: false, wep: false, mainSet: false, subSet: false, mainEcho: false });
-  const [imgLoaded, setImgLoaded] = useState({ char: false, wep: false, mainSet: false, subSet: false, mainEcho: false });
+  // A cache hit (e.g. this icon was already on screen before a remount) skips the fade-in --
+  // only a genuinely new image needs onLoad to reveal it.
+  const [imgLoaded, setImgLoaded] = useState(() => ({
+    char: CommonUtils.isImageCached(CommonUtils.getIconPath(slot.character, IMAGE_FOLDERS.CHARACTERS)),
+    wep: CommonUtils.isImageCached(CommonUtils.getIconPath(slot.weapon, IMAGE_FOLDERS.WEAPONS)),
+    mainSet: CommonUtils.isImageCached(CommonUtils.getIconPath(slot.mainSet, IMAGE_FOLDERS.ECHO_SETS)),
+    subSet: CommonUtils.isImageCached(CommonUtils.getIconPath(slot.subSet, IMAGE_FOLDERS.ECHO_SETS)),
+    mainEcho: CommonUtils.isImageCached(CommonUtils.getIconPath(slot.mainEcho, IMAGE_FOLDERS.ECHOES))
+  }));
 
-  useEffect(() => { setImgErrors(p => ({ ...p, char: false })); setImgLoaded(p => ({ ...p, char: false })); }, [slot.character]);
-  useEffect(() => { setImgErrors(p => ({ ...p, wep: false })); setImgLoaded(p => ({ ...p, wep: false })); }, [slot.weapon]);
-  useEffect(() => { setImgErrors(p => ({ ...p, mainSet: false })); setImgLoaded(p => ({ ...p, mainSet: false })); }, [slot.mainSet]);
-  useEffect(() => { setImgErrors(p => ({ ...p, subSet: false })); setImgLoaded(p => ({ ...p, subSet: false })); }, [slot.subSet]);
-  useEffect(() => { setImgErrors(p => ({ ...p, mainEcho: false })); setImgLoaded(p => ({ ...p, mainEcho: false })); }, [slot.mainEcho]);
+  useEffect(() => {
+    setImgErrors(p => ({ ...p, char: false }));
+    setImgLoaded(p => ({ ...p, char: CommonUtils.isImageCached(CommonUtils.getIconPath(slot.character, IMAGE_FOLDERS.CHARACTERS)) }));
+  }, [slot.character]);
+  useEffect(() => {
+    setImgErrors(p => ({ ...p, wep: false }));
+    setImgLoaded(p => ({ ...p, wep: CommonUtils.isImageCached(CommonUtils.getIconPath(slot.weapon, IMAGE_FOLDERS.WEAPONS)) }));
+  }, [slot.weapon]);
+  useEffect(() => {
+    setImgErrors(p => ({ ...p, mainSet: false }));
+    setImgLoaded(p => ({ ...p, mainSet: CommonUtils.isImageCached(CommonUtils.getIconPath(slot.mainSet, IMAGE_FOLDERS.ECHO_SETS)) }));
+  }, [slot.mainSet]);
+  useEffect(() => {
+    setImgErrors(p => ({ ...p, subSet: false }));
+    setImgLoaded(p => ({ ...p, subSet: CommonUtils.isImageCached(CommonUtils.getIconPath(slot.subSet, IMAGE_FOLDERS.ECHO_SETS)) }));
+  }, [slot.subSet]);
+  useEffect(() => {
+    setImgErrors(p => ({ ...p, mainEcho: false }));
+    setImgLoaded(p => ({ ...p, mainEcho: CommonUtils.isImageCached(CommonUtils.getIconPath(slot.mainEcho, IMAGE_FOLDERS.ECHOES)) }));
+  }, [slot.mainEcho]);
 
   // Builder edits only replay onto DataLoader.characterDB once opened in the Builder
   // (setActiveChar) -- so un-opened edits still need overlaying here (e.g. isDualMode).

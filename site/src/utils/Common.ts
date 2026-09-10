@@ -129,6 +129,15 @@ export const CommonUtils = {
     return CommonUtils.getImage(`${folder}/Icon_${n.replaceAll(' ', '')}${EXTENSION}`);
   },
 
+  // True if `src` is already in the browser's image cache -- lets an icon that remounts (e.g.
+  // switching pages) skip straight to its loaded state instead of replaying the fade-in.
+  isImageCached: (src: string): boolean => {
+    if (!src) return false;
+    const img = new Image();
+    img.src = src;
+    return img.complete;
+  },
+
   // Data/images live in the separate wuwa-calc-data repo (public, no auth) instead of this
   // repo's public/ folder -- new character data ships without rebuilding/redeploying the site.
   // raw.githubusercontent.com: CORS-enabled GETs, no api.github.com rate limit.
