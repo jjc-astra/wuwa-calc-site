@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { ImageFolder } from '../../data/db';
 import { AvatarIcon } from './AvatarIcon';
@@ -21,6 +21,8 @@ interface IconSelectProps {
   placeholder: string;
   className?: string;
   disabled?: boolean;
+  /** Adds a text filter at the top of the popup, for long option lists (e.g. the character list). */
+  searchable?: boolean;
 }
 
 const POPUP_MAX_HEIGHT = 260;
@@ -29,9 +31,15 @@ const POPUP_MAX_HEIGHT = 260;
  * avatars) -- native <select> can't reliably show images in its popup cross-browser. Portaled
  * to <body>, fixed-positioned, so it escapes clipping ancestors (e.g. .char-row's overflow-x). */
 export const IconSelect: React.FC<IconSelectProps> = ({
-  value, options, onChange, iconFolder, iconShape, placeholder, className = '', disabled = false
+  value, options, onChange, iconFolder, iconShape, placeholder, className = '', disabled = false, searchable = false
 }) => {
   const avatarClass = iconShape === 'rect' ? 'avatar-sm avatar-rect' : 'avatar-sm';
+  const [searchTerm, setSearchTerm] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const filteredOptions = searchable && searchTerm.trim()
+    ? options.filter(o => o.value.toLowerCase().includes(searchTerm.trim().toLowerCase()))
+    : options;
 
   const selectOption = (opt: IconSelectOption) => {
     if (opt.disabled) return;
@@ -43,13 +51,27 @@ export const IconSelect: React.FC<IconSelectProps> = ({
   const {
     isOpen, setIsOpen, activeIndex, setActiveIndex, popupPos, rootRef, triggerRef, popupRef, handleKeyDown
   } = usePositionedSelectPopup({
-    itemCount: options.length,
+    itemCount: filteredOptions.length,
     popupMaxHeight: POPUP_MAX_HEIGHT,
     activeOptionSelector: '.icon-select-option.is-active',
-    findInitialActiveIndex: () => options.findIndex(o => o.value === value),
-    findTypeaheadMatch: term => options.findIndex(o => o.value.toLowerCase().startsWith(term)),
-    onSelectIndex: index => selectOption(options[index])
+    findInitialActiveIndex: () => filteredOptions.findIndex(o => o.value === value),
+    // Search box replaces letter-by-letter typeahead -- see the activeIndex reset below instead.
+    findTypeaheadMatch: term => (searchable ? -1 : filteredOptions.findIndex(o => o.value.toLowerCase().startsWith(term))),
+    onSelectIndex: index => selectOption(filteredOptions[index])
   });
+
+  // Fresh search + focus each time the popup opens.
+  useEffect(() => {
+    if (!isOpen) return;
+    setSearchTerm('');
+    if (searchable) requestAnimationFrame(() => searchInputRef.current?.focus());
+  }, [isOpen, searchable]);
+
+  // Highlights the first match as the list narrows.
+  useEffect(() => {
+    if (searchable && isOpen) setActiveIndex(filteredOptions.length > 0 ? 0 : -1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm]);
 
   return (
     <div className="icon-select" ref={rootRef}>
@@ -65,7 +87,21 @@ export const IconSelect: React.FC<IconSelectProps> = ({
       </button>
       {isOpen && createPortal(
         <div className="icon-select-popup" ref={popupRef} style={popupPos}>
-          {options.map((opt, i) => (
+          {searchable && (
+            <input
+              ref={searchInputRef}
+              type="text"
+              className="icon-select-search"
+              placeholder="Search..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              onKeyDown={handleKeyDown}
+            />
+          )}
+          {searchable && filteredOptions.length === 0 && (
+            <div className="icon-select-empty">No matches</div>
+          )}
+          {filteredOptions.map((opt, i) => (
             <div
               key={opt.value}
               className={`icon-select-option ${opt.value === value ? 'is-selected' : ''} ${i === activeIndex ? 'is-active' : ''} ${opt.disabled ? 'is-disabled' : ''}`}

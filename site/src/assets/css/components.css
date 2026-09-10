@@ -264,6 +264,28 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 .icon-select-option.is-active:not(.is-disabled) { background: var(--accent-hover); }
 .icon-select-option.is-selected { color: var(--accent); font-weight: bold; }
 .icon-select-option.is-disabled { opacity: 0.4; cursor: not-allowed; }
+.icon-select-search {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    width: 100%;
+    box-sizing: border-box;
+    padding: var(--space-2) var(--space-3);
+    background: var(--bg-panel);
+    border: none;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-main);
+    font-size: 0.85rem;
+    font-family: inherit;
+    outline: none;
+}
+.icon-select-search::placeholder { color: var(--text-dim); }
+.icon-select-empty {
+    padding: var(--space-2) var(--space-3);
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    font-style: italic;
+}
 
 /* --- Dropdown --- */
 .dropdown { display: contents; }

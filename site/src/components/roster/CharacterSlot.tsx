@@ -112,6 +112,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
             iconFolder={IMAGE_FOLDERS.CHARACTERS}
             iconShape="circle"
             placeholder="Character"
+            searchable
             options={DataLoader.charList.map(c => ({ value: c, disabled: !isSelectable('character', c), disabledTooltip: NOT_IMPLEMENTED_TIP }))}
           />
           <div className="flex-row gap-sm seq-mode-row">
