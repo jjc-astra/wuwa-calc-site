@@ -215,7 +215,26 @@ export class TimelineEngineClass {
             break;
           }
         }
-        if (holdReachable && holdReleaseDelay > 0) {
+        if (currentData.timing === 'Manual') {
+          // User has taken explicit control of the release (e.g. an intentional early/partial
+          // release for a shorter charge) -- apply their value directly instead of auto-waiting
+          // for "done", clamped to [0, the delay auto would have used] so Manual can only
+          // shorten the wait, never lengthen it past what the hold's own config would produce.
+          // The live-tracking block further down reads gameTimeStart/Hold_Start the same way
+          // regardless of how the wait got here, so the cursor/forte naturally reflect this
+          // shorter hold instead of assuming "done" -- no separate handling needed there.
+          const manualDelay = Math.max(0, currentData.manualOffset || 0);
+          const ceilingDelay = holdReachable ? holdReleaseDelay : GAME_DEFAULTS.holdLookaheadMax;
+          const appliedDelay = Math.min(manualDelay, ceilingDelay);
+          if (appliedDelay > 0) {
+            finalWaitTime += appliedDelay;
+            currentData.waitTime = finalWaitTime;
+            if (!currentData.offsetReasons) currentData.offsetReasons = [];
+            currentData.offsetReasons.push({ label: 'Manual Hold Wait', valueFrames: toFrames(appliedDelay) });
+          }
+          // Not surfaced here: the user has explicitly opted out of waiting for "done", so an
+          // auto-search miss isn't an error for them the way it is in every other timing mode.
+        } else if (holdReachable && holdReleaseDelay > 0) {
           finalWaitTime += holdReleaseDelay;
           currentData.waitTime = finalWaitTime;
           if (!currentData.offsetReasons) currentData.offsetReasons = [];
@@ -871,6 +890,13 @@ export class TimelineEngineClass {
     });
     if (moveData.inputType === 'Hold' || moveData.castTypes?.includes('Echo')) {
       availableTimings.push({ val: 'Simultaneous', label: 'Simultaneous', title: "Executes in parallel anchored to the previous move's start time." });
+    }
+    if (moveData.inputType === 'Release' && moveData.holdConfig) {
+      availableTimings.push({
+        val: 'Manual',
+        label: 'Manual',
+        title: "Set the hold's wait directly (down to 0) instead of auto-waiting for the forte/window to be reached -- for an early, partial release."
+      });
     }
     currentData.availableTimings = availableTimings;
 

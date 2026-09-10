@@ -271,6 +271,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
   // row.offset is Frames; convert to seconds (sign preserved) for the offset-pos/neg styling below.
   const offsetVal = framesToSeconds(toFrames(row.offset || 0));
   const offsetStr = `${offsetVal > 0 ? '+' : ''}${offsetVal.toFixed(2)}`;
+  const isOffsetEditable = row.timing === 'Simultaneous' || row.timing === 'Manual';
   const totalDmg = (row.damageInstances || []).reduce((acc: number, d: any) => acc + (d.total || 0), 0);
 
   const availableTimings: TimingOption[] = row.availableTimings || [
@@ -451,17 +452,18 @@ export const RotationRow: React.FC<RotationRowProps> = ({
           accentColor={themeColor}
         />
 
-        {/* Offset Trigger */}
+        {/* Offset Trigger -- also editable for Manual (a hold Release's user-set wait, see
+            TimelineEngine's timing==='Manual' branch), not just Simultaneous's position offset. */}
         <div
           className={`sub-panel-trigger ${activeTrigger === 'offset' ? 'is-active' : ''}`}
-          onClick={() => { if (row.timing !== 'Simultaneous') onTriggerClick(index, 'offset'); }}
+          onClick={() => { if (isOffsetEditable) onTriggerClick(index, 'offset'); }}
         >
           <div className={`base-num-box ${offsetVal > 0 ? 'offset-pos' : offsetVal < 0 ? 'offset-neg' : ''}`} style={{ width: '100%', padding: '2px 5px' }}>
             <input
               type="text"
               className="num-input text-xs offset-input"
               value={offsetDraft !== null ? offsetDraft : offsetStr}
-              readOnly={row.timing !== 'Simultaneous'}
+              readOnly={!isOffsetEditable}
               onChange={handleOffsetInput}
               onFocus={() => setOffsetDraft(offsetStr)}
               onBlur={commitOffsetDraft}
