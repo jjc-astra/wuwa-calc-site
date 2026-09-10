@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useBuilderStore, mechFolderFor } from '../../store/useBuilderStore';
+import { useBuilderStore, mechFolderFor, nodeIdPrefix } from '../../store/useBuilderStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { BuilderUtils } from '../../utils/BuilderUtils';
 import { ConfirmDialog } from '../common/ConfirmDialog';
+import { ActionsMenuButton } from '../common/ActionsMenuButton';
+import type { MechanicNode } from '../../types';
 
 // Applies/clears the whole-node hover highlight.
 // scroll=true only on real highlightedNodeId change; self-heal re-apply must never scroll.
@@ -93,8 +95,14 @@ function applyFieldHighlight(
 }
 
 export const JsonOutputPane: React.FC = () => {
-  const { activeChar, activeFolder, baseStats, mechanics, resetCache, highlightedNodeId, hoveredFieldHighlight, hasChanges } = useBuilderStore();
+  const {
+    activeChar, activeFolder, baseStats, mechanics, resetCache, highlightedNodeId, hoveredFieldHighlight, hasChanges,
+    setAllBaseStats, setMechanicNode, removeMechanicNode
+  } = useBuilderStore();
   const codeEditorRef = useRef<HTMLPreElement>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
+  // Which menu item triggered the (shared) file picker -- read once the picker resolves.
+  const pendingImportKind = useRef<'character' | 'mechanics' | null>(null);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const isWeapon = activeChar ? !!DataLoader.weaponDB[activeChar] : false;
   const isDirty = activeChar ? hasChanges(activeChar) : false;
@@ -149,17 +157,98 @@ export const JsonOutputPane: React.FC = () => {
     return () => observer.disconnect();
   }, []);
 
-  const handleCopy = (text: string, buttonId: string, label: string) => {
-    if (!text) return;
-    navigator.clipboard.writeText(text).then(() => {
-      const btn = document.getElementById(buttonId);
-      if (btn) {
-        btn.innerText = 'Copied!';
-        setTimeout(() => (btn.innerText = label), 2000);
+  const downloadText = (text: string, filename: string) => {
+    const blob = new Blob([text], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportCharacter = () => {
+    if (!activeChar || !formatted.charJsonString) return alert('No character stats to export yet.');
+    downloadText(JSON.stringify({ [activeChar]: baseStats }, null, 2), `${activeChar}_stats.json`);
+  };
+
+  const handleExportMechanics = () => {
+    if (!activeChar || !formatted.mechJsonString) return alert('No mechanic nodes to export yet.');
+    const filename = DataLoader.mechanicPath(mechFolder, activeChar).split('/').pop()!;
+    downloadText(formatted.mechJsonString, filename);
+  };
+
+  // Tolerates a raw copy of the preview panel's own Character JSON line ('"Name": {...},'),
+  // which isn't valid standalone JSON -- wraps it and drops the trailing comma before retrying.
+  const parseImportedJson = (text: string): any => {
+    try {
+      return JSON.parse(text);
+    } catch {
+      return JSON.parse(`{${text.trim().replace(/,\s*$/, '')}}`);
+    }
+  };
+
+  const applyCharacterImport = (parsed: any) => {
+    let stats = parsed;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      if (activeChar && Object.prototype.hasOwnProperty.call(parsed, activeChar)) {
+        stats = parsed[activeChar];
+      } else {
+        const keys = Object.keys(parsed);
+        if (keys.length === 1) stats = parsed[keys[0]];
       }
-    }).catch(() => {
-      alert('Failed to copy to clipboard.');
+    }
+    if (!stats || typeof stats !== 'object' || Array.isArray(stats)) {
+      throw new Error('No character stats found in file.');
+    }
+    setAllBaseStats(stats);
+  };
+
+  const applyMechanicsImport = (parsed: Record<string, MechanicNode>) => {
+    if (!activeChar || !parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('No mechanic nodes found in file.');
+    }
+    const prefix = nodeIdPrefix(activeChar);
+    // Re-homes a node authored under a different provider (or with no prefix at all) onto the
+    // entity currently open here, keeping whatever comes after the first underscore.
+    const rekey = (key: string) => (key.startsWith(prefix) ? key : `${prefix}${key.includes('_') ? key.slice(key.indexOf('_') + 1) : key}`);
+
+    const importedKeys = new Set<string>();
+    Object.entries(parsed).forEach(([key, node]) => {
+      const finalKey = rekey(key);
+      importedKeys.add(finalKey);
+      setMechanicNode(finalKey, node);
     });
+    // Full replace, matching what loading a real file for this entity would look like --
+    // drop whatever nodes existed before that the import doesn't carry forward.
+    Object.keys(mechanics).forEach(key => {
+      if (!importedKeys.has(key)) removeMechanicNode(key);
+    });
+  };
+
+  const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const kind = pendingImportKind.current;
+    pendingImportKind.current = null;
+    if (importInputRef.current) importInputRef.current.value = '';
+    if (!file || !kind) return;
+
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const parsed = parseImportedJson(ev.target?.result as string);
+        if (kind === 'character') applyCharacterImport(parsed);
+        else applyMechanicsImport(parsed);
+      } catch (err) {
+        alert(`Failed to import ${kind === 'character' ? 'character' : 'mechanics'} JSON: ${err instanceof Error ? err.message : 'invalid file.'}`);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const startImport = (kind: 'character' | 'mechanics') => {
+    pendingImportKind.current = kind;
+    importInputRef.current?.click();
   };
 
   const handleResetCacheConfirm = () => {
@@ -173,22 +262,25 @@ export const JsonOutputPane: React.FC = () => {
       <div className="output-pane">
       <div className="flex-row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
         <div className="flex-row gap-sm" style={{ width: 'auto' }}>
-          <button
-            id="copy-char-btn"
-            className="base-btn text-xs"
-            onClick={() => handleCopy(formatted.charJsonString, 'copy-char-btn', 'Copy Character JSON')}
-            disabled={!formatted.charJsonString}
-          >
-            Copy Character JSON
-          </button>
-          <button
-            id="copy-mech-btn"
-            className="base-btn text-xs"
-            onClick={() => handleCopy(formatted.mechJsonString, 'copy-mech-btn', 'Copy Mechanics JSON')}
-            disabled={!formatted.mechJsonString}
-          >
-            Copy Mechanics JSON
-          </button>
+          <input ref={importInputRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleImportFileChange} />
+          <ActionsMenuButton
+            triggerClassName="base-btn text-xs"
+            matchTriggerWidth
+            triggerContent={<span>Import JSON</span>}
+            items={[
+              { key: 'char', label: 'Character JSON', onClick: () => startImport('character') },
+              { key: 'mech', label: 'Mechanics JSON', onClick: () => startImport('mechanics') }
+            ]}
+          />
+          <ActionsMenuButton
+            triggerClassName="base-btn text-xs"
+            matchTriggerWidth
+            triggerContent={<span>Export JSON</span>}
+            items={[
+              { key: 'char', label: 'Character JSON', onClick: handleExportCharacter },
+              { key: 'mech', label: 'Mechanics JSON', onClick: handleExportMechanics }
+            ]}
+          />
         </div>
         <div className="flex-row gap-sm" style={{ width: 'auto', alignItems: 'center' }}>
           {isDirty && (

@@ -24,6 +24,9 @@ interface BuilderState {
   setHoveredFieldHighlight: (highlight: { nodeId: string; fields: string[] } | null) => void;
   setActiveChar: (charName: string | null, folder?: string, rarity?: number) => Promise<void>;
   setBaseStat: (key: string, value: any) => void;
+  // Replaces the whole baseStats object at once -- e.g. importing a Character JSON file,
+  // where stale fields the import doesn't redefine shouldn't linger from the old value.
+  setAllBaseStats: (stats: BaseStats) => void;
   setMechanicNode: (nodeId: string, node: MechanicNode) => void;
   renameMechanicNode: (oldId: string, newId: string, node: MechanicNode) => void;
   removeMechanicNode: (nodeId: string) => void;
@@ -130,6 +133,16 @@ export const useBuilderStore = create<BuilderState>()(
           return {
             baseStats: nextBaseStats,
             editedBaseStats: { ...state.editedBaseStats, [state.activeChar]: nextBaseStats }
+          };
+        });
+      },
+
+      setAllBaseStats: stats => {
+        set(state => {
+          if (!state.activeChar) return { baseStats: stats };
+          return {
+            baseStats: stats,
+            editedBaseStats: { ...state.editedBaseStats, [state.activeChar]: stats }
           };
         });
       },

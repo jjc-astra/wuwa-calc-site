@@ -1,5 +1,5 @@
 // src/components/common/ActionsMenuButton.tsx
-import React from 'react';
+import React, { useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { tip } from '../../utils/Common';
 import { usePositionedSelectPopup } from '../../hooks/usePositionedSelectPopup';
@@ -21,6 +21,10 @@ interface ActionsMenuButtonProps {
   triggerTooltip?: string;
   /** Extra class on the popup -- e.g. to override .pin-menu's min-width for a shorter-item menu. */
   popupClassName?: string;
+  /** Pins the popup to the trigger's own rendered width instead of shrink-wrapping to the
+   * items' content -- for a wide labeled trigger (e.g. "Export JSON") whose items read as
+   * individually shorter text. */
+  matchTriggerWidth?: boolean;
 }
 
 // Ceiling on popup height -- usePositionedSelectPopup only ever shrinks it to available room
@@ -31,7 +35,7 @@ const MENU_MAX_HEIGHT = 240;
  * Reuses usePositionedSelectPopup for portal positioning (same as Dropdown/IconSelect).
  * Item clicks close the menu before running onClick, to avoid racing an async handler. */
 export const ActionsMenuButton: React.FC<ActionsMenuButtonProps> = ({
-  items, triggerClassName, iconSize = 14, triggerContent, triggerTooltip, popupClassName
+  items, triggerClassName, iconSize = 14, triggerContent, triggerTooltip, popupClassName, matchTriggerWidth = false
 }) => {
   // Only the default 3-dot icon needs a tooltip -- custom triggerContent is assumed self-explanatory.
   const resolvedTooltip = triggerTooltip ?? (triggerContent ? undefined : 'More actions');
@@ -55,6 +59,17 @@ export const ActionsMenuButton: React.FC<ActionsMenuButtonProps> = ({
     align: 'right'
   });
 
+  const [triggerWidth, setTriggerWidth] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (matchTriggerWidth && isOpen && triggerRef.current) {
+      setTriggerWidth(triggerRef.current.getBoundingClientRect().width);
+    }
+  }, [isOpen, matchTriggerWidth, triggerRef]);
+
+  const popupStyle = matchTriggerWidth && triggerWidth != null
+    ? { ...popupPos, width: triggerWidth, minWidth: triggerWidth }
+    : popupPos;
+
   return (
     <div className="dropdown" ref={rootRef}>
       <button
@@ -74,7 +89,7 @@ export const ActionsMenuButton: React.FC<ActionsMenuButtonProps> = ({
         )}
       </button>
       {isOpen && createPortal(
-        <div className={`pin-menu ${popupClassName ?? ''}`} ref={popupRef} style={popupPos}>
+        <div className={`pin-menu ${popupClassName ?? ''}`} ref={popupRef} style={popupStyle}>
           {items.map((item, i) => (
             <button
               key={item.key ?? i}

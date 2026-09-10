@@ -255,6 +255,9 @@
     z-index: 100; min-width: 170px; overflow-y: auto;
 }
 .pin-menu-narrow { min-width: 120px; }
+/* No minimum at all -- absolute positioning already shrink-wraps to content, so this just
+   drops the base 170px floor instead of guessing a fixed width for shorter item labels. */
+.pin-menu-fit { min-width: 0; }
 .pin-menu-item {
     display: flex; justify-content: space-between; align-items: center; gap: var(--space-3);
     width: 100%; text-align: left; padding: var(--space-3) var(--space-4); background: none; border: none;
