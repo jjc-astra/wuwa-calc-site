@@ -53,10 +53,10 @@ function applyBuilderOverrides(payload: any): void {
     if (target) Object.assign(target, stats as object);
   });
   Object.entries(overrides.editedMechanics || {}).forEach(([id, node]) => {
-    DataLoader.mechanicsDB[id] = node as any;
+    DataLoader.registerMechanicNode(id, node as any);
   });
   (overrides.deletedMechanicIds || []).forEach((id: string) => {
-    delete DataLoader.mechanicsDB[id];
+    DataLoader.unregisterMechanicNode(id);
   });
 }
 

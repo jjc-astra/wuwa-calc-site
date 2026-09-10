@@ -99,10 +99,10 @@ export const useBuilderStore = create<BuilderState>()(
           if (target) Object.assign(target, charEdits);
         }
         Object.entries(editedMechanics).forEach(([id, node]) => {
-          if (id.startsWith(prefix)) DataLoader.mechanicsDB[id] = node;
+          if (id.startsWith(prefix)) DataLoader.registerMechanicNode(id, node);
         });
         deletedMechanicIds.forEach(id => {
-          if (id.startsWith(prefix)) delete DataLoader.mechanicsDB[id];
+          if (id.startsWith(prefix)) DataLoader.unregisterMechanicNode(id);
         });
 
         const loadedStats = DataLoader.characterDB[charName] || DataLoader.weaponDB[charName] || {};
@@ -137,7 +137,7 @@ export const useBuilderStore = create<BuilderState>()(
       setMechanicNode: (nodeId, node) => {
         set(state => {
           const updated = { ...state.mechanics, [nodeId]: node };
-          DataLoader.mechanicsDB[nodeId] = node;
+          DataLoader.registerMechanicNode(nodeId, node);
           return {
             mechanics: updated,
             editedMechanics: { ...state.editedMechanics, [nodeId]: node },
@@ -155,8 +155,8 @@ export const useBuilderStore = create<BuilderState>()(
           const updated = { ...state.mechanics };
           delete updated[oldId];
           updated[newId] = node;
-          delete DataLoader.mechanicsDB[oldId];
-          DataLoader.mechanicsDB[newId] = node;
+          DataLoader.unregisterMechanicNode(oldId);
+          DataLoader.registerMechanicNode(newId, node);
 
           const updatedEdits = { ...state.editedMechanics };
           delete updatedEdits[oldId];
@@ -175,7 +175,7 @@ export const useBuilderStore = create<BuilderState>()(
         set(state => {
           const updated = { ...state.mechanics };
           delete updated[nodeId];
-          delete DataLoader.mechanicsDB[nodeId];
+          DataLoader.unregisterMechanicNode(nodeId);
 
           const updatedEdits = { ...state.editedMechanics };
           delete updatedEdits[nodeId];

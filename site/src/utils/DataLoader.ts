@@ -160,12 +160,30 @@ export class DataLoaderClass {
     const data = await this.loadJSON<Record<string, MechanicNode>>(CommonUtils.getData(this.mechanicPath(folder, itemName)));
     if (data) {
       for (const [key, mechData] of Object.entries(data)) {
-        this.mechanicsDB[key] = mechData;
-        const indexKey = key.startsWith('System_') ? 'System' : key.split('_')[0];
-        if (!this.mechanicsIndex[indexKey]) this.mechanicsIndex[indexKey] = [];
-        if (!this.mechanicsIndex[indexKey].includes(key)) this.mechanicsIndex[indexKey].push(key);
+        this.registerMechanicNode(key, mechData);
       }
       this.cache.mechanics.add(cacheKey);
+    }
+  }
+
+  // mechanicsDB alone isn't enough to make a node reachable -- mechanicsIndex (keyed by
+  // character/weapon/'System', per this same key's prefix) is what the rotation-row action
+  // dropdown and the worker's per-unit passive registration actually iterate. The Builder's
+  // own edit paths (setActiveChar's replay, setMechanicNode, renameMechanicNode) and the calc
+  // worker's applyBuilderOverrides all need both kept in sync -- use these instead of writing
+  // mechanicsDB directly.
+  registerMechanicNode(key: string, node: MechanicNode): void {
+    this.mechanicsDB[key] = node;
+    const indexKey = key.startsWith('System_') ? 'System' : key.split('_')[0];
+    if (!this.mechanicsIndex[indexKey]) this.mechanicsIndex[indexKey] = [];
+    if (!this.mechanicsIndex[indexKey].includes(key)) this.mechanicsIndex[indexKey].push(key);
+  }
+
+  unregisterMechanicNode(key: string): void {
+    delete this.mechanicsDB[key];
+    const indexKey = key.startsWith('System_') ? 'System' : key.split('_')[0];
+    if (this.mechanicsIndex[indexKey]) {
+      this.mechanicsIndex[indexKey] = this.mechanicsIndex[indexKey].filter(k => k !== key);
     }
   }
 
