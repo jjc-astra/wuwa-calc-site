@@ -350,13 +350,16 @@ export const useRosterStore = create<RosterState>()(
       onRehydrateStorage: () => {
         return (state, error) => {
           if (!error && state) {
-            Promise.all(state.team.map(async slot => {
-              if (slot.character) await DataLoader.loadMechanic('characters', slot.character);
-              if (slot.weapon) await DataLoader.loadMechanic('weapons', slot.weapon);
-              if (slot.mainSet) await DataLoader.loadMechanic('sets', slot.mainSet);
-              if (slot.subSet) await DataLoader.loadMechanic('sets', slot.subSet);
-              if (slot.mainEcho) await DataLoader.loadMechanic('echoes', slot.mainEcho);
-            })).then(() => applyBuilderOverridesForTeam(state.team));
+            // Await initDatabases() before applying team overrides to prevent missing base-stat lookups during Zustand rehydration.
+            DataLoader.ready.then(() =>
+              Promise.all(state.team.map(async slot => {
+                if (slot.character) await DataLoader.loadMechanic('characters', slot.character);
+                if (slot.weapon) await DataLoader.loadMechanic('weapons', slot.weapon);
+                if (slot.mainSet) await DataLoader.loadMechanic('sets', slot.mainSet);
+                if (slot.subSet) await DataLoader.loadMechanic('sets', slot.subSet);
+                if (slot.mainEcho) await DataLoader.loadMechanic('echoes', slot.mainEcho);
+              })).then(() => applyBuilderOverridesForTeam(state.team))
+            );
           }
         };
       }

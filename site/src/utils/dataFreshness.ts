@@ -68,6 +68,8 @@ async function checkItems(items: FreshnessItem[]): Promise<FreshnessItem[]> {
     if (!DataLoader.cache.mechanics.has(cacheKey)) continue; // never loaded -- nothing to check
 
     const relPath = DataLoader.mechanicPath(folder, itemName);
+    if (DataLoader.wipSourced.has(relPath)) continue; // no manifest baseline applies -- WIP owns this until reloaded
+
     const latestHash = manifest[relPath];
     if (!latestHash) continue; // manifest lacks this path (e.g. 404'd) -- nothing to compare
 

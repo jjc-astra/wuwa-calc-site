@@ -25,19 +25,26 @@ export interface CharacterResultData {
 
 export class DataLoaderClass {
   cache = { mechanics: new Set<string>() };
-  // Content-hash manifest (public/data/manifest.json). Detects changed data files without
-  // re-downloading. See dataFreshness.ts.
+  // Content-hash manifest (public/data/manifest.json). Detects changed data files without re-downloading. See dataFreshness.ts.
   manifest: Record<string, string> = {};
   // Hash recorded at last fetch -- vs a fresh manifest, tells "changed" from "never loaded"/"unchanged".
   loadedHashes: Record<string, string> = {};
+  // Local dev mechanics/ mirrors lacking manifest baselines; dataFreshness skips them to avoid false-positive verification.
+  wipSourced = new Set<string>();
   private manifestFetchedAt = 0;
+  // Cooldown map for failed entity fetches to prevent spamming network retries and console errors on every recalculation.
+  private missingUntil = new Map<string, number>();
+  private static readonly MISSING_RETRY_MS = 30_000;
+  // Resolves when initial DBs populate, guarding store rehydration callbacks against reading empty DataLoaders on module evaluation.
+  private resolveReady!: () => void;
+  ready: Promise<void> = new Promise(resolve => { this.resolveReady = resolve; });
   characterDB: Record<string, CharacterData> = {};
   weaponDB: Record<string, WeaponData> = {};
   buildDB: Record<string, any> = {};
   mechanicsDB: Record<string, MechanicNode> = {};
   mechanicsIndex: Record<string, string[]> = {};
   charList: string[] = [];
-  // Rankings page's submitted results, loaded lazily (loadCharacterResults) -- not part of initDatabases.
+  // Submitted rankings page results, lazily populated via loadCharacterResults rather than initDatabases.
   characterResults: Record<string, CharacterResultData> = {};
   weaponsByType: Record<string, string[]> = {
     Broadblade: [], Sword: [], Rectifier: [], Gauntlets: [], Pistols: []
@@ -74,14 +81,20 @@ export class DataLoaderClass {
     const isWipAttempt = import.meta.env.DEV && path.startsWith(WIP_BASE_URL);
     let usedPath = path;
     let data = await this._fetchJSON<T>(path, isWipAttempt);
+    const servedFromWip = isWipAttempt && data !== null;
     if (data === null && isWipAttempt) {
       usedPath = path.replace(WIP_BASE_URL, DATA_REPO_BASE_URL);
       data = await this._fetchJSON<T>(usedPath);
     }
-    // Records the manifest hash as "what we loaded" -- not a hash of `data` (that'd trivially always match).
+    // Records the manifest hash as loaded content, or flags dev WIP paths lacking a manifest baseline.
     if (data !== null && !opts.skipHashTracking) {
-      const relPath = usedPath.replace(/^\/data\//, '');
-      if (this.manifest[relPath]) this.loadedHashes[relPath] = this.manifest[relPath];
+      if (servedFromWip) {
+        this.wipSourced.add(path.replace(`${WIP_BASE_URL}/data/`, ''));
+      } else {
+        const relPath = usedPath.replace(`${DATA_REPO_BASE_URL}/data/`, '');
+        this.wipSourced.delete(relPath);
+        if (this.manifest[relPath]) this.loadedHashes[relPath] = this.manifest[relPath];
+      }
     }
     return data;
   }
@@ -140,6 +153,7 @@ export class DataLoaderClass {
   private backfillLoadedHashes(manifest: Record<string, string>): void {
     for (const cacheKey of this.cache.mechanics) {
       const relPath = `mechanics/${cacheKey}.json`;
+      if (this.wipSourced.has(relPath)) continue;
       if (!this.loadedHashes[relPath] && manifest[relPath]) {
         this.loadedHashes[relPath] = manifest[relPath];
       }
@@ -170,6 +184,7 @@ export class DataLoaderClass {
     this.triggerSets = echoData.TRIGGER_SETS || [];
 
     await this.loadMechanic('generic', 'generic');
+    this.resolveReady();
   }
 
   // Loads every mechanic a team needs. Shared by the roster store and the calc worker's own
@@ -192,12 +207,17 @@ export class DataLoaderClass {
     if (!itemName) return;
     const cacheKey = this.mechanicCacheKey(folder, itemName);
     if (this.cache.mechanics.has(cacheKey)) return;
+    const cooldownUntil = this.missingUntil.get(cacheKey);
+    if (cooldownUntil && Date.now() < cooldownUntil) return;
     const data = await this.loadJSON<Record<string, MechanicNode>>(CommonUtils.getData(this.mechanicPath(folder, itemName)));
     if (data) {
       for (const [key, mechData] of Object.entries(data)) {
         this.registerMechanicNode(key, mechData);
       }
       this.cache.mechanics.add(cacheKey);
+      this.missingUntil.delete(cacheKey);
+    } else {
+      this.missingUntil.set(cacheKey, Date.now() + DataLoaderClass.MISSING_RETRY_MS);
     }
   }
 
@@ -258,6 +278,8 @@ export class DataLoaderClass {
     const cacheKey = this.mechanicCacheKey(folder, itemName);
 
     this.cache.mechanics.delete(cacheKey);
+    this.missingUntil.delete(cacheKey);
+    this.wipSourced.delete(this.mechanicPath(folder, itemName));
 
     Object.keys(this.mechanicsDB).forEach(key => {
       if (key.startsWith(itemName + '_') || (itemName === 'Generic' && key.startsWith('System_'))) {
