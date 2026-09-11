@@ -475,7 +475,7 @@ export const BUILDER_TEMPLATES: Record<string, MechanicNode> = {
     castTypes: ['Heavy'],
     actionDuration: toFrames(20),
     input: 'Basic',
-    inputType: 'Press',
+    inputType: 'Hold',
     stanceReq: 'Grounded',
     effects: [{ type: 'tracker', name: 'Hold_Start', action: 'set', value: '@Move.GameTimeStart' }]
   },
