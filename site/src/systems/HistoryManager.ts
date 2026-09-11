@@ -1,11 +1,29 @@
 export interface Command {
   execute: () => void;
   undo: () => void;
+  // Plain-data description of this command, for persisting the undo/redo stacks across a
+  // reload (see useRotationStore's reviveCommand). Must round-trip through JSON.
+  serialize: () => SerializedCommand;
 }
+
+export type SerializedCommand =
+  | { type: 'add'; newRow: any; insertedIndex: number }
+  | { type: 'delete'; deletedData: { row: any; index: number }[] }
+  | { type: 'editValue'; index: number; field: string; oldValue: any; newValue: any }
+  | { type: 'editFields'; index: number; oldValues: Record<string, any>; newValues: Record<string, any> }
+  | { type: 'setLoopStart'; newIndex: number | null; prevIndex: number | null }
+  | { type: 'setLoopEnd'; newIndex: number | null; prevIndex: number | null }
+  | { type: 'move'; indicesToMove: number[]; targetIndex: number; previousRowsSnapshot: any[] }
+  | {
+      type: 'endingRotationFlags';
+      oldValues: { endingRotationEnabled: boolean; endRotationStartsEarlier: boolean };
+      newValues: { endingRotationEnabled: boolean; endRotationStartsEarlier: boolean };
+    }
+  | { type: 'composite'; commands: SerializedCommand[] };
 
 // Rows carry live `prevRow`/`nextRow` back-refs (TimelineEngine's @Prev/@Next lookups) that
 // break JSON.stringify on circular structure. Safe to drop -- recalculate() rebuilds them.
-const cloneRowsSansLinks = (rows: any[]): any[] =>
+export const cloneRowsSansLinks = (rows: any[]): any[] =>
   JSON.parse(JSON.stringify(rows, (key, value) => (key === 'prevRow' || key === 'nextRow' ? undefined : value)));
 
 export class HistoryManager {
@@ -84,6 +102,23 @@ export class HistoryManager {
     this.redoStack = [];
     this.notify();
   }
+
+  serializeUndoStack(): SerializedCommand[] {
+    return this.undoStack.map(c => c.serialize());
+  }
+
+  serializeRedoStack(): SerializedCommand[] {
+    return this.redoStack.map(c => c.serialize());
+  }
+
+  // Sets the stacks directly from already-revived commands -- no execute()/undo() side effects,
+  // since the rows/flags they describe are already the current (persisted) state. Used to
+  // restore history across a reload; see useRotationStore's onRehydrateStorage.
+  restoreStacks(undoStack: Command[], redoStack: Command[]) {
+    this.undoStack = undoStack;
+    this.redoStack = redoStack;
+    this.notify();
+  }
 }
 
 export class AddRowCommand implements Command {
@@ -127,28 +162,39 @@ export class AddRowCommand implements Command {
       this.onComplete?.();
     }
   }
+
+  serialize(): SerializedCommand {
+    return { type: 'add', newRow: this.newRow, insertedIndex: this.insertedIndex };
+  }
 }
 
 export class DeleteRowsCommand implements Command {
   private getRows: () => any[];
   private setRows: (rows: any[]) => void;
-  private deletedData: { row: any; index: number }[] = [];
+  private deletedData: { row: any; index: number }[];
   private onComplete?: () => void;
 
+  // Takes the already-resolved deletedData (row snapshot + original index) rather than raw
+  // indices, so the exact same constructor works both for a fresh delete (see
+  // computeDeletedData, called against the live rows) and for reviving a persisted command
+  // (deletedData read straight back from storage, since the rows it refers to may no longer
+  // exist at those indices by the time of revival).
   constructor(
     getRows: () => any[],
     setRows: (rows: any[]) => void,
-    indicesToDelete: number[],
+    deletedData: { row: any; index: number }[],
     onComplete?: () => void
   ) {
     this.getRows = getRows;
     this.setRows = setRows;
+    this.deletedData = deletedData;
     this.onComplete = onComplete;
-    
-    const current = this.getRows();
-    this.deletedData = indicesToDelete
-      .filter((idx: number) => idx >= 0 && idx < current.length)
-      .map((idx: number) => ({ row: cloneRowsSansLinks([current[idx]])[0], index: idx }))
+  }
+
+  static computeDeletedData(rows: any[], indicesToDelete: number[]): { row: any; index: number }[] {
+    return indicesToDelete
+      .filter((idx: number) => idx >= 0 && idx < rows.length)
+      .map((idx: number) => ({ row: cloneRowsSansLinks([rows[idx]])[0], index: idx }))
       .sort((a, b) => b.index - a.index);
   }
 
@@ -175,6 +221,10 @@ export class DeleteRowsCommand implements Command {
     });
     this.setRows(current);
     this.onComplete?.();
+  }
+
+  serialize(): SerializedCommand {
+    return { type: 'delete', deletedData: this.deletedData };
   }
 }
 
@@ -222,6 +272,10 @@ export class EditValueCommand implements Command {
       this.onComplete?.();
     }
   }
+
+  serialize(): SerializedCommand {
+    return { type: 'editValue', index: this.index, field: this.field, oldValue: this.oldValue, newValue: this.newValue };
+  }
 }
 
 // Same as EditValueCommand but sets several fields on a row as one atomic step (e.g.
@@ -268,6 +322,10 @@ export class EditFieldsCommand implements Command {
       this.onComplete?.();
     }
   }
+
+  serialize(): SerializedCommand {
+    return { type: 'editFields', index: this.index, oldValues: this.oldValues, newValues: this.newValues };
+  }
 }
 
 // Only one row may carry `loopStartOverride` at a time. Moves the flag to `newIndex` in one
@@ -279,18 +337,25 @@ export class SetLoopStartCommand implements Command {
   private prevIndex: number | null;
   private onComplete?: () => void;
 
+  // prevIndex is resolved by the caller (against the live rows) rather than derived here, so
+  // the same constructor works for both a fresh action and reviving a persisted command.
   constructor(
     getRows: () => any[],
     setRows: (rows: any[]) => void,
     newIndex: number | null,
+    prevIndex: number | null,
     onComplete?: () => void
   ) {
     this.getRows = getRows;
     this.setRows = setRows;
     this.newIndex = newIndex;
-    this.prevIndex = this.getRows().findIndex(r => r.loopStartOverride === true);
-    if (this.prevIndex === -1) this.prevIndex = null;
+    this.prevIndex = prevIndex;
     this.onComplete = onComplete;
+  }
+
+  static findPrevIndex(rows: any[]): number | null {
+    const idx = rows.findIndex(r => r.loopStartOverride === true);
+    return idx === -1 ? null : idx;
   }
 
   private apply(clearIndex: number | null, setIndex: number | null) {
@@ -313,6 +378,10 @@ export class SetLoopStartCommand implements Command {
   undo() {
     this.apply(this.newIndex, this.prevIndex);
   }
+
+  serialize(): SerializedCommand {
+    return { type: 'setLoopStart', newIndex: this.newIndex, prevIndex: this.prevIndex };
+  }
 }
 
 // Same shape as SetLoopStartCommand, targeting `loopEndOverride` -- marks the loop's last row
@@ -329,14 +398,19 @@ export class SetLoopEndCommand implements Command {
     getRows: () => any[],
     setRows: (rows: any[]) => void,
     newIndex: number | null,
+    prevIndex: number | null,
     onComplete?: () => void
   ) {
     this.getRows = getRows;
     this.setRows = setRows;
     this.newIndex = newIndex;
-    this.prevIndex = this.getRows().findIndex(r => r.loopEndOverride === true);
-    if (this.prevIndex === -1) this.prevIndex = null;
+    this.prevIndex = prevIndex;
     this.onComplete = onComplete;
+  }
+
+  static findPrevIndex(rows: any[]): number | null {
+    const idx = rows.findIndex(r => r.loopEndOverride === true);
+    return idx === -1 ? null : idx;
   }
 
   private apply(clearIndex: number | null, setIndex: number | null) {
@@ -359,6 +433,10 @@ export class SetLoopEndCommand implements Command {
   undo() {
     this.apply(this.newIndex, this.prevIndex);
   }
+
+  serialize(): SerializedCommand {
+    return { type: 'setLoopEnd', newIndex: this.newIndex, prevIndex: this.prevIndex };
+  }
 }
 
 export class MoveRowsCommand implements Command {
@@ -366,14 +444,18 @@ export class MoveRowsCommand implements Command {
   private setRows: (rows: any[]) => void;
   private indicesToMove: number[];
   private targetIndex: number;
-  private previousRowsSnapshot: any[] = [];
+  private previousRowsSnapshot: any[];
   private onComplete?: (newIndices?: number[]) => void;
 
+  // previousRowsSnapshot is captured by the caller (against the live rows, before the move)
+  // rather than derived here, so the same constructor works for both a fresh action and
+  // reviving a persisted command.
   constructor(
     getRows: () => any[],
     setRows: (rows: any[]) => void,
     indicesToMove: number[],
     targetIndex: number,
+    previousRowsSnapshot: any[],
     onComplete?: (newIndices?: number[]) => void
   ) {
     this.getRows = getRows;
@@ -381,7 +463,7 @@ export class MoveRowsCommand implements Command {
     this.indicesToMove = indicesToMove;
     this.targetIndex = targetIndex;
     this.onComplete = onComplete;
-    this.previousRowsSnapshot = cloneRowsSansLinks(this.getRows());
+    this.previousRowsSnapshot = previousRowsSnapshot;
   }
 
   execute() {
@@ -417,6 +499,46 @@ export class MoveRowsCommand implements Command {
     this.setRows(cloneRowsSansLinks(this.previousRowsSnapshot));
     this.onComplete?.(undefined);
   }
+
+  serialize(): SerializedCommand {
+    return {
+      type: 'move',
+      indicesToMove: this.indicesToMove,
+      targetIndex: this.targetIndex,
+      previousRowsSnapshot: this.previousRowsSnapshot
+    };
+  }
+}
+
+// Flips endingRotationEnabled/endRotationStartsEarlier as one undo step -- shared by
+// resetLoopEnd (bundled into a CompositeCommand alongside the row deletion/tag removal it
+// accompanies) and any other all-or-nothing flag change.
+export class SetEndingRotationFlagsCommand implements Command {
+  private setFlags: (vals: { endingRotationEnabled: boolean; endRotationStartsEarlier: boolean }) => void;
+  private oldValues: { endingRotationEnabled: boolean; endRotationStartsEarlier: boolean };
+  private newValues: { endingRotationEnabled: boolean; endRotationStartsEarlier: boolean };
+
+  constructor(
+    setFlags: (vals: { endingRotationEnabled: boolean; endRotationStartsEarlier: boolean }) => void,
+    oldValues: { endingRotationEnabled: boolean; endRotationStartsEarlier: boolean },
+    newValues: { endingRotationEnabled: boolean; endRotationStartsEarlier: boolean }
+  ) {
+    this.setFlags = setFlags;
+    this.oldValues = oldValues;
+    this.newValues = newValues;
+  }
+
+  execute() {
+    this.setFlags(this.newValues);
+  }
+
+  undo() {
+    this.setFlags(this.oldValues);
+  }
+
+  serialize(): SerializedCommand {
+    return { type: 'endingRotationFlags', oldValues: this.oldValues, newValues: this.newValues };
+  }
 }
 
 export class CompositeCommand implements Command {
@@ -432,5 +554,9 @@ export class CompositeCommand implements Command {
 
   undo() {
     [...this.commands].reverse().forEach(cmd => cmd.undo());
+  }
+
+  serialize(): SerializedCommand {
+    return { type: 'composite', commands: this.commands.map(c => c.serialize()) };
   }
 }

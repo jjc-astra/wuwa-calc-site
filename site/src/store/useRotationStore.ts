@@ -15,9 +15,11 @@ import {
   MoveRowsCommand,
   SetLoopStartCommand,
   SetLoopEndCommand,
-  CompositeCommand
+  SetEndingRotationFlagsCommand,
+  CompositeCommand,
+  cloneRowsSansLinks
 } from '../systems/HistoryManager';
-import type { Command } from '../systems/HistoryManager';
+import type { Command, SerializedCommand } from '../systems/HistoryManager';
 
 export interface RotationRow {
   unit: string;
@@ -36,6 +38,12 @@ interface RotationState {
   startConcerto: boolean;
   canUndo: boolean;
   canRedo: boolean;
+  // Serialized undo/redo stacks, mirrored here purely so persist's partialize can pick them up
+  // -- nothing selects these directly (canUndo/canRedo drive the UI), so writing them on every
+  // history change doesn't cost extra re-renders. Revived back into historyManager's real
+  // stacks in onRehydrateStorage below.
+  undoStackData: SerializedCommand[];
+  redoStackData: SerializedCommand[];
   isStale: boolean;
   selectedIndices: number[];
   clipboard: RotationRow[];
@@ -89,6 +97,39 @@ interface RotationState {
 
 const historyManager = new HistoryManager();
 
+interface RevivalContext {
+  getRows: () => RotationRow[];
+  setRows: (rows: RotationRow[]) => void;
+  setFlags: (vals: { endingRotationEnabled: boolean; endRotationStartsEarlier: boolean }) => void;
+  onComplete: () => void;
+}
+
+// Rebuilds a live Command from its persisted description (see Command.serialize) -- used only
+// at rehydration, against the current store's own getRows/setRows/setFlags, never against the
+// closures the command was originally created with (those don't survive a reload).
+function reviveCommand(data: SerializedCommand, ctx: RevivalContext): Command {
+  switch (data.type) {
+    case 'add':
+      return new AddRowCommand(ctx.getRows, ctx.setRows, data.newRow, data.insertedIndex, ctx.onComplete);
+    case 'delete':
+      return new DeleteRowsCommand(ctx.getRows, ctx.setRows, data.deletedData, ctx.onComplete);
+    case 'editValue':
+      return new EditValueCommand(ctx.getRows, ctx.setRows, data.index, data.field, data.oldValue, data.newValue, ctx.onComplete);
+    case 'editFields':
+      return new EditFieldsCommand(ctx.getRows, ctx.setRows, data.index, data.oldValues, data.newValues, ctx.onComplete);
+    case 'setLoopStart':
+      return new SetLoopStartCommand(ctx.getRows, ctx.setRows, data.newIndex, data.prevIndex, ctx.onComplete);
+    case 'setLoopEnd':
+      return new SetLoopEndCommand(ctx.getRows, ctx.setRows, data.newIndex, data.prevIndex, ctx.onComplete);
+    case 'move':
+      return new MoveRowsCommand(ctx.getRows, ctx.setRows, data.indicesToMove, data.targetIndex, data.previousRowsSnapshot, ctx.onComplete);
+    case 'endingRotationFlags':
+      return new SetEndingRotationFlagsCommand(ctx.setFlags, data.oldValues, data.newValues);
+    case 'composite':
+      return new CompositeCommand(data.commands.map(c => reviveCommand(c, ctx)));
+  }
+}
+
 // Simulation pipeline runs in a worker (postToWorker) so long rotations never block the UI thread.
 
 // Tracked per request type, not globally -- a background recalculate() can't invalidate a
@@ -99,7 +140,12 @@ export const useRotationStore = create<RotationState>()(
   persist(
     (set, get) => {
       historyManager.setOnChangeCallback((canUndo: boolean, canRedo: boolean) => {
-        set({ canUndo, canRedo });
+        set({
+          canUndo,
+          canRedo,
+          undoStackData: historyManager.serializeUndoStack(),
+          redoStackData: historyManager.serializeRedoStack()
+        });
       });
 
       const getRawRows = () => get().rows;
@@ -122,6 +168,8 @@ export const useRotationStore = create<RotationState>()(
         startConcerto: false,
         canUndo: false,
         canRedo: false,
+        undoStackData: [],
+        redoStackData: [],
         isStale: false,
         selectedIndices: [],
         clipboard: [],
@@ -153,7 +201,8 @@ export const useRotationStore = create<RotationState>()(
         },
 
         deleteRows: (indices: number[]) => {
-          const cmd = new DeleteRowsCommand(getRawRows, setRawRows, indices, () => {
+          const deletedData = DeleteRowsCommand.computeDeletedData(get().rows, indices);
+          const cmd = new DeleteRowsCommand(getRawRows, setRawRows, deletedData, () => {
             set({ selectedIndices: [] });
             triggerRecalc();
           });
@@ -161,7 +210,8 @@ export const useRotationStore = create<RotationState>()(
         },
 
         moveRows: (indicesToMove: number[], targetIndex: number) => {
-          const cmd = new MoveRowsCommand(getRawRows, setRawRows, indicesToMove, targetIndex, (newIndices?: number[]) => {
+          const previousRowsSnapshot = cloneRowsSansLinks(get().rows);
+          const cmd = new MoveRowsCommand(getRawRows, setRawRows, indicesToMove, targetIndex, previousRowsSnapshot, (newIndices?: number[]) => {
             set({ selectedIndices: newIndices || [] });
             triggerRecalc();
           });
@@ -205,7 +255,8 @@ export const useRotationStore = create<RotationState>()(
 
           if (hasSelection && selectedIndices.length > maxEdits) {
             const rowsToDelete = selectedIndices.slice(maxEdits);
-            commands.push(new DeleteRowsCommand(getRawRows, setRawRows, rowsToDelete, () => {
+            const deletedData = DeleteRowsCommand.computeDeletedData(rows, rowsToDelete);
+            commands.push(new DeleteRowsCommand(getRawRows, setRawRows, deletedData, () => {
               set({ selectedIndices: [] });
               triggerRecalc();
             }));
@@ -263,21 +314,23 @@ export const useRotationStore = create<RotationState>()(
         setLoopStartOverride: (index: number) => {
           const row = get().rows[index];
           if (!row || !row.unit || row.loopStartOverride === true) return;
-          const cmd = new SetLoopStartCommand(getRawRows, setRawRows, index, triggerRecalc);
+          const prevIndex = SetLoopStartCommand.findPrevIndex(get().rows);
+          const cmd = new SetLoopStartCommand(getRawRows, setRawRows, index, prevIndex, triggerRecalc);
           historyManager.execute(cmd);
         },
 
         resetLoopStart: () => {
-          const hasOverride = get().rows.some(r => r.loopStartOverride === true);
-          if (!hasOverride) return;
-          const cmd = new SetLoopStartCommand(getRawRows, setRawRows, null, triggerRecalc);
+          const prevIndex = SetLoopStartCommand.findPrevIndex(get().rows);
+          if (prevIndex === null) return;
+          const cmd = new SetLoopStartCommand(getRawRows, setRawRows, null, prevIndex, triggerRecalc);
           historyManager.execute(cmd);
         },
 
         setLoopEndOverride: (index: number) => {
           const row = get().rows[index];
           if (!row || !row.unit || row.loopEndOverride === true) return;
-          const cmd = new SetLoopEndCommand(getRawRows, setRawRows, index, triggerRecalc);
+          const prevIndex = SetLoopEndCommand.findPrevIndex(get().rows);
+          const cmd = new SetLoopEndCommand(getRawRows, setRawRows, index, prevIndex, triggerRecalc);
           historyManager.execute(cmd);
         },
 
@@ -289,10 +342,11 @@ export const useRotationStore = create<RotationState>()(
           const wasEnabled = get().endingRotationEnabled;
           const wasStartingEarlier = get().endRotationStartsEarlier;
           // Flag flip rides in the same CompositeCommand, so undo restores both together.
-          const flagCommand: Command = {
-            execute: () => set({ endingRotationEnabled: false, endRotationStartsEarlier: false }),
-            undo: () => set({ endingRotationEnabled: wasEnabled, endRotationStartsEarlier: wasStartingEarlier })
-          };
+          const flagCommand = new SetEndingRotationFlagsCommand(
+            vals => set(vals),
+            { endingRotationEnabled: wasEnabled, endRotationStartsEarlier: wasStartingEarlier },
+            { endingRotationEnabled: false, endRotationStartsEarlier: false }
+          );
 
           if (endIdx === -1) {
             historyManager.execute(flagCommand);
@@ -307,8 +361,11 @@ export const useRotationStore = create<RotationState>()(
           }
 
           const commands: Command[] = [];
-          if (toDelete.length > 0) commands.push(new DeleteRowsCommand(getRawRows, setRawRows, toDelete, triggerRecalc));
-          commands.push(new SetLoopEndCommand(getRawRows, setRawRows, null, triggerRecalc));
+          if (toDelete.length > 0) {
+            const deletedData = DeleteRowsCommand.computeDeletedData(rows, toDelete);
+            commands.push(new DeleteRowsCommand(getRawRows, setRawRows, deletedData, triggerRecalc));
+          }
+          commands.push(new SetLoopEndCommand(getRawRows, setRawRows, null, endIdx, triggerRecalc));
           commands.push(flagCommand);
           historyManager.execute(new CompositeCommand(commands));
         },
@@ -334,7 +391,7 @@ export const useRotationStore = create<RotationState>()(
           }
 
           const commands: Command[] = [
-            new SetLoopEndCommand(getRawRows, setRawRows, lastContentIdx, triggerRecalc)
+            new SetLoopEndCommand(getRawRows, setRawRows, lastContentIdx, null, triggerRecalc)
           ];
           const loopStart = get().loopStartIndex;
           const loopRows = rows.slice(loopStart, lastContentIdx + 1);
@@ -494,8 +551,26 @@ export const useRotationStore = create<RotationState>()(
         loopStartIndex: state.loopStartIndex,
         loopStartIsOverride: state.loopStartIsOverride,
         loopErrors: state.loopErrors,
-        loopWarnings: state.loopWarnings
-      })
+        loopWarnings: state.loopWarnings,
+        clipboard: state.clipboard,
+        undoStackData: state.undoStackData,
+        redoStackData: state.redoStackData
+      }),
+      // Rebuilds historyManager's real stacks from the persisted descriptions -- restoreStacks
+      // just assigns them (no execute()/undo() side effects), since `rows` above is already the
+      // up-to-date result of those commands having run before the reload.
+      onRehydrateStorage: () => state => {
+        if (!state) return;
+        const ctx: RevivalContext = {
+          getRows: () => useRotationStore.getState().rows,
+          setRows: rows => useRotationStore.setState({ rows }),
+          setFlags: vals => useRotationStore.setState(vals),
+          onComplete: () => useRotationStore.getState().recalculate()
+        };
+        const undoStack = (state.undoStackData || []).map(d => reviveCommand(d, ctx));
+        const redoStack = (state.redoStackData || []).map(d => reviveCommand(d, ctx));
+        historyManager.restoreStacks(undoStack, redoStack);
+      }
       // No auto-recalculate on rehydrate -- this store loads app-wide; RotationBuilder's mount
       // effect recalculates once the calculator page actually opens.
     }
