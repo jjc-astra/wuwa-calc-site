@@ -49,7 +49,7 @@ export const INPUT_KEY_MAP: Record<string, string> = {
   Jump: 'Space'
 };
 
-export const SET_LAYOUTS = ['4 3 3 1 1', '4 4 1 1 1'];
+export const SET_LAYOUTS = ['4 3 3 1 1', '4 4 1 1 1','4 1 1 1 1'];
 export const MAIN_STATS_4_COST = ['CR Rate', 'CR DMG', 'ATK %', 'HP %', 'DEF %', 'Healing Bonus'];
 export const MAIN_STATS_3_COST = ['Fusion DMG', 'Electro DMG', 'Aero DMG', 'Spectro DMG', 'Havoc DMG', 'Glacio DMG', 'ATK %', 'HP %', 'DEF %', 'ER %'];
 export const MAIN_STATS_1_COST = ['ATK %', 'HP %', 'DEF %'];
@@ -111,7 +111,8 @@ export const DEFAULT_SUBSTATS = ['CR Rate', 'CR DMG', 'ATK %', 'ER %', 'ATK'];
 
 export const COST_DISTRIBUTION: Record<string, number[]> = {
   '4 3 3 1 1': [4, 3, 3, 1, 1],
-  '4 4 1 1 1': [4, 4, 1, 1, 1]
+  '4 4 1 1 1': [4, 4, 1, 1, 1],
+  '4 1 1 1 1': [4, 1, 1, 1, 1]
 };
 
 export const SIM_CONSTANTS = {
