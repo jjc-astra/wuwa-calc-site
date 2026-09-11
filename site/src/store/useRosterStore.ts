@@ -17,6 +17,7 @@ import { DataLoader } from '../utils/DataLoader';
 import { CombatCalculator } from '../logic/CombatCalculator';
 import { useRotationStore } from './useRotationStore';
 import { CommonUtils } from '../utils/Common';
+import { applyBuilderOverridesForTeam } from '../workers/builderOverridePayload';
 
 const defaultLayoutMainStats = (layout: string): string[] => {
   const costs = COST_DISTRIBUTION[layout] || [4, 3, 3, 1, 1];
@@ -181,6 +182,7 @@ export const useRosterStore = create<RosterState>()(
         slot.echoes = newEchoes;
         slot.echoStats = calculateEchoStatsForSlot(slot);
         team[slotIndex] = slot;
+        applyBuilderOverridesForTeam(team);
         set({ team });
         useRotationStore.getState().recalculate();
       },
@@ -204,6 +206,7 @@ export const useRosterStore = create<RosterState>()(
           slot.mode = 'None';
           await DataLoader.loadMechanic('characters', value);
           team[slotIndex] = slot;
+          applyBuilderOverridesForTeam(team);
           set({ team });
           await get().applyRecommendedBuild(slotIndex, value);
           return;
@@ -237,6 +240,7 @@ export const useRosterStore = create<RosterState>()(
 
         slot.echoStats = calculateEchoStatsForSlot(slot);
         team[slotIndex] = slot;
+        applyBuilderOverridesForTeam(team);
         set({ team });
         useRotationStore.getState().recalculate();
       },
@@ -270,6 +274,7 @@ export const useRosterStore = create<RosterState>()(
         const merged = current.map((existing, i) => ({ ...existing, ...(teamData[i] || {}), index: i }));
 
         await DataLoader.loadTeamMechanics(merged);
+        applyBuilderOverridesForTeam(merged);
         merged.forEach(slot => { slot.echoStats = calculateEchoStatsForSlot(slot); });
         set({ team: merged });
         // Awaited (unlike sibling recalculate() calls) -- importRotation() fires its own
@@ -345,13 +350,13 @@ export const useRosterStore = create<RosterState>()(
       onRehydrateStorage: () => {
         return (state, error) => {
           if (!error && state) {
-            state.team.forEach(async slot => {
+            Promise.all(state.team.map(async slot => {
               if (slot.character) await DataLoader.loadMechanic('characters', slot.character);
               if (slot.weapon) await DataLoader.loadMechanic('weapons', slot.weapon);
               if (slot.mainSet) await DataLoader.loadMechanic('sets', slot.mainSet);
               if (slot.subSet) await DataLoader.loadMechanic('sets', slot.subSet);
               if (slot.mainEcho) await DataLoader.loadMechanic('echoes', slot.mainEcho);
-            });
+            })).then(() => applyBuilderOverridesForTeam(state.team));
           }
         };
       }

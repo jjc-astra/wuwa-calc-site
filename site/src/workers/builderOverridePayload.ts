@@ -1,14 +1,9 @@
-// src/workers/builderOverridePayload.ts
-// Shared by every postToWorker('recalculate'|'calculateDamage', ...) caller that wants the
-// Mechanics Builder's cached edits applied instead of pristine JSON. Lets the Timeline get the
-// same live-edit behavior as a real Calculate press, instead of silently diverging.
+// Supplies cached Mechanics Builder edits to worker calc calls so the Timeline mirrors live edits instead of diverging.
 import { useBuilderStore } from '../store/useBuilderStore';
+import { DataLoader } from '../utils/DataLoader';
 import type { TeamSlot } from '../types';
 
-// Entities the team references (character/weapon/main+sub set/main echo per slot), plus
-// 'Generic' (System mechanics apply to every rotation). Used to pick relevant builder overrides
-// (getTeamOverrides) and, on Calculate, to force a pristine re-fetch first -- so a builder
-// Reset Cache is reflected too, not just new edits.
+// Active team entities plus 'Generic', used to resolve relevant Builder overrides and force clean re-fetches on recalculation.
 export type EntityRef = { name: string; folder: 'characters' | 'weapons' | 'sets' | 'echoes' | 'generic' };
 
 export function buildEntityRefs(team: TeamSlot[]): EntityRef[] {
@@ -27,4 +22,21 @@ export function buildBuilderPayload(team: TeamSlot[]) {
   const entityRefs = buildEntityRefs(team);
   const builderOverrides = useBuilderStore.getState().getTeamOverrides(entityRefs.map(r => r.name));
   return { builderEntityRefs: entityRefs, builderOverrides };
+}
+
+// Syncs Builder overrides into the main-thread DataLoader so custom units reflect across UI consumers, mirroring calc.worker.ts.
+export function applyBuilderOverridesFor(names: string[]): void {
+  const overrides = useBuilderStore.getState().getTeamOverrides(names);
+  Object.entries(overrides.editedBaseStats).forEach(([name, stats]) => {
+    const target = DataLoader.characterDB[name] || DataLoader.weaponDB[name];
+    if (target) Object.assign(target, stats);
+  });
+  Object.entries(overrides.editedMechanics).forEach(([id, node]) => {
+    DataLoader.registerMechanicNode(id, node);
+  });
+  overrides.deletedMechanicIds.forEach(id => DataLoader.unregisterMechanicNode(id));
+}
+
+export function applyBuilderOverridesForTeam(team: TeamSlot[]): void {
+  applyBuilderOverridesFor(buildEntityRefs(team).map(r => r.name));
 }

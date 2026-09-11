@@ -12,6 +12,7 @@ import { Dropdown } from '../common/Dropdown';
 import type { DropdownGroup } from '../common/Dropdown';
 import { TooltipManager, getCharacterThemeColor } from '../../utils/Common';
 import { toFrames, secondsToFrames, framesToSeconds, formatFramesAsSeconds } from '../../utils/Frames';
+import { applyBuilderOverridesFor } from '../../workers/builderOverridePayload';
 
 
 interface RotationRowProps {
@@ -238,6 +239,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
       if (slot?.mainEcho) {
         await DataLoader.loadMechanic('echoes', slot.mainEcho);
       }
+      applyBuilderOverridesFor(slot?.mainEcho ? [newUnit, slot.mainEcho] : [newUnit]);
     }
     updateRowField(index, 'unit', newUnit);
     updateRowField(index, 'action', '');
