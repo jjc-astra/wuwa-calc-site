@@ -90,7 +90,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
   endRotationStartsEarlier,
   onToggleEndRotationStartsEarlier
 }) => {
-  const { updateRowField, updateRowFields, addRow, isStale } = useRotationStore();
+  const { updateRowField, updateRowFields, setRowUnit, isStale } = useRotationStore();
   const { team } = useRosterStore();
   const [isDraggable, setIsDraggable] = useState(true);
   const [offsetDraft, setOffsetDraft] = useState<string | null>(null);
@@ -241,13 +241,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
       }
       applyBuilderOverridesFor(slot?.mainEcho ? [newUnit, slot.mainEcho] : [newUnit]);
     }
-    updateRowField(index, 'unit', newUnit);
-    updateRowField(index, 'action', '');
-
-    const totalRows = useRotationStore.getState().rows.length;
-    if (index === totalRows - 1 && newUnit) {
-      addRow('', '', totalRows);
-    }
+    setRowUnit(index, newUnit);
   };
 
   const handleActionChange = (newAction: string) => {

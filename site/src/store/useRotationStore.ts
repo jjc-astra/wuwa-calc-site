@@ -62,6 +62,10 @@ interface RotationState {
   pasteRows: () => void;
   updateRowField: (index: number, field: string, value: any) => void;
   updateRowFields: (index: number, fields: Record<string, any>) => void;
+  // Sets a row's unit (clearing `action`, since the old action rarely applies to the new unit)
+  // and, when this is currently the last row, appends a fresh blank end row -- both as one
+  // undo/redo step, since they're one user action (picking a unit for the trailing row).
+  setRowUnit: (index: number, newUnit: string) => void;
   setLoopStartOverride: (index: number) => void;
   resetLoopStart: () => void;
   setLoopEndOverride: (index: number) => void;
@@ -231,6 +235,29 @@ export const useRotationStore = create<RotationState>()(
           if (!changed) return;
           const cmd = new EditFieldsCommand(getRawRows, setRawRows, index, oldValues, fields, triggerRecalc);
           historyManager.execute(cmd);
+        },
+
+        setRowUnit: (index: number, newUnit: string) => {
+          const row = get().rows[index];
+          if (!row) return;
+
+          const oldValues: Record<string, any> = {};
+          const newValues: Record<string, any> = {};
+          if (row.unit !== newUnit) { oldValues.unit = row.unit; newValues.unit = newUnit; }
+          if (row.action !== '') { oldValues.action = row.action; newValues.action = ''; }
+
+          const commands: Command[] = [];
+          if (Object.keys(newValues).length > 0) {
+            commands.push(new EditFieldsCommand(getRawRows, setRawRows, index, oldValues, newValues, triggerRecalc));
+          }
+
+          if (newUnit && index === get().rows.length - 1) {
+            const newRow: RotationRow = { unit: '', action: '', timing: 'Auto', offset: 0 };
+            commands.push(new AddRowCommand(getRawRows, setRawRows, newRow, -1, triggerRecalc));
+          }
+
+          if (commands.length === 0) return;
+          historyManager.execute(commands.length === 1 ? commands[0] : new CompositeCommand(commands));
         },
 
         setLoopStartOverride: (index: number) => {
