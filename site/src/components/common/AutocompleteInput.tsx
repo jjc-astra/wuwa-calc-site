@@ -8,7 +8,7 @@ import { TooltipManager } from '../../utils/Common';
 import type { MechanicNode } from '../../types';
 
 interface AutocompleteInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  mode?: 'general' | 'eff-name' | 'eff-stat' | 'eff-target' | 'eff-applies-during' | 'dsl-value';
+  mode?: 'general' | 'eff-name' | 'eff-cd-name' | 'eff-stat' | 'eff-target' | 'eff-applies-during' | 'dsl-value';
   value: string;
   onValueChange: (val: string) => void;
   statOptions?: string[];
@@ -115,6 +115,26 @@ function collectMechanicReferences(builderMechanics: Record<string, MechanicNode
       if (namespace !== 'System' && namespace !== currentNamespace) return;
       seen.add(key);
       results.push({ val: `@${namespace}(${mech.name})`, group: namespace === 'System' ? 'System Mechanics' : `${namespace} Mechanics` });
+    });
+  };
+  addFrom(DataLoader.mechanicsDB);
+  addFrom(builderMechanics);
+  return results;
+}
+
+// Bare mechanic names (not @Namespace(...) refs) for mechanics that declare a `cooldown` --
+// these are the only valid targets for a Buff/CD Control effect's cooldown side, since the
+// engine keys a cooldown by the move's plain `.name`, not a namespaced reference.
+function collectCooldownReferences(builderMechanics: Record<string, MechanicNode>, currentNamespace: string | null): SuggestionItem[] {
+  const seen = new Set<string>();
+  const results: SuggestionItem[] = [];
+  const addFrom = (mechanicsByKey: Record<string, MechanicNode>) => {
+    Object.entries(mechanicsByKey).forEach(([key, mech]) => {
+      if (!mech.name || mech.cooldown === undefined || seen.has(mech.name)) return;
+      const namespace = key.startsWith('System_') ? 'System' : key.split('_')[0];
+      if (namespace !== 'System' && namespace !== currentNamespace) return;
+      seen.add(mech.name);
+      results.push({ val: mech.name, group: namespace === 'System' ? 'System Cooldowns' : `${namespace} Cooldowns` });
     });
   };
   addFrom(DataLoader.mechanicsDB);
@@ -240,6 +260,15 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
           prefix: '@'
         }
       ];
+    }
+
+    if (mode === 'eff-cd-name') {
+      const currentNamespace = activeChar === 'Generic' ? 'System' : activeChar;
+      return [{
+        trigger: /(.*)/,
+        options: () => collectCooldownReferences(mechanics, currentNamespace),
+        prefix: ''
+      }];
     }
 
     if (mode === 'eff-stat') {

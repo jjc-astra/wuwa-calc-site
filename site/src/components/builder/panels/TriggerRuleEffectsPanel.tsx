@@ -44,6 +44,7 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
   const [effExpBeh, setEffExpBeh] = useState<'clear' | 'drop_one' | 'drop_half'>('clear');
   const [effRemSwap, setEffRemSwap] = useState(false);
   const [effAction, setEffAction] = useState('add');
+  const [effTargetKind, setEffTargetKind] = useState<'buff' | 'cooldown'>('buff');
 
   const handleAddEffect = () => {
     const newEff: Effect = { type: effectType as any, name: flattenDslShorthand(effName.trim()) };
@@ -63,6 +64,16 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
       if (effStackBeh === 'separate') newEff.stackBehavior = effStackBeh;
       if (effExpBeh && effExpBeh !== 'clear') newEff.expireBehavior = effExpBeh;
       if (effRemSwap) newEff.removeOnSwap = true;
+    } else if (effectType === 'buffAction' && effTargetKind === 'cooldown') {
+      newEff.type = 'cooldown' as any;
+      if (effAction === 'reset') {
+        newEff.value = 0;
+      } else {
+        const amt = effVal.trim().replace(/^\+/, '');
+        const sign = amt.startsWith('-') ? '-' : '+';
+        const amtAbs = amt.replace(/^-/, '') || '0';
+        newEff.value = `@Self.Cooldown(${effName.trim()}) ${sign} (${amtAbs})`;
+      }
     } else if (effectType === 'tracker' || effectType === 'buffAction') {
       newEff.action = effAction as any;
       if (effVal) {
@@ -93,19 +104,43 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
   };
 
   const loadEffectForEdit = (eff: Effect, idx: number) => {
-    setEffectType(eff.type || 'buff');
-    setEffName(eff.name || '');
-    setEffTarget(eff.target || '@Self');
-    setEffApplyTo(Array.isArray(eff.applyTo) ? eff.applyTo.join(', ') : (eff.applyTo as any) || '');
-    setEffStat(eff.stat || '');
-    setEffVal(eff.value !== undefined ? String(eff.value) : '');
-    setEffStacks(eff.stacks !== undefined ? String(eff.stacks) : '1');
-    setEffMax(eff.maxStacks !== undefined ? String(eff.maxStacks) : (eff.max !== undefined ? String(eff.max) : ''));
-    setEffDur(eff.duration !== undefined ? String(eff.duration) : '');
-    setEffStackBeh((eff.stackBehavior as any) || 'resettable');
-    setEffExpBeh((eff.expireBehavior as any) || 'clear');
-    setEffRemSwap(!!eff.removeOnSwap);
-    setEffAction((eff.action as any) || 'add');
+    if (eff.type === 'cooldown') {
+      // Reuses the Buff/CD Control panel -- reverse-derive the Action Type/Value the panel
+      // itself generates (@Self.Cooldown(Name) +/- (Amount), or a flat 0 for Reset) so editing
+      // round-trips. A hand-written value that doesn't match either shape is shown as-is under
+      // Extend/Shorten, since there's no other action to bucket it under.
+      setEffectType('buffAction');
+      setEffTargetKind('cooldown');
+      setEffName(eff.name || '');
+      setEffTarget(eff.target || '@Self');
+      const val = eff.value;
+      const match = typeof val === 'string' ? val.match(/^@Self\.Cooldown\([^)]*\)\s*([+-])\s*\(([^)]*)\)$/) : null;
+      if (match) {
+        setEffAction('extend');
+        setEffVal((match[1] === '-' ? '-' : '') + match[2].trim());
+      } else if (val === 0 || val === '0') {
+        setEffAction('reset');
+        setEffVal('');
+      } else {
+        setEffAction('extend');
+        setEffVal(val !== undefined ? String(val) : '');
+      }
+    } else {
+      setEffectType(eff.type || 'buff');
+      setEffTargetKind('buff');
+      setEffName(eff.name || '');
+      setEffTarget(eff.target || '@Self');
+      setEffApplyTo(Array.isArray(eff.applyTo) ? eff.applyTo.join(', ') : (eff.applyTo as any) || '');
+      setEffStat(eff.stat || '');
+      setEffVal(eff.value !== undefined ? String(eff.value) : '');
+      setEffStacks(eff.stacks !== undefined ? String(eff.stacks) : '1');
+      setEffMax(eff.maxStacks !== undefined ? String(eff.maxStacks) : (eff.max !== undefined ? String(eff.max) : ''));
+      setEffDur(eff.duration !== undefined ? String(eff.duration) : '');
+      setEffStackBeh((eff.stackBehavior as any) || 'resettable');
+      setEffExpBeh((eff.expireBehavior as any) || 'clear');
+      setEffRemSwap(!!eff.removeOnSwap);
+      setEffAction((eff.action as any) || 'add');
+    }
     updateNode({ effects: data.effects?.filter((_, i) => i !== idx) });
   };
 
@@ -175,7 +210,7 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
             onChange={setEffectType}
             options={[
               { value: 'buff', label: 'Buff' },
-              { value: 'buffAction', label: 'Buff Control' },
+              { value: 'buffAction', label: 'Buff/CD Control' },
               { value: 'resource', label: 'Resource' },
               { value: 'tracker', label: 'Tracker' },
               { value: 'time_scale', label: 'Time Scale' }
@@ -285,9 +320,30 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
 
             {effectType === 'buffAction' && (
               <>
-                <div className="flex-row w-100 gap-sm m-0 flex-wrap">
-                  <EffField label="Target Effect ID" minWidth={90}>
-                    <AutocompleteInput mode="eff-name" value={effName} onValueChange={setEffName} placeholder="e.g. Fusion Burst" />
+                <div className="flex-row w-100 gap-sm m-0 flex-wrap align-start">
+                  <div className="form-group" style={{ flex: '0 0 auto', minWidth: 0, margin: 0 }}>
+                    <label className="form-label text-dim">Target Kind</label>
+                    <div className="segmented-toggle" role="group" aria-label="Buff/CD target kind">
+                      <button
+                        type="button"
+                        className={`segmented-toggle-btn ${effTargetKind === 'buff' ? 'is-active' : ''}`}
+                        onClick={() => { setEffTargetKind('buff'); setEffAction('remove'); }}
+                      >
+                        Buff
+                      </button>
+                      <button
+                        type="button"
+                        className={`segmented-toggle-btn ${effTargetKind === 'cooldown' ? 'is-active' : ''}`}
+                        onClick={() => { setEffTargetKind('cooldown'); setEffAction('extend'); }}
+                      >
+                        Cooldown
+                      </button>
+                    </div>
+                  </div>
+                  <EffField label={effTargetKind === 'cooldown' ? 'Target Mechanic' : 'Target Effect ID'} minWidth={90}>
+                    {effTargetKind === 'cooldown'
+                      ? <AutocompleteInput mode="eff-cd-name" value={effName} onValueChange={setEffName} placeholder="e.g. Resonance Skill" />
+                      : <AutocompleteInput mode="eff-name" value={effName} onValueChange={setEffName} placeholder="e.g. Fusion Burst" />}
                   </EffField>
                   <EffField label="Target Entity" minWidth={90}>
                     <AutocompleteInput mode="eff-target" value={effTarget} onValueChange={setEffTarget} />
@@ -299,17 +355,28 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
                       className="base-select w-100"
                       value={effAction}
                       onChange={setEffAction}
-                      options={[
+                      options={effTargetKind === 'cooldown' ? [
+                        { value: 'extend', label: 'Extend/Shorten Time' },
+                        { value: 'reset', label: 'Reset (Ready Now)' }
+                      ] : [
                         { value: 'remove', label: 'Remove / Consume' },
                         { value: 'pause', label: 'Pause Timer' },
                         { value: 'resume', label: 'Resume Timer' },
-                        { value: 'extend', label: 'Extend Time' }
+                        { value: 'extend', label: 'Extend/Shorten Time' }
                       ]}
                     />
                   </EffField>
-                  <EffField label="Action Value" minWidth={90}>
-                    <input type="text" className="form-input w-100" value={effVal} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEffVal(e.target.value)} placeholder="ALL, HALF, or Num" />
-                  </EffField>
+                  {!(effTargetKind === 'cooldown' && effAction === 'reset') && (
+                    <EffField label="Action Value" minWidth={90}>
+                      <input
+                        type="text"
+                        className="form-input w-100"
+                        value={effVal}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEffVal(e.target.value)}
+                        placeholder={effTargetKind === 'cooldown' ? 'Seconds, e.g. 5 or -5' : 'ALL, HALF, or Num'}
+                      />
+                    </EffField>
+                  )}
                 </div>
               </>
             )}
