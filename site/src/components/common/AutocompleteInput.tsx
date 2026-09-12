@@ -191,7 +191,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
 
   const parenEvents = ['AfterHit', 'OnTick'];
   const bracketEvents = DSL_SCHEMA.events.filter(
-    e => !['ALWAYS', 'OnStart', 'OnSwapIn', 'OnSwapOut', 'OnChange', ...parenEvents].includes(e)
+    e => !['ALWAYS', 'OnStart', 'OnSwapIn', 'OnSwapOut', 'OnUnitChange', ...parenEvents].includes(e)
   );
 
   // Auto-scroll popup container to keep the active keyboard selection in view
@@ -330,7 +330,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
     return [
       {
         // OnCast[Self, ...] etc.: modifiers + move refs, scoped to System + current unit (like Applies During).
-        trigger: /\b(?:On|After|Detonate)[a-zA-Z]*\[([^\]]*)$/i,
+        trigger: /\b(?:On|After)[a-zA-Z]*\[([^\]]*)$/i,
         options: () => [
           ...DSL_SCHEMA.modifiers.map(v => ({ val: v, group: 'Modifiers' })),
           ...collectMechanicReferences(mechanics, currentNamespace)

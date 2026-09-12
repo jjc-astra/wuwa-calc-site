@@ -172,9 +172,9 @@ export const ENEMY_DEFAULTS = {
 export const DSL_SCHEMA = {
   events: [
     'ALWAYS', 'OnStart', 'OnCast', 'OnHit', 'AfterHit',
-    'OnSwapIn', 'OnSwapOut', 'OnChange', 'Detonate', 'OnTick',
-    'OnTrackerAdd', 'OnTrackerRemove', 'OnTrackerConsume',
-    'OnBuffAdd', 'OnBuffRemove', 'OnBuffUpdate'
+    'OnSwapIn', 'OnSwapOut', 'OnUnitChange', 'OnTick',
+    'OnTrackerAdd', 'OnTrackerRemove', 'OnTrackerConsume', 'OnTrackerChanged', 'OnTrackerDetonate',
+    'OnBuffAdd', 'OnBuffRemove', 'OnBuffUpdate', 'OnBuffExpire'
   ],
   modifiers: [
     'Self', 'Basic', 'Heavy', 'Skill', 'Liberation',
@@ -258,15 +258,17 @@ export const DSL_TOOLTIPS: {
     AfterHit: 'Fires after a hit resolves, with an optional delay in seconds, e.g. AfterHit(0.5).',
     OnSwapIn: 'Fires when this character swaps onto the field.',
     OnSwapOut: 'Fires when this character swaps off the field.',
-    OnChange: 'Fires whenever the tracked value changes.',
-    Detonate: 'Fires when a status effect detonates. Filter with [Status], e.g. Detonate[Spectro Frazzle].',
+    OnUnitChange: 'Fires on a character swap, alongside OnSwapIn/OnSwapOut -- for effects tied to the active character changing rather than to either side of the swap specifically.',
     OnTick: 'Fires on each periodic tick of a duration-based effect, e.g. OnTick(1) for once per second.',
     OnTrackerAdd: 'Fires when a tracker/stack is added. Filter with [TrackerName].',
     OnTrackerRemove: 'Fires when a tracker/stack is removed. Filter with [TrackerName].',
     OnTrackerConsume: 'Fires when a tracker/stack is consumed. Filter with [TrackerName].',
+    OnTrackerChanged: 'Fires whenever a tracker changes for any reason (add/remove/set/consume/delete). Filter with [TrackerName].',
+    OnTrackerDetonate: 'Fires when a tracker is detonated via the detonate action. Filter with [TrackerName], e.g. OnTrackerDetonate[Spectro Frazzle].',
     OnBuffAdd: 'Fires when a buff is applied. Filter with [BuffName].',
-    OnBuffRemove: 'Fires when a buff expires or is removed. Filter with [BuffName].',
-    OnBuffUpdate: 'Fires when an existing buff is refreshed or its stacks change. Filter with [BuffName].'
+    OnBuffRemove: 'Fires when a buff is explicitly removed or consumed. Filter with [BuffName].',
+    OnBuffUpdate: 'Fires when an existing buff is refreshed or its stacks change. Filter with [BuffName].',
+    OnBuffExpire: 'Fires when a buff runs out on its own (duration reaches zero), as opposed to being explicitly removed. Filter with [BuffName].'
   },
   modifiers: {
     Self: 'Restricts the event to actions performed by this character.',
@@ -294,12 +296,12 @@ export const DSL_TOOLTIPS: {
     Defense: 'Matches Defense-type actions (e.g. parries, shields).',
     HP: 'Matches HP-based effects.',
     ATK: 'Matches ATK-based effects.',
-    'Spectro Frazzle': 'Matches the Spectro Frazzle status specifically (used with Detonate).',
-    'Aero Erosion': 'Matches the Aero Erosion status specifically (used with Detonate).',
-    'Electro Flare': 'Matches the Electro Flare status specifically (used with Detonate).',
-    'Electro Rage': 'Matches the Electro Rage status specifically (used with Detonate).',
-    'Fusion Burst': 'Matches the Fusion Burst status specifically (used with Detonate).',
-    'Glacio Chafe': 'Matches the Glacio Chafe status specifically (used with Detonate).'
+    'Spectro Frazzle': 'Matches the Spectro Frazzle status specifically (used with OnTrackerDetonate).',
+    'Aero Erosion': 'Matches the Aero Erosion status specifically (used with OnTrackerDetonate).',
+    'Electro Flare': 'Matches the Electro Flare status specifically (used with OnTrackerDetonate).',
+    'Electro Rage': 'Matches the Electro Rage status specifically (used with OnTrackerDetonate).',
+    'Fusion Burst': 'Matches the Fusion Burst status specifically (used with OnTrackerDetonate).',
+    'Glacio Chafe': 'Matches the Glacio Chafe status specifically (used with OnTrackerDetonate).'
   },
   pointers: {
     Self: 'The character that owns this mechanic node.',

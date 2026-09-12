@@ -15,8 +15,8 @@ export class EventManagerClass {
   reset(): void {
     this.listeners = {
       OnStart: [], OnCast: [], OnHit: [], AfterHit: [],
-      OnSwapIn: [], OnSwapOut: [], OnChange: [], OnTick: [], Detonate: [],
-      OnTrackerAdd: [], OnTrackerRemove: [], OnTrackerConsume: [],
+      OnSwapIn: [], OnSwapOut: [], OnUnitChange: [], OnTick: [], OnTrackerDetonate: [],
+      OnTrackerAdd: [], OnTrackerRemove: [], OnTrackerConsume: [], OnTrackerChanged: [],
       OnBuffAdd: [], OnBuffRemove: [], OnBuffUpdate: [], OnBuffExpire: [],
       ALWAYS: []
     };

@@ -1329,7 +1329,7 @@ export class TimelineEngineClass {
     if (prevData && prevData.unit && prevData.unit !== currentData.unit) {
       effects.push(...EventManager.emit('OnSwapOut', new Set(), currentData, prevData.unit, team));
       effects.push(...EventManager.emit('OnSwapIn', new Set(), currentData, currentData.unit, team));
-      effects.push(...EventManager.emit('OnChange', new Set(), currentData, currentData.unit, team));
+      effects.push(...EventManager.emit('OnUnitChange', new Set(), currentData, currentData.unit, team));
     }
     return effects;
   }
@@ -1693,7 +1693,7 @@ export class TimelineEngineClass {
       if (newVal > currentVal) eventToEmit = 'OnTrackerAdd';
       else if (newVal < currentVal) eventToEmit = 'OnTrackerRemove';
     } else if (action === 'detonate' && currentVal > 0) {
-      const payloads = EventManager.emit('Detonate', new Set([effect.name || '']), currentData, unitName, team);
+      const payloads = EventManager.emit('OnTrackerDetonate', new Set([effect.name || '']), currentData, unitName, team);
       this._executeEffectsStream(payloads, currentData, activeTeam, activeRows, this.currentGlobalRealTime, unitName, team);
       newVal = Math.max(0, currentVal - (effect.value !== undefined ? parseFloat(String(effect.value)) : 1));
     }
