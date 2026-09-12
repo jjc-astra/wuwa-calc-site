@@ -17,7 +17,7 @@ export class EventManagerClass {
       OnStart: [], OnCast: [], OnHit: [], AfterHit: [],
       OnSwapIn: [], OnSwapOut: [], OnUnitChange: [], OnTick: [], OnTrackerDetonate: [],
       OnTrackerAdd: [], OnTrackerRemove: [], OnTrackerConsume: [], OnTrackerChanged: [],
-      OnBuffAdd: [], OnBuffRemove: [], OnBuffUpdate: [], OnBuffExpire: [],
+      OnBuffAdd: [], OnBuffRemove: [], OnBuffConsume: [], OnBuffUpdate: [], OnBuffExpire: [],
       ALWAYS: []
     };
   }

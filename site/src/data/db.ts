@@ -174,7 +174,7 @@ export const DSL_SCHEMA = {
     'ALWAYS', 'OnStart', 'OnCast', 'OnHit', 'AfterHit',
     'OnSwapIn', 'OnSwapOut', 'OnUnitChange', 'OnTick',
     'OnTrackerAdd', 'OnTrackerRemove', 'OnTrackerConsume', 'OnTrackerChanged', 'OnTrackerDetonate',
-    'OnBuffAdd', 'OnBuffRemove', 'OnBuffUpdate', 'OnBuffExpire'
+    'OnBuffAdd', 'OnBuffRemove', 'OnBuffConsume', 'OnBuffUpdate', 'OnBuffExpire'
   ],
   modifiers: [
     'Self', 'Basic', 'Heavy', 'Skill', 'Liberation',
@@ -268,9 +268,10 @@ export const DSL_TOOLTIPS: {
     OnTrackerChanged: 'Fires whenever a tracker changes for any reason (add/remove/set/consume/delete). Filter with [TrackerName].',
     OnTrackerDetonate: 'Fires when a tracker is detonated via the detonate action. Filter with [TrackerName], e.g. OnTrackerDetonate[Spectro Frazzle].',
     OnBuffAdd: 'Fires when a buff is applied. Filter with [BuffName].',
-    OnBuffRemove: 'Fires when a buff is explicitly removed or consumed. Filter with [BuffName].',
+    OnBuffRemove: 'Fires when a Buff/CD Control effect strips the buff via the Remove action (ALL/HALF/N, same options as Consume). Filter with [BuffName].',
+    OnBuffConsume: "Fires when a Buff/CD Control effect spends the buff via the Consume action (ALL/HALF/N, same options as Remove) -- use it to distinguish the wearer spending their own buff from something else stripping it. Filter with [BuffName].",
     OnBuffUpdate: 'Fires when an existing buff is refreshed or its stacks change. Filter with [BuffName].',
-    OnBuffExpire: 'Fires when a buff runs out on its own (duration reaches zero), as opposed to being explicitly removed. Filter with [BuffName].'
+    OnBuffExpire: 'Fires when a buff runs out on its own (duration reaches zero), as opposed to being explicitly removed or consumed. Filter with [BuffName].'
   },
   modifiers: {
     Self: 'Restricts the event to actions performed by this character.',

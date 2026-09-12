@@ -60,7 +60,10 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
       if (effStacks && parseInt(effStacks, 10) !== 1) newEff.stacks = parseInt(effStacks, 10);
       // Buff lifetimes stay seconds -- "30f"/"0.5s"/a bare number (seconds) all accepted.
       if (effDur) newEff.duration = parseTimeInput(effDur, 'seconds');
-      if (effMax) newEff.maxStacks = parseInt(effMax, 10);
+      if (effMax) {
+        const n = parseInt(effMax, 10);
+        newEff.maxStacks = !isNaN(n) && n.toString() === effMax.trim() ? n : effMax;
+      }
       if (effStackBeh === 'separate') newEff.stackBehavior = effStackBeh;
       if (effExpBeh && effExpBeh !== 'clear') newEff.expireBehavior = effExpBeh;
       if (effRemSwap) newEff.removeOnSwap = true;
@@ -245,7 +248,7 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
                     <input type="number" step="1" className="form-input w-100" value={effStacks} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEffStacks(e.target.value)} placeholder="1" />
                   </EffField>
                   <EffField label="Max Stacks Cap" minWidth={90}>
-                    <input type="number" step="1" className="form-input w-100" value={effMax} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEffMax(e.target.value)} placeholder="Limit" />
+                    <input type="text" className="form-input w-100" value={effMax} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEffMax(e.target.value)} placeholder="e.g. 10 or 10 + (@Self.HasBuff(X) * 3)" />
                   </EffField>
                 </div>
 
@@ -359,7 +362,8 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
                         { value: 'extend', label: 'Extend/Shorten Time' },
                         { value: 'reset', label: 'Reset (Ready Now)' }
                       ] : [
-                        { value: 'remove', label: 'Remove / Consume' },
+                        { value: 'remove', label: 'Remove' },
+                        { value: 'consume', label: 'Consume' },
                         { value: 'pause', label: 'Pause Timer' },
                         { value: 'resume', label: 'Resume Timer' },
                         { value: 'extend', label: 'Extend/Shorten Time' }

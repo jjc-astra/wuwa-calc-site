@@ -1547,6 +1547,7 @@ export class TimelineEngineClass {
     const isBuff = resolvedEffect.type === 'buff' || !resolvedEffect.type;
     if (!isBuff) resolvedEffect.value = resolve(resolvedEffect.value);
     resolvedEffect.duration = resolve(resolvedEffect.duration) as number;
+    if (resolvedEffect.maxStacks !== undefined) resolvedEffect.maxStacks = resolve(resolvedEffect.maxStacks) as number;
 
     const originalProvider = resolvedEffect.provider;
     if (!resolvedEffect.source) resolvedEffect.source = (originalProvider && originalProvider !== 'System' && originalProvider !== '@Equipper') ? originalProvider : currentData.moveName;
@@ -1602,6 +1603,9 @@ export class TimelineEngineClass {
         else if (effect.action === 'resume') buff.isPaused = false;
         else if (effect.action === 'extend' && effect.value !== undefined) buff.duration = (buff.duration || 0) + parseFloat(String(effect.value));
         else if (effect.action === 'remove' || effect.action === 'consume') {
+          // Remove and Consume share the same ALL/HALF/N stack math -- they only diverge on
+          // which event fires below, so listeners can tell "spent by the wearer" (Consume) apart
+          // from "stripped by something else" (Remove).
           let removed = false;
           const val = effect.value !== undefined ? effect.value : 'ALL';
           if (val === 'HALF') { buff.stacks = Math.floor((buff.stacks || 1) / 2); removed = true; }
@@ -1613,7 +1617,8 @@ export class TimelineEngineClass {
           }
           if (removed) {
             const provider = effect.provider || currentData.unit;
-            const payloads = EventManager.emit('OnBuffRemove', new Set([(effect.name || '').toLowerCase()]), currentData, provider, team);
+            const eventName = effect.action === 'consume' ? 'OnBuffConsume' : 'OnBuffRemove';
+            const payloads = EventManager.emit(eventName, new Set([(effect.name || '').toLowerCase()]), currentData, provider, team);
             if (payloads.length > 0) this._executeEffectsStream(payloads, currentData, activeTeam, activeRows, this.currentGlobalRealTime, provider, team);
           }
         }

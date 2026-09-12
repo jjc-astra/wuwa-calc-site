@@ -81,7 +81,7 @@ export interface Effect {
   stat?: string;
   value?: number | string;
   stacks?: number;
-  maxStacks?: number;
+  maxStacks?: number | string;
   duration?: number | string;
   stackBehavior?: 'resettable' | 'separate';
   expireBehavior?: 'clear' | 'drop_one' | 'drop_half';
