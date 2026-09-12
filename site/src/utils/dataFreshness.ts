@@ -105,6 +105,8 @@ export async function checkTeamFreshness(team: TeamSlot[]): Promise<FreshnessIte
     if (slot.weapon) items.push({ folder: 'weapons', itemName: slot.weapon });
     if (slot.mainSet) items.push({ folder: 'sets', itemName: slot.mainSet });
     if (slot.subSet) items.push({ folder: 'sets', itemName: slot.subSet });
+    if (slot.subSet2a) items.push({ folder: 'sets', itemName: slot.subSet2a });
+    if (slot.subSet2b) items.push({ folder: 'sets', itemName: slot.subSet2b });
     if (slot.mainEcho) items.push({ folder: 'echoes', itemName: slot.mainEcho });
   });
   return checkItems(items);

@@ -13,6 +13,8 @@ export function buildEntityRefs(team: TeamSlot[]): EntityRef[] {
     if (slot.weapon) refs.push({ name: slot.weapon, folder: 'weapons' });
     if (slot.mainSet) refs.push({ name: slot.mainSet, folder: 'sets' });
     if (slot.subSet) refs.push({ name: slot.subSet, folder: 'sets' });
+    if (slot.subSet2a) refs.push({ name: slot.subSet2a, folder: 'sets' });
+    if (slot.subSet2b) refs.push({ name: slot.subSet2b, folder: 'sets' });
     if (slot.mainEcho) refs.push({ name: slot.mainEcho, folder: 'echoes' });
   });
   return refs;

@@ -616,12 +616,20 @@ export class TimelineEngineClass {
     const activeTeam = team.map(t => t.character).filter(Boolean);
     team.forEach(slot => {
       if (!slot.character) return;
-      const registerAll = (itemName: string) => {
-        if (!itemName) return;
+      // `pieces` gates echo-set bonuses by how many pieces of that set the slot actually holds
+      // (see DataLoader.resolveSetPieceCounts) -- a set's mechanics file can carry both a 2pc
+      // and a 5pc node (or 1pc/3pc), and only the ones this slot's piece count actually reaches
+      // should register. Irrelevant for non-set callers (mainEcho), which pass the default.
+      const registerAll = (itemName: string, pieces: number = Infinity) => {
+        if (!itemName || pieces <= 0) return;
         const indexKeys = DataLoader.mechanicsIndex[itemName] || [];
         if (indexKeys.length > 0) {
           indexKeys.forEach(k => {
-            if (DataLoader.mechanicsDB[k]) EventManager.registerMechanic(DataLoader.mechanicsDB[k], slot.character);
+            const mech = DataLoader.mechanicsDB[k];
+            if (!mech) return;
+            const need = parseInt((mech.category || '').match(/^(\d+)-pc/)?.[1] || '0', 10);
+            if (need > 0 && need > pieces) return;
+            EventManager.registerMechanic(mech, slot.character);
           });
         } else {
           const directMech = DataLoader.mechanicsDB[itemName] || DataLoader.mechanicsDB[`System_${itemName}`];
@@ -649,7 +657,12 @@ export class TimelineEngineClass {
         }
       };
 
-      [slot.mainSet, slot.subSet, slot.mainEcho].filter(Boolean).forEach(registerAll);
+      const pieces = DataLoader.resolveSetPieceCounts(slot);
+      registerAll(slot.mainSet, pieces.mainSet);
+      registerAll(slot.subSet, pieces.subSet);
+      registerAll(slot.subSet2a, pieces.subSet2a);
+      registerAll(slot.subSet2b, pieces.subSet2b);
+      registerAll(slot.mainEcho);
       registerWeapon(slot.weapon, slot.rank);
 
       const charKeys = DataLoader.mechanicsIndex[slot.character] || [];

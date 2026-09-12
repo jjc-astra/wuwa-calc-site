@@ -24,7 +24,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
   const isSelectable = (kind: ImplementedContentKind, name: string) =>
     DataLoader.isContentImplemented(kind, name) || hasBuilderChanges(name);
 
-  const [imgErrors, setImgErrors] = useState({ char: false, wep: false, mainSet: false, subSet: false, mainEcho: false });
+  const [imgErrors, setImgErrors] = useState({ char: false, wep: false, mainSet: false, subSet: false, subSet2a: false, subSet2b: false, mainEcho: false });
   // A cache hit (e.g. this icon was already on screen before a remount) skips the fade-in --
   // only a genuinely new image needs onLoad to reveal it.
   const [imgLoaded, setImgLoaded] = useState(() => ({
@@ -32,6 +32,8 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
     wep: CommonUtils.isImageCached(CommonUtils.getIconPath(slot.weapon, IMAGE_FOLDERS.WEAPONS)),
     mainSet: CommonUtils.isImageCached(CommonUtils.getIconPath(slot.mainSet, IMAGE_FOLDERS.ECHO_SETS)),
     subSet: CommonUtils.isImageCached(CommonUtils.getIconPath(slot.subSet, IMAGE_FOLDERS.ECHO_SETS)),
+    subSet2a: CommonUtils.isImageCached(CommonUtils.getIconPath(slot.subSet2a, IMAGE_FOLDERS.ECHO_SETS)),
+    subSet2b: CommonUtils.isImageCached(CommonUtils.getIconPath(slot.subSet2b, IMAGE_FOLDERS.ECHO_SETS)),
     mainEcho: CommonUtils.isImageCached(CommonUtils.getIconPath(slot.mainEcho, IMAGE_FOLDERS.ECHOES))
   }));
 
@@ -52,6 +54,14 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
     setImgLoaded(p => ({ ...p, subSet: CommonUtils.isImageCached(CommonUtils.getIconPath(slot.subSet, IMAGE_FOLDERS.ECHO_SETS)) }));
   }, [slot.subSet]);
   useEffect(() => {
+    setImgErrors(p => ({ ...p, subSet2a: false }));
+    setImgLoaded(p => ({ ...p, subSet2a: CommonUtils.isImageCached(CommonUtils.getIconPath(slot.subSet2a, IMAGE_FOLDERS.ECHO_SETS)) }));
+  }, [slot.subSet2a]);
+  useEffect(() => {
+    setImgErrors(p => ({ ...p, subSet2b: false }));
+    setImgLoaded(p => ({ ...p, subSet2b: CommonUtils.isImageCached(CommonUtils.getIconPath(slot.subSet2b, IMAGE_FOLDERS.ECHO_SETS)) }));
+  }, [slot.subSet2b]);
+  useEffect(() => {
     setImgErrors(p => ({ ...p, mainEcho: false }));
     setImgLoaded(p => ({ ...p, mainEcho: CommonUtils.isImageCached(CommonUtils.getIconPath(slot.mainEcho, IMAGE_FOLDERS.ECHOES)) }));
   }, [slot.mainEcho]);
@@ -66,12 +76,13 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
   const mode1Label = charData?.mode1Name || 'Mode 1';
   const mode2Label = charData?.mode2Name || 'Mode 2';
   const themeColor = getCharacterThemeColor(charData || undefined);
-  const isTriggerSet = DataLoader.triggerSets.includes(slot.mainSet);
+  const isThreePcSet = DataLoader.threePcSets.includes(slot.mainSet);
+  const isOnePcSet = DataLoader.onePcSets.includes(slot.mainSet);
 
   let allowedEchoes: string[] = [];
   if (slot.mainSet) {
     if (DataLoader.setEchoMapping[slot.mainSet]) allowedEchoes.push(...DataLoader.setEchoMapping[slot.mainSet]);
-    if (isTriggerSet && slot.subSet && DataLoader.setEchoMapping[slot.subSet]) {
+    if (isThreePcSet && slot.subSet && DataLoader.setEchoMapping[slot.subSet]) {
       allowedEchoes.push(...DataLoader.setEchoMapping[slot.subSet]);
     }
     allowedEchoes = Array.from(new Set(allowedEchoes));
@@ -79,7 +90,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
   }
 
   const renderAvatar = (
-    type: 'char' | 'wep' | 'mainSet' | 'subSet' | 'mainEcho',
+    type: 'char' | 'wep' | 'mainSet' | 'subSet' | 'subSet2a' | 'subSet2b' | 'mainEcho',
     val: string,
     folder: ImageFolder,
     avatarClass: string
@@ -205,7 +216,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
               options={DataLoader.sonataSets.map(s => ({ value: s, disabled: !isSelectable('set', s), disabledTooltip: NOT_IMPLEMENTED_TIP }))}
             />
           </div>
-          {isTriggerSet && (
+          {isThreePcSet && (
             <div className="flex-row gap-sm sub-set-row">
               {renderAvatar('subSet', slot.subSet, IMAGE_FOLDERS.ECHO_SETS, 'avatar-sm')}
               <IconSelect
@@ -219,7 +230,35 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
               />
             </div>
           )}
-          {slot.mainSet && (
+          {isOnePcSet && (
+            <>
+              <div className="flex-row gap-sm sub-set-row">
+                {renderAvatar('subSet2a', slot.subSet2a, IMAGE_FOLDERS.ECHO_SETS, 'avatar-sm')}
+                <IconSelect
+                  className={`base-select sub-set-select ${slot.subSet2a ? 'has-value' : ''}`}
+                  value={slot.subSet2a || ''}
+                  onChange={v => setSlotField(index, 'subSet2a', v)}
+                  iconFolder={IMAGE_FOLDERS.ECHO_SETS}
+                  iconShape="circle"
+                  placeholder="Extra Set A"
+                  options={DataLoader.sonataSets.map(s => ({ value: s, disabled: !isSelectable('set', s), disabledTooltip: NOT_IMPLEMENTED_TIP }))}
+                />
+              </div>
+              <div className="flex-row gap-sm sub-set-row">
+                {renderAvatar('subSet2b', slot.subSet2b, IMAGE_FOLDERS.ECHO_SETS, 'avatar-sm')}
+                <IconSelect
+                  className={`base-select sub-set-select ${slot.subSet2b ? 'has-value' : ''}`}
+                  value={slot.subSet2b || ''}
+                  onChange={v => setSlotField(index, 'subSet2b', v)}
+                  iconFolder={IMAGE_FOLDERS.ECHO_SETS}
+                  iconShape="circle"
+                  placeholder="Extra Set B"
+                  options={DataLoader.sonataSets.map(s => ({ value: s, disabled: !isSelectable('set', s), disabledTooltip: NOT_IMPLEMENTED_TIP }))}
+                />
+              </div>
+            </>
+          )}
+          {slot.mainSet && !isOnePcSet && (
             <div className="flex-row gap-sm main-echo-row">
               {renderAvatar('mainEcho', slot.mainEcho, IMAGE_FOLDERS.ECHOES, 'avatar-sm')}
               <IconSelect

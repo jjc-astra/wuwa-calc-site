@@ -208,7 +208,8 @@ export const MechanicsBuilder: React.FC = () => {
   const isCharacter = !!DataLoader.characterDB[activeChar];
   const isWeapon = !!DataLoader.weaponDB[activeChar];
   const isSonataSet = DataLoader.sonataSets.includes(activeChar);
-  const isTriggerSet = DataLoader.triggerSets.includes(activeChar);
+  const isThreePcSet = DataLoader.threePcSets.includes(activeChar);
+  const isOnePcSet = DataLoader.onePcSets.includes(activeChar);
 
   let targetCategories: string[] = [];
   if (activeChar === 'Generic') {
@@ -218,7 +219,9 @@ export const MechanicsBuilder: React.FC = () => {
   } else if (isWeapon) {
     targetCategories = ['Weapon Passive'];
   } else if (isSonataSet) {
-    targetCategories = isTriggerSet ? ['3-pc Set Effect'] : ['2-pc Set Effect', '5-pc Set Effect'];
+    targetCategories = isOnePcSet ? ['1-pc Set Effect']
+      : isThreePcSet ? ['3-pc Set Effect']
+      : ['2-pc Set Effect', '5-pc Set Effect'];
   } else {
     targetCategories = ['Echo Skill', 'Echo Passive'];
   }

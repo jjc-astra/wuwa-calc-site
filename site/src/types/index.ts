@@ -63,6 +63,10 @@ export interface TeamSlot {
   layout: string;
   mainSet: string;
   subSet: string;
+  // Only used when mainSet is a 1pc set (DataLoader.onePcSets) -- the two extra sets covering
+  // the 4 non-main echo slots, either two independent 2pc sets or one 3pc (trigger) set.
+  subSet2a: string;
+  subSet2b: string;
   mainEcho: string;
   echoes: EchoSlotData[];
   echoStats: Record<string, number>;

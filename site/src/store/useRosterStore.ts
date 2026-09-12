@@ -40,6 +40,8 @@ const createEmptySlot = (index: number): TeamSlot => {
     layout,
     mainSet: '',
     subSet: '',
+    subSet2a: '',
+    subSet2b: '',
     mainEcho: '',
     echoes: Array(5).fill(null).map((_, i) => ({
       mainStat: defaultMainStats[i] || '',
@@ -214,16 +216,24 @@ export const useRosterStore = create<RosterState>()(
           await DataLoader.loadMechanic('weapons', value);
         } else if (field === 'mainSet' && value) {
           await DataLoader.loadMechanic('sets', value);
-        } else if (field === 'subSet' && value) {
+        } else if ((field === 'subSet' || field === 'subSet2a' || field === 'subSet2b') && value) {
           await DataLoader.loadMechanic('sets', value);
         }
 
-        if (field === 'mainSet' || field === 'subSet') {
-          const isTriggerSet = DataLoader.triggerSets.includes(slot.mainSet);
+        const isOnePcSet = DataLoader.onePcSets.includes(slot.mainSet);
+
+        if (field === 'mainSet') {
+          // A 1pc main set is worn as the main-slot echo itself -- there's no separate
+          // main-slot echo pick to make, so any stale one from a previous mainSet is dropped.
+          if (isOnePcSet) slot.mainEcho = '';
+        }
+
+        if ((field === 'mainSet' || field === 'subSet') && !isOnePcSet) {
+          const isThreePcSet = DataLoader.threePcSets.includes(slot.mainSet);
           let allowedEchoes: string[] = [];
           if (slot.mainSet) {
             if (DataLoader.setEchoMapping[slot.mainSet]) allowedEchoes.push(...DataLoader.setEchoMapping[slot.mainSet]);
-            if (isTriggerSet && slot.subSet && DataLoader.setEchoMapping[slot.subSet]) {
+            if (isThreePcSet && slot.subSet && DataLoader.setEchoMapping[slot.subSet]) {
               allowedEchoes.push(...DataLoader.setEchoMapping[slot.subSet]);
             }
             allowedEchoes = Array.from(new Set(allowedEchoes));
@@ -331,6 +341,8 @@ export const useRosterStore = create<RosterState>()(
             applyBuffsFromSource(tSlot.weapon, false, tSlot.rank);
             applyBuffsFromSource(tSlot.mainSet, false);
             applyBuffsFromSource(tSlot.subSet, false);
+            applyBuffsFromSource(tSlot.subSet2a, false);
+            applyBuffsFromSource(tSlot.subSet2b, false);
             applyBuffsFromSource(tSlot.mainEcho, false);
           }
         });
@@ -339,6 +351,8 @@ export const useRosterStore = create<RosterState>()(
         applyBuffsFromSource(slot.weapon, true, slot.rank);
         applyBuffsFromSource(slot.mainSet, true);
         applyBuffsFromSource(slot.subSet, true);
+        applyBuffsFromSource(slot.subSet2a, true);
+        applyBuffsFromSource(slot.subSet2b, true);
         applyBuffsFromSource(slot.mainEcho, true);
         applyBuffsFromSource('System', true);
 

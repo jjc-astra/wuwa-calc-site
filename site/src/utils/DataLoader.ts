@@ -53,7 +53,11 @@ export class DataLoaderClass {
   sonataSets: string[] = [];
   setEchoMapping: Record<string, string[]> = {};
   allMainEchoes: string[] = [];
-  triggerSets: string[] = [];
+  // Sets whose bonus activates at 3 pieces (paired with a 2pc subSet) instead of the standard
+  // 2pc+5pc shape -- see resolveSetPieceCounts.
+  threePcSets: string[] = [];
+  // Sets whose bonus activates from the main-slot echo alone -- see resolveSetPieceCounts.
+  onePcSets: string[] = [];
 
   private async _fetchJSON<T>(path: string, silent = false): Promise<T | null> {
     try {
@@ -181,7 +185,8 @@ export class DataLoaderClass {
     this.setEchoMapping = echoData.SET_ECHO_MAPPING || {};
     this.sonataSets = Object.keys(this.setEchoMapping);
     this.allMainEchoes = Array.from(new Set(Object.values(this.setEchoMapping).flat()));
-    this.triggerSets = echoData.TRIGGER_SETS || [];
+    this.threePcSets = echoData.THREE_PC_SETS || [];
+    this.onePcSets = echoData.ONE_PC_SETS || [];
 
     await this.loadMechanic('generic', 'generic');
     this.resolveReady();
@@ -192,15 +197,47 @@ export class DataLoaderClass {
   //
   // Generic/System (Dodge, Jump, Tune Break...) applies regardless of team, so it's always
   // loaded here -- calc.worker.ts's builder-override path clears it first and relies on this to restore it.
-  async loadTeamMechanics(team: Array<{ character?: string; weapon?: string; mainSet?: string; subSet?: string; mainEcho?: string }>): Promise<void> {
+  async loadTeamMechanics(team: Array<{ character?: string; weapon?: string; mainSet?: string; subSet?: string; subSet2a?: string; subSet2b?: string; mainEcho?: string }>): Promise<void> {
     await this.loadMechanic('generic', 'generic');
     for (const slot of team) {
       if (slot.character) await this.loadMechanic('characters', slot.character);
       if (slot.weapon) await this.loadMechanic('weapons', slot.weapon);
       if (slot.mainSet) await this.loadMechanic('sets', slot.mainSet);
       if (slot.subSet) await this.loadMechanic('sets', slot.subSet);
+      if (slot.subSet2a) await this.loadMechanic('sets', slot.subSet2a);
+      if (slot.subSet2b) await this.loadMechanic('sets', slot.subSet2b);
       if (slot.mainEcho) await this.loadMechanic('echoes', slot.mainEcho);
     }
+  }
+
+  // A main set contributes all 5 echo pieces unless it's a 3pc set (paired with a 2pc subSet)
+  // or a 1pc set (worn as the main-slot echo alone, leaving 4 pieces split across
+  // subSet2a/subSet2b). Used to gate which of a set's mechanic nodes (tagged "N-pc Set Effect")
+  // actually apply -- see TimelineEngine._setupEventBoard's registerAll.
+  resolveSetPieceCounts(slot: { mainSet: string; subSet: string; subSet2a: string; subSet2b: string }): {
+    mainSet: number; subSet: number; subSet2a: number; subSet2b: number;
+  } {
+    const isOnePcSet = this.onePcSets.includes(slot.mainSet);
+    const isThreePcSet = this.threePcSets.includes(slot.mainSet);
+
+    if (isOnePcSet) {
+      // A 3pc pick in either extra slot is evaluated first -- it's the more restrictive shape,
+      // leaving only 1 of the 4 remaining pieces for the other slot, never enough for a 2pc (or
+      // a second 3pc). No UI cross-validation stops a "silly" combo (e.g. both slots holding
+      // 3pc sets) -- this just resolves it deterministically, second slot loses.
+      const aIsThreePc = !!slot.subSet2a && this.threePcSets.includes(slot.subSet2a);
+      const bIsThreePc = !!slot.subSet2b && this.threePcSets.includes(slot.subSet2b);
+      let subSet2a = 0, subSet2b = 0;
+      if (aIsThreePc) subSet2a = 3;
+      else if (bIsThreePc) subSet2b = 3;
+      else {
+        if (slot.subSet2a) subSet2a = 2;
+        if (slot.subSet2b) subSet2b = 2;
+      }
+      return { mainSet: 1, subSet: 0, subSet2a, subSet2b };
+    }
+    if (isThreePcSet) return { mainSet: 3, subSet: slot.subSet ? 2 : 0, subSet2a: 0, subSet2b: 0 };
+    return { mainSet: slot.mainSet ? 5 : 0, subSet: 0, subSet2a: 0, subSet2b: 0 };
   }
 
   async loadMechanic(folder: string, itemName: string): Promise<void> {
