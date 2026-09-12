@@ -188,10 +188,11 @@ export const DSL_SCHEMA = {
     'Self', 'Enemy', 'Team', 'TeamOthers', 'Active',
     'Next', 'Prev', 'Equipper', 'System', 'Move', 'Default'
   ],
+  functions: ['StatusMult()'],
   properties: {
-    Self: ['HP', 'Energy', 'Concerto', 'Sequence', 'PrevAction', 'Name', 'BuffStacks()', 'HasBuff()', 'Tracker()', 'Memory()', 'Cooldown()', 'Stat()'],
-    Enemy: ['HP', 'MaxHP', 'HPPct', 'BuffStacks()', 'HasBuff()', 'Tune'],
-    Move: ['Name', 'CastTypes', 'DmgTypes', 'TimeStart', 'Duration', 'GameTime', 'FreezeTime', 'DamageStart', 'DamageEnd', 'SwapTime', 'BaseMult', 'HitMults'],
+    Self: ['HP', 'MaxHP', 'Energy', 'MaxEnergy', 'Concerto', 'Sequence', 'PrevAction', 'Name', 'BuffStacks()', 'BuffMaxStacks()', 'HasBuff()', 'Tracker()', 'Cooldown()', 'Stat()'],
+    Enemy: ['HP', 'MaxHP', 'HPPct', 'BuffStacks()', 'BuffMaxStacks()', 'HasBuff()', 'Tune', 'MaxTune'],
+    Move: ['Name', 'CastTypes', 'DmgTypes', 'TimeStart', 'Duration', 'GameTime', 'FreezeTime', 'DamageStart', 'DamageEnd', 'SwapTime', 'BaseMult', 'HitMults', 'IsInHoldWindow'],
     Prev: ['Action', 'CastTypes', 'Unit'],
     Next: ['Name', 'Action', 'CastTypes', 'Priority'],
     Active: ['Name'],
@@ -249,6 +250,7 @@ export const DSL_TOOLTIPS: {
   properties: Record<string, Record<string, string>>;
   statModifiers: Record<string, string>;
   sheetStats: Record<string, string>;
+  functions: Record<string, string>;
 } = {
   events: {
     ALWAYS: 'Evaluated continuously rather than tied to a specific event.',
@@ -319,15 +321,17 @@ export const DSL_TOOLTIPS: {
   properties: {
     Self: {
       HP: "Returns Self's current HP.",
+      MaxHP: "Returns Self's maximum HP.",
       Energy: "Returns Self's current Resonance Energy.",
+      MaxEnergy: "Returns Self's maximum Resonance Energy.",
       Concerto: "Returns Self's current Concerto Energy.",
       Sequence: "Returns Self's Resonance Chain (sequence) level, 0-6.",
       PrevAction: 'Returns the name of the last action Self performed.',
       Name: "Returns Self's character name.",
       'BuffStacks()': 'Method — returns the current stack count of a buff, e.g. @Self.BuffStacks(BuffName).',
+      'BuffMaxStacks()': 'Method — returns the configured max stack count of a buff, e.g. @Self.BuffMaxStacks(BuffName).',
       'HasBuff()': 'Method — returns true if Self currently has the given buff, e.g. @Self.HasBuff(BuffName).',
       'Tracker()': 'Method — returns the current value of a tracker/counter, e.g. @Self.Tracker(TrackerName).',
-      'Memory()': 'Method — returns a previously stored value, e.g. @Self.Memory(Key).',
       'Cooldown()': 'Method — returns the remaining cooldown in seconds of a skill, e.g. @Self.Cooldown(Skill).',
       'Stat()': 'Method — returns the current value of a sheet stat, e.g. @Self.Stat(CR Rate).'
     },
@@ -336,8 +340,10 @@ export const DSL_TOOLTIPS: {
       MaxHP: "Returns the enemy's maximum HP.",
       HPPct: "Returns the enemy's current HP as a percentage of max.",
       'BuffStacks()': 'Method — returns the current stack count of a debuff/status on the enemy.',
+      'BuffMaxStacks()': 'Method — returns the configured max stack count of a debuff/status on the enemy.',
       'HasBuff()': 'Method — returns true if the enemy currently has the given debuff/status.',
-      Tune: "Returns the enemy's current Tune (stagger) gauge value."
+      Tune: "Returns the enemy's current Tune (stagger) gauge value.",
+      MaxTune: "Returns the enemy's maximum Tune (stagger) gauge value."
     },
     Move: {
       Name: 'Returns the name of the move currently being cast.',
@@ -351,7 +357,8 @@ export const DSL_TOOLTIPS: {
       DamageEnd: "Returns the time offset (seconds) this move's damage window ends.",
       SwapTime: 'Returns the time offset (seconds) at which a swap becomes available during this move.',
       BaseMult: "Returns this move's base damage multiplier.",
-      HitMults: 'Returns the list of per-hit damage multipliers for this move.'
+      HitMults: 'Returns the list of per-hit damage multipliers for this move.',
+      IsInHoldWindow: 'Returns true while a Hold input is being charged during this move.'
     },
     Prev: {
       Action: 'Returns the name of the previously executed action.',
@@ -382,6 +389,9 @@ export const DSL_TOOLTIPS: {
       IntroPriority: 'Default action-priority value for Intro Skills.',
       OutroPriority: 'Default action-priority value for Outro Skills.'
     }
+  },
+  functions: {
+    'StatusMult()': 'Function — returns the negative-status damage multiplier for a given status and stack count, e.g. @StatusMult(Aero Erosion, @Self.Tracker(Stacks)).'
   },
   // Formula (CombatCalculator.ts): baseDmg * critMult * (1+DMG Bonus) * (1+DMG Amp/Deepen) *
   // (1+DMG Taken) * (1+Multiplicative Mult) * resMult * defMult.

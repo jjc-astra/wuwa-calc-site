@@ -37,6 +37,8 @@ function resolveTooltip(item: SuggestionItem, group: string): string | undefined
     case 'Pointers':
     case 'Targets':
       return DSL_TOOLTIPS.pointers[key];
+    case 'Functions':
+      return DSL_TOOLTIPS.functions[key];
     case 'Properties':
       return item.pointer ? DSL_TOOLTIPS.properties[item.pointer]?.[key] : undefined;
     case 'Sheet Stats':
@@ -86,6 +88,10 @@ function collectEffectNamesByNamespace(builderMechanics: Record<string, Mechanic
       const namespace = key.startsWith('System_') ? 'System' : key.split('_')[0];
       (mech.effects || []).forEach(e => {
         if (!e.name) return;
+        // Only buff effects define a reusable name -- resource/tracker/etc. effects reuse
+        // `name` for something else entirely (e.g. a resource effect's `name` is a pool key
+        // like "energy"/"forte1", not an identifier meant to be referenced elsewhere).
+        if (e.type && e.type !== 'buff') return;
         if (!byNamespace[namespace]) byNamespace[namespace] = new Set();
         const bare = e.name.startsWith(namespace + '_') ? e.name.slice(namespace.length + 1) : e.name;
         byNamespace[namespace].add(bare);
@@ -298,11 +304,12 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
               group: 'Pointers',
               tooltipKey: p
             }));
+            const fns = DSL_SCHEMA.functions.map(f => ({ val: f, group: 'Functions', tooltipKey: f }));
             const chars = Object.keys(DataLoader.characterDB).map(c => ({
               val: c.replace(/[^a-zA-Z0-9]/g, '') + '(',
               group: 'Characters'
             }));
-            return [...base, ...chars];
+            return [...base, ...fns, ...chars];
           },
           prefix: '@'
         },
@@ -316,7 +323,10 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
             const props = propsMap[pointer].map(p => ({ val: p, group: 'Properties', pointer }));
             if (pointer === 'Self') {
               const fCount = parseInt((baseStats.forteCount as any) || '1', 10);
-              for (let i = 1; i <= fCount; i++) props.push({ val: `Forte${i}`, group: 'Properties', pointer });
+              for (let i = 1; i <= fCount; i++) {
+                props.push({ val: `Forte${i}`, group: 'Properties', pointer });
+                props.push({ val: `MaxForte${i}`, group: 'Properties', pointer });
+              }
             }
             return props;
           },
@@ -347,11 +357,12 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
             group: 'Pointers',
             tooltipKey: p
           }));
+          const fns = DSL_SCHEMA.functions.map(f => ({ val: f, group: 'Functions', tooltipKey: f }));
           const chars = Object.keys(DataLoader.characterDB).map(c => ({
             val: c.replace(/[^a-zA-Z0-9]/g, '') + '(',
             group: 'Characters'
           }));
-          return [...base, ...chars];
+          return [...base, ...fns, ...chars];
         },
         prefix: '@'
       },
@@ -402,7 +413,10 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
           const props = propsMap[pointer].map(p => ({ val: p, group: 'Properties', pointer }));
           if (pointer === 'Self') {
             const fCount = parseInt((baseStats.forteCount as any) || '1', 10);
-            for (let i = 1; i <= fCount; i++) props.push({ val: `Forte${i}`, group: 'Properties', pointer });
+            for (let i = 1; i <= fCount; i++) {
+              props.push({ val: `Forte${i}`, group: 'Properties', pointer });
+              props.push({ val: `MaxForte${i}`, group: 'Properties', pointer });
+            }
           }
           return props;
         },
