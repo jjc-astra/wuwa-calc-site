@@ -238,8 +238,11 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
 
   const getRules = (): MatchRule[] => {
     if (mode === 'eff-name') {
+      const currentNamespace = activeChar === 'Generic' ? 'System' : activeChar;
       return [
         {
+          // Completing inside an already-typed "@Namespace(" shorthand (see below) -- unaffected
+          // by the reordering, since by this point the user has already opted into it.
           trigger: /@([a-zA-Z0-9_]+)\(([^)]*)$/,
           matchGroup: 2,
           options: (match) => {
@@ -255,7 +258,24 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
           append: ')'
         },
         {
-          trigger: /^@?([a-zA-Z]*)$/,
+          // Plain typing (no leading @, the overwhelmingly common case): this unit's own existing
+          // effect names first, then System's -- not every character in the game.
+          trigger: /^([a-zA-Z0-9_ ]*)$/,
+          options: () => {
+            const byNamespace = collectEffectNamesByNamespace(mechanics);
+            const ownNames = (byNamespace[currentNamespace] ? Array.from(byNamespace[currentNamespace]) : [])
+              .map(name => ({ val: name, group: `${currentNamespace} Effects` }));
+            const systemNames = currentNamespace !== 'System'
+              ? (byNamespace['System'] ? Array.from(byNamespace['System']) : []).map(name => ({ val: name, group: 'System Effects' }))
+              : [];
+            return [...ownNames, ...systemNames];
+          },
+          prefix: ''
+        },
+        {
+          // Explicit opt-in only (typing "@"): the @Namespace(Name) shorthand that flattenDslShorthand
+          // turns into the "Namespace_Name" convention some effects use -- not the default suggestion.
+          trigger: /^@([a-zA-Z]*)$/,
           options: () => {
             const base = [{ val: 'System(', group: 'Namespaces' }];
             const chars = Object.keys(DataLoader.characterDB).map(c => ({
