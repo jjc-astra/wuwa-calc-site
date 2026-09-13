@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { DSL_SCHEMA, DSL_TOOLTIPS, BuilderState, CAST_TYPE_COLORS } from '../../data/db';
+import {
+  DSL_SCHEMA, DSL_TOOLTIPS, BuilderState, CAST_TYPE_COLORS,
+  DSL_ARRAY_PROPERTIES, DSL_STRING_PROPERTIES, DSL_ARRAY_METHODS, DSL_STRING_METHODS, DSL_MATH_METHODS
+} from '../../data/db';
 import { useBuilderStore } from '../../store/useBuilderStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { tokenizeDSL } from '../../utils/DSLHighlight';
@@ -39,6 +42,10 @@ function resolveTooltip(item: SuggestionItem, group: string): string | undefined
       return DSL_TOOLTIPS.pointers[key];
     case 'Functions':
       return DSL_TOOLTIPS.functions[key];
+    case 'Array Methods':
+    case 'String Methods':
+    case 'Math Functions':
+      return DSL_TOOLTIPS.systemMethods[key];
     case 'Properties':
       return item.pointer ? DSL_TOOLTIPS.properties[item.pointer]?.[key] : undefined;
     case 'Sheet Stats':
@@ -360,6 +367,25 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
             return props;
           },
           prefix: '.'
+        },
+        {
+          // Not DSL properties -- native JS methods on a property that's already a real array/string.
+          trigger: /@([a-zA-Z]+)\.([A-Za-z]+)\.([a-zA-Z]*)$/,
+          matchGroup: 3,
+          options: (match) => {
+            const [, pointer, property] = match;
+            if (DSL_ARRAY_PROPERTIES[pointer]?.includes(property)) return DSL_ARRAY_METHODS.map(m => ({ val: m, group: 'Array Methods' }));
+            if (DSL_STRING_PROPERTIES[pointer]?.includes(property)) return DSL_STRING_METHODS.map(m => ({ val: m, group: 'String Methods' }));
+            return [];
+          },
+          prefix: '.'
+        },
+        {
+          // Math is a plain JS global, not DSL syntax -- Math.min/max/floor/etc. already work.
+          trigger: /\bMath\.([a-zA-Z]*)$/i,
+          matchGroup: 1,
+          options: DSL_MATH_METHODS.map(m => ({ val: m, group: 'Math Functions' })),
+          prefix: ''
         }
       ];
     }
@@ -450,6 +476,25 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
           return props;
         },
         prefix: '.'
+      },
+      {
+        // Not DSL properties -- native JS methods on a property that's already a real array/string.
+        trigger: /@([a-zA-Z]+)\.([A-Za-z]+)\.([a-zA-Z]*)$/,
+        matchGroup: 3,
+        options: (match) => {
+          const [, pointer, property] = match;
+          if (DSL_ARRAY_PROPERTIES[pointer]?.includes(property)) return DSL_ARRAY_METHODS.map(m => ({ val: m, group: 'Array Methods' }));
+          if (DSL_STRING_PROPERTIES[pointer]?.includes(property)) return DSL_STRING_METHODS.map(m => ({ val: m, group: 'String Methods' }));
+          return [];
+        },
+        prefix: '.'
+      },
+      {
+        // Math is a plain JS global, not DSL syntax -- Math.min/max/floor/etc. already work.
+        trigger: /\bMath\.([a-zA-Z]*)$/i,
+        matchGroup: 1,
+        options: DSL_MATH_METHODS.map(m => ({ val: m, group: 'Math Functions' })),
+        prefix: ''
       },
       {
         trigger: /^()$/,

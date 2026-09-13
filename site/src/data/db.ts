@@ -200,6 +200,28 @@ export const DSL_SCHEMA = {
   }
 };
 
+// Not DSL sugar -- these are raw JS methods that already work today because a compiled rule is
+// just `new Function('ctx', 'equipper', 'return ' + jsStr)`. Any property that resolves to a real
+// JS array/string already supports its native methods (e.g. @Prev.CastTypes.includes('Outro'),
+// used by Lumi/Sanhua's swap-in checks); `Math.*` is a plain global, so Math.min/max/floor/etc.
+// work even though only ABS has dedicated DSL sugar. Listed here purely so autocomplete can
+// surface what's already usable -- these lists don't drive any translation/evaluation logic.
+export const DSL_ARRAY_PROPERTIES: Record<string, string[]> = {
+  Move: ['CastTypes', 'DmgTypes', 'HitMults'],
+  Prev: ['CastTypes'],
+  Next: ['CastTypes']
+};
+export const DSL_STRING_PROPERTIES: Record<string, string[]> = {
+  Self: ['Name', 'PrevAction'],
+  Move: ['Name'],
+  Prev: ['Unit', 'Action'],
+  Next: ['Name', 'Action'],
+  Active: ['Name']
+};
+export const DSL_ARRAY_METHODS = ['includes()', 'some()', 'every()', 'indexOf()', 'join()', 'length'];
+export const DSL_STRING_METHODS = ['includes()', 'startsWith()', 'endsWith()', 'toLowerCase()', 'length'];
+export const DSL_MATH_METHODS = ['min()', 'max()', 'floor()', 'ceil()', 'round()', 'abs()', 'pow()', 'sqrt()'];
+
 export const BUILDER_CATEGORIES = [
   'Basic Attack', 'Resonance Skill', 'Resonance Liberation',
   'Forte Circuit', 'Intro', 'Outro', 'Inherent Skill', 'Tune Break', 'Resonance Chain'
@@ -251,6 +273,7 @@ export const DSL_TOOLTIPS: {
   statModifiers: Record<string, string>;
   sheetStats: Record<string, string>;
   functions: Record<string, string>;
+  systemMethods: Record<string, string>;
 } = {
   events: {
     ALWAYS: 'Evaluated continuously rather than tied to a specific event.',
@@ -393,6 +416,27 @@ export const DSL_TOOLTIPS: {
   },
   functions: {
     'StatusMult()': 'Function — returns the negative-status damage multiplier for a given status and stack count, e.g. @StatusMult(Aero Erosion, @Self.Tracker(Stacks)).'
+  },
+  // Not DSL-implemented -- raw JS available because a rule compiles to real JS. Grounded in
+  // existing usage (Lumi/Sanhua's @Prev.CastTypes.includes('Outro') swap-in checks).
+  systemMethods: {
+    'includes()': "Native JS method -- true if the list/text contains the given value, e.g. @Prev.CastTypes.includes(Outro).",
+    'some()': 'Native JS method -- true if any entry in the list matches (used with a value to compare against, e.g. via .indexOf()).',
+    'every()': 'Native JS method -- true only if every entry in the list matches.',
+    'indexOf()': "Native JS method -- the position of a value in the list, or -1 if it's not present.",
+    'join()': "Native JS method -- combines a list's entries into one string, e.g. for display or debugging.",
+    length: "Native JS property -- how many entries a list has, or how many characters a piece of text has.",
+    'startsWith()': 'Native JS method -- true if the text begins with the given value.',
+    'endsWith()': 'Native JS method -- true if the text ends with the given value.',
+    'toLowerCase()': 'Native JS method -- lowercases the text, useful for case-insensitive comparisons.',
+    'min()': 'Math.min -- the smallest of the given numbers, e.g. Math.min(@Self.Forte1, 50).',
+    'max()': 'Math.max -- the largest of the given numbers, e.g. Math.max(@Self.Energy - 20, 0).',
+    'floor()': 'Math.floor -- rounds a number down to the nearest whole number.',
+    'ceil()': 'Math.ceil -- rounds a number up to the nearest whole number.',
+    'round()': 'Math.round -- rounds a number to the nearest whole number.',
+    'abs()': 'Math.abs -- absolute value; same result as the DSL\'s own ABS(...) sugar.',
+    'pow()': 'Math.pow -- raises a number to a power, e.g. Math.pow(@Self.Sequence, 2).',
+    'sqrt()': 'Math.sqrt -- square root of a number.'
   },
   // Formula (CombatCalculator.ts): baseDmg * critMult * (1+DMG Bonus) * (1+DMG Amp/Deepen) *
   // (1+DMG Taken) * (1+Multiplicative Mult) * resMult * defMult.
