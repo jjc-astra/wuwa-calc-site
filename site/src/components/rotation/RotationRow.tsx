@@ -219,10 +219,19 @@ export const RotationRow: React.FC<RotationRowProps> = ({
     });
 
     // --- BUILD GROUPS ---
+    // An echo isn't its own rotation row, so its moves need the echo's own name in the label
+    // (the character row alone doesn't say which echo) -- skip when the author already baked
+    // the echo name into `.name` themselves, so it doesn't show up doubled.
+    const echoName = slot?.mainEcho;
+    const labelFor = (m: any, id: string, groupLabel: string): string => {
+      const bare = m.name || id;
+      if (groupLabel !== 'Echo Skill' || !echoName) return bare;
+      return bare.toLowerCase().startsWith(echoName.toLowerCase()) ? bare : `${echoName} ${bare}`;
+    };
     const groupsMap: Record<string, ActionOption[]> = {};
     finalCandidates.forEach(({ id, m, groupLabel }) => {
       if (!groupsMap[groupLabel]) groupsMap[groupLabel] = [];
-      groupsMap[groupLabel].push({ id, name: m.name || id, priority: m.priority });
+      groupsMap[groupLabel].push({ id, name: labelFor(m, id, groupLabel), priority: m.priority });
     });
 
     // --- SORT OPTIONS WITHIN EACH GROUP BY PRIORITY (Highest First) ---

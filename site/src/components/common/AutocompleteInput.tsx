@@ -242,8 +242,9 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
       return [
         {
           // Completing inside an already-typed "@Namespace(" shorthand (see below) -- unaffected
-          // by the reordering, since by this point the user has already opted into it.
-          trigger: /@([a-zA-Z0-9_]+)\(([^)]*)$/,
+          // by the reordering, since by this point the user has already opted into it. Namespace
+          // allows spaces since some echo names carry them (e.g. "Impermanence Heron").
+          trigger: /@([a-zA-Z0-9_ ]+)\(([^)]*)$/,
           matchGroup: 2,
           options: (match) => {
             const namespace = match[1];
@@ -362,10 +363,14 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
             }));
             const fns = DSL_SCHEMA.functions.map(f => ({ val: f, group: 'Functions', tooltipKey: f }));
             const chars = Object.keys(DataLoader.characterDB).map(c => ({
-              val: c.replace(/[^a-zA-Z0-9]/g, '') + '(',
+              val: c.replace(/[^A-Za-z0-9 ]/g, '') + '(',
               group: 'Characters'
             }));
-            return [...base, ...fns, ...chars];
+            const echoes = DataLoader.allMainEchoes.map(e => ({
+              val: e.replace(/[^A-Za-z0-9 ]/g, '') + '(',
+              group: 'Echoes'
+            }));
+            return [...base, ...fns, ...chars, ...echoes];
           },
           prefix: '@'
         },
@@ -434,15 +439,19 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
           }));
           const fns = DSL_SCHEMA.functions.map(f => ({ val: f, group: 'Functions', tooltipKey: f }));
           const chars = Object.keys(DataLoader.characterDB).map(c => ({
-            val: c.replace(/[^a-zA-Z0-9]/g, '') + '(',
+            val: c.replace(/[^A-Za-z0-9 ]/g, '') + '(',
             group: 'Characters'
           }));
-          return [...base, ...fns, ...chars];
+          const echoes = DataLoader.allMainEchoes.map(e => ({
+            val: e.replace(/[^A-Za-z0-9 ]/g, '') + '(',
+            group: 'Echoes'
+          }));
+          return [...base, ...fns, ...chars, ...echoes];
         },
         prefix: '@'
       },
       {
-        trigger: /@([a-zA-Z0-9_]+)\(([^)]*)$/,
+        trigger: /@([a-zA-Z0-9_ ]+)\(([^)]*)$/,
         matchGroup: 2,
         options: (match) => {
           const namespace = match[1];

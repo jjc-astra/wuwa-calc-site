@@ -9,8 +9,9 @@ import { parseTimeInput } from '../../utils/Frames';
 export { tip } from '../../utils/Common';
 
 // Matches names with up to one level of nested parens (e.g. "@Sanhua(Forte Hold (Release))") to prevent premature capture truncation.
+// Namespace allows spaces since echo names carry them (e.g. "@Impermanence Heron(Attack)").
 export const flattenDslShorthand = (v: string): string =>
-  v.replace(/@([A-Za-z0-9_]+)\(((?:[^)(]+|\([^)(]*\))*)\)/g, (_match, p1, p2) => `${p1}_${p2.trim()}`);
+  v.replace(/@([A-Za-z0-9_ ]+)\(((?:[^)(]+|\([^)(]*\))*)\)/g, (_match, p1, p2) => `${p1}_${p2.trim()}`);
 
 // Uses fixed non-elemental palette for cast types, and matches dmg types to exact or substring element names for status hues.
 export function dmgTagColor(tag: string): string {

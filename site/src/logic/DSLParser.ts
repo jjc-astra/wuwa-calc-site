@@ -64,7 +64,7 @@ export const DSLParser = {
         let mStr = s.trim();
         // Keeps @Namespace(Move Name) shape intact (lowercased/trimmed) rather than flattening
         // to Namespace_MoveName -- must match TimelineEngine's castModifiers format exactly.
-        mStr = mStr.replace(/@([A-Za-z0-9_]+)\(((?:[^)(]+|\([^)(]*\))*)\)/g, (_, p1, p2) => `@${p1}(${p2.trim()})`);
+        mStr = mStr.replace(/@([A-Za-z0-9_ ]+)\(((?:[^)(]+|\([^)(]*\))*)\)/g, (_, p1, p2) => `@${p1}(${p2.trim()})`);
         return mStr.toLowerCase();
       });
     }
@@ -161,7 +161,7 @@ export const DSLParser = {
 
     jsStr = jsStr.replace(/\bABS\b/gi, 'Math.abs');
     jsStr = jsStr.replace(/%(?!\s*[\d@a-zA-Z(_])/g, ' / 100');
-    jsStr = jsStr.replace(/@([A-Za-z0-9_]+)\(((?:[^)(]+|\([^)(]*\))*)\)/g, (_, p1, p2) => '"' + p1 + '_' + p2.trim() + '"');
+    jsStr = jsStr.replace(/@([A-Za-z0-9_ ]+)\(((?:[^)(]+|\([^)(]*\))*)\)/g, (_, p1, p2) => '"' + p1 + '_' + p2.trim() + '"');
 
     const pointerMap: Record<string, string> = {
       '@Self\\.GameTimeStart': 'ctx.move.gameTimeStart',
