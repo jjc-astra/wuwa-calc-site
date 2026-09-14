@@ -139,9 +139,10 @@ export class TimelineEngineClass {
         globalSwapCdExpiresAt = Math.max(globalSwapCdExpiresAt, accumulatedTime + secondsToFrames(GAME_DEFAULTS.swapCooldown));
       }
 
-      const cdKey = `${currentData.unit}_${currentData.moveName}`;
-      const actualCdRemaining = currentData.cooldowns?.[cdKey] || 0; // seconds -- cooldowns stay in seconds
-      const wCD = secondsToFrames(Math.max(0, actualCdRemaining));
+      // seconds -- cooldowns stay in seconds. Charge-aware (see DataLoader.cooldownRemaining):
+      // a maxCharges > 1 move waits only once every charge is in use, not on its own single timer.
+      const actualCdRemaining = DataLoader.cooldownRemaining(currentData, currentData.unit, currentData.moveName);
+      const wCD = secondsToFrames(actualCdRemaining);
       let wBusy = 0;
       const busyUntil = unitBusyUntil[currentData.unit] || 0;
       const isOutroCast = dbMove.castTypes && dbMove.castTypes.includes('Outro');
@@ -423,6 +424,7 @@ export class TimelineEngineClass {
           trackers: JSON.parse(JSON.stringify(currentData.trackers || {})),
           activeBuffs: JSON.parse(JSON.stringify(currentData.activeBuffs || {})),
           cooldowns: JSON.parse(JSON.stringify(currentData.cooldowns || {})),
+          chargeCooldowns: JSON.parse(JSON.stringify(currentData.chargeCooldowns || {})),
           enemyTune: currentData.enemyTune,
           enemyMaxTune: currentData.enemyMaxTune,
           gameTimeStart: currentData.gameTimeStart,
@@ -611,7 +613,7 @@ export class TimelineEngineClass {
     return {
       unit: '', action: '', timing: 'Auto', offset: 0,
       energy: {}, concerto: {}, hp: {}, trackers: {},
-      cooldowns: {}, activeBuffs: {}, unitCombos: {},
+      cooldowns: {}, chargeCooldowns: {}, activeBuffs: {}, unitCombos: {},
       timeStart: 0, gameTimeStart: 0, duration: 0, gameTimePassed: 0
     };
   }
@@ -712,6 +714,7 @@ export class TimelineEngineClass {
     }
 
     currentData.cooldowns = structuredClone(prevData.cooldowns || {});
+    currentData.chargeCooldowns = structuredClone(prevData.chargeCooldowns || {});
     currentData.activeBuffs = structuredClone(prevData.activeBuffs || {});
 
     // removeOnSwap buffs belong to whoever swaps off-field; drop them the moment they leave.
@@ -1208,6 +1211,18 @@ export class TimelineEngineClass {
       if (currentData.cooldowns[key] <= 0.001) delete currentData.cooldowns[key];
     }
 
+    // Each entry is one in-flight charge's own recharge timer -- decay every entry independently
+    // and drop it (freeing that charge) once it completes, rather than clearing the whole key.
+    for (const key in currentData.chargeCooldowns) {
+      const pending = currentData.chargeCooldowns[key];
+      const scale = getTimeScale(key);
+      for (let i = pending.length - 1; i >= 0; i--) {
+        pending[i] -= decaySeconds * scale;
+        if (pending[i] <= 0.001) pending.splice(i, 1);
+      }
+      if (pending.length === 0) delete currentData.chargeCooldowns[key];
+    }
+
     // OnTick intervals are authored as raw seconds literals in the DSL, so this stays seconds.
     const tickEffects = EventManager.emit('OnTick', new Set(), currentData, currentData.unit, team, { gameTimePassed: decaySeconds, getTimeScale });
     this._executeEffectsStream(tickEffects, currentData, activeTeam, activeRows, this.currentGlobalRealTime, currentData.unit, team);
@@ -1328,6 +1343,33 @@ export class TimelineEngineClass {
     }
   }
 
+  // Starts a move's own cooldown/charge, then -- one hop only, never following the partner's own
+  // shareCooldownWith -- does the same for its shared-cooldown partner using the PARTNER's own
+  // cooldown/maxCharges (the two values don't need to match; only the start is linked). The
+  // one-hop cap keeps a symmetric pair (A<->B, as CooldownPanel always writes them) from recursing.
+  _startCooldown(currentData: any, unitName: string, moveData: MechanicNode): void {
+    this._startCooldownRaw(currentData, unitName, moveData);
+    if (moveData.shareCooldownWith && moveData.shareCooldownWith !== moveData.name) {
+      const partner = DataLoader.mechanicsDB[`${unitName}_${moveData.shareCooldownWith}`];
+      if (partner) this._startCooldownRaw(currentData, unitName, partner);
+    }
+  }
+
+  _startCooldownRaw(currentData: any, unitName: string, moveData: MechanicNode): void {
+    const cdVal = moveData.cooldown ? parseFloat(String(moveData.cooldown)) : 0;
+    if (!(cdVal > 0)) return;
+    const maxCharges = Math.max(1, parseInt(String(moveData.maxCharges ?? 1), 10) || 1);
+    const key = `${unitName}_${moveData.name}`;
+    if (maxCharges > 1) {
+      if (!currentData.chargeCooldowns) currentData.chargeCooldowns = {};
+      if (!currentData.chargeCooldowns[key]) currentData.chargeCooldowns[key] = [];
+      currentData.chargeCooldowns[key].push(cdVal);
+    } else {
+      if (!currentData.cooldowns) currentData.cooldowns = {};
+      currentData.cooldowns[key] = cdVal;
+    }
+  }
+
   _gatherInstantEffects(currentData: any, moveData: MechanicNode, prevData: any, castModifiers: Set<string>, team: any[]): Effect[] {
     const effects: Effect[] = [...(moveData.effects || [])];
     effects.push(...EventManager.emit('OnCast', castModifiers, currentData, currentData.unit, team));
@@ -1363,9 +1405,8 @@ export class TimelineEngineClass {
       this.damageQueue.sort((a, b) => a.executeAt - b.executeAt);
     }
 
-    if (moveData.cooldown) {
-      if (!currentData.cooldowns) currentData.cooldowns = {};
-      currentData.cooldowns[`${unitName}_${currentData.moveName}`] = parseFloat(String(moveData.cooldown));
+    if (moveData.cooldown || moveData.shareCooldownWith) {
+      this._startCooldown(currentData, unitName, moveData);
     }
 
     // dmgTypes plus name/pointer, so OnHit[...] can target one specific move, not just a

@@ -76,7 +76,7 @@ export const ContextManager = {
           return (check(activeBuff) || check(teamBuff) || check(auraBuff)) ? 1 : 0;
         },
         getTracker: (trackerName: string) => activeState.trackers?.[trackerName] || 0,
-        getCooldown: (actionName: string) => activeState.cooldowns?.[`${activeUnitName}_${actionName}`] || 0,
+        getCooldown: (actionName: string) => DataLoader.cooldownRemaining(activeState, activeUnitName, actionName),
         getStat: (statKey: string) => finalStats[statKey] || 0
       };
 
@@ -145,7 +145,7 @@ export const ContextManager = {
           if (prevRow) return { unit: prevRow.unit, action: prevRow.action, castTypes: prevRow.castTypes || [] };
           return { unit: null, action: null, castTypes: [] };
         })(),
-        checkCooldown: (unitName: string, actionName: string) => activeState.cooldowns?.[`${unitName}_${actionName}`] || 0
+        checkCooldown: (unitName: string, actionName: string) => DataLoader.cooldownRemaining(activeState, unitName, actionName)
       };
     } catch (err) {
       console.error('[ContextManager] Critical error during buildContext:', err);

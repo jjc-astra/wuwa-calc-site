@@ -62,6 +62,9 @@ export const BuilderUtils = {
       if (actionDuration !== undefined) clean.actionDuration = actionDuration;
       const cooldown = CommonUtils.parseMixed(node.cooldown);
       if (cooldown !== undefined) clean.cooldown = cooldown;
+      const maxCharges = CommonUtils.parseMixed(node.maxCharges);
+      if (maxCharges !== undefined && Number(maxCharges) > 1) clean.maxCharges = maxCharges;
+      if (node.shareCooldownWith) clean.shareCooldownWith = node.shareCooldownWith;
       const swapTiming = CommonUtils.parseMixed(node.swapTiming);
       if (swapTiming !== undefined) clean.swapTiming = swapTiming;
       const freezeTime = CommonUtils.parseMixed(node.freezeTime);

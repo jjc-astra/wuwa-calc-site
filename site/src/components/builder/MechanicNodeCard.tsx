@@ -14,6 +14,7 @@ import { AddCastTypePanel } from './panels/AddCastTypePanel';
 import { AddDmgTypePanel } from './panels/AddDmgTypePanel';
 import { AddCastResourcePanel } from './panels/AddCastResourcePanel';
 import { TriggerRuleEffectsPanel } from './panels/TriggerRuleEffectsPanel';
+import { CooldownPanel } from './panels/CooldownPanel';
 import type { DropdownOption } from '../common/Dropdown';
 
 interface MechanicNodeCardProps {
@@ -23,7 +24,7 @@ interface MechanicNodeCardProps {
   childOfHold?: 'Repeat' | 'Release';
 }
 
-export type PanelKey = 'identity' | 'inputs' | 'timeMods' | 'hits' | 'castTags' | 'dmgTags' | 'castRes' | 'default';
+export type PanelKey = 'identity' | 'inputs' | 'timeMods' | 'hits' | 'castTags' | 'dmgTags' | 'castRes' | 'cooldown' | 'default';
 
 // Fields each sub-panel edits, for JsonOutputPane's highlight.
 // Keep in sync with each panel's own updateNode calls.
@@ -35,6 +36,7 @@ const PANEL_FIELDS: Record<PanelKey, string[]> = {
   castTags: ['castTypes'],
   dmgTags: ['dmgTypes'],
   castRes: ['castResources'],
+  cooldown: ['cooldown', 'maxCharges', 'shareCooldownWith'],
   default: ['triggerRule', 'isPassive', 'isSwapInDefault', 'modeScope', 'effects']
 };
 
@@ -131,6 +133,8 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
             forteOptions={forteOptions}
           />
         );
+      case 'cooldown':
+        return <CooldownPanel data={data} updateNode={updateNode} />;
       case 'default':
       default:
         return <TriggerRuleEffectsPanel data={data} updateNode={updateNode} forteOptions={forteOptions} groupSiblings={groupSiblings} nodeId={nodeId} />;

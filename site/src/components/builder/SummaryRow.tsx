@@ -102,6 +102,13 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
     ...(comboVal !== null ? [{ label: `Combo ${fmtNum(comboVal)}f`, tooltip: 'Combo Window' }] : [])
   ];
 
+  const maxCharges = data.maxCharges !== undefined && data.maxCharges !== '' ? parseInt(String(data.maxCharges), 10) : 1;
+  const cooldownTags: { label: string; tooltip: string }[] = [
+    ...(data.cooldown !== undefined && data.cooldown !== '' ? [{ label: displayTimeVal(data.cooldown, 's'), tooltip: 'Cooldown' }] : []),
+    ...(maxCharges > 1 ? [{ label: `×${maxCharges}`, tooltip: `${maxCharges} independent uses, each recharging on its own -- always fully charged at the start of a rotation` }] : []),
+    ...(data.shareCooldownWith ? [{ label: '⇄', tooltip: `Also starts ${data.shareCooldownWith}'s own cooldown when this is cast` }] : [])
+  ];
+
   return (
     <tr className="mech-row" onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
       <td
@@ -269,15 +276,17 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
         </div>
       </td>
 
-      <td className="mech-col-num">
-        <input
-          type="text"
-          className="cell-value"
-          value={displayTimeVal(data.cooldown, 's')}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateNode({ cooldown: e.target.value })}
-          onBlur={makeTimeBlur(data, updateNode, 'cooldown', 'seconds')}
-          placeholder="—"
-        />
+      <td
+        className={`mech-col-num mech-trigger-cell ${activeTrigger === 'cooldown' ? 'is-active' : ''}`}
+        onClick={toggleTrigger('cooldown')}
+        onMouseEnter={() => onFieldMouseEnter('cooldown')}
+        onMouseLeave={onFieldMouseLeave}
+      >
+        <div className="mech-tag-row">
+          {cooldownTags.length === 0 ? <span className="dim">—</span> : cooldownTags.map((t, i) => (
+            <TypeTag key={i} val={t.label} label={t.label} tooltip={t.tooltip} />
+          ))}
+        </div>
       </td>
 
       <td className="mech-col-remove">

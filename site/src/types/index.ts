@@ -139,6 +139,13 @@ export interface MechanicNode {
   // See TimelineEngine.ts's _processGameTimeDecay for where the two domains cross.
   actionDuration?: Frames | string;
   cooldown?: number | string;
+  // >1 uses means separate, independently-recharging charges (not one shared timer) -- each use
+  // consumes one and starts its own `cooldown`-length recharge. Always full at combat start.
+  maxCharges?: number | string;
+  // Bare name of another of this unit's own mechanics. Casting this move also starts that
+  // move's own cooldown (using ITS OWN cooldown/maxCharges, not this move's value) -- kept in
+  // sync bidirectionally by CooldownPanel, not meant for hand-authoring both sides separately.
+  shareCooldownWith?: string;
   swapTiming?: Frames | string;
   freezeTime?: Frames | string;
   comboWindow?: Frames | string;
