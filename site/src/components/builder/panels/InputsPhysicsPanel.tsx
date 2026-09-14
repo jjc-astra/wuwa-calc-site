@@ -10,9 +10,11 @@ interface InputsPhysicsPanelProps {
   data: MechanicNode;
   updateNode: (patch: Partial<MechanicNode>) => void;
   forteOptions: DropdownOption[];
+  // Resolved Hold siblings; hides the config box if Repeat is present, ignoring stale Release holdConfig.
+  groupSiblings?: { repeat?: [string, MechanicNode]; release?: [string, MechanicNode] };
 }
 
-export const InputsPhysicsPanel: React.FC<InputsPhysicsPanelProps> = ({ data, updateNode, forteOptions }) => {
+export const InputsPhysicsPanel: React.FC<InputsPhysicsPanelProps> = ({ data, updateNode, forteOptions, groupSiblings }) => {
   const holdCfg = data.holdConfig || {};
   const d = MECHANICS_NOTATION.HOLD_DEFAULTS;
   const isClamp = (holdCfg.cursorMode || d.CURSOR_MODE) === 'clamp';
@@ -43,11 +45,12 @@ export const InputsPhysicsPanel: React.FC<InputsPhysicsPanelProps> = ({ data, up
           <label className="form-label">Input Type</label>
           <Dropdown
             className="base-select"
-            value={data.inputType || 'Press'}
-            onChange={v => updateNode({ inputType: v as any })}
+            value={data.inputType || ''}
+            onChange={v => updateNode({ inputType: (v || undefined) as any })}
             options={[
-              { value: 'Press', label: 'Press' },
+              { value: '', label: 'None' },
               { value: 'Hold', label: 'Hold' },
+              { value: 'Repeat', label: 'Repeat' },
               { value: 'Release', label: 'Release' }
             ]}
           />
@@ -66,6 +69,7 @@ export const InputsPhysicsPanel: React.FC<InputsPhysicsPanelProps> = ({ data, up
           />
         </div>
       </div>
+
       <div className="form-row">
         <div className="form-group">
           <label className="form-label">Stance Result</label>
@@ -86,7 +90,7 @@ export const InputsPhysicsPanel: React.FC<InputsPhysicsPanelProps> = ({ data, up
         </div>
       </div>
 
-      {data.inputType === 'Release' && (
+      {data.inputType === 'Release' && !groupSiblings?.repeat && (
         <div className="form-row hold-config-row mt-sm" style={{ display: 'flex', background: 'rgba(220,165,76,0.05)', padding: 'var(--space-3)', border: '1px solid rgba(220,165,76,0.2)', borderRadius: '4px', flexDirection: 'column', gap: 'var(--space-3)' }}>
           <div className="w-100 text-gold text-bold" style={{ fontSize: '0.8rem' }}>Hold Input Configuration</div>
           <div className="flex-row gap-sm w-100 flex-wrap">

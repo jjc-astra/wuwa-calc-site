@@ -27,7 +27,10 @@ interface BuilderState {
   // Replaces the whole baseStats object at once -- e.g. importing a Character JSON file,
   // where stale fields the import doesn't redefine shouldn't linger from the old value.
   setAllBaseStats: (stats: BaseStats) => void;
-  setMechanicNode: (nodeId: string, node: MechanicNode) => void;
+  // insertAfter: for a brand-new nodeId only -- places it right after that existing key instead
+  // of the object-spread default of the very end, so e.g. a Hold's freshly-created Repeat/Release
+  // sibling lands next to its Hold in the saved JSON instead of miles away at EOF.
+  setMechanicNode: (nodeId: string, node: MechanicNode, insertAfter?: string) => void;
   renameMechanicNode: (oldId: string, newId: string, node: MechanicNode) => void;
   removeMechanicNode: (nodeId: string) => void;
   resetCache: () => void;
@@ -151,9 +154,20 @@ export const useBuilderStore = create<BuilderState>()(
         });
       },
 
-      setMechanicNode: (nodeId, node) => {
+      setMechanicNode: (nodeId, node, insertAfter) => {
         set(state => {
-          const updated = { ...state.mechanics, [nodeId]: node };
+          let updated: Record<string, MechanicNode>;
+          // Only a genuinely new key needs positioning -- updating one already in place should
+          // never jump it elsewhere in the object.
+          if (insertAfter && !(nodeId in state.mechanics) && insertAfter in state.mechanics) {
+            updated = {};
+            Object.entries(state.mechanics).forEach(([key, val]) => {
+              updated[key] = val;
+              if (key === insertAfter) updated[nodeId] = node;
+            });
+          } else {
+            updated = { ...state.mechanics, [nodeId]: node };
+          }
           DataLoader.registerMechanicNode(nodeId, node);
           return {
             mechanics: updated,
@@ -169,9 +183,12 @@ export const useBuilderStore = create<BuilderState>()(
           return;
         }
         set(state => {
-          const updated = { ...state.mechanics };
-          delete updated[oldId];
-          updated[newId] = node;
+          // Swaps keys in place to preserve property insertion order instead of appending to the end via delete/reassign.
+          const updated: Record<string, MechanicNode> = {};
+          Object.entries(state.mechanics).forEach(([key, val]) => {
+            if (key === oldId) updated[newId] = node;
+            else updated[key] = val;
+          });
           DataLoader.unregisterMechanicNode(oldId);
           DataLoader.registerMechanicNode(newId, node);
 

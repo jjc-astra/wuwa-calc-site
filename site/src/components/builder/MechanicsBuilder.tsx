@@ -105,8 +105,45 @@ const GridCard: React.FC<GridCardProps> = ({ itemName, imgFolder, dbRef, onClick
   );
 };
 
+// Groups Hold/Repeat/Release siblings into a single card via explicit holdGroupId, falling back to legacy input+role matching.
+function resolveHoldGroups(allMechs: Record<string, MechanicNode>) {
+  const entries = Object.entries(allMechs);
+  const skipIds = new Set<string>();
+  const groupSiblings: Record<string, { repeat?: [string, MechanicNode]; release?: [string, MechanicNode] }> = {};
+
+  entries.forEach(([holdId, holdNode]) => {
+    if (holdNode.inputType !== 'Hold') return;
+    let repeat: [string, MechanicNode] | undefined;
+    let release: [string, MechanicNode] | undefined;
+
+    // Matches explicit holdGroupId first, supporting partial migrations where only one sibling has adopted an ID so far.
+    if (holdNode.holdGroupId) {
+      entries.forEach(([id, m]) => {
+        if (id === holdId || m.holdGroupId !== holdNode.holdGroupId) return;
+        if (m.inputType === 'Repeat') repeat = [id, m];
+        else if (m.inputType === 'Release') release = [id, m];
+      });
+    }
+    // Legacy fallback matching unassigned nodes by both input and category, preventing basic charged attacks from stealing group releases.
+    entries.forEach(([id, m]) => {
+      if (id === holdId || m.holdGroupId || m.input !== holdNode.input || m.category !== holdNode.category) return;
+      if (m.inputType === 'Repeat' && !repeat) repeat = [id, m];
+      else if (m.inputType === 'Release' && !!m.holdConfig && !release) release = [id, m];
+    });
+
+    if (repeat || release) {
+      groupSiblings[holdId] = { repeat, release };
+      if (repeat) skipIds.add(repeat[0]);
+      if (release) skipIds.add(release[0]);
+    }
+  });
+
+  return { skipIds, groupSiblings };
+}
+
 export const MechanicsBuilder: React.FC = () => {
   const { activeChar, setActiveChar, mechanics, setMechanicNode, baseStats, setBaseStat, hasChanges } = useBuilderStore();
+  const { skipIds: holdGroupSkipIds, groupSiblings: holdGroupSiblings } = resolveHoldGroups(mechanics);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTemplates, setSelectedTemplates] = useState<Record<string, string>>({});
 
@@ -276,6 +313,7 @@ export const MechanicsBuilder: React.FC = () => {
         <div id="mechanics-accordion" className="flex-col gap-md" style={{ marginTop: '20px' }}>
           {targetCategories.map((cat: string) => {
             const catMechs = (Object.entries(mechanics) as [string, MechanicNode][]).filter(([id, m]) => {
+              if (holdGroupSkipIds.has(id)) return false;
               if (m.category && targetCategories.includes(m.category)) return m.category === cat;
               if (activeChar === 'Generic') return cat === 'System Mechanics';
               if (!isCharacter) {
@@ -367,9 +405,18 @@ export const MechanicsBuilder: React.FC = () => {
                           <th className="mech-col-remove"></th>
                         </tr>
                       </thead>
-                      {catMechs.map(([id, node]) => (
-                        <MechanicNodeCard key={id} nodeId={id} data={node} />
-                      ))}
+                      {(() => {
+                        const ordered: { id: string; node: MechanicNode; groupSiblings?: typeof holdGroupSiblings[string]; childRole?: 'Repeat' | 'Release' }[] = [];
+                        catMechs.forEach(([id, node]) => {
+                          const sib = holdGroupSiblings[id];
+                          ordered.push({ id, node, groupSiblings: sib });
+                          if (sib?.repeat) ordered.push({ id: sib.repeat[0], node: sib.repeat[1], groupSiblings: sib, childRole: 'Repeat' });
+                          if (sib?.release) ordered.push({ id: sib.release[0], node: sib.release[1], groupSiblings: sib, childRole: 'Release' });
+                        });
+                        return ordered.map(({ id, node, groupSiblings, childRole }) => (
+                          <MechanicNodeCard key={id} nodeId={id} data={node} groupSiblings={groupSiblings} childOfHold={childRole} />
+                        ));
+                      })()}
                     </table>
                   )}
                 </div>

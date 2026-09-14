@@ -279,12 +279,15 @@ export class DataLoaderClass {
     }
   }
 
-  // Finds a character's Hold "Release" mechanic (the one carrying holdConfig) -- optionally
-  // scoped to a specific `input` binding, since a dual-mode character can have two separate
-  // Hold mechanics (one per mode) that would otherwise be ambiguous to tell apart. Shared by
-  // TimelineEngine (auto-wait/live cursor tracking) and Gauge.tsx (display preview) so the
-  // lookup can't quietly diverge between the two.
+  // Locates a character's Hold Release mechanic (optionally input-scoped) to keep TimelineEngine and Gauge lookup logic unified.
   findHoldReleaseConfig(charName: string, matchInput?: string): HoldConfig | null {
+    const hasRepeatForInput = Object.keys(this.mechanicsDB).some(k => {
+      const m = this.mechanicsDB[k];
+      if (!k.startsWith(`${charName}_`) || m.inputType !== 'Repeat') return false;
+      return matchInput === undefined || m.input === matchInput;
+    });
+    if (hasRepeatForInput) return null;
+
     const releaseKey = Object.keys(this.mechanicsDB).find(k => {
       const m = this.mechanicsDB[k];
       if (!k.startsWith(`${charName}_`) || m.inputType !== 'Release' || !m.holdConfig) return false;

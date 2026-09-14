@@ -19,6 +19,8 @@ import type { DropdownOption } from '../common/Dropdown';
 interface MechanicNodeCardProps {
   nodeId: string;
   data: MechanicNode;
+  groupSiblings?: { repeat?: [string, MechanicNode]; release?: [string, MechanicNode] };
+  childOfHold?: 'Repeat' | 'Release';
 }
 
 export type PanelKey = 'identity' | 'inputs' | 'timeMods' | 'hits' | 'castTags' | 'dmgTags' | 'castRes' | 'default';
@@ -36,7 +38,7 @@ const PANEL_FIELDS: Record<PanelKey, string[]> = {
   default: ['triggerRule', 'isPassive', 'isSwapInDefault', 'modeScope', 'effects']
 };
 
-export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data }) => {
+export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data, groupSiblings, childOfHold }) => {
   const { setMechanicNode, removeMechanicNode, activeChar, baseStats, setHighlightedNodeId, setHoveredFieldHighlight } = useBuilderStore();
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Single ref shared by every field-hover source, so a fast leave-then-enter across
@@ -51,10 +53,10 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
   };
 
   // Previews a sub-panel's fields on hover (cell or open body) -- independent of highlightedNodeId.
-  const enterFieldHover = (key: PanelKey) => {
+  const enterFieldHover = (key: PanelKey, targetId: string = nodeId) => {
     if (fieldHoverTimeoutRef.current) clearTimeout(fieldHoverTimeoutRef.current);
     fieldHoverTimeoutRef.current = setTimeout(() => {
-      setHoveredFieldHighlight({ nodeId, fields: PANEL_FIELDS[key] });
+      setHoveredFieldHighlight({ nodeId: targetId, fields: PANEL_FIELDS[key] });
     }, 50);
   };
   const leaveFieldHover = () => {
@@ -108,7 +110,7 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
       case 'identity':
         return <IdentityPanel nodeId={nodeId} data={data} updateNode={updateNode} />;
       case 'inputs':
-        return <InputsPhysicsPanel data={data} updateNode={updateNode} forteOptions={forteOptions} />;
+        return <InputsPhysicsPanel data={data} updateNode={updateNode} forteOptions={forteOptions} groupSiblings={data.inputType !== 'Repeat' ? groupSiblings : undefined} />;
       case 'timeMods':
         return <TimingModsPanel data={data} updateNode={updateNode} />;
       case 'hits':
@@ -131,7 +133,7 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
         );
       case 'default':
       default:
-        return <TriggerRuleEffectsPanel data={data} updateNode={updateNode} forteOptions={forteOptions} />;
+        return <TriggerRuleEffectsPanel data={data} updateNode={updateNode} forteOptions={forteOptions} groupSiblings={groupSiblings} nodeId={nodeId} />;
     }
   };
 
@@ -153,6 +155,8 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
         setDmgSelect={setDmgSelect}
         setCastResType={setCastResType}
         setCastResAmt={setCastResAmt}
+        groupSiblings={groupSiblings}
+        childOfHold={childOfHold}
       />
 
       {activeTrigger && (

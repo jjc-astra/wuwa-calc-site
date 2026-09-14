@@ -5,6 +5,7 @@ import { buildBuilderPayload } from '../workers/builderOverridePayload';
 import type { RotationResults } from '../types/results';
 import { useRosterStore } from './useRosterStore';
 import { checkTeamFreshness } from '../utils/dataFreshness';
+import { expandRepeatBlocks, collapseRepeatResults } from '../logic/RepeatBlocks';
 import { useRotationHistoryStore } from './useRotationHistoryStore';
 import {
   HistoryManager,
@@ -15,6 +16,8 @@ import {
   MoveRowsCommand,
   SetLoopStartCommand,
   SetLoopEndCommand,
+  SetRepeatBlockStartCommand,
+  SetRepeatBlockEndCommand,
   SetEndingRotationFlagsCommand,
   CompositeCommand,
   cloneRowsSansLinks
@@ -29,6 +32,12 @@ export interface RotationRow {
   manualOffset?: number;
   loopStartOverride?: boolean;
   loopEndOverride?: boolean;
+  // A Hold Repeat block's boundary rows -- both carry the same groupId, so multiple independent
+  // blocks can coexist (unlike loopStartOverride/loopEndOverride, which are rotation-wide
+  // singletons). repeatCount lives on the start row only.
+  repeatBlockStart?: string;
+  repeatBlockEnd?: string;
+  repeatCount?: number;
   [key: string]: any;
 }
 
@@ -78,6 +87,14 @@ interface RotationState {
   resetLoopStart: () => void;
   setLoopEndOverride: (index: number) => void;
   resetLoopEnd: () => void;
+  // Wraps rows [startIndex, endIndex] as a new, independent Hold Repeat block (its own groupId,
+  // so it doesn't disturb any other block already in the rotation).
+  addRepeatBlock: (startIndex: number, endIndex: number) => void;
+  removeRepeatBlock: (groupId: string) => void;
+  setRepeatCount: (groupId: string, count: number) => void;
+  // Drag-reposition an existing block's start/end marker (mirrors setLoopStartOverride/setLoopEndOverride).
+  setRepeatBlockStartIndex: (groupId: string, index: number) => void;
+  setRepeatBlockEndIndex: (groupId: string, index: number) => void;
   // Enabling tags the last content row as loop end and appends a copy of the loop segment as
   // "Ending Rotation" content. Disabling removes the tag and appended rows.
   setEndingRotationEnabled: (val: boolean) => void;
@@ -121,6 +138,10 @@ function reviveCommand(data: SerializedCommand, ctx: RevivalContext): Command {
       return new SetLoopStartCommand(ctx.getRows, ctx.setRows, data.newIndex, data.prevIndex, ctx.onComplete);
     case 'setLoopEnd':
       return new SetLoopEndCommand(ctx.getRows, ctx.setRows, data.newIndex, data.prevIndex, ctx.onComplete);
+    case 'setRepeatBlockStart':
+      return new SetRepeatBlockStartCommand(ctx.getRows, ctx.setRows, data.groupId, data.newIndex, data.prevIndex, data.initialCount, ctx.onComplete);
+    case 'setRepeatBlockEnd':
+      return new SetRepeatBlockEndCommand(ctx.getRows, ctx.setRows, data.groupId, data.newIndex, data.prevIndex, ctx.onComplete);
     case 'move':
       return new MoveRowsCommand(ctx.getRows, ctx.setRows, data.indicesToMove, data.targetIndex, data.previousRowsSnapshot, ctx.onComplete);
     case 'endingRotationFlags':
@@ -230,13 +251,30 @@ export const useRotationStore = create<RotationState>()(
           const startIndex = hasSelection ? selectedIndices[0] : Math.max(0, rows.length - 1);
           const maxEdits = hasSelection ? Math.min(clipboard.length, selectedIndices.length) : 0;
 
+          // A pasted repeat block gets fresh groupId(s) of its own -- never reuses the copied
+          // source's, which likely still exists elsewhere and would otherwise end up sharing one
+          // groupId across two independent blocks (findBlocks assumes one start/end pair per id).
+          // Shared across every clipboard row below so a copied block's start+end (or a 1-row
+          // block's shared start===end id) still land on the same new groupId as each other.
+          const groupIdRemap = new Map<string, string>();
+          const remapGroupId = (id: string | undefined) => {
+            if (id === undefined) return undefined;
+            if (!groupIdRemap.has(id)) groupIdRemap.set(id, crypto.randomUUID());
+            return groupIdRemap.get(id);
+          };
+          const repeatFieldsFor = (data: RotationRow) => ({
+            repeatBlockStart: remapGroupId(data.repeatBlockStart),
+            repeatBlockEnd: remapGroupId(data.repeatBlockEnd),
+            repeatCount: data.repeatCount
+          });
+
           const commands: Command[] = [];
 
           for (let i = 0; i < maxEdits; i++) {
             const rowIdx = selectedIndices[i];
-            const data = clipboard[i];
+            const data = { ...clipboard[i], ...repeatFieldsFor(clipboard[i]) };
             const existing = rows[rowIdx];
-            (['unit', 'action', 'timing'] as const).forEach(field => {
+            (['unit', 'action', 'timing', 'repeatBlockStart', 'repeatBlockEnd', 'repeatCount'] as const).forEach(field => {
               if (existing[field] !== data[field]) {
                 commands.push(new EditValueCommand(getRawRows, setRawRows, rowIdx, field, existing[field], data[field], triggerRecalc));
               }
@@ -248,7 +286,7 @@ export const useRotationStore = create<RotationState>()(
             for (let i = maxEdits; i < clipboard.length; i++) {
               const data = clipboard[i];
               const targetIndex = insertBase + (i - maxEdits);
-              const newRow: RotationRow = { unit: data.unit, action: data.action, timing: data.timing, offset: 0 };
+              const newRow: RotationRow = { unit: data.unit, action: data.action, timing: data.timing, offset: 0, ...repeatFieldsFor(data) };
               commands.push(new AddRowCommand(getRawRows, setRawRows, newRow, targetIndex, triggerRecalc));
             }
           }
@@ -334,6 +372,56 @@ export const useRotationStore = create<RotationState>()(
           historyManager.execute(cmd);
         },
 
+        addRepeatBlock: (startIndex: number, endIndex: number) => {
+          const rows = get().rows;
+          if (!rows[startIndex]?.unit || !rows[endIndex]?.unit || endIndex < startIndex) return;
+          const groupId = crypto.randomUUID();
+          const commands: Command[] = [
+            new SetRepeatBlockStartCommand(getRawRows, setRawRows, groupId, startIndex, null, 2, triggerRecalc),
+            new SetRepeatBlockEndCommand(getRawRows, setRawRows, groupId, endIndex, null, triggerRecalc)
+          ];
+          historyManager.execute(new CompositeCommand(commands));
+        },
+
+        removeRepeatBlock: (groupId: string) => {
+          const rows = get().rows;
+          const startIdx = SetRepeatBlockStartCommand.findIndexForGroup(rows, groupId);
+          const endIdx = SetRepeatBlockEndCommand.findIndexForGroup(rows, groupId);
+          const commands: Command[] = [];
+          if (startIdx !== null) commands.push(new SetRepeatBlockStartCommand(getRawRows, setRawRows, groupId, null, startIdx, 2, triggerRecalc));
+          if (endIdx !== null) commands.push(new SetRepeatBlockEndCommand(getRawRows, setRawRows, groupId, null, endIdx, triggerRecalc));
+          if (commands.length === 0) return;
+          historyManager.execute(commands.length === 1 ? commands[0] : new CompositeCommand(commands));
+        },
+
+        setRepeatCount: (groupId: string, count: number) => {
+          const rows = get().rows;
+          const idx = rows.findIndex(r => r.repeatBlockStart === groupId);
+          if (idx === -1) return;
+          const clamped = Math.max(1, Math.floor(count) || 1);
+          if (rows[idx].repeatCount === clamped) return;
+          const cmd = new EditValueCommand(getRawRows, setRawRows, idx, 'repeatCount', rows[idx].repeatCount ?? 2, clamped, triggerRecalc);
+          historyManager.execute(cmd);
+        },
+
+        setRepeatBlockStartIndex: (groupId: string, index: number) => {
+          const rows = get().rows;
+          if (!rows[index]?.unit) return;
+          const prevIndex = SetRepeatBlockStartCommand.findIndexForGroup(rows, groupId);
+          if (prevIndex === index) return;
+          const cmd = new SetRepeatBlockStartCommand(getRawRows, setRawRows, groupId, index, prevIndex, 2, triggerRecalc);
+          historyManager.execute(cmd);
+        },
+
+        setRepeatBlockEndIndex: (groupId: string, index: number) => {
+          const rows = get().rows;
+          if (!rows[index]?.unit) return;
+          const prevIndex = SetRepeatBlockEndCommand.findIndexForGroup(rows, groupId);
+          if (prevIndex === index) return;
+          const cmd = new SetRepeatBlockEndCommand(getRawRows, setRawRows, groupId, index, prevIndex, triggerRecalc);
+          historyManager.execute(cmd);
+        },
+
         // Removes the whole Ending Rotation split (tag + appended rows), not just the tag.
         // Shared by the row marker's reset button and unchecking the toolbar checkbox.
         resetLoopEnd: () => {
@@ -396,7 +484,7 @@ export const useRotationStore = create<RotationState>()(
           const loopStart = get().loopStartIndex;
           const loopRows = rows.slice(loopStart, lastContentIdx + 1);
           loopRows.forEach((r, i) => {
-            const { loopStartOverride, loopEndOverride, ...clean } = r;
+            const { loopStartOverride, loopEndOverride, repeatBlockStart, repeatBlockEnd, repeatCount, ...clean } = r;
             const newRow: RotationRow = { ...clean, unit: r.unit, action: r.action, timing: r.timing, offset: 0 };
             commands.push(new AddRowCommand(getRawRows, setRawRows, newRow, lastContentIdx + 1 + i, triggerRecalc));
           });
@@ -424,8 +512,13 @@ export const useRotationStore = create<RotationState>()(
           // So a mechanics-file change is picked up without waiting for a Calculate press or reload.
           const staleRefs = await checkTeamFreshness(team);
 
+          // Hold Repeat blocks are authoring/display sugar -- TimelineEngine only ever sees
+          // `expanded` (each block's row range cloned `repeatCount` times); the response gets
+          // folded back onto `rows`' original positions below via collapseMap.
+          const { expanded, collapseMap } = expandRepeatBlocks(rows);
+
           set({ isCalculating: true });
-          const { seq, result } = postToWorker('recalculate', { rows, team, options, enemy, includeDamage, endingRotationEnabled, endRotationStartsEarlier, staleRefs, ...buildBuilderPayload(team) });
+          const { seq, result } = postToWorker('recalculate', { rows: expanded, team, options, enemy, includeDamage, endingRotationEnabled, endRotationStartsEarlier, staleRefs, ...buildBuilderPayload(team) });
           latestSeqByType.recalculate = seq;
           let data: any;
           try {
@@ -441,7 +534,7 @@ export const useRotationStore = create<RotationState>()(
           // Preserve existing damageInstances unless the result has fresh ones (TimelineEngine
           // always resets them to [], truthy but not "fresh").
           const existingDamageMap = new Map(get().rows.map((r, i) => [i, r.damageInstances]));
-          const evaluatedRows = data.evaluatedRows;
+          const evaluatedRows = collapseRepeatResults(data.evaluatedRows, collapseMap, rows);
           evaluatedRows.forEach((row: any, i: number) => {
             row.damageInstances = (row.damageInstances && row.damageInstances.length > 0)
               ? row.damageInstances
@@ -451,7 +544,7 @@ export const useRotationStore = create<RotationState>()(
           set({
             rows: evaluatedRows,
             isStale: markStale ? true : get().isStale,
-            loopStartIndex: data.loopStartIndex,
+            loopStartIndex: collapseMap[data.loopStartIndex] ?? data.loopStartIndex,
             loopStartIsOverride: data.loopStartIsOverride,
             loopErrors: data.loopErrors,
             loopWarnings: data.loopWarnings,
@@ -470,8 +563,13 @@ export const useRotationStore = create<RotationState>()(
           // also passed to the worker so its own DataLoader instance drops the same entries.
           const staleRefs = await checkTeamFreshness(team);
 
+          const { expanded, collapseMap } = expandRepeatBlocks(rows);
+          // loopStartIndex was computed against the original (collapsed) rows -- translate it to
+          // where that same content now sits in `expanded` before the worker uses it to run the loop.
+          const expandedLoopStartIndex = collapseMap.indexOf(loopStartIndex);
+
           set({ isCalculating: true });
-          const { seq, result } = postToWorker('calculateDamage', { rows, team, options, enemy, loopStartIndex, endingRotationEnabled, endRotationStartsEarlier, staleRefs, ...buildBuilderPayload(team) });
+          const { seq, result } = postToWorker('calculateDamage', { rows: expanded, team, options, enemy, loopStartIndex: expandedLoopStartIndex === -1 ? loopStartIndex : expandedLoopStartIndex, endingRotationEnabled, endRotationStartsEarlier, staleRefs, ...buildBuilderPayload(team) });
           latestSeqByType.calculateDamage = seq;
           let data: any;
           try {
@@ -483,7 +581,8 @@ export const useRotationStore = create<RotationState>()(
           }
           if (seq !== latestSeqByType.calculateDamage) return;
 
-          set({ rows: data.evaluatedRows, isStale: false, results: data.results, isCalculating: false });
+          const evaluatedRows = collapseRepeatResults(data.evaluatedRows, collapseMap, rows);
+          set({ rows: evaluatedRows, isStale: false, results: data.results, isCalculating: false });
 
           // One history row per successful Calculate press, in the same shape Export Rotation uses.
           useRotationHistoryStore.getState().addEntry({
@@ -491,12 +590,14 @@ export const useRotationStore = create<RotationState>()(
               const { domRef, ...clean } = slot as any;
               return clean;
             }),
-            rotation: rows.map(({ unit, action, timing, loopStartOverride, loopEndOverride }) => ({
+            rotation: rows.map(({ unit, action, timing, loopStartOverride, loopEndOverride, repeatBlockStart, repeatBlockEnd, repeatCount }) => ({
               unit,
               action,
               timing,
               ...(loopStartOverride === true && { loopStartOverride: true }),
-              ...(loopEndOverride === true && { loopEndOverride: true })
+              ...(loopEndOverride === true && { loopEndOverride: true }),
+              ...(repeatBlockStart !== undefined && { repeatBlockStart, repeatCount }),
+              ...(repeatBlockEnd !== undefined && { repeatBlockEnd })
             })),
             settings: { ...options, endingRotationEnabled, endRotationStartsEarlier },
             results: data.results
@@ -532,14 +633,16 @@ export const useRotationStore = create<RotationState>()(
     {
       name: 'wuwa_calc_rotation_cache',
       partialize: (state) => ({
-        rows: state.rows.map(({ unit, action, timing, offset, manualOffset, loopStartOverride, loopEndOverride }) => ({
+        rows: state.rows.map(({ unit, action, timing, offset, manualOffset, loopStartOverride, loopEndOverride, repeatBlockStart, repeatBlockEnd, repeatCount }) => ({
           unit,
           action,
           timing,
           ...(offset !== undefined && { offset }),
           ...(manualOffset !== undefined && { manualOffset }),
           ...(loopStartOverride === true && { loopStartOverride: true }),
-          ...(loopEndOverride === true && { loopEndOverride: true })
+          ...(loopEndOverride === true && { loopEndOverride: true }),
+          ...(repeatBlockStart !== undefined && { repeatBlockStart, repeatCount }),
+          ...(repeatBlockEnd !== undefined && { repeatBlockEnd })
         })),
         startEnergy: state.startEnergy,
         startConcerto: state.startConcerto,

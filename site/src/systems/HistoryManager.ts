@@ -13,6 +13,8 @@ export type SerializedCommand =
   | { type: 'editFields'; index: number; oldValues: Record<string, any>; newValues: Record<string, any> }
   | { type: 'setLoopStart'; newIndex: number | null; prevIndex: number | null }
   | { type: 'setLoopEnd'; newIndex: number | null; prevIndex: number | null }
+  | { type: 'setRepeatBlockStart'; groupId: string; newIndex: number | null; prevIndex: number | null; initialCount: number }
+  | { type: 'setRepeatBlockEnd'; groupId: string; newIndex: number | null; prevIndex: number | null }
   | { type: 'move'; indicesToMove: number[]; targetIndex: number; previousRowsSnapshot: any[] }
   | {
       type: 'endingRotationFlags';
@@ -436,6 +438,124 @@ export class SetLoopEndCommand implements Command {
 
   serialize(): SerializedCommand {
     return { type: 'setLoopEnd', newIndex: this.newIndex, prevIndex: this.prevIndex };
+  }
+}
+
+// Targets multi-instance Hold Repeat blocks by `groupId`, carrying existing `repeatCount` on drag moves while using `initialCount` solely on creation.
+export class SetRepeatBlockStartCommand implements Command {
+  private getRows: () => any[];
+  private setRows: (rows: any[]) => void;
+  private groupId: string;
+  private newIndex: number | null;
+  private prevIndex: number | null;
+  private initialCount: number;
+  private onComplete?: () => void;
+
+  constructor(
+    getRows: () => any[],
+    setRows: (rows: any[]) => void,
+    groupId: string,
+    newIndex: number | null,
+    prevIndex: number | null,
+    initialCount: number,
+    onComplete?: () => void
+  ) {
+    this.getRows = getRows;
+    this.setRows = setRows;
+    this.groupId = groupId;
+    this.newIndex = newIndex;
+    this.prevIndex = prevIndex;
+    this.initialCount = initialCount;
+    this.onComplete = onComplete;
+  }
+
+  static findIndexForGroup(rows: any[], groupId: string): number | null {
+    const idx = rows.findIndex(r => r.repeatBlockStart === groupId);
+    return idx === -1 ? null : idx;
+  }
+
+  private apply(clearIndex: number | null, setIndex: number | null) {
+    const current = [...this.getRows()];
+    let carriedCount = this.initialCount;
+    if (clearIndex !== null && clearIndex >= 0 && clearIndex < current.length) {
+      const row = current[clearIndex];
+      if (row.repeatCount !== undefined) carriedCount = row.repeatCount;
+      const { repeatBlockStart, repeatCount, ...rest } = row;
+      current[clearIndex] = rest;
+    }
+    if (setIndex !== null && setIndex >= 0 && setIndex < current.length) {
+      current[setIndex] = { ...current[setIndex], repeatBlockStart: this.groupId, repeatCount: carriedCount };
+    }
+    this.setRows(current);
+    this.onComplete?.();
+  }
+
+  execute() {
+    this.apply(this.prevIndex, this.newIndex);
+  }
+
+  undo() {
+    this.apply(this.newIndex, this.prevIndex);
+  }
+
+  serialize(): SerializedCommand {
+    return { type: 'setRepeatBlockStart', groupId: this.groupId, newIndex: this.newIndex, prevIndex: this.prevIndex, initialCount: this.initialCount };
+  }
+}
+
+// Same shape as SetRepeatBlockStartCommand, targeting `repeatBlockEnd` -- no count to carry.
+export class SetRepeatBlockEndCommand implements Command {
+  private getRows: () => any[];
+  private setRows: (rows: any[]) => void;
+  private groupId: string;
+  private newIndex: number | null;
+  private prevIndex: number | null;
+  private onComplete?: () => void;
+
+  constructor(
+    getRows: () => any[],
+    setRows: (rows: any[]) => void,
+    groupId: string,
+    newIndex: number | null,
+    prevIndex: number | null,
+    onComplete?: () => void
+  ) {
+    this.getRows = getRows;
+    this.setRows = setRows;
+    this.groupId = groupId;
+    this.newIndex = newIndex;
+    this.prevIndex = prevIndex;
+    this.onComplete = onComplete;
+  }
+
+  static findIndexForGroup(rows: any[], groupId: string): number | null {
+    const idx = rows.findIndex(r => r.repeatBlockEnd === groupId);
+    return idx === -1 ? null : idx;
+  }
+
+  private apply(clearIndex: number | null, setIndex: number | null) {
+    const current = [...this.getRows()];
+    if (clearIndex !== null && clearIndex >= 0 && clearIndex < current.length) {
+      const { repeatBlockEnd, ...rest } = current[clearIndex];
+      current[clearIndex] = rest;
+    }
+    if (setIndex !== null && setIndex >= 0 && setIndex < current.length) {
+      current[setIndex] = { ...current[setIndex], repeatBlockEnd: this.groupId };
+    }
+    this.setRows(current);
+    this.onComplete?.();
+  }
+
+  execute() {
+    this.apply(this.prevIndex, this.newIndex);
+  }
+
+  undo() {
+    this.apply(this.newIndex, this.prevIndex);
+  }
+
+  serialize(): SerializedCommand {
+    return { type: 'setRepeatBlockEnd', groupId: this.groupId, newIndex: this.newIndex, prevIndex: this.prevIndex };
   }
 }
 

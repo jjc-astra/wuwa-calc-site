@@ -95,10 +95,10 @@ function collectEffectNamesByNamespace(builderMechanics: Record<string, Mechanic
       const namespace = key.startsWith('System_') ? 'System' : key.split('_')[0];
       (mech.effects || []).forEach(e => {
         if (!e.name) return;
-        // Only buff effects define a reusable name -- resource/tracker/etc. effects reuse
-        // `name` for something else entirely (e.g. a resource effect's `name` is a pool key
-        // like "energy"/"forte1", not an identifier meant to be referenced elsewhere).
-        if (e.type && e.type !== 'buff') return;
+        // Buff and tracker effects both define a reusable name -- resource/time_scale/etc.
+        // effects reuse `name` for something else entirely (e.g. a resource effect's `name` is
+        // a pool key like "energy"/"forte1", not an identifier meant to be referenced elsewhere).
+        if (e.type && e.type !== 'buff' && e.type !== 'tracker') return;
         if (!byNamespace[namespace]) byNamespace[namespace] = new Set();
         const bare = e.name.startsWith(namespace + '_') ? e.name.slice(namespace.length + 1) : e.name;
         byNamespace[namespace].add(bare);

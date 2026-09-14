@@ -38,12 +38,14 @@ interface SummaryRowProps {
   setDmgSelect: (v: string) => void;
   setCastResType: (v: string) => void;
   setCastResAmt: (v: string) => void;
+  groupSiblings?: { repeat?: [string, MechanicNode]; release?: [string, MechanicNode] };
+  childOfHold?: 'Repeat' | 'Release';
 }
 
 export const SummaryRow: React.FC<SummaryRowProps> = ({
   nodeId, data, updateNode, activeTrigger, toggleTrigger, setActiveTrigger, removeMechanicNode,
   onMouseEnter, onMouseLeave, onFieldMouseEnter, onFieldMouseLeave,
-  setCastSelect, setDmgSelect, setCastResType, setCastResAmt
+  setCastSelect, setDmgSelect, setCastResType, setCastResAmt, groupSiblings, childOfHold
 }) => {
   const hitMultsArr = Array.isArray(data.hitMults) ? data.hitMults : [];
   // '%' in the string form is what CombatCalculator checks to route percent- vs flat-scaling --
@@ -73,6 +75,8 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
   const nameFlagTags: { label: string; tooltip: string }[] = [
     ...(data.isPassive ? [{ label: 'Passive', tooltip: 'Fires automatically, not a player-cast action' }] : []),
     ...(data.isSwapInDefault ? [{ label: 'Default Swap-In', tooltip: 'Used automatically when swapping onto this unit' }] : []),
+    ...(data.inputType === 'Hold' && groupSiblings?.repeat ? [{ label: '+ Repeat', tooltip: 'This Hold has a linked Repeat mechanic' }] : []),
+    ...(data.inputType === 'Hold' && groupSiblings?.release ? [{ label: '+ Release', tooltip: 'This Hold has a linked Release mechanic' }] : []),
     ...(data.modeScope === 'mode1' ? [{ label: baseStats.mode1Name || 'Mode 1', tooltip: 'Only available in Mode 1' }] : []),
     ...(data.modeScope === 'mode2' ? [{ label: baseStats.mode2Name || 'Mode 2', tooltip: 'Only available in Mode 2' }] : [])
   ];
@@ -115,7 +119,7 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
         onMouseEnter={() => onFieldMouseEnter('identity')}
         onMouseLeave={onFieldMouseLeave}
       >
-        <span className="mech-name-display">{data.name || 'New Mechanic'}</span>
+        <span className={`mech-name-display ${childOfHold ? 'mech-child-name' : ''}`}>{data.name || 'New Mechanic'}</span>
         {nameFlagTags.length > 0 && (
           <div className="mech-tag-row mech-name-flags">
             {nameFlagTags.map((t, i) => (

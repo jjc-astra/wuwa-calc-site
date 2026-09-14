@@ -3,6 +3,8 @@ import React from 'react';
 import type { MechanicNode } from '../../../types';
 import { BuilderState } from '../../../data/db';
 import { Dropdown } from '../../common/Dropdown';
+import { TypeTag } from '../../common/TypeTag';
+import { castTagColor } from '../mechanicNodeHelpers';
 
 interface AddCastTypePanelProps {
   data: MechanicNode;
@@ -21,6 +23,19 @@ export const AddCastTypePanel: React.FC<AddCastTypePanelProps> = ({ data, update
   return (
     <div className="sub-panel is-open">
       <div className="panel-header-main">Add Cast Type</div>
+      {(data.castTypes || []).length > 0 && (
+        <div className="mech-tag-row" style={{ marginBottom: 'var(--space-3)' }}>
+          {(data.castTypes || []).map((t, i) => (
+            <TypeTag
+              key={i}
+              val={t}
+              label={t}
+              color={castTagColor(t)}
+              onRemove={() => updateNode({ castTypes: data.castTypes?.filter((_, idx) => idx !== i) })}
+            />
+          ))}
+        </div>
+      )}
       <div className="mech-add-row">
         <Dropdown
           className="base-select mech-mini-select"

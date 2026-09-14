@@ -10,7 +10,7 @@ import { DialGauge, VerticalGauge, MultiForteGauge } from './Gauge';
 import { SubPanel } from './SubPanel';
 import { Dropdown } from '../common/Dropdown';
 import type { DropdownGroup } from '../common/Dropdown';
-import { TooltipManager, getCharacterThemeColor } from '../../utils/Common';
+import { TooltipManager, getCharacterThemeColor, tip } from '../../utils/Common';
 import { toFrames, secondsToFrames, framesToSeconds, formatFramesAsSeconds } from '../../utils/Frames';
 import { applyBuilderOverridesFor } from '../../workers/builderOverridePayload';
 
@@ -43,6 +43,17 @@ interface RotationRowProps {
   isEndRotationStart?: boolean;
   endRotationStartsEarlier?: boolean;
   onToggleEndRotationStartsEarlier?: (val: boolean) => void;
+  // A Hold Repeat block's boundary rows -- unlike Loop Start/End, several independent blocks can
+  // exist, so each carries its own groupId (row.repeatBlockStart/repeatBlockEnd) rather than a
+  // single rotation-wide flag.
+  isRepeatStart?: boolean;
+  repeatCount?: number;
+  onRepeatCountChange?: (n: number) => void;
+  onRepeatMarkerDragStart?: (e: React.DragEvent) => void;
+  onRepeatMarkerDragEnd?: (e: React.DragEvent) => void;
+  onRemoveRepeatBlock?: () => void;
+  isRepeatEnd?: boolean;
+  onRepeatEndMarkerDragStart?: (e: React.DragEvent) => void;
 }
 
 interface TimingOption {
@@ -88,12 +99,21 @@ export const RotationRow: React.FC<RotationRowProps> = ({
   onResetLoopEnd,
   isEndRotationStart,
   endRotationStartsEarlier,
-  onToggleEndRotationStartsEarlier
+  onToggleEndRotationStartsEarlier,
+  isRepeatStart,
+  repeatCount,
+  onRepeatCountChange,
+  onRepeatMarkerDragStart,
+  onRepeatMarkerDragEnd,
+  onRemoveRepeatBlock,
+  isRepeatEnd,
+  onRepeatEndMarkerDragStart
 }) => {
   const { updateRowField, updateRowFields, setRowUnit, isStale } = useRotationStore();
   const { team } = useRosterStore();
   const [isDraggable, setIsDraggable] = useState(true);
   const [offsetDraft, setOffsetDraft] = useState<string | null>(null);
+  const [repeatCountDraft, setRepeatCountDraft] = useState<string | null>(null);
 
   const teamUnits = team.map(t => t.character).filter(Boolean);
   const selectedUnit = row.unit || '';
@@ -184,7 +204,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
     const finalCandidates: Candidate[] = [];
     candidates.forEach(c => {
       if (!c.m.input) { finalCandidates.push(c); return; }
-      const key = `${c.m.input}|${c.m.inputType || 'Press'}|${c.m.stanceReq || ''}`;
+      const key = `${c.m.input}|${c.m.inputType || 'None'}|${c.m.stanceReq || ''}`;
       if (!byInputKey.has(key)) byInputKey.set(key, []);
       byInputKey.get(key)!.push(c);
     });
@@ -272,6 +292,28 @@ export const RotationRow: React.FC<RotationRowProps> = ({
       setOffsetDraft(null);
       e.currentTarget.blur();
     }
+  };
+
+  // Buffers local input and commits on blur to prevent intermediate store dispatches or recalculations while typing.
+  const commitRepeatCountDraft = () => {
+    if (repeatCountDraft === null) return;
+    const draft = repeatCountDraft;
+    setRepeatCountDraft(null);
+    onRepeatCountChange?.(parseInt(draft, 10) || 1);
+  };
+
+  const handleRepeatCountKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.currentTarget.blur();
+    } else if (e.key === 'Escape') {
+      setRepeatCountDraft(null);
+      e.currentTarget.blur();
+    }
+  };
+
+  const stepRepeatCount = (delta: number) => {
+    setRepeatCountDraft(null);
+    onRepeatCountChange?.(Math.max(1, (repeatCount ?? 2) + delta));
   };
 
   const timeStart = row.gameTimeStart !== undefined ? formatFramesAsSeconds(toFrames(row.gameTimeStart)) : '0.00s';
@@ -378,6 +420,68 @@ export const RotationRow: React.FC<RotationRowProps> = ({
             </div>
           ))}
         </>
+      )}
+
+      {isRepeatStart && (
+        <div
+          className="repeat-start-tag"
+          draggable
+          onDragStart={onRepeatMarkerDragStart}
+          onDragEnd={onRepeatMarkerDragEnd}
+          onMouseEnter={e => TooltipManager.show(e.currentTarget, '<div>Repeat block begins here — drag to move</div>')}
+          onMouseLeave={() => TooltipManager.hide()}
+        >
+          <span className="loop-tag-icon">↻</span>
+          <span className="loop-tag-label">REPEAT START</span>
+          <span
+            className="repeat-count-pill"
+            draggable={false}
+            onMouseDown={e => e.stopPropagation()}
+            onDragStart={e => { e.preventDefault(); e.stopPropagation(); }}
+          >
+            <span className="repeat-count-x">×</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              className="repeat-count-input"
+              style={{ width: `${String(repeatCountDraft !== null ? repeatCountDraft : (repeatCount ?? 2)).length}ch` }}
+              value={repeatCountDraft !== null ? repeatCountDraft : (repeatCount ?? 2)}
+              onClick={e => e.stopPropagation()}
+              onFocus={() => setRepeatCountDraft(String(repeatCount ?? 2))}
+              onChange={e => setRepeatCountDraft(e.target.value.replace(/[^0-9]/g, ''))}
+              onBlur={commitRepeatCountDraft}
+              onKeyDown={handleRepeatCountKeyDown}
+            />
+            <span className="repeat-count-steppers">
+              <button
+                type="button"
+                className="repeat-count-step"
+                tabIndex={-1}
+                onClick={e => { e.stopPropagation(); stepRepeatCount(1); }}
+                {...tip('Increase repeat count')}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 15 12 9 18 15" /></svg>
+              </button>
+              <button
+                type="button"
+                className="repeat-count-step"
+                tabIndex={-1}
+                onClick={e => { e.stopPropagation(); stepRepeatCount(-1); }}
+                {...tip('Decrease repeat count')}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+              </button>
+            </span>
+          </span>
+          <button
+            className="loop-tag-reset"
+            onClick={e => { e.stopPropagation(); onRemoveRepeatBlock?.(); }}
+            onMouseEnter={e => { e.stopPropagation(); TooltipManager.show(e.currentTarget, '<div>Remove this repeat block</div>'); }}
+            onMouseLeave={() => TooltipManager.hide()}
+          >
+            ✕
+          </button>
+        </div>
       )}
       <div className="row-grid-layer">
         {/* Index & Checkbox Cell */}
@@ -536,6 +640,20 @@ export const RotationRow: React.FC<RotationRowProps> = ({
           >
             ↺
           </button>
+        </div>
+      )}
+
+      {isRepeatEnd && (
+        <div
+          className="repeat-end-tag"
+          draggable
+          onDragStart={onRepeatEndMarkerDragStart}
+          onDragEnd={onRepeatMarkerDragEnd}
+          onMouseEnter={e => TooltipManager.show(e.currentTarget, '<div>Repeat block ends here — drag to move</div>')}
+          onMouseLeave={() => TooltipManager.hide()}
+        >
+          <span className="loop-tag-icon">↻</span>
+          <span className="loop-tag-label">REPEAT END</span>
         </div>
       )}
 

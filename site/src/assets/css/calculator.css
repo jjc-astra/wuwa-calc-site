@@ -881,6 +881,94 @@
 }
 .loop-end-tag:active { cursor: grabbing; }
 
+/* --- Hold Repeat Start/End Tags -- same shape as the Loop tags above, grey/black themed so a
+   per-move repeat block reads as visually distinct from the rotation-wide Loop markers. --- */
+.repeat-start-tag {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 4px 10px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-dim);
+    background: var(--neutral-tint);
+    border: 1px solid var(--neutral-border);
+    border-bottom: none;
+    border-radius: 4px 4px 0 0;
+    cursor: grab;
+    letter-spacing: 0.02rem;
+}
+.repeat-start-tag:active { cursor: grabbing; }
+
+.repeat-count-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-family: 'JetBrains Mono', 'Roboto Mono', monospace;
+    background: var(--overlay-b3);
+    border: 1px solid var(--overlay-w4);
+    padding: 2px 4px 2px 6px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    line-height: 1;
+    cursor: default;
+}
+.repeat-count-x { color: var(--text-dim); }
+
+.repeat-count-input {
+    background: transparent;
+    border: none;
+    color: var(--text-main);
+    font-family: inherit;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-align: left;
+    padding: 0;
+    cursor: text;
+}
+.repeat-count-input:focus { outline: none; }
+
+.repeat-count-steppers {
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1px;
+}
+.repeat-count-step {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 10px;
+    height: 7px;
+    padding: 0;
+    border: none;
+    border-radius: 2px;
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    line-height: 0;
+}
+.repeat-count-step svg { width: 8px; height: 8px; }
+.repeat-count-step:hover { color: var(--text-main); background: var(--overlay-w4); }
+.repeat-count-step:active { color: var(--accent); }
+
+.repeat-end-tag {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 4px 10px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-dim);
+    background: var(--neutral-tint);
+    border: 1px solid var(--neutral-border);
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    cursor: grab;
+    letter-spacing: 0.02rem;
+}
+.repeat-end-tag:active { cursor: grabbing; }
+
 /* --- Ending Rotation Cut + End Rotation Tag --- */
 .ending-rotation-cut {
     display: flex;

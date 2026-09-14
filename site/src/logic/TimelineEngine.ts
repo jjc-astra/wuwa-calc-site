@@ -176,7 +176,7 @@ export class TimelineEngineClass {
         prevData.enemyMaxTune = currentData.enemyMaxTune;
       }
 
-      if (dbMove.inputType === 'Release' && currentData.trackers && currentData.trackers.Hold_Start !== undefined && currentData.trackers.Hold_Unit === currentData.unit) {
+      if (dbMove.inputType === 'Release' && dbMove.holdConfig && currentData.trackers && currentData.trackers.Hold_Start !== undefined && currentData.trackers.Hold_Unit === currentData.unit) {
         const holdStart = currentData.trackers.Hold_Start;
         const config = dbMove.holdConfig || {};
         const speed = config.cursorSpeed ?? MECHANICS_NOTATION.HOLD_DEFAULTS.CURSOR_SPEED;
@@ -368,36 +368,41 @@ export class TimelineEngineClass {
             size = parseFloat(String(this._resolveDynamicMath(sizeExpr, currentData, currentData.unit, team)));
           }
         }
-        const halfWidth = size / 2;
+        // A Repeat-style hold (no holdConfig anywhere for this character's hold pair) has no
+        // cursor system at all -- skip writing any cursor/window state so it doesn't inherit
+        // meaningless all-default values (e.g. a bogus pingpong Cursor_Pos) it never asked for.
+        if (config && Object.keys(config).length > 0) {
+          const halfWidth = size / 2;
 
-        if (!currentData.trackers) currentData.trackers = {};
-        // Clamp has no window -- skip storing meaningless center/size trackers for it.
-        if (mode !== 'clamp') {
-          currentData.trackers.Forte_Win_Center = center;
-          currentData.trackers.Forte_Win_Size = size;
-        }
+          if (!currentData.trackers) currentData.trackers = {};
+          // Clamp has no window -- skip storing meaningless center/size trackers for it.
+          if (mode !== 'clamp') {
+            currentData.trackers.Forte_Win_Center = center;
+            currentData.trackers.Forte_Win_Size = size;
+          }
 
-        if (isHolding) {
-          const holdDuration = currentData.gameTimeStart - currentData.trackers.Hold_Start;
-          const accumulated = currentData.trackers.Cursor_Accumulated || 0;
-          const finalCursor = CommonUtils.resolveHoldCursorAtTime(accumulated, holdDuration, speed, mode, maxVal);
-          currentData.forteCursorPos = finalCursor;
-          currentData.forteWinCenter = center;
-          currentData.forteWinSize = size;
-          // 'clamp' has no window -- "done" (and IsInHoldWindow for trigger rules) means
-          // reaching full (speed >= 0) or empty (speed < 0) instead.
-          currentData.isInForteWindow = mode === 'clamp'
-            ? (speed >= 0 ? finalCursor >= maxVal : finalCursor <= 0)
-            : Math.abs(finalCursor - center) <= halfWidth;
-          currentData.trackers.Cursor_Pos = finalCursor;
+          if (isHolding) {
+            const holdDuration = currentData.gameTimeStart - currentData.trackers.Hold_Start;
+            const accumulated = currentData.trackers.Cursor_Accumulated || 0;
+            const finalCursor = CommonUtils.resolveHoldCursorAtTime(accumulated, holdDuration, speed, mode, maxVal);
+            currentData.forteCursorPos = finalCursor;
+            currentData.forteWinCenter = center;
+            currentData.forteWinSize = size;
+            // 'clamp' has no window -- "done" (and IsInHoldWindow for trigger rules) means
+            // reaching full (speed >= 0) or empty (speed < 0) instead.
+            currentData.isInForteWindow = mode === 'clamp'
+              ? (speed >= 0 ? finalCursor >= maxVal : finalCursor <= 0)
+              : Math.abs(finalCursor - center) <= halfWidth;
+            currentData.trackers.Cursor_Pos = finalCursor;
 
-          // Clamp mode: the cursor *is* the forte value while holding (unlike a window mode
-          // like Sanhua's, where the cursor is just release timing and forte comes from
-          // separate hitResources/effects) -- keep the real pool in lockstep.
-          if (mode === 'clamp') {
-            const slot = config.forteSlot || MECHANICS_NOTATION.HOLD_DEFAULTS.FORTE_SLOT;
-            if (!currentData[slot]) currentData[slot] = {};
-            currentData[slot][currentData.unit] = finalCursor;
+            // Clamp mode: the cursor *is* the forte value while holding (unlike a window mode
+            // like Sanhua's, where the cursor is just release timing and forte comes from
+            // separate hitResources/effects) -- keep the real pool in lockstep.
+            if (mode === 'clamp') {
+              const slot = config.forteSlot || MECHANICS_NOTATION.HOLD_DEFAULTS.FORTE_SLOT;
+              if (!currentData[slot]) currentData[slot] = {};
+              currentData[slot][currentData.unit] = finalCursor;
+            }
           }
         }
       }
@@ -1691,7 +1696,12 @@ export class TimelineEngineClass {
       newVal = Math.max(0, currentVal - removed);
       eventToEmit = 'OnTrackerRemove';
     } else if (action === 'consume') {
-      newVal = 0;
+      // Same ALL/HALF/N math as a buffAction consume/remove (_handleBuffActionEffect) -- an
+      // unset value defaults to ALL, matching "Consume" wiping the whole tracker by default.
+      const val = effect.value !== undefined ? effect.value : 'ALL';
+      if (val === 'HALF') newVal = Math.floor(currentVal / 2);
+      else if (val === 'ALL') newVal = 0;
+      else newVal = Math.max(0, currentVal - (parseFloat(String(val)) || 1));
       eventToEmit = 'OnTrackerConsume';
     } else if (action === 'set' || action === 'copy') {
       newVal = parseFloat(String(effect.value)) || 0;

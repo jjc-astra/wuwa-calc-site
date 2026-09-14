@@ -8,11 +8,11 @@ import { parseTimeInput } from '../../utils/Frames';
 
 export { tip } from '../../utils/Common';
 
+// Matches names with up to one level of nested parens (e.g. "@Sanhua(Forte Hold (Release))") to prevent premature capture truncation.
 export const flattenDslShorthand = (v: string): string =>
-  v.replace(/@([A-Za-z0-9_]+)\(([^)]+)\)/g, (_match, p1, p2) => `${p1}_${p2.trim()}`);
+  v.replace(/@([A-Za-z0-9_]+)\(((?:[^)(]+|\([^)(]*\))*)\)/g, (_match, p1, p2) => `${p1}_${p2.trim()}`);
 
-// Cast types: fixed non-elemental palette. Dmg types: exact elemental match, or the element
-// name found in the label (e.g. "Aero Erosion" -> Aero) so status effects still get a sensible hue.
+// Uses fixed non-elemental palette for cast types, and matches dmg types to exact or substring element names for status hues.
 export function dmgTagColor(tag: string): string {
   if (ELEMENT_COLORS[tag]) return ELEMENT_COLORS[tag];
   const match = Object.keys(ELEMENT_COLORS).find(el => tag.includes(el));

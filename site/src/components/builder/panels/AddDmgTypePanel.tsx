@@ -3,6 +3,8 @@ import React from 'react';
 import type { MechanicNode } from '../../../types';
 import { BuilderState } from '../../../data/db';
 import { Dropdown } from '../../common/Dropdown';
+import { TypeTag } from '../../common/TypeTag';
+import { dmgTagColor } from '../mechanicNodeHelpers';
 
 interface AddDmgTypePanelProps {
   data: MechanicNode;
@@ -21,6 +23,19 @@ export const AddDmgTypePanel: React.FC<AddDmgTypePanelProps> = ({ data, updateNo
   return (
     <div className="sub-panel is-open">
       <div className="panel-header-main">Add Dmg Type</div>
+      {(data.dmgTypes || []).length > 0 && (
+        <div className="mech-tag-row" style={{ marginBottom: 'var(--space-3)' }}>
+          {(data.dmgTypes || []).map((t, i) => (
+            <TypeTag
+              key={i}
+              val={t}
+              label={t}
+              color={dmgTagColor(t)}
+              onRemove={() => updateNode({ dmgTypes: data.dmgTypes?.filter((_, idx) => idx !== i) })}
+            />
+          ))}
+        </div>
+      )}
       <div className="mech-add-row">
         <Dropdown
           className="base-select mech-mini-select"

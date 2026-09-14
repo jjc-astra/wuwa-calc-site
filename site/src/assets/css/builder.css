@@ -878,6 +878,24 @@
     background: transparent;
 }
 
+/* Indented child row prefixed with a wrap-arrow matching .code-line::before to visually link to the parent Hold row. */
+.builder-view .mech-name-display.mech-child-name {
+    padding-left: 16px;
+    position: relative;
+}
+.builder-view .mech-name-display.mech-child-name::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 14px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='14 12 19 17 14 22'/%3E%3Cpath d='M5 2v11a4 4 0 0 0 4 4h10'/%3E%3C/svg%3E");
+    background-size: 14px 14px;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
 .builder-view .mech-timeline-bar {
     position: relative;
     height: 22px;

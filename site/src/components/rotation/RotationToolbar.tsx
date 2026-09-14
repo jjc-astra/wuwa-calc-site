@@ -25,7 +25,8 @@ export const RotationToolbar: React.FC = () => {
     pasteRows,
     calculateDamage,
     undo,
-    redo
+    redo,
+    addRepeatBlock
   } = useRotationStore();
 
   const lastIndex = rows.length - 1;
@@ -39,7 +40,11 @@ export const RotationToolbar: React.FC = () => {
     const validIndices = selectedIndices.filter(i => i !== lastIndex);
     const selectedRows = rows.filter((_, i) => validIndices.includes(i));
     if (selectedRows.length > 0) {
-      setClipboard(selectedRows.map(({ unit, action, timing }) => ({ unit, action, timing })));
+      setClipboard(selectedRows.map(({ unit, action, timing, repeatBlockStart, repeatBlockEnd, repeatCount }) => ({
+        unit, action, timing,
+        ...(repeatBlockStart !== undefined && { repeatBlockStart, repeatCount }),
+        ...(repeatBlockEnd !== undefined && { repeatBlockEnd })
+      })));
     }
     setSelectedIndices([]);
   };
@@ -51,6 +56,13 @@ export const RotationToolbar: React.FC = () => {
   const handleDelete = () => {
     const deletable = selectedIndices.filter(i => i !== lastIndex);
     if (deletable.length > 0) deleteRows(deletable);
+  };
+
+  const handleMarkHoldRepeat = () => {
+    const valid = selectedIndices.filter(i => i !== lastIndex);
+    if (valid.length === 0) return;
+    addRepeatBlock(Math.min(...valid), Math.max(...valid));
+    setSelectedIndices([]);
   };
 
   const handleInsertAbove = () => {
@@ -74,6 +86,12 @@ export const RotationToolbar: React.FC = () => {
           <button className="base-btn icon-btn" onClick={handleDelete} {...tip('Delete Selected Rows')} disabled={!hasSelection}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
           </button>
+        </div>
+
+        <div className="separator-v"></div>
+
+        <div className="btn-group">
+          <button className="base-btn text-xs" onClick={handleMarkHoldRepeat} {...tip('Wrap the selected rows as a repeat block')} disabled={!hasSelection}>Mark Repeat</button>
         </div>
 
         <div className="separator-v"></div>

@@ -146,9 +146,10 @@ export interface MechanicNode {
   stanceResult?: 'Retain' | 'Grounded' | 'Midair';
   stanceTime?: Frames | string;
   input?: string;
-  inputType?: 'Press' | 'Hold' | 'Release';
+  inputType?: 'Hold' | 'Repeat' | 'Release';
   priority?: number | string;
   holdConfig?: HoldConfig;
+  holdGroupId?: string;
   cancelTimings?: CancelTiming[];
   effects?: Effect[];
   damageTimeframe?: { start?: Frames | string; end?: Frames | string };

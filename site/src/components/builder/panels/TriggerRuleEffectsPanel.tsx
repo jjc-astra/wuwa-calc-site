@@ -8,6 +8,7 @@ import { TypeTag } from '../../common/TypeTag';
 import { Dropdown, type DropdownOption } from '../../common/Dropdown';
 import { parseTimeInput } from '../../../utils/Frames';
 import { effectLabel, flattenDslShorthand } from '../mechanicNodeHelpers';
+import { BuilderUtils } from '../../../utils/BuilderUtils';
 
 // Mirrors old site's makeInput/makeSelect wrapper: each field gets its own labeled,
 // min-width flex slot so fields share row space instead of one 100%-width input swallowing others.
@@ -22,14 +23,52 @@ interface TriggerRuleEffectsPanelProps {
   data: MechanicNode;
   updateNode: (patch: Partial<MechanicNode>) => void;
   forteOptions: DropdownOption[];
+  groupSiblings?: { repeat?: [string, MechanicNode]; release?: [string, MechanicNode] };
+  nodeId?: string;
 }
 
-export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = ({ data, updateNode, forteOptions }) => {
-  const { baseStats } = useBuilderStore();
+export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = ({ data, updateNode, forteOptions, groupSiblings, nodeId }) => {
+  const { baseStats, activeChar, setMechanicNode, removeMechanicNode } = useBuilderStore();
   const isDualMode = !!baseStats.isDualMode;
   const mode1Label = baseStats.mode1Name || 'Mode 1';
   const mode2Label = baseStats.mode2Name || 'Mode 2';
   const [effectType, setEffectType] = useState<string>('buff');
+
+  const provider = activeChar || 'System';
+  const existingRepeatId = groupSiblings?.repeat?.[0];
+  const existingReleaseId = groupSiblings?.release?.[0];
+  const hasRepeat = data.inputType === 'Hold' && !!existingRepeatId;
+  const hasRelease = data.inputType === 'Hold' && !!existingReleaseId;
+
+  const toggleHoldSibling = (role: 'Repeat' | 'Release', checked: boolean) => {
+    const existingId = role === 'Repeat' ? existingRepeatId : existingReleaseId;
+    if (!checked) {
+      if (existingId) removeMechanicNode(existingId);
+      return;
+    }
+    if (existingId) return;
+    const holdGroupId = data.holdGroupId || crypto.randomUUID();
+    if (!data.holdGroupId) updateNode({ holdGroupId });
+    // Clears stale cursor settings on existing Release siblings when adding a Repeat, stamping holdGroupId to prevent node orphaning.
+    if (role === 'Repeat' && existingReleaseId && groupSiblings?.release?.[1]) {
+      const [releaseId, releaseData] = groupSiblings.release;
+      const { holdConfig, ...releaseRest } = releaseData;
+      setMechanicNode(releaseId, { ...releaseRest, holdGroupId } as MechanicNode);
+    }
+    // Brand new sibling -- name it off the Hold's own name, since nothing to reuse yet.
+    const id = BuilderUtils.generateId(provider, `${data.name} (${role})`);
+    // Inserts the node contiguous with its Hold group in the JSON (after Repeat if present, else after Hold).
+    const insertAfter = (role === 'Release' && existingRepeatId) || nodeId;
+    setMechanicNode(id, {
+      name: `${data.name} (${role})`,
+      category: data.category,
+      provider,
+      input: data.input,
+      inputType: role,
+      holdGroupId,
+      isPassive: false
+    } as MechanicNode, insertAfter);
+  };
 
   // Effect Input State
   const [effName, setEffName] = useState('');
@@ -79,11 +118,14 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
       }
     } else if (effectType === 'tracker' || effectType === 'buffAction') {
       newEff.action = effAction as any;
-      if (effVal) {
-        const n = parseFloat(effVal);
-        newEff.value = !isNaN(n) && n.toString() === effVal ? n : effVal;
+      // Delete ignores value/max in TimelineEngine; omitting stale amounts keeps the JSON clean.
+      if (effAction !== 'delete') {
+        if (effVal) {
+          const n = parseFloat(effVal);
+          newEff.value = !isNaN(n) && n.toString() === effVal ? n : effVal;
+        }
+        if (effectType === 'tracker' && effMax) newEff.max = parseInt(effMax, 10);
       }
-      if (effectType === 'tracker' && effMax) newEff.max = parseInt(effMax, 10);
     } else if (effectType === 'resource' || effectType === 'time_scale') {
       if (effVal) {
         const n = parseFloat(effVal);
@@ -165,6 +207,18 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
           <input type="checkbox" checked={!!data.isSwapInDefault} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateNode({ isSwapInDefault: e.target.checked })} />
           <span>Default Swap-In</span>
         </label>
+        {data.inputType === 'Hold' && (
+          <>
+            <label className="checkbox-label">
+              <input type="checkbox" checked={hasRepeat} onChange={e => toggleHoldSibling('Repeat', e.target.checked)} />
+              <span>Add Repeat</span>
+            </label>
+            <label className="checkbox-label">
+              <input type="checkbox" checked={hasRelease} onChange={e => toggleHoldSibling('Release', e.target.checked)} />
+              <span>Add Release</span>
+            </label>
+          </>
+        )}
         {isDualMode && (
           <div className="segmented-toggle" role="group" aria-label="Mode scope">
             <button
@@ -304,20 +358,29 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
                       options={[
                         { value: 'add', label: 'Add (+/-)' },
                         { value: 'set', label: 'Set (=)' },
-                        { value: 'consume', label: 'Consume (Zero)' },
-                        { value: 'detonate', label: 'Detonate' }
+                        { value: 'consume', label: 'Consume (ALL/HALF/Num)' },
+                        { value: 'detonate', label: 'Detonate' },
+                        { value: 'delete', label: 'Delete (Unset)' }
                       ]}
                     />
                   </EffField>
                 </div>
-                <div className="flex-row w-100 gap-sm m-0 flex-wrap">
-                  <EffField label="Tracker Value" minWidth={90}>
-                    <input type="text" className="form-input w-100" value={effVal} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEffVal(e.target.value)} placeholder="Amount" />
-                  </EffField>
-                  <EffField label="Max Stacks Cap" minWidth={90}>
-                    <input type="number" step="1" className="form-input w-100" value={effMax} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEffMax(e.target.value)} placeholder="Limit" />
-                  </EffField>
-                </div>
+                {effAction !== 'delete' && (
+                  <div className="flex-row w-100 gap-sm m-0 flex-wrap">
+                    <EffField label="Tracker Value" minWidth={90}>
+                      <input
+                        type="text"
+                        className="form-input w-100"
+                        value={effVal}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEffVal(e.target.value)}
+                        placeholder={effAction === 'consume' ? 'ALL, HALF, or Num' : 'Amount or DSL, e.g. @Self.BuffStacks(Clarity)'}
+                      />
+                    </EffField>
+                    <EffField label="Max Stacks Cap" minWidth={90}>
+                      <input type="number" step="1" className="form-input w-100" value={effMax} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEffMax(e.target.value)} placeholder="Limit" />
+                    </EffField>
+                  </div>
+                )}
               </>
             )}
 

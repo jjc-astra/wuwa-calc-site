@@ -77,6 +77,8 @@
     --row-theme-select-base: #202022;
     --row-theme-neutral:     #808085;
     --sub-panel-bg: rgba(15, 15, 15, 0.6);
+    --neutral-tint:   rgba(17, 17, 17, 0.55);
+    --neutral-border: rgba(255, 255, 255, 0.14);
 
     /* --- Spacing scale -- snap padding/margin/gap values onto these instead of one-off px. --- */
     --space-1: 4px;
