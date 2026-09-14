@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { DataLoader } from '../../utils/DataLoader';
 import { postToWorker } from '../../workers/calcWorkerClient';
 import { buildBuilderPayload } from '../../workers/builderOverridePayload';
+import { expandRepeatBlocks } from '../../logic/RepeatBlocks';
 import { ENEMY_DEFAULTS } from '../../data/db';
 import type { TeamSlot } from '../../types';
 
@@ -16,12 +17,7 @@ interface TimelineDataState {
 
 const IDLE_STATE: TimelineDataState = { status: 'idle', evaluatedRows: [], loopStartIndex: null, team: [], error: null };
 
-// Lazily recalculates a saved result via the calc worker for evaluatedRows/loopStartIndex --
-// only fires while `resultId` is set, so a collapsed row costs nothing. Mirrors
-// useRankingsStore.load()'s postToWorker('recalculate', ...) but skips 'calculateDamage'
-// (Timeline needs no per-hit damage). Unlike those callers, this attaches buildBuilderPayload
-// so in-progress Builder edits show immediately -- Rankings' own DPS stays deliberately
-// pristine (useRotationStore.ts), only this Timeline view diverges.
+// Lazily recalculates timeline rows via worker on resultId changes, injecting buildBuilderPayload for live edits while keeping saved ranking DPS untouched.
 export function useRotationTimelineData(resultId: string | null): TimelineDataState {
   const [state, setState] = useState<TimelineDataState>(IDLE_STATE);
   const requestIdRef = useRef(0);
@@ -43,14 +39,14 @@ export function useRotationTimelineData(resultId: string | null): TimelineDataSt
 
     (async () => {
       try {
+        // Expands Hold Repeat blocks into explicit row clones for timeline simulation, rendering each repeat as an individual clip.
+        const { expanded } = expandRepeatBlocks(data.rotation);
         const { result } = postToWorker('recalculate', {
-          rows: data.rotation,
+          rows: expanded,
           team: data.team,
           options: data.settings || {},
           enemy: ENEMY_DEFAULTS,
-          // Top-level payload keys, not nested in `options` -- that's where calc.worker.ts's
-          // 'recalculate' handler reads them from. Without this, an Ending Rotation split would
-          // silently start after just the one authored loop rep instead of the real skip-ahead.
+          // Sends keys at payload root for calc.worker.ts, ensuring Ending Rotation splits properly account for full loop iterations.
           endingRotationEnabled: data.settings?.endingRotationEnabled,
           endRotationStartsEarlier: data.settings?.endRotationStartsEarlier,
           ...buildBuilderPayload(data.team)
