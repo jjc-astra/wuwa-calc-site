@@ -90,7 +90,6 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
   const priorityVal = data.isPassive ? null : resolveDefaultNum(data.priority, dslEvalCtx);
   const comboVal = resolveDefaultNum(data.comboWindow, dslEvalCtx);
 
-  // Each tag has its own tooltip so hovering shows info about THAT tag, not the whole cell.
   const timingModTags: { label: string; tooltip: string }[] = [
     ...cancelTimings.map(ct => ({
       label: `Cancel ${ct.time}f${ct.hits ? `·${ct.hits}h` : ''}`,

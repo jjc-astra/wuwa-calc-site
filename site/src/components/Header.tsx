@@ -5,7 +5,6 @@ import type { ViewId } from '../config/nav';
 import { HomeIcon, HeartIcon, DiscordIcon, PatreonIcon } from './common/icons';
 import { ActionsMenuButton } from './common/ActionsMenuButton';
 import { SITE_FEATURES, SITE_LINKS } from '../data/db';
-import { tip } from '../utils/Common';
 
 interface HeaderProps {
   currentView: ViewId;
@@ -29,7 +28,6 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavClick }) => {
               key={item.id}
               className={`nav-item-btn ${currentView === item.id ? 'is-active' : ''}`}
               onClick={() => onNavClick(item.id)}
-              {...tip(item.comingSoon ? `${item.label} (Coming Soon)` : item.label)}
             >
               <item.icon size={15} />
               <span>{item.label}</span>
