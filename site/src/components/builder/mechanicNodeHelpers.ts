@@ -13,11 +13,12 @@ export { tip } from '../../utils/Common';
 export const flattenDslShorthand = (v: string): string =>
   v.replace(/@([A-Za-z0-9_ ]+)\(((?:[^)(]+|\([^)(]*\))*)\)/g, (_match, p1, p2) => `${p1}_${p2.trim()}`);
 
-// Uses fixed non-elemental palette for cast types, and matches dmg types to exact or substring element names for status hues.
+// Resolves shared dmg/cast tags consistently: matches element hues first (exact or substring), then falls back to non-elemental cast colors.
 export function dmgTagColor(tag: string): string {
   if (ELEMENT_COLORS[tag]) return ELEMENT_COLORS[tag];
   const match = Object.keys(ELEMENT_COLORS).find(el => tag.includes(el));
-  return match ? ELEMENT_COLORS[match] : '#999999';
+  if (match) return ELEMENT_COLORS[match];
+  return CAST_TYPE_COLORS[tag] || '#999999';
 }
 export const castTagColor = (tag: string): string => CAST_TYPE_COLORS[tag] || '#dca54c';
 
