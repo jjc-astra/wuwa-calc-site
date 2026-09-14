@@ -78,7 +78,8 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
     ...(data.inputType === 'Hold' && groupSiblings?.repeat ? [{ label: '+ Repeat', tooltip: 'This Hold has a linked Repeat mechanic' }] : []),
     ...(data.inputType === 'Hold' && groupSiblings?.release ? [{ label: '+ Release', tooltip: 'This Hold has a linked Release mechanic' }] : []),
     ...(data.modeScope === 'mode1' ? [{ label: baseStats.mode1Name || 'Mode 1', tooltip: 'Only available in Mode 1' }] : []),
-    ...(data.modeScope === 'mode2' ? [{ label: baseStats.mode2Name || 'Mode 2', tooltip: 'Only available in Mode 2' }] : [])
+    ...(data.modeScope === 'mode2' ? [{ label: baseStats.mode2Name || 'Mode 2', tooltip: 'Only available in Mode 2' }] : []),
+    ...((data.effects?.length ?? 0) > 0 ? [{ label: `Effects +${data.effects!.length}`, tooltip: 'Open Identity to view/edit the Effects Array' }] : [])
   ];
 
   // Cancel/Freeze/Swap/Priority/Combo Window share one "Timing Modifiers" sub-panel --
@@ -111,12 +112,13 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
   return (
     <tr className="mech-row" onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
       <td
-        className={`mech-col-expand mech-trigger-cell ${activeTrigger === 'default' ? 'is-active' : ''}`}
-        onClick={toggleTrigger('default')}
-        onMouseEnter={() => onFieldMouseEnter('default')}
+        className={`mech-col-expand mech-trigger-cell ${activeTrigger === 'identity' ? 'is-active' : ''}`}
+        onClick={toggleTrigger('identity')}
+        onMouseEnter={() => onFieldMouseEnter('identity')}
         onMouseLeave={onFieldMouseLeave}
       >
-        <span className="collapse-icon" style={{ transform: activeTrigger === 'default' ? 'rotate(90deg)' : 'none' }}>{chevronIcon}</span>
+        {/* Rotates for whichever sub-panel is open */}
+        <span className="collapse-icon" style={{ transform: activeTrigger ? 'rotate(90deg)' : 'none' }}>{chevronIcon}</span>
       </td>
 
       <td

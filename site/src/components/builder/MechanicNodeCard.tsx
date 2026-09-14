@@ -24,20 +24,20 @@ interface MechanicNodeCardProps {
   childOfHold?: 'Repeat' | 'Release';
 }
 
-export type PanelKey = 'identity' | 'inputs' | 'timeMods' | 'hits' | 'castTags' | 'dmgTags' | 'castRes' | 'cooldown' | 'default';
+export type PanelKey = 'identity' | 'inputs' | 'timeMods' | 'hits' | 'castTags' | 'dmgTags' | 'castRes' | 'cooldown';
 
 // Fields each sub-panel edits, for JsonOutputPane's highlight.
 // Keep in sync with each panel's own updateNode calls.
+// identity also covers Trigger Rule & Effects -- they share one expand/collapse section now.
 const PANEL_FIELDS: Record<PanelKey, string[]> = {
-  identity: ['name', 'provider'],
+  identity: ['name', 'provider', 'triggerRule', 'isPassive', 'isSwapInDefault', 'modeScope', 'effects'],
   inputs: ['input', 'inputType', 'stanceReq', 'stanceResult', 'stanceTime', 'holdConfig'],
   timeMods: ['freezeTime', 'swapTiming', 'priority', 'comboWindow', 'cancelTimings'],
   hits: ['scalar', 'hitMults', 'damageTimeframe', 'hitResources'],
   castTags: ['castTypes'],
   dmgTags: ['dmgTypes'],
   castRes: ['castResources'],
-  cooldown: ['cooldown', 'maxCharges', 'shareCooldownWith'],
-  default: ['triggerRule', 'isPassive', 'isSwapInDefault', 'modeScope', 'effects']
+  cooldown: ['cooldown', 'maxCharges', 'shareCooldownWith']
 };
 
 export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data, groupSiblings, childOfHold }) => {
@@ -110,7 +110,12 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
   const renderPanel = () => {
     switch (activeTrigger) {
       case 'identity':
-        return <IdentityPanel nodeId={nodeId} data={data} updateNode={updateNode} />;
+        return (
+          <>
+            <IdentityPanel nodeId={nodeId} data={data} updateNode={updateNode} />
+            <TriggerRuleEffectsPanel data={data} updateNode={updateNode} forteOptions={forteOptions} groupSiblings={groupSiblings} nodeId={nodeId} />
+          </>
+        );
       case 'inputs':
         return <InputsPhysicsPanel data={data} updateNode={updateNode} forteOptions={forteOptions} groupSiblings={data.inputType !== 'Repeat' ? groupSiblings : undefined} />;
       case 'timeMods':
@@ -135,9 +140,8 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
         );
       case 'cooldown':
         return <CooldownPanel data={data} updateNode={updateNode} />;
-      case 'default':
       default:
-        return <TriggerRuleEffectsPanel data={data} updateNode={updateNode} forteOptions={forteOptions} groupSiblings={groupSiblings} nodeId={nodeId} />;
+        return null;
     }
   };
 

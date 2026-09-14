@@ -522,6 +522,14 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     display: block;
 }
 
+/* Two open sub-panels stacked back-to-back. Cancels the first panel's own bottom
+   padding (rather than relying on :has() to shrink it directly) and swaps in a tighter gap. */
+.sub-panel.is-open + .sub-panel.is-open {
+    border-top: none;
+    margin-top: calc(-1 * var(--space-5));
+    padding-top: var(--space-2);
+}
+
 @keyframes slideDown {
     from { opacity: 0; transform: translateY(-8px); }
     to { opacity: 1; transform: translateY(0); }
