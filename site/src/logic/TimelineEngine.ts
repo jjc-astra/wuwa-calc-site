@@ -85,7 +85,7 @@ export class TimelineEngineClass {
       currentData.enemyRes = enemyConfig.res;
 
       if (!currentData.unit) {
-        const prevData = i > 0 ? activeRows[i - 1] : this._getDefaultData();
+        const prevData = i > 0 ? activeRows[i - 1] : this._getDefaultData(team[0]?.character);
         this._applyInheritance(currentData, prevData, accumulatedGameTime, team);
         currentData.timeStart = accumulatedTime;
         currentData.gameTimeStart = accumulatedGameTime;
@@ -96,7 +96,7 @@ export class TimelineEngineClass {
         continue;
       }
 
-      const prevData = i > 0 ? activeRows[i - 1] : this._getDefaultData();
+      const prevData = i > 0 ? activeRows[i - 1] : this._getDefaultData(team[0]?.character);
       currentData.damageInstances = [];
       currentData._pendingHits = [];
       // Rows are recalculated in place -- clear so a fixed hold config doesn't keep showing
@@ -134,8 +134,10 @@ export class TimelineEngineClass {
         this._primeCombatStart(currentData, team);
       }
 
-      if (i > 0 && prevData.unit !== currentData.unit) {
+      if (prevData.unit !== currentData.unit) {
         // swapCooldown is seconds-domain; convert once here into the frames-domain marker.
+        // Fires on row 0 too when it opens on a non-main-slot unit (prevData.unit defaults to
+        // the main slot -- see _getDefaultData) -- that's a real swap-in from the main DPS.
         globalSwapCdExpiresAt = Math.max(globalSwapCdExpiresAt, accumulatedTime + secondsToFrames(GAME_DEFAULTS.swapCooldown));
       }
 
@@ -609,9 +611,10 @@ export class TimelineEngineClass {
     return patchedMove;
   }
 
-  _getDefaultData(): any {
+  // `mainUnit` (team[0]'s character) stands in for "who was on-field before row 0"
+  _getDefaultData(mainUnit: string = ''): any {
     return {
-      unit: '', action: '', timing: 'Auto', offset: 0,
+      unit: mainUnit, action: '', timing: 'Auto', offset: 0,
       energy: {}, concerto: {}, hp: {}, trackers: {},
       cooldowns: {}, chargeCooldowns: {}, activeBuffs: {}, unitCombos: {},
       timeStart: 0, gameTimeStart: 0, duration: 0, gameTimePassed: 0
@@ -623,10 +626,7 @@ export class TimelineEngineClass {
     const activeTeam = team.map(t => t.character).filter(Boolean);
     team.forEach(slot => {
       if (!slot.character) return;
-      // `pieces` gates echo-set bonuses by how many pieces of that set the slot actually holds
-      // (see DataLoader.resolveSetPieceCounts) -- a set's mechanics file can carry both a 2pc
-      // and a 5pc node (or 1pc/3pc), and only the ones this slot's piece count actually reaches
-      // should register. Irrelevant for non-set callers (mainEcho), which pass the default.
+      // Activates echo-set bonus nodes only when the slot meets the required piece threshold; defaults for non-set mechanics.
       const registerAll = (itemName: string, pieces: number = Infinity) => {
         if (!itemName || pieces <= 0) return;
         const indexKeys = DataLoader.mechanicsIndex[itemName] || [];
@@ -1384,7 +1384,7 @@ export class TimelineEngineClass {
   _evaluateMechanics(currentData: any, activeTeam: string[], activeRows: any[], currentIndex: number, team: any[], dbMove: MechanicNode): void {
     const unitName = currentData.unit;
     const moveData = dbMove;
-    const prevData = currentIndex > 0 ? activeRows[currentIndex - 1] : this._getDefaultData();
+    const prevData = currentIndex > 0 ? activeRows[currentIndex - 1] : this._getDefaultData(team[0]?.character);
 
     const startEnergy = currentData.energy?.[unitName] || 0;
     const startConcerto = currentData.concerto?.[unitName] || 0;
@@ -1562,8 +1562,10 @@ export class TimelineEngineClass {
       } else {
         if (isIntro) errors.push('Intro skills can only be used immediately after an Outro.');
         else if (!isSwapback) {
+          // Uses mechanicsIndex instead of .provider to look up unit actions; .provider is only set for third-party attributions (e.g., echoes).
           const expectedSwapIns: string[] = [];
-          Object.values(DataLoader.mechanicsDB).filter(m => m.provider === currentData.unit && m.isSwapInDefault).forEach(m => {
+          const ownMechanics = (DataLoader.mechanicsIndex[currentData.unit] || []).map(key => DataLoader.mechanicsDB[key]);
+          ownMechanics.filter(m => m && m.isSwapInDefault).forEach(m => {
             let isValid = true;
             if (m.triggerRule && !m.isPassive) {
               if (!m._compiledRule) m._compiledRule = DSLParser.compile(m.triggerRule);
