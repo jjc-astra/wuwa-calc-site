@@ -110,6 +110,9 @@
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--row-accent) 55%, var(--border));
 }
 
+/* Matches the Mechanics Builder's own .btn-danger (delete-node) red. */
+.clear-slot-btn { border-color: var(--danger); color: var(--danger); }
+
 .char-row .base-select,
 .char-row .base-num-box {
     border-bottom-color: color-mix(in srgb, var(--row-accent) 45%, var(--input-underline));

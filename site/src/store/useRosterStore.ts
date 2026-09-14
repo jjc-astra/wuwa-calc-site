@@ -91,6 +91,7 @@ interface RosterState {
   team: TeamSlot[];
   enemy: { level: number; res: number; hp: number };
   setSlotField: (slotIndex: number, field: keyof TeamSlot, value: any) => Promise<void>;
+  clearSlot: (slotIndex: number) => void;
   setSubstat: (slotIndex: number, echoIndex: number, subIndex: number, name: string, value: string | number) => void;
   setEnemyField: (field: 'level' | 'res' | 'hp', value: number) => void;
   importTeam: (teamData: TeamSlot[]) => Promise<void>;
@@ -250,6 +251,17 @@ export const useRosterStore = create<RosterState>()(
 
         slot.echoStats = calculateEchoStatsForSlot(slot);
         team[slotIndex] = slot;
+        applyBuilderOverridesForTeam(team);
+        set({ team });
+        useRotationStore.getState().recalculate();
+      },
+
+      // Resets one roster row back to the same blank slot a fresh team starts with -- unlike
+      // setSlotField('character', ''), which only clears the character field and leaves its
+      // weapon/sets/echoes behind as stale leftovers.
+      clearSlot: (slotIndex) => {
+        const team = [...get().team];
+        team[slotIndex] = createEmptySlot(slotIndex);
         applyBuilderOverridesForTeam(team);
         set({ team });
         useRotationStore.getState().recalculate();
