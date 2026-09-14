@@ -10,7 +10,7 @@ import { DialGauge, VerticalGauge, MultiForteGauge } from './Gauge';
 import { SubPanel } from './SubPanel';
 import { Dropdown } from '../common/Dropdown';
 import type { DropdownGroup } from '../common/Dropdown';
-import { TooltipManager, getCharacterThemeColor, tip } from '../../utils/Common';
+import { TooltipManager, getCharacterThemeColor } from '../../utils/Common';
 import { toFrames, secondsToFrames, framesToSeconds, formatFramesAsSeconds } from '../../utils/Frames';
 import { applyBuilderOverridesFor } from '../../workers/builderOverridePayload';
 

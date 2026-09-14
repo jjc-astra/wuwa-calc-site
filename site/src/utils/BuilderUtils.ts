@@ -28,7 +28,7 @@ export const BuilderUtils = {
 
     if (!node.isPassive) {
       if (node.input) clean.input = node.input;
-      if (node.inputType && node.inputType !== 'Press') clean.inputType = node.inputType;
+      if (node.inputType) clean.inputType = node.inputType;
       if (node.stanceReq && node.stanceReq !== 'Any') clean.stanceReq = node.stanceReq;
       if (node.stanceResult && node.stanceResult !== 'Retain') clean.stanceResult = node.stanceResult;
 

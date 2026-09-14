@@ -1847,12 +1847,13 @@ export class TimelineEngineClass {
         if (buffDef.stat) existingBuff.stat = buffDef.stat;
         if (buffDef.value !== undefined) existingBuff.value = val;
         const oldStacks = existingBuff.stacks || 0;
-        existingBuff.stacks = Math.min(oldStacks + addedStacks, buffDef.maxStacks || 1);
+        const maxStacks = Number(buffDef.maxStacks) || 1;
+        existingBuff.stacks = Math.min(oldStacks + addedStacks, maxStacks);
         actuallyAddedStacks = existingBuff.stacks - oldStacks;
         if (buffDef.stackBehavior === 'separate') {
           if (!existingBuff.durations) existingBuff.durations = [];
           for (let i = 0; i < addedStacks; i++) existingBuff.durations.push(effDuration);
-          existingBuff.durations = existingBuff.durations.sort((a: number, b: number) => b - a).slice(0, buffDef.maxStacks || 1);
+          existingBuff.durations = existingBuff.durations.sort((a: number, b: number) => b - a).slice(0, maxStacks);
         } else {
           existingBuff.duration = effDuration;
         }

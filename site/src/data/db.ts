@@ -482,7 +482,6 @@ export const BUILDER_TEMPLATES: Record<string, MechanicNode> = {
     comboWindow: '@Default.ComboWindow',
     isSwapInDefault: true,
     input: 'Basic',
-    inputType: 'Press',
     stanceReq: 'Grounded'
   },
   'Resonance Skill': {
@@ -493,7 +492,6 @@ export const BUILDER_TEMPLATES: Record<string, MechanicNode> = {
     actionDuration: toFrames(48),
     cooldown: 10.0,
     input: 'Skill',
-    inputType: 'Press',
     priority: 100,
     stanceReq: 'Any'
   },
@@ -508,7 +506,6 @@ export const BUILDER_TEMPLATES: Record<string, MechanicNode> = {
     triggerRule: 'IF (@Self.Energy >= @Self.MaxEnergy)',
     comboWindow: '@Default.ComboWindow',
     input: 'Liberation',
-    inputType: 'Press',
     priority: 1000,
     stanceReq: 'Any',
     stanceResult: 'Grounded'

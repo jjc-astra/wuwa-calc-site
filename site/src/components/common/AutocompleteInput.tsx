@@ -238,7 +238,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
 
   const getRules = (): MatchRule[] => {
     if (mode === 'eff-name') {
-      const currentNamespace = activeChar === 'Generic' ? 'System' : activeChar;
+      const currentNamespace = (activeChar === 'Generic' || !activeChar) ? 'System' : activeChar;
       return [
         {
           // Completing inside an already-typed "@Namespace(" shorthand (see below) -- unaffected
