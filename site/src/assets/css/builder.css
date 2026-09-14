@@ -170,6 +170,11 @@
     word-wrap: break-word;
 }
 
+/* Matches .code-edit-input::selection's amber, since read-only text (unlike the transparent
+   edit-mode textarea) stays visible while selected -- only the background needs to match. */
+.code-editor ::selection,
+.code-editor::selection { background: rgba(220, 165, 76, 0.35); }
+
 .code-line {
     display: block;
     padding-left: calc(var(--indent, 0ch) + 3.5ch);

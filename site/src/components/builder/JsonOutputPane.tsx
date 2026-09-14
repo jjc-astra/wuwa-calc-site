@@ -277,6 +277,9 @@ export const JsonOutputPane: React.FC = () => {
   const pendingImportKind = useRef<'character' | 'mechanics' | null>(null);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const isWeapon = activeChar ? !!DataLoader.weaponDB[activeChar] : false;
+  // Echoes/sets have no db_characters.json (or db_weapons.json) entry -- the character JSON
+  // block below only makes sense for an actual character or weapon.
+  const isCharOrWeapon = activeChar ? (!!DataLoader.characterDB[activeChar] || isWeapon) : false;
   const isDirty = activeChar ? hasChanges(activeChar) : false;
   // Must match the folder DataLoader.loadMechanic/clearMechanicCache use.
   const mechFolder = mechFolderFor(activeFolder);
@@ -294,16 +297,15 @@ export const JsonOutputPane: React.FC = () => {
     return () => clearTimeout(timer);
   }, [activeChar, baseStats, mechanics, isWeapon, mechFolder]);
 
-  // Body text kept byte-identical between the read-only view and the edit draft (comment line
-  // + '\n' as a separate, known-length prefix) so a click's flat text offset can be mapped onto
-  // the draft just by subtracting that prefix's length -- see EditableCodeBlock/getFlatCaretOffset.
   const charFolder = isWeapon ? 'weapons' : 'characters';
   const charCommentLine = `// Update this object in data/db_${charFolder}.json`;
   const charBody = formatted.charJsonString || '';
-  const charVisual = !activeChar ? '' : charBody ? `${charCommentLine}\n${charBody}` : '// No base stats set yet -- click to add';
-  const charPrefixLen = charBody ? charCommentLine.length + 1 : 0;
+  const charVisual = !activeChar ? '' : charBody ? `${charCommentLine}\n${charBody}` : '// No base stats set yet -- fill in Base Stats above';
   const charHighlightedHTML = BuilderUtils.syntaxHighlight(charVisual);
 
+  // Body text kept byte-identical between the read-only view and the edit draft (comment line
+  // + '\n' as a separate, known-length prefix) so a click's flat text offset can be mapped onto
+  // the draft just by subtracting that prefix's length -- see EditableCodeBlock/getFlatCaretOffset.
   const mechCommentLine = `// Save this exact JSON to: data/${activeChar ? DataLoader.mechanicPath(mechFolder, activeChar) : ''}`;
   const mechBody = formatted.mechJsonString || '';
   const mechVisual = mechBody ? `${mechCommentLine}\n${mechBody}` : (charBody || !activeChar ? '// Add mechanic nodes to generate output!' : '');
@@ -444,54 +446,21 @@ export const JsonOutputPane: React.FC = () => {
     setResetConfirmOpen(false);
   };
 
-  // --- Inline editing: click a block to swap it for a caret-editable textarea (layered over a
-  // live-highlighted backdrop, see EditableCodeBlock) seeded with the same JSON, debounce-parse
-  // as the user types, and apply successful parses straight through the same import path
-  // Import JSON already uses. draft bodies match their read-only display byte-for-byte (see
-  // charBody/mechBody above) so a click's flat offset maps onto the draft by subtracting the
-  // comment-prefix length alone.
-  const [charDraft, setCharDraft] = useState<string | null>(null);
+  // --- Inline editing: click the mechanics block to swap it for a caret-editable textarea
+  // (layered over a live-highlighted backdrop, see EditableCodeBlock) seeded with the same JSON,
+  // debounce-parse as the user types, and apply successful parses straight through the same
+  // import path Import JSON already uses. draft body matches the read-only display byte-for-byte
+  // (see mechBody above) so a click's flat offset maps onto the draft by subtracting the
+  // comment-prefix length alone. The character block (above) is read-only -- BaseStatsForm's own
+  // fields, plus Import/Export JSON, already cover editing it deliberately.
   const [mechDraft, setMechDraft] = useState<string | null>(null);
-  const [charError, setCharError] = useState<string | null>(null);
   const [mechError, setMechError] = useState<string | null>(null);
-  const [charCaret, setCharCaret] = useState<number | null>(null);
   const [mechCaret, setMechCaret] = useState<number | null>(null);
-  const charApplyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mechApplyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => {
-    if (charApplyTimer.current) clearTimeout(charApplyTimer.current);
     if (mechApplyTimer.current) clearTimeout(mechApplyTimer.current);
   }, []);
-
-  const startCharEdit = (clickOffset: number | null) => {
-    if (!activeChar) return;
-    setCharError(null);
-    const seed = charBody || JSON.stringify({ [activeChar]: {} }, null, 2);
-    setCharDraft(seed);
-    setCharCaret(charBody && clickOffset !== null ? clickOffset - charPrefixLen : null);
-  };
-
-  const commitCharDraft = (text: string) => {
-    try {
-      applyCharacterImport(parseImportedJson(text));
-      setCharError(null);
-    } catch (err) {
-      setCharError(err instanceof Error ? err.message : 'Invalid JSON');
-    }
-  };
-
-  const handleCharDraftChange = (text: string) => {
-    setCharDraft(text);
-    if (charApplyTimer.current) clearTimeout(charApplyTimer.current);
-    charApplyTimer.current = setTimeout(() => commitCharDraft(text), 500);
-  };
-
-  const handleCharBlur = () => {
-    if (charApplyTimer.current) clearTimeout(charApplyTimer.current);
-    if (charDraft !== null) commitCharDraft(charDraft);
-    setCharDraft(null);
-  };
 
   const startMechEdit = (clickOffset: number | null) => {
     if (!activeChar) return;
@@ -524,7 +493,6 @@ export const JsonOutputPane: React.FC = () => {
 
   // Re-highlighted live (no debounce -- syntaxHighlight is cheap on entity-sized JSON) so the
   // backdrop's coloring tracks every keystroke, not just what's already been applied.
-  const charDraftHighlightedHTML = charDraft !== null ? BuilderUtils.syntaxHighlight(charDraft) : '';
   const mechDraftHighlightedHTML = mechDraft !== null ? BuilderUtils.syntaxHighlight(mechDraft) : '';
 
   return (
@@ -571,22 +539,9 @@ export const JsonOutputPane: React.FC = () => {
         </div>
       </div>
       <div className="code-blocks">
-        {activeChar && (
+        {isCharOrWeapon && (
           <div className="code-block-section code-block-char">
-            <EditableCodeBlock
-              className="code-editor"
-              highlightedHTML={charHighlightedHTML}
-              visualText={charVisual}
-              isEditing={charDraft !== null}
-              draft={charDraft ?? ''}
-              draftHighlightedHTML={charDraftHighlightedHTML}
-              error={charError}
-              caretOffset={charCaret}
-              onStartEdit={startCharEdit}
-              onDraftChange={handleCharDraftChange}
-              onBlur={handleCharBlur}
-            />
-            {charError && <div className="code-error-msg">{charError}</div>}
+            <pre className="code-editor" dangerouslySetInnerHTML={{ __html: charHighlightedHTML }} />
           </div>
         )}
         <div className="code-block-section code-block-mech">
