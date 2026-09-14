@@ -40,10 +40,10 @@ export const RotationToolbar: React.FC = () => {
     const validIndices = selectedIndices.filter(i => i !== lastIndex);
     const selectedRows = rows.filter((_, i) => validIndices.includes(i));
     if (selectedRows.length > 0) {
-      setClipboard(selectedRows.map(({ unit, action, timing, repeatBlockStart, repeatBlockEnd, repeatCount }) => ({
+      setClipboard(selectedRows.map(({ unit, action, timing, repeatBlockStart, repeatBlockEnd, repeatCount, repeatFinalTiming }) => ({
         unit, action, timing,
         ...(repeatBlockStart !== undefined && { repeatBlockStart, repeatCount }),
-        ...(repeatBlockEnd !== undefined && { repeatBlockEnd })
+        ...(repeatBlockEnd !== undefined && { repeatBlockEnd, ...(repeatFinalTiming !== undefined && { repeatFinalTiming }) })
       })));
     }
     setSelectedIndices([]);

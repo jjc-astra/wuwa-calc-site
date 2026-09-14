@@ -40,13 +40,15 @@ export function expandRepeatBlocks(rows: RotationRow[]): { expanded: RotationRow
   while (i < rows.length) {
     const block = blockByStart.get(i);
     if (block) {
+      const endRow = rows[block.endIdx];
       for (let rep = 0; rep < block.count; rep++) {
         for (let j = block.startIdx; j <= block.endIdx; j++) {
           // Clones don't carry the block flags -- only the ORIGINAL authored row represents the
           // block boundary; a clone claiming to also be a boundary would confuse a second
           // expansion pass (e.g. a stale re-run) and serves no purpose downstream.
-          const { repeatBlockStart, repeatBlockEnd, repeatCount, ...clean } = rows[j];
-          expanded.push({ ...clean });
+          const { repeatBlockStart, repeatBlockEnd, repeatCount, repeatFinalTiming, ...clean } = rows[j];
+          const isFinalRepEndRow = rep === block.count - 1 && j === block.endIdx;
+          expanded.push(isFinalRepEndRow && endRow.repeatFinalTiming ? { ...clean, timing: endRow.repeatFinalTiming } : { ...clean });
           collapseMap.push(j);
         }
       }
@@ -74,8 +76,11 @@ export function collapseRepeatResults(evaluatedExpandedRows: RotationRow[], coll
     if (!reps) return orig;
     if (reps.length <= 1) {
       // Restores stripped block flags on 1-count expansions so start/end tags don't disappear when count drops to 1.
+      // timing is restored to the authored base value too -- reps[0] ran with repeatFinalTiming's
+      // override applied (it's simultaneously the first AND final rep at count 1), which belongs
+      // to the runtime clone, not to the row the user edits.
       return orig.repeatBlockStart || orig.repeatBlockEnd
-        ? { ...reps[0], repeatBlockStart: orig.repeatBlockStart, repeatBlockEnd: orig.repeatBlockEnd, repeatCount: orig.repeatCount }
+        ? { ...reps[0], timing: orig.timing, repeatBlockStart: orig.repeatBlockStart, repeatBlockEnd: orig.repeatBlockEnd, repeatCount: orig.repeatCount, repeatFinalTiming: orig.repeatFinalTiming }
         : reps[0];
     }
     const first = reps[0];
@@ -92,6 +97,9 @@ export function collapseRepeatResults(evaluatedExpandedRows: RotationRow[], coll
       gameTimeStart: first.gameTimeStart,
       timeStart: first.timeStart,
       offset: first.offset,
+      // The end row's last clone ran with repeatFinalTiming's override (if any) applied --
+      // restore the authored base timing on the row the user actually edits.
+      timing: orig.timing,
       damageInstances: reps.flatMap(r => r.damageInstances || []),
       errorMsgs: Array.from(new Set(reps.flatMap(r => r.errorMsgs || []))),
       warningMsgs: Array.from(new Set(reps.flatMap(r => r.warningMsgs || []))),
@@ -99,7 +107,8 @@ export function collapseRepeatResults(evaluatedExpandedRows: RotationRow[], coll
       // The clones had these stripped (see expandRepeatBlocks) -- restore the real flags.
       repeatBlockStart: orig.repeatBlockStart,
       repeatBlockEnd: orig.repeatBlockEnd,
-      repeatCount: orig.repeatCount
+      repeatCount: orig.repeatCount,
+      repeatFinalTiming: orig.repeatFinalTiming
     };
   });
 }

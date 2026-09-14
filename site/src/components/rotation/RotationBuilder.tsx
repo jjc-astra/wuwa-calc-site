@@ -98,6 +98,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     resetLoopEnd,
     removeRepeatBlock,
     setRepeatCount,
+    setRepeatFinalTiming,
     setRepeatBlockStartIndex,
     setRepeatBlockEndIndex,
     endingRotationEnabled,
@@ -171,10 +172,10 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
           const selectedRows = rows.filter((_, i) => validIndices.includes(i));
           if (selectedRows.length > 0) {
             e.preventDefault();
-            setClipboard(selectedRows.map(({ unit, action, timing, repeatBlockStart, repeatBlockEnd, repeatCount }) => ({
+            setClipboard(selectedRows.map(({ unit, action, timing, repeatBlockStart, repeatBlockEnd, repeatCount, repeatFinalTiming }) => ({
               unit, action, timing,
               ...(repeatBlockStart !== undefined && { repeatBlockStart, repeatCount }),
-              ...(repeatBlockEnd !== undefined && { repeatBlockEnd })
+              ...(repeatBlockEnd !== undefined && { repeatBlockEnd, ...(repeatFinalTiming !== undefined && { repeatFinalTiming }) })
             })));
             setSelectedIndices([]);
           }
@@ -341,14 +342,14 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     // dmgOverTimeSeries omitted either way -- cheap to regenerate via recalculate.
     const includeResults = !!results && !isStale;
     const exportObject: Record<string, unknown> = {
-      rotation: rows.map(({ unit, action, timing, loopStartOverride, loopEndOverride, repeatBlockStart, repeatBlockEnd, repeatCount }) => ({
+      rotation: rows.map(({ unit, action, timing, loopStartOverride, loopEndOverride, repeatBlockStart, repeatBlockEnd, repeatCount, repeatFinalTiming }) => ({
         unit,
         action,
         timing,
         ...(loopStartOverride === true && { loopStartOverride: true }),
         ...(loopEndOverride === true && { loopEndOverride: true }),
         ...(repeatBlockStart !== undefined && { repeatBlockStart, repeatCount }),
-        ...(repeatBlockEnd !== undefined && { repeatBlockEnd })
+        ...(repeatBlockEnd !== undefined && { repeatBlockEnd, ...(repeatFinalTiming !== undefined && { repeatFinalTiming }) })
       })),
       team: team.map(slot => {
         const { domRef, ...cleanData } = slot;
@@ -551,6 +552,8 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
                 onRemoveRepeatBlock={row.repeatBlockStart ? () => removeRepeatBlock(row.repeatBlockStart!) : undefined}
                 isRepeatEnd={!!row.repeatBlockEnd}
                 onRepeatEndMarkerDragStart={row.repeatBlockEnd ? handleRepeatMarkerDragStart(row.repeatBlockEnd, 'end') : undefined}
+                repeatFinalTiming={row.repeatFinalTiming}
+                onRepeatFinalTimingChange={row.repeatBlockEnd ? (v: string | undefined) => setRepeatFinalTiming(row.repeatBlockEnd!, v) : undefined}
               />
             ))}
           </div>

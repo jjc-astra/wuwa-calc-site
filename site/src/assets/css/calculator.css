@@ -972,6 +972,26 @@
 }
 .repeat-end-tag:active { cursor: grabbing; }
 
+.repeat-final-timing-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--overlay-b3);
+    border: 1px solid var(--overlay-w4);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    line-height: 1;
+    cursor: default;
+}
+.repeat-final-timing-label { color: var(--text-dim); white-space: nowrap; }
+.repeat-final-timing-pill .base-select {
+    height: 18px;
+    min-width: 60px;
+    font-size: 0.68rem;
+    padding: 0 4px;
+}
+
 /* --- Ending Rotation Cut + End Rotation Tag --- */
 .ending-rotation-cut {
     display: flex;

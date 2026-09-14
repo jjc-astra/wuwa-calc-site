@@ -54,6 +54,10 @@ interface RotationRowProps {
   onRemoveRepeatBlock?: () => void;
   isRepeatEnd?: boolean;
   onRepeatEndMarkerDragStart?: (e: React.DragEvent) => void;
+  // Overrides `timing` on just the block's last repetition (e.g. it needs "Full" instead of
+  // "Auto" to not get cut short before what comes right after the block ends).
+  repeatFinalTiming?: string;
+  onRepeatFinalTimingChange?: (val: string | undefined) => void;
 }
 
 interface TimingOption {
@@ -107,7 +111,9 @@ export const RotationRow: React.FC<RotationRowProps> = ({
   onRepeatMarkerDragEnd,
   onRemoveRepeatBlock,
   isRepeatEnd,
-  onRepeatEndMarkerDragStart
+  onRepeatEndMarkerDragStart,
+  repeatFinalTiming,
+  onRepeatFinalTimingChange
 }) => {
   const { updateRowField, updateRowFields, setRowUnit, isStale } = useRotationStore();
   const { team } = useRosterStore();
@@ -377,7 +383,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
           </div>
           <div
             className="end-rotation-tag"
-            onMouseEnter={e => TooltipManager.show(e.currentTarget, '<div>Everything from here down replaces the tail of the 2-Minute window.</div>')}
+            onMouseEnter={e => TooltipManager.show(e.currentTarget, '<div>The tail of the 2-Minute window.</div>')}
             onMouseLeave={() => TooltipManager.hide()}
           >
             <span className="loop-tag-icon">⟳</span>
@@ -385,7 +391,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
             <label
               className="end-rotation-check-wrap"
               onClick={e => e.stopPropagation()}
-              onMouseEnter={e => { e.stopPropagation(); TooltipManager.show(e.currentTarget, '<div>Simulate one fewer full loop, so the Ending Rotation replaces/extends the final loop instead of running as a short extra segment after it.</div>'); }}
+              onMouseEnter={e => { e.stopPropagation(); TooltipManager.show(e.currentTarget, '<div>Cuts one loop cycle so the Ending Rotation replaces the final loop instead of appending after it.</div>'); }}
               onMouseLeave={() => TooltipManager.hide()}
             >
               <span>Extend Last Loop</span>
@@ -467,7 +473,6 @@ export const RotationRow: React.FC<RotationRowProps> = ({
                 className="repeat-count-step"
                 tabIndex={-1}
                 onClick={e => { e.stopPropagation(); stepRepeatCount(1); }}
-                {...tip('Increase repeat count')}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 15 12 9 18 15" /></svg>
               </button>
@@ -476,7 +481,6 @@ export const RotationRow: React.FC<RotationRowProps> = ({
                 className="repeat-count-step"
                 tabIndex={-1}
                 onClick={e => { e.stopPropagation(); stepRepeatCount(-1); }}
-                {...tip('Decrease repeat count')}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
               </button>
@@ -636,7 +640,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
           draggable
           onDragStart={onLoopEndMarkerDragStart}
           onDragEnd={onLoopEndMarkerDragEnd}
-          onMouseEnter={e => TooltipManager.show(e.currentTarget, '<div>Loop ends here — everything below is the Ending Rotation. Drag to move.</div>')}
+          onMouseEnter={e => TooltipManager.show(e.currentTarget, '<div>Loop ends here — drag to move</div>')}
           onMouseLeave={() => TooltipManager.hide()}
         >
           <span className="loop-tag-icon">⟳</span>
@@ -663,6 +667,22 @@ export const RotationRow: React.FC<RotationRowProps> = ({
         >
           <span className="loop-tag-icon">↻</span>
           <span className="loop-tag-label">REPEAT END</span>
+          <span
+            className="repeat-final-timing-pill"
+            draggable={false}
+            onMouseDown={e => e.stopPropagation()}
+            onDragStart={e => { e.preventDefault(); e.stopPropagation(); }}
+            onMouseEnter={e => { e.stopPropagation(); }}
+            onMouseLeave={() => TooltipManager.hide()}
+          >
+            <span className="repeat-final-timing-label">Final rep timing</span>
+            <Dropdown
+              className="base-select text-xs has-value"
+              value={repeatFinalTiming || ''}
+              onChange={(v: string) => onRepeatFinalTimingChange?.(v === '' ? undefined : v)}
+              options={[{ value: '', label: 'Same' }, ...availableTimings.map((t: TimingOption) => ({ value: t.val, label: t.label, tooltip: t.title }))]}
+            />
+          </span>
         </div>
       )}
 

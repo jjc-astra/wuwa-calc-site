@@ -38,6 +38,11 @@ export interface RotationRow {
   repeatBlockStart?: string;
   repeatBlockEnd?: string;
   repeatCount?: number;
+  // Overrides `timing` on just the LAST repetition's copy of the end row (e.g. the final rep
+  // needs "Full" instead of "Auto" to not get cut short before an Outro) -- lives on the end
+  // row only, like repeatCount lives on the start row. Unset means every rep uses the row's own
+  // `timing` uniformly.
+  repeatFinalTiming?: string;
   [key: string]: any;
 }
 
@@ -92,6 +97,7 @@ interface RotationState {
   addRepeatBlock: (startIndex: number, endIndex: number) => void;
   removeRepeatBlock: (groupId: string) => void;
   setRepeatCount: (groupId: string, count: number) => void;
+  setRepeatFinalTiming: (groupId: string, timing: string | undefined) => void;
   // Drag-reposition an existing block's start/end marker (mirrors setLoopStartOverride/setLoopEndOverride).
   setRepeatBlockStartIndex: (groupId: string, index: number) => void;
   setRepeatBlockEndIndex: (groupId: string, index: number) => void;
@@ -265,7 +271,8 @@ export const useRotationStore = create<RotationState>()(
           const repeatFieldsFor = (data: RotationRow) => ({
             repeatBlockStart: remapGroupId(data.repeatBlockStart),
             repeatBlockEnd: remapGroupId(data.repeatBlockEnd),
-            repeatCount: data.repeatCount
+            repeatCount: data.repeatCount,
+            repeatFinalTiming: data.repeatFinalTiming
           });
 
           const commands: Command[] = [];
@@ -274,7 +281,7 @@ export const useRotationStore = create<RotationState>()(
             const rowIdx = selectedIndices[i];
             const data = { ...clipboard[i], ...repeatFieldsFor(clipboard[i]) };
             const existing = rows[rowIdx];
-            (['unit', 'action', 'timing', 'repeatBlockStart', 'repeatBlockEnd', 'repeatCount'] as const).forEach(field => {
+            (['unit', 'action', 'timing', 'repeatBlockStart', 'repeatBlockEnd', 'repeatCount', 'repeatFinalTiming'] as const).forEach(field => {
               if (existing[field] !== data[field]) {
                 commands.push(new EditValueCommand(getRawRows, setRawRows, rowIdx, field, existing[field], data[field], triggerRecalc));
               }
@@ -404,6 +411,15 @@ export const useRotationStore = create<RotationState>()(
           historyManager.execute(cmd);
         },
 
+        setRepeatFinalTiming: (groupId: string, timing: string | undefined) => {
+          const rows = get().rows;
+          const idx = rows.findIndex(r => r.repeatBlockEnd === groupId);
+          if (idx === -1) return;
+          if (rows[idx].repeatFinalTiming === timing) return;
+          const cmd = new EditValueCommand(getRawRows, setRawRows, idx, 'repeatFinalTiming', rows[idx].repeatFinalTiming, timing, triggerRecalc);
+          historyManager.execute(cmd);
+        },
+
         setRepeatBlockStartIndex: (groupId: string, index: number) => {
           const rows = get().rows;
           if (!rows[index]?.unit) return;
@@ -484,7 +500,7 @@ export const useRotationStore = create<RotationState>()(
           const loopStart = get().loopStartIndex;
           const loopRows = rows.slice(loopStart, lastContentIdx + 1);
           loopRows.forEach((r, i) => {
-            const { loopStartOverride, loopEndOverride, repeatBlockStart, repeatBlockEnd, repeatCount, ...clean } = r;
+            const { loopStartOverride, loopEndOverride, repeatBlockStart, repeatBlockEnd, repeatCount, repeatFinalTiming, ...clean } = r;
             const newRow: RotationRow = { ...clean, unit: r.unit, action: r.action, timing: r.timing, offset: 0 };
             commands.push(new AddRowCommand(getRawRows, setRawRows, newRow, lastContentIdx + 1 + i, triggerRecalc));
           });
@@ -590,14 +606,14 @@ export const useRotationStore = create<RotationState>()(
               const { domRef, ...clean } = slot as any;
               return clean;
             }),
-            rotation: rows.map(({ unit, action, timing, loopStartOverride, loopEndOverride, repeatBlockStart, repeatBlockEnd, repeatCount }) => ({
+            rotation: rows.map(({ unit, action, timing, loopStartOverride, loopEndOverride, repeatBlockStart, repeatBlockEnd, repeatCount, repeatFinalTiming }) => ({
               unit,
               action,
               timing,
               ...(loopStartOverride === true && { loopStartOverride: true }),
               ...(loopEndOverride === true && { loopEndOverride: true }),
               ...(repeatBlockStart !== undefined && { repeatBlockStart, repeatCount }),
-              ...(repeatBlockEnd !== undefined && { repeatBlockEnd })
+              ...(repeatBlockEnd !== undefined && { repeatBlockEnd, ...(repeatFinalTiming !== undefined && { repeatFinalTiming }) })
             })),
             settings: { ...options, endingRotationEnabled, endRotationStartsEarlier },
             results: data.results
@@ -633,7 +649,7 @@ export const useRotationStore = create<RotationState>()(
     {
       name: 'wuwa_calc_rotation_cache',
       partialize: (state) => ({
-        rows: state.rows.map(({ unit, action, timing, offset, manualOffset, loopStartOverride, loopEndOverride, repeatBlockStart, repeatBlockEnd, repeatCount }) => ({
+        rows: state.rows.map(({ unit, action, timing, offset, manualOffset, loopStartOverride, loopEndOverride, repeatBlockStart, repeatBlockEnd, repeatCount, repeatFinalTiming }) => ({
           unit,
           action,
           timing,
@@ -642,7 +658,7 @@ export const useRotationStore = create<RotationState>()(
           ...(loopStartOverride === true && { loopStartOverride: true }),
           ...(loopEndOverride === true && { loopEndOverride: true }),
           ...(repeatBlockStart !== undefined && { repeatBlockStart, repeatCount }),
-          ...(repeatBlockEnd !== undefined && { repeatBlockEnd })
+          ...(repeatBlockEnd !== undefined && { repeatBlockEnd, ...(repeatFinalTiming !== undefined && { repeatFinalTiming }) })
         })),
         startEnergy: state.startEnergy,
         startConcerto: state.startConcerto,

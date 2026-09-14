@@ -535,12 +535,20 @@ export class SetRepeatBlockEndCommand implements Command {
 
   private apply(clearIndex: number | null, setIndex: number | null) {
     const current = [...this.getRows()];
+    // Carries an existing Final Rep Timing override along with the end marker when it's dragged
+    let carriedFinalTiming: string | undefined;
     if (clearIndex !== null && clearIndex >= 0 && clearIndex < current.length) {
-      const { repeatBlockEnd, ...rest } = current[clearIndex];
+      const row = current[clearIndex];
+      carriedFinalTiming = row.repeatFinalTiming;
+      const { repeatBlockEnd, repeatFinalTiming, ...rest } = row;
       current[clearIndex] = rest;
     }
     if (setIndex !== null && setIndex >= 0 && setIndex < current.length) {
-      current[setIndex] = { ...current[setIndex], repeatBlockEnd: this.groupId };
+      current[setIndex] = {
+        ...current[setIndex],
+        repeatBlockEnd: this.groupId,
+        ...(carriedFinalTiming !== undefined && { repeatFinalTiming: carriedFinalTiming })
+      };
     }
     this.setRows(current);
     this.onComplete?.();
