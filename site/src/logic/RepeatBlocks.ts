@@ -1,13 +1,14 @@
 // Virtualizes Hold Repeat blocks by expanding rows before worker calc and collapsing results back, keeping the table layout fixed.
 import type { RotationRow } from '../store/useRotationStore';
 
-interface Block {
+export interface Block {
   startIdx: number;
   endIdx: number;
   count: number;
 }
 
-function findBlocks(rows: RotationRow[]): Map<string, Block> {
+// Maps each repeat block's groupId to its start/end row index and rep count.
+export function findBlocks(rows: RotationRow[]): Map<string, Block> {
   const blocks = new Map<string, Block>();
   rows.forEach((r, i) => {
     if (r.repeatBlockStart) {

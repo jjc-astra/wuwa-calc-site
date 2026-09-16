@@ -123,12 +123,26 @@ export class HistoryManager {
   }
 }
 
-export class AddRowCommand implements Command {
-  private getRows: () => any[];
-  private setRows: (rows: any[]) => void;
+// Holds the getRows/setRows/onComplete triple shared by every row-array-mutating command below.
+abstract class BaseRowsCommand implements Command {
+  protected getRows: () => any[];
+  protected setRows: (rows: any[]) => void;
+  protected onComplete?: (...args: any[]) => void;
+
+  constructor(getRows: () => any[], setRows: (rows: any[]) => void, onComplete?: (...args: any[]) => void) {
+    this.getRows = getRows;
+    this.setRows = setRows;
+    this.onComplete = onComplete;
+  }
+
+  abstract execute(): void;
+  abstract undo(): void;
+  abstract serialize(): SerializedCommand;
+}
+
+export class AddRowCommand extends BaseRowsCommand {
   private newRow: any;
   private insertedIndex: number;
-  private onComplete?: () => void;
 
   constructor(
     getRows: () => any[],
@@ -137,11 +151,9 @@ export class AddRowCommand implements Command {
     index: number = -1,
     onComplete?: () => void
   ) {
-    this.getRows = getRows;
-    this.setRows = setRows;
+    super(getRows, setRows, onComplete);
     this.newRow = newRow;
     this.insertedIndex = index;
-    this.onComplete = onComplete;
   }
 
   execute() {
@@ -170,11 +182,8 @@ export class AddRowCommand implements Command {
   }
 }
 
-export class DeleteRowsCommand implements Command {
-  private getRows: () => any[];
-  private setRows: (rows: any[]) => void;
+export class DeleteRowsCommand extends BaseRowsCommand {
   private deletedData: { row: any; index: number }[];
-  private onComplete?: () => void;
 
   // Takes the already-resolved deletedData (row snapshot + original index) rather than raw
   // indices, so the exact same constructor works both for a fresh delete (see
@@ -187,10 +196,8 @@ export class DeleteRowsCommand implements Command {
     deletedData: { row: any; index: number }[],
     onComplete?: () => void
   ) {
-    this.getRows = getRows;
-    this.setRows = setRows;
+    super(getRows, setRows, onComplete);
     this.deletedData = deletedData;
-    this.onComplete = onComplete;
   }
 
   static computeDeletedData(rows: any[], indicesToDelete: number[]): { row: any; index: number }[] {
@@ -206,7 +213,7 @@ export class DeleteRowsCommand implements Command {
       current.splice(item.index, 1);
     });
     if (current.length === 0) {
-      current = [{ unit: '', action: '', timing: 'Auto', offset: 0 }];
+      current = [{ id: crypto.randomUUID(), unit: '', action: '', timing: 'Auto', offset: 0 }];
     }
     this.setRows(current);
     this.onComplete?.();
@@ -214,11 +221,13 @@ export class DeleteRowsCommand implements Command {
 
   undo() {
     const current = [...this.getRows()];
+    // Guards against a restored row missing its id.
     [...this.deletedData].reverse().forEach(item => {
+      const row = item.row.id ? item.row : { ...item.row, id: crypto.randomUUID() };
       if (item.index <= current.length) {
-        current.splice(item.index, 0, item.row);
+        current.splice(item.index, 0, row);
       } else {
-        current.push(item.row);
+        current.push(row);
       }
     });
     this.setRows(current);
@@ -230,14 +239,11 @@ export class DeleteRowsCommand implements Command {
   }
 }
 
-export class EditValueCommand implements Command {
-  private getRows: () => any[];
-  private setRows: (rows: any[]) => void;
+export class EditValueCommand extends BaseRowsCommand {
   private index: number;
   private field: string;
   private oldValue: any;
   private newValue: any;
-  private onComplete?: () => void;
 
   constructor(
     getRows: () => any[],
@@ -248,13 +254,11 @@ export class EditValueCommand implements Command {
     newValue: any,
     onComplete?: () => void
   ) {
-    this.getRows = getRows;
-    this.setRows = setRows;
+    super(getRows, setRows, onComplete);
     this.index = index;
     this.field = field;
     this.oldValue = oldValue;
     this.newValue = newValue;
-    this.onComplete = onComplete;
   }
 
   execute() {
@@ -283,13 +287,10 @@ export class EditValueCommand implements Command {
 // Same as EditValueCommand but sets several fields on a row as one atomic step (e.g.
 // Simultaneous offset, which mirrors into both `offset` and `manualOffset`) -- undoes/redoes
 // together so an intermediate recalc never sees just one field updated.
-export class EditFieldsCommand implements Command {
-  private getRows: () => any[];
-  private setRows: (rows: any[]) => void;
+export class EditFieldsCommand extends BaseRowsCommand {
   private index: number;
   private oldValues: Record<string, any>;
   private newValues: Record<string, any>;
-  private onComplete?: () => void;
 
   constructor(
     getRows: () => any[],
@@ -299,12 +300,10 @@ export class EditFieldsCommand implements Command {
     newValues: Record<string, any>,
     onComplete?: () => void
   ) {
-    this.getRows = getRows;
-    this.setRows = setRows;
+    super(getRows, setRows, onComplete);
     this.index = index;
     this.oldValues = oldValues;
     this.newValues = newValues;
-    this.onComplete = onComplete;
   }
 
   execute() {
@@ -330,44 +329,36 @@ export class EditFieldsCommand implements Command {
   }
 }
 
-// Only one row may carry `loopStartOverride` at a time. Moves the flag to `newIndex` in one
-// atomic step -- pass `newIndex: null` to clear it (falls back to auto-detection).
-export class SetLoopStartCommand implements Command {
-  private getRows: () => any[];
-  private setRows: (rows: any[]) => void;
-  private newIndex: number | null;
-  private prevIndex: number | null;
-  private onComplete?: () => void;
+// Shared by SetLoopStartCommand/SetLoopEndCommand: moves a singleton boolean flag between rows.
+abstract class SetRowFlagCommandBase extends BaseRowsCommand {
+  protected field: 'loopStartOverride' | 'loopEndOverride';
+  protected newIndex: number | null;
+  protected prevIndex: number | null;
 
   // prevIndex is resolved by the caller (against the live rows) rather than derived here, so
   // the same constructor works for both a fresh action and reviving a persisted command.
   constructor(
     getRows: () => any[],
     setRows: (rows: any[]) => void,
+    field: 'loopStartOverride' | 'loopEndOverride',
     newIndex: number | null,
     prevIndex: number | null,
     onComplete?: () => void
   ) {
-    this.getRows = getRows;
-    this.setRows = setRows;
+    super(getRows, setRows, onComplete);
+    this.field = field;
     this.newIndex = newIndex;
     this.prevIndex = prevIndex;
-    this.onComplete = onComplete;
   }
 
-  static findPrevIndex(rows: any[]): number | null {
-    const idx = rows.findIndex(r => r.loopStartOverride === true);
-    return idx === -1 ? null : idx;
-  }
-
-  private apply(clearIndex: number | null, setIndex: number | null) {
+  protected apply(clearIndex: number | null, setIndex: number | null) {
     const current = [...this.getRows()];
     if (clearIndex !== null && clearIndex >= 0 && clearIndex < current.length) {
-      const { loopStartOverride, ...rest } = current[clearIndex];
+      const { [this.field]: _removed, ...rest } = current[clearIndex];
       current[clearIndex] = rest;
     }
     if (setIndex !== null && setIndex >= 0 && setIndex < current.length) {
-      current[setIndex] = { ...current[setIndex], loopStartOverride: true };
+      current[setIndex] = { ...current[setIndex], [this.field]: true };
     }
     this.setRows(current);
     this.onComplete?.();
@@ -379,6 +370,25 @@ export class SetLoopStartCommand implements Command {
 
   undo() {
     this.apply(this.newIndex, this.prevIndex);
+  }
+}
+
+// Only one row may carry `loopStartOverride` at a time. Moves the flag to `newIndex` in one
+// atomic step -- pass `newIndex: null` to clear it (falls back to auto-detection).
+export class SetLoopStartCommand extends SetRowFlagCommandBase {
+  constructor(
+    getRows: () => any[],
+    setRows: (rows: any[]) => void,
+    newIndex: number | null,
+    prevIndex: number | null,
+    onComplete?: () => void
+  ) {
+    super(getRows, setRows, 'loopStartOverride', newIndex, prevIndex, onComplete);
+  }
+
+  static findPrevIndex(rows: any[]): number | null {
+    const idx = rows.findIndex(r => r.loopStartOverride === true);
+    return idx === -1 ? null : idx;
   }
 
   serialize(): SerializedCommand {
@@ -389,13 +399,7 @@ export class SetLoopStartCommand implements Command {
 // Same shape as SetLoopStartCommand, targeting `loopEndOverride` -- marks the loop's last row
 // when "Ending Rotation" is on. No auto-detected fallback like loop start: absent just means
 // "no ending rotation" (loop runs to the end of the rows array).
-export class SetLoopEndCommand implements Command {
-  private getRows: () => any[];
-  private setRows: (rows: any[]) => void;
-  private newIndex: number | null;
-  private prevIndex: number | null;
-  private onComplete?: () => void;
-
+export class SetLoopEndCommand extends SetRowFlagCommandBase {
   constructor(
     getRows: () => any[],
     setRows: (rows: any[]) => void,
@@ -403,37 +407,12 @@ export class SetLoopEndCommand implements Command {
     prevIndex: number | null,
     onComplete?: () => void
   ) {
-    this.getRows = getRows;
-    this.setRows = setRows;
-    this.newIndex = newIndex;
-    this.prevIndex = prevIndex;
-    this.onComplete = onComplete;
+    super(getRows, setRows, 'loopEndOverride', newIndex, prevIndex, onComplete);
   }
 
   static findPrevIndex(rows: any[]): number | null {
     const idx = rows.findIndex(r => r.loopEndOverride === true);
     return idx === -1 ? null : idx;
-  }
-
-  private apply(clearIndex: number | null, setIndex: number | null) {
-    const current = [...this.getRows()];
-    if (clearIndex !== null && clearIndex >= 0 && clearIndex < current.length) {
-      const { loopEndOverride, ...rest } = current[clearIndex];
-      current[clearIndex] = rest;
-    }
-    if (setIndex !== null && setIndex >= 0 && setIndex < current.length) {
-      current[setIndex] = { ...current[setIndex], loopEndOverride: true };
-    }
-    this.setRows(current);
-    this.onComplete?.();
-  }
-
-  execute() {
-    this.apply(this.prevIndex, this.newIndex);
-  }
-
-  undo() {
-    this.apply(this.newIndex, this.prevIndex);
   }
 
   serialize(): SerializedCommand {
@@ -442,14 +421,11 @@ export class SetLoopEndCommand implements Command {
 }
 
 // Targets multi-instance Hold Repeat blocks by `groupId`, carrying existing `repeatCount` on drag moves while using `initialCount` solely on creation.
-export class SetRepeatBlockStartCommand implements Command {
-  private getRows: () => any[];
-  private setRows: (rows: any[]) => void;
+export class SetRepeatBlockStartCommand extends BaseRowsCommand {
   private groupId: string;
   private newIndex: number | null;
   private prevIndex: number | null;
   private initialCount: number;
-  private onComplete?: () => void;
 
   constructor(
     getRows: () => any[],
@@ -460,13 +436,11 @@ export class SetRepeatBlockStartCommand implements Command {
     initialCount: number,
     onComplete?: () => void
   ) {
-    this.getRows = getRows;
-    this.setRows = setRows;
+    super(getRows, setRows, onComplete);
     this.groupId = groupId;
     this.newIndex = newIndex;
     this.prevIndex = prevIndex;
     this.initialCount = initialCount;
-    this.onComplete = onComplete;
   }
 
   static findIndexForGroup(rows: any[], groupId: string): number | null {
@@ -504,13 +478,10 @@ export class SetRepeatBlockStartCommand implements Command {
 }
 
 // Same shape as SetRepeatBlockStartCommand, targeting `repeatBlockEnd` -- no count to carry.
-export class SetRepeatBlockEndCommand implements Command {
-  private getRows: () => any[];
-  private setRows: (rows: any[]) => void;
+export class SetRepeatBlockEndCommand extends BaseRowsCommand {
   private groupId: string;
   private newIndex: number | null;
   private prevIndex: number | null;
-  private onComplete?: () => void;
 
   constructor(
     getRows: () => any[],
@@ -520,12 +491,10 @@ export class SetRepeatBlockEndCommand implements Command {
     prevIndex: number | null,
     onComplete?: () => void
   ) {
-    this.getRows = getRows;
-    this.setRows = setRows;
+    super(getRows, setRows, onComplete);
     this.groupId = groupId;
     this.newIndex = newIndex;
     this.prevIndex = prevIndex;
-    this.onComplete = onComplete;
   }
 
   static findIndexForGroup(rows: any[], groupId: string): number | null {
@@ -567,13 +536,10 @@ export class SetRepeatBlockEndCommand implements Command {
   }
 }
 
-export class MoveRowsCommand implements Command {
-  private getRows: () => any[];
-  private setRows: (rows: any[]) => void;
+export class MoveRowsCommand extends BaseRowsCommand {
   private indicesToMove: number[];
   private targetIndex: number;
   private previousRowsSnapshot: any[];
-  private onComplete?: (newIndices?: number[]) => void;
 
   // previousRowsSnapshot is captured by the caller (against the live rows, before the move)
   // rather than derived here, so the same constructor works for both a fresh action and
@@ -586,11 +552,9 @@ export class MoveRowsCommand implements Command {
     previousRowsSnapshot: any[],
     onComplete?: (newIndices?: number[]) => void
   ) {
-    this.getRows = getRows;
-    this.setRows = setRows;
+    super(getRows, setRows, onComplete);
     this.indicesToMove = indicesToMove;
     this.targetIndex = targetIndex;
-    this.onComplete = onComplete;
     this.previousRowsSnapshot = previousRowsSnapshot;
   }
 

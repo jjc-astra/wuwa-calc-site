@@ -107,8 +107,9 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
     forteOptions.push({ value: `forte${i}`, label: `Forte ${i}` });
   }
 
-  const renderPanel = () => {
-    switch (activeTrigger) {
+  // Only called from the `activeTrigger &&` branch below, where it's already non-null.
+  const renderPanel = (trigger: PanelKey) => {
+    switch (trigger) {
       case 'identity':
         return (
           <>
@@ -140,8 +141,6 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
         );
       case 'cooldown':
         return <CooldownPanel data={data} updateNode={updateNode} />;
-      default:
-        return null;
     }
   };
 
@@ -170,7 +169,7 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
       {activeTrigger && (
         <tr onMouseEnter={() => enterFieldHover(activeTrigger)} onMouseLeave={leaveFieldHover}>
           <td colSpan={12} className="mech-detail-cell">
-            {renderPanel()}
+            {renderPanel(activeTrigger)}
           </td>
         </tr>
       )}

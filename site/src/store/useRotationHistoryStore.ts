@@ -5,14 +5,15 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { TeamSlot } from '../types/index';
 import type { RotationResults } from '../types/results';
-import type { RotationRow } from './useRotationStore';
+import type { RotationRowFields } from './useRotationStore';
 
 export interface HistoryEntry {
   id: string;
   timestamp: number;
   isFavorite: boolean;
   team: TeamSlot[];
-  rotation: RotationRow[];
+  // No `id` -- see toSavedRow, the shape this is always populated from.
+  rotation: RotationRowFields[];
   settings: { startEnergy: boolean; startConcerto: boolean; endingRotationEnabled?: boolean; endRotationStartsEarlier?: boolean };
   results: RotationResults;
 }

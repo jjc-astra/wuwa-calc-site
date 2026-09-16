@@ -9,6 +9,8 @@ import { CommonUtils, getCharacterThemeColor } from '../../utils/Common';
 import { DataLoader } from '../../utils/DataLoader';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { ExportResultsDialog } from '../common/ExportResultsDialog';
+import { findBlocks } from '../../logic/RepeatBlocks';
+import { toSavedRow } from '../../store/useRotationStore';
 
 interface RotationBuilderProps {
   isOpen: boolean;
@@ -80,11 +82,12 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     selectedIndices,
     setSelectedIndices,
     clipboard,
-    setClipboard,
-    addRow,
     deleteRows,
     moveRows,
     pasteRows,
+    copySelectedRows,
+    insertRowAboveSelection,
+    insertRowBelowSelection,
     undo,
     redo,
     importRotation,
@@ -181,6 +184,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
       const isCtrlOrCmd = e.ctrlKey || e.metaKey;
       const key = e.key.toLowerCase();
 
+      // Copy/Insert Above/Insert Below return whether they did anything; preventDefault only then.
       if (!isEditingInput) {
         if (e.key === 'Delete' || e.key === 'Backspace') {
           const deletable = selectedIndices.filter(i => i !== lastIndex);
@@ -189,36 +193,16 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
             deleteRows(deletable);
           }
         } else if (isCtrlOrCmd && key === 'c') {
-          const validIndices = selectedIndices.filter(i => i !== lastIndex);
-          const selectedRows = rows.filter((_, i) => validIndices.includes(i));
-          if (selectedRows.length > 0) {
-            e.preventDefault();
-            setClipboard(selectedRows.map(({ unit, action, timing, repeatBlockStart, repeatBlockEnd, repeatCount, repeatFinalTiming }) => ({
-              unit, action, timing,
-              ...(repeatBlockStart !== undefined && { repeatBlockStart, repeatCount }),
-              ...(repeatBlockEnd !== undefined && { repeatBlockEnd, ...(repeatFinalTiming !== undefined && { repeatFinalTiming }) })
-            })));
-            setSelectedIndices([]);
-          }
+          if (copySelectedRows()) e.preventDefault();
         } else if (isCtrlOrCmd && key === 'v') {
           if (clipboard.length > 0) {
             e.preventDefault();
             pasteRows();
           }
         } else if (isCtrlOrCmd && e.key === 'ArrowUp') {
-          if (selectedIndices.length > 0) {
-            e.preventDefault();
-            const firstIndex = selectedIndices[0];
-            addRow(rows[firstIndex]?.unit || '', '', firstIndex);
-            // Follow the selected block down by one instead of leaving it pinned to the new blank row.
-            setSelectedIndices(selectedIndices.map(i => i + 1));
-          }
+          if (insertRowAboveSelection()) e.preventDefault();
         } else if (isCtrlOrCmd && e.key === 'ArrowDown') {
-          if (selectedIndices.length > 0) {
-            e.preventDefault();
-            const selLastIndex = selectedIndices[selectedIndices.length - 1];
-            addRow(rows[selLastIndex]?.unit || '', '', selLastIndex + 1);
-          }
+          if (insertRowBelowSelection()) e.preventDefault();
         }
       }
 
@@ -234,7 +218,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedIndices, rows, clipboard, deleteRows, setClipboard, setSelectedIndices, pasteRows, addRow, undo, redo]);
+  }, [selectedIndices, rows, clipboard, deleteRows, pasteRows, copySelectedRows, insertRowAboveSelection, insertRowBelowSelection, undo, redo]);
 
   const handleSelectRow = (index: number, shiftKey: boolean) => {
     if (shiftKey && selectedIndices.length > 0) {
@@ -365,15 +349,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     // dmgOverTimeSeries omitted either way -- cheap to regenerate via recalculate.
     const includeResults = !!results && !isStale;
     const exportObject: Record<string, unknown> = {
-      rotation: rows.map(({ unit, action, timing, loopStartOverride, loopEndOverride, repeatBlockStart, repeatBlockEnd, repeatCount, repeatFinalTiming }) => ({
-        unit,
-        action,
-        timing,
-        ...(loopStartOverride === true && { loopStartOverride: true }),
-        ...(loopEndOverride === true && { loopEndOverride: true }),
-        ...(repeatBlockStart !== undefined && { repeatBlockStart, repeatCount }),
-        ...(repeatBlockEnd !== undefined && { repeatBlockEnd, ...(repeatFinalTiming !== undefined && { repeatFinalTiming }) })
-      })),
+      rotation: rows.map(toSavedRow),
       team: team.map(slot => {
         const { domRef, ...cleanData } = slot;
         return cleanData;
@@ -442,23 +418,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
 
   // Hold Repeat blocks, unlike Loop Start/End, are never singletons -- several can coexist, each
   // identified by its own groupId shared between its repeatBlockStart/repeatBlockEnd rows.
-  const repeatBlocksByGroup = useMemo(() => {
-    const map = new Map<string, { startIdx: number; endIdx: number; count: number }>();
-    rows.forEach((r, i) => {
-      if (r.repeatBlockStart) {
-        const b = map.get(r.repeatBlockStart) || { startIdx: -1, endIdx: -1, count: r.repeatCount || 2 };
-        b.startIdx = i;
-        b.count = r.repeatCount || 2;
-        map.set(r.repeatBlockStart, b);
-      }
-      if (r.repeatBlockEnd) {
-        const b = map.get(r.repeatBlockEnd) || { startIdx: -1, endIdx: -1, count: 2 };
-        b.endIdx = i;
-        map.set(r.repeatBlockEnd, b);
-      }
-    });
-    return map;
-  }, [rows]);
+  const repeatBlocksByGroup = useMemo(() => findBlocks(rows), [rows]);
 
   // No auto-detection for loop end (unlike loop start) -- always an explicit tag, or absent.
   const loopEndIndex = rows.findIndex(r => r.loopEndOverride === true);
@@ -540,7 +500,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
           <div id="rotation-builder" ref={rotationBuilderRef} className="flex-col gap-sm" style={{ padding: 0 }}>
             {rows.map((row, i) => (
               <RotationRow
-                key={i}
+                key={row.id}
                 index={i}
                 row={row}
                 isSelected={selectedIndices.includes(i)}

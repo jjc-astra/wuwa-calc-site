@@ -18,15 +18,16 @@ export const RotationToolbar: React.FC = () => {
     setStartEnergy,
     setStartConcerto,
     setEndingRotationEnabled,
-    setClipboard,
     setSelectedIndices,
-    addRow,
     deleteRows,
     pasteRows,
     calculateDamage,
     undo,
     redo,
-    addRepeatBlock
+    addRepeatBlock,
+    copySelectedRows,
+    insertRowAboveSelection,
+    insertRowBelowSelection
   } = useRotationStore();
 
   const lastIndex = rows.length - 1;
@@ -36,23 +37,7 @@ export const RotationToolbar: React.FC = () => {
   // So "checked" is gated on the tag actually existing, not just the stored flag.
   const hasEndingRotationMarker = rows.some(r => r.loopEndOverride === true);
 
-  const handleCopy = () => {
-    const validIndices = selectedIndices.filter(i => i !== lastIndex);
-    const selectedRows = rows.filter((_, i) => validIndices.includes(i));
-    if (selectedRows.length > 0) {
-      setClipboard(selectedRows.map(({ unit, action, timing, repeatBlockStart, repeatBlockEnd, repeatCount, repeatFinalTiming }) => ({
-        unit, action, timing,
-        ...(repeatBlockStart !== undefined && { repeatBlockStart, repeatCount }),
-        ...(repeatBlockEnd !== undefined && { repeatBlockEnd, ...(repeatFinalTiming !== undefined && { repeatFinalTiming }) })
-      })));
-    }
-    setSelectedIndices([]);
-  };
-
-  const handlePaste = () => {
-    pasteRows();
-  };
-
+  // Copy/Insert Above/Insert Below live in the store, shared with RotationBuilder's keyboard shortcuts.
   const handleDelete = () => {
     const deletable = selectedIndices.filter(i => i !== lastIndex);
     if (deletable.length > 0) deleteRows(deletable);
@@ -65,26 +50,13 @@ export const RotationToolbar: React.FC = () => {
     setSelectedIndices([]);
   };
 
-  const handleInsertAbove = () => {
-    if (selectedIndices.length === 0) return;
-    const firstIndex = selectedIndices[0];
-    addRow(rows[firstIndex]?.unit || '', '', firstIndex);
-    setSelectedIndices(selectedIndices.map(i => i + 1));
-  };
-
-  const handleInsertBelow = () => {
-    if (selectedIndices.length === 0) return;
-    const selLastIndex = selectedIndices[selectedIndices.length - 1];
-    addRow(rows[selLastIndex]?.unit || '', '', selLastIndex + 1);
-  };
-
   return (
     <div className="rotation-toolbar">
       <div className="flex-row gap-sm">
         
         <div className="btn-group">
-          <button className="base-btn text-xs" onClick={handleCopy} disabled={!hasSelection}>Copy</button>
-          <button className={`base-btn text-xs ${clipboard.length > 0 ? 'btn-highlight' : ''}`} onClick={handlePaste} disabled={clipboard.length === 0}>Paste</button>
+          <button className="base-btn text-xs" onClick={copySelectedRows} disabled={!hasSelection}>Copy</button>
+          <button className={`base-btn text-xs ${clipboard.length > 0 ? 'btn-highlight' : ''}`} onClick={pasteRows} disabled={clipboard.length === 0}>Paste</button>
           <button className="base-btn icon-btn" onClick={handleDelete} {...tip('Delete Selected Rows')} disabled={!hasSelection}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
           </button>
@@ -99,14 +71,14 @@ export const RotationToolbar: React.FC = () => {
         <div className="separator-v"></div>
 
         <div className="btn-group">
-          <button className="base-btn icon-btn" onClick={handleInsertAbove} {...tip('Insert Row Above')} disabled={!hasSelection}>
+          <button className="base-btn icon-btn" onClick={insertRowAboveSelection} {...tip('Insert Row Above')} disabled={!hasSelection}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="3" y1="12" x2="21" y2="12"></line>
               <line x1="12" y1="2" x2="12" y2="22"></line>
               <polyline points="8 7 12 3 16 7"></polyline>
             </svg>
           </button>
-          <button className="base-btn icon-btn" onClick={handleInsertBelow} {...tip('Insert Row Below')} disabled={!hasSelection}>
+          <button className="base-btn icon-btn" onClick={insertRowBelowSelection} {...tip('Insert Row Below')} disabled={!hasSelection}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="3" y1="12" x2="21" y2="12"></line>
               <line x1="12" y1="2" x2="12" y2="22"></line>

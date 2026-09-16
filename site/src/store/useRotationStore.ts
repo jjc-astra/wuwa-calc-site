@@ -25,7 +25,8 @@ import {
 } from '../systems/HistoryManager';
 import type { Command, SerializedCommand } from '../systems/HistoryManager';
 
-export interface RotationRow {
+// A row's authored fields, without the local-only `id`.
+export interface RotationRowFields {
   unit: string;
   action: string;
   timing: string;
@@ -47,6 +48,46 @@ export interface RotationRow {
   [key: string]: any;
 }
 
+export interface RotationRow extends RotationRowFields {
+  // Local-only React list key; selection/drag/loop markers still address rows by array position.
+  id: string;
+}
+
+// Builds a fresh row (with a new id) ready for AddRowCommand.
+const makeRow = (fields: Partial<RotationRowFields> & { unit: string; action: string; timing: string }): RotationRow => ({
+  id: crypto.randomUUID(),
+  offset: 0,
+  ...fields
+});
+
+const repeatFieldsOf = (row: RotationRow) => ({
+  ...(row.repeatBlockStart !== undefined && { repeatBlockStart: row.repeatBlockStart, repeatCount: row.repeatCount }),
+  ...(row.repeatBlockEnd !== undefined && { repeatBlockEnd: row.repeatBlockEnd, ...(row.repeatFinalTiming !== undefined && { repeatFinalTiming: row.repeatFinalTiming }) })
+});
+
+// Three narrower views of a row, none carrying `id`.
+export const toClipboardRow = (row: RotationRow) => ({
+  unit: row.unit,
+  action: row.action,
+  timing: row.timing,
+  ...repeatFieldsOf(row)
+});
+
+export const toSavedRow = (row: RotationRow) => ({
+  unit: row.unit,
+  action: row.action,
+  timing: row.timing,
+  ...(row.loopStartOverride === true && { loopStartOverride: true }),
+  ...(row.loopEndOverride === true && { loopEndOverride: true }),
+  ...repeatFieldsOf(row)
+});
+
+export const toPersistedRow = (row: RotationRow) => ({
+  ...toSavedRow(row),
+  ...(row.offset !== undefined && { offset: row.offset }),
+  ...(row.manualOffset !== undefined && { manualOffset: row.manualOffset })
+});
+
 interface RotationState {
   rows: RotationRow[];
   startEnergy: boolean;
@@ -61,7 +102,7 @@ interface RotationState {
   redoStackData: SerializedCommand[];
   isStale: boolean;
   selectedIndices: number[];
-  clipboard: RotationRow[];
+  clipboard: RotationRowFields[];
   loopStartIndex: number;
   loopStartIsOverride: boolean;
   loopErrors: string[];
@@ -77,12 +118,16 @@ interface RotationState {
   setStartConcerto: (val: boolean) => void;
   setStale: (val: boolean) => void;
   setSelectedIndices: (indices: number[]) => void;
-  setClipboard: (rows: RotationRow[]) => void;
+  setClipboard: (rows: RotationRowFields[]) => void;
 
   addRow: (unit?: string, action?: string, index?: number) => void;
   deleteRows: (indices: number[]) => void;
   moveRows: (indicesToMove: number[], targetIndex: number) => void;
   pasteRows: () => void;
+  // Returns whether it did anything (no selection is a no-op).
+  copySelectedRows: () => boolean;
+  insertRowAboveSelection: () => boolean;
+  insertRowBelowSelection: () => boolean;
   updateRowField: (index: number, field: string, value: any) => void;
   updateRowFields: (index: number, fields: Record<string, any>) => void;
   // Sets a row's unit (clearing `action`, since the old action rarely applies to the new unit)
@@ -116,7 +161,7 @@ interface RotationState {
   calculateDamage: () => Promise<void>;
   undo: () => void;
   redo: () => void;
-  importRotation: (rows: RotationRow[], settings?: { startEnergy?: boolean; startConcerto?: boolean; endingRotationEnabled?: boolean; endRotationStartsEarlier?: boolean }) => void;
+  importRotation: (rows: RotationRowFields[], settings?: { startEnergy?: boolean; startConcerto?: boolean; endingRotationEnabled?: boolean; endRotationStartsEarlier?: boolean }) => void;
 }
 
 const historyManager = new HistoryManager();
@@ -191,7 +236,7 @@ export const useRotationStore = create<RotationState>()(
       };
 
       return {
-        rows: [{ unit: '', action: '', timing: 'Auto', offset: 0 }],
+        rows: [makeRow({ unit: '', action: '', timing: 'Auto' })],
         startEnergy: true,
         startConcerto: false,
         canUndo: false,
@@ -220,12 +265,39 @@ export const useRotationStore = create<RotationState>()(
         },
         setStale: (val: boolean) => set({ isStale: val }),
         setSelectedIndices: (indices: number[]) => set({ selectedIndices: indices }),
-        setClipboard: (rows: RotationRow[]) => set({ clipboard: rows }),
+        setClipboard: (rows: RotationRowFields[]) => set({ clipboard: rows }),
 
         addRow: (unit: string = '', action: string = '', index?: number) => {
-          const newRow: RotationRow = { unit, action, timing: 'Auto', offset: 0 };
+          const newRow = makeRow({ unit, action, timing: 'Auto' });
           const cmd = new AddRowCommand(getRawRows, setRawRows, newRow, index, triggerRecalc);
           historyManager.execute(cmd);
+        },
+
+        copySelectedRows: () => {
+          const { rows, selectedIndices } = get();
+          const lastIndex = rows.length - 1;
+          const validIndices = selectedIndices.filter(i => i !== lastIndex);
+          const selectedRows = rows.filter((_, i) => validIndices.includes(i));
+          if (selectedRows.length === 0) return false;
+          set({ clipboard: selectedRows.map(toClipboardRow), selectedIndices: [] });
+          return true;
+        },
+
+        insertRowAboveSelection: () => {
+          const { rows, selectedIndices } = get();
+          if (selectedIndices.length === 0) return false;
+          const firstIndex = selectedIndices[0];
+          get().addRow(rows[firstIndex]?.unit || '', '', firstIndex);
+          set({ selectedIndices: selectedIndices.map(i => i + 1) });
+          return true;
+        },
+
+        insertRowBelowSelection: () => {
+          const { rows, selectedIndices } = get();
+          if (selectedIndices.length === 0) return false;
+          const selLastIndex = selectedIndices[selectedIndices.length - 1];
+          get().addRow(rows[selLastIndex]?.unit || '', '', selLastIndex + 1);
+          return true;
         },
 
         deleteRows: (indices: number[]) => {
@@ -269,7 +341,7 @@ export const useRotationStore = create<RotationState>()(
             if (!groupIdRemap.has(id)) groupIdRemap.set(id, crypto.randomUUID());
             return groupIdRemap.get(id);
           };
-          const repeatFieldsFor = (data: RotationRow) => ({
+          const repeatFieldsFor = (data: RotationRowFields) => ({
             repeatBlockStart: remapGroupId(data.repeatBlockStart),
             repeatBlockEnd: remapGroupId(data.repeatBlockEnd),
             repeatCount: data.repeatCount,
@@ -280,7 +352,7 @@ export const useRotationStore = create<RotationState>()(
 
           for (let i = 0; i < maxEdits; i++) {
             const rowIdx = selectedIndices[i];
-            const data = { ...clipboard[i], ...repeatFieldsFor(clipboard[i]) };
+            const data: RotationRowFields = { ...clipboard[i], ...repeatFieldsFor(clipboard[i]) };
             const existing = rows[rowIdx];
             (['unit', 'action', 'timing', 'repeatBlockStart', 'repeatBlockEnd', 'repeatCount', 'repeatFinalTiming'] as const).forEach(field => {
               if (existing[field] !== data[field]) {
@@ -294,7 +366,7 @@ export const useRotationStore = create<RotationState>()(
             for (let i = maxEdits; i < clipboard.length; i++) {
               const data = clipboard[i];
               const targetIndex = insertBase + (i - maxEdits);
-              const newRow: RotationRow = { unit: data.unit, action: data.action, timing: data.timing, offset: 0, ...repeatFieldsFor(data) };
+              const newRow = makeRow({ unit: data.unit, action: data.action, timing: data.timing, ...repeatFieldsFor(data) });
               commands.push(new AddRowCommand(getRawRows, setRawRows, newRow, targetIndex, triggerRecalc));
             }
           }
@@ -327,7 +399,7 @@ export const useRotationStore = create<RotationState>()(
             if (nextRow && !nextRow.unit && !nextRow.action && !isOutro) {
               commands.push(new EditValueCommand(getRawRows, setRawRows, index + 1, 'unit', nextRow.unit, row.unit, triggerRecalc));
               if (index + 1 === get().rows.length - 1) {
-                const newRow: RotationRow = { unit: '', action: '', timing: 'Auto', offset: 0 };
+                const newRow = makeRow({ unit: '', action: '', timing: 'Auto' });
                 commands.push(new AddRowCommand(getRawRows, setRawRows, newRow, -1, triggerRecalc));
               }
             }
@@ -365,7 +437,7 @@ export const useRotationStore = create<RotationState>()(
           }
 
           if (newUnit && index === get().rows.length - 1) {
-            const newRow: RotationRow = { unit: '', action: '', timing: 'Auto', offset: 0 };
+            const newRow = makeRow({ unit: '', action: '', timing: 'Auto' });
             commands.push(new AddRowCommand(getRawRows, setRawRows, newRow, -1, triggerRecalc));
           }
 
@@ -517,8 +589,8 @@ export const useRotationStore = create<RotationState>()(
           const loopStart = get().loopStartIndex;
           const loopRows = rows.slice(loopStart, lastContentIdx + 1);
           loopRows.forEach((r, i) => {
-            const { loopStartOverride, loopEndOverride, repeatBlockStart, repeatBlockEnd, repeatCount, repeatFinalTiming, ...clean } = r;
-            const newRow: RotationRow = { ...clean, unit: r.unit, action: r.action, timing: r.timing, offset: 0 };
+            // Only the authored fields carry over -- `r` also carries TimelineEngine's runtime state.
+            const newRow = makeRow({ unit: r.unit, action: r.action, timing: r.timing });
             commands.push(new AddRowCommand(getRawRows, setRawRows, newRow, lastContentIdx + 1 + i, triggerRecalc));
           });
           historyManager.execute(new CompositeCommand(commands));
@@ -572,6 +644,8 @@ export const useRotationStore = create<RotationState>()(
             row.damageInstances = (row.damageInstances && row.damageInstances.length > 0)
               ? row.damageInstances
               : (existingDamageMap.get(i) || []);
+            // Guarantees every committed row has an id, independent of whatever `rows[i]` has.
+            if (!row.id) row.id = rows[i]?.id || crypto.randomUUID();
           });
 
           set({
@@ -615,6 +689,9 @@ export const useRotationStore = create<RotationState>()(
           if (seq !== latestSeqByType.calculateDamage) return;
 
           const evaluatedRows = collapseRepeatResults(data.evaluatedRows, collapseMap, rows);
+          evaluatedRows.forEach((row: any, i: number) => {
+            if (!row.id) row.id = rows[i]?.id || crypto.randomUUID();
+          });
           set({ rows: evaluatedRows, isStale: false, results: data.results, isCalculating: false });
 
           // One history row per successful Calculate press, in the same shape Export Rotation uses.
@@ -623,15 +700,7 @@ export const useRotationStore = create<RotationState>()(
               const { domRef, ...clean } = slot as any;
               return clean;
             }),
-            rotation: rows.map(({ unit, action, timing, loopStartOverride, loopEndOverride, repeatBlockStart, repeatBlockEnd, repeatCount, repeatFinalTiming }) => ({
-              unit,
-              action,
-              timing,
-              ...(loopStartOverride === true && { loopStartOverride: true }),
-              ...(loopEndOverride === true && { loopEndOverride: true }),
-              ...(repeatBlockStart !== undefined && { repeatBlockStart, repeatCount }),
-              ...(repeatBlockEnd !== undefined && { repeatBlockEnd, ...(repeatFinalTiming !== undefined && { repeatFinalTiming }) })
-            })),
+            rotation: rows.map(toSavedRow),
             settings: { ...options, endingRotationEnabled, endRotationStartsEarlier },
             results: data.results
           });
@@ -645,12 +714,13 @@ export const useRotationStore = create<RotationState>()(
           historyManager.redo();
         },
 
-        importRotation: (rows: RotationRow[], settings?: { startEnergy?: boolean; startConcerto?: boolean; endingRotationEnabled?: boolean; endRotationStartsEarlier?: boolean }) => {
+        importRotation: (rows: RotationRowFields[], settings?: { startEnergy?: boolean; startConcerto?: boolean; endingRotationEnabled?: boolean; endRotationStartsEarlier?: boolean }) => {
           historyManager.clear();
-          const trailingEmpty: RotationRow = { unit: '', action: '', timing: 'Auto', offset: 0 };
-          const withTrailingRow = rows.length > 0 && rows[rows.length - 1].unit
-            ? [...rows, trailingEmpty]
-            : (rows.length > 0 ? rows : [trailingEmpty]);
+          const idedRows: RotationRow[] = rows.map(r => ({ ...r, id: crypto.randomUUID() }));
+          const trailingEmpty = makeRow({ unit: '', action: '', timing: 'Auto' });
+          const withTrailingRow = idedRows.length > 0 && idedRows[idedRows.length - 1].unit
+            ? [...idedRows, trailingEmpty]
+            : (idedRows.length > 0 ? idedRows : [trailingEmpty]);
           set({
             rows: withTrailingRow,
             startEnergy: settings?.startEnergy ?? get().startEnergy,
@@ -666,17 +736,7 @@ export const useRotationStore = create<RotationState>()(
     {
       name: 'wuwa_calc_rotation_cache',
       partialize: (state) => ({
-        rows: state.rows.map(({ unit, action, timing, offset, manualOffset, loopStartOverride, loopEndOverride, repeatBlockStart, repeatBlockEnd, repeatCount, repeatFinalTiming }) => ({
-          unit,
-          action,
-          timing,
-          ...(offset !== undefined && { offset }),
-          ...(manualOffset !== undefined && { manualOffset }),
-          ...(loopStartOverride === true && { loopStartOverride: true }),
-          ...(loopEndOverride === true && { loopEndOverride: true }),
-          ...(repeatBlockStart !== undefined && { repeatBlockStart, repeatCount }),
-          ...(repeatBlockEnd !== undefined && { repeatBlockEnd, ...(repeatFinalTiming !== undefined && { repeatFinalTiming }) })
-        })),
+        rows: state.rows.map(toPersistedRow),
         startEnergy: state.startEnergy,
         startConcerto: state.startConcerto,
         endingRotationEnabled: state.endingRotationEnabled,
@@ -697,6 +757,10 @@ export const useRotationStore = create<RotationState>()(
       // up-to-date result of those commands having run before the reload.
       onRehydrateStorage: () => state => {
         if (!state) return;
+        // Persisted rows never carry an id (see toPersistedRow) -- backfill on rehydrate.
+        if (state.rows.some(r => !r.id)) {
+          useRotationStore.setState({ rows: state.rows.map(r => (r.id ? r : { ...r, id: crypto.randomUUID() })) });
+        }
         const ctx: RevivalContext = {
           getRows: () => useRotationStore.getState().rows,
           setRows: rows => useRotationStore.setState({ rows }),
