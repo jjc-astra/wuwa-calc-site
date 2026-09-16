@@ -67,13 +67,15 @@ export const RotationToolbar: React.FC = () => {
 
   const handleInsertAbove = () => {
     if (selectedIndices.length === 0) return;
-    addRow('', '', selectedIndices[0]);
+    const firstIndex = selectedIndices[0];
+    addRow(rows[firstIndex]?.unit || '', '', firstIndex);
     setSelectedIndices(selectedIndices.map(i => i + 1));
   };
 
   const handleInsertBelow = () => {
     if (selectedIndices.length === 0) return;
-    addRow('', '', selectedIndices[selectedIndices.length - 1] + 1);
+    const selLastIndex = selectedIndices[selectedIndices.length - 1];
+    addRow(rows[selLastIndex]?.unit || '', '', selLastIndex + 1);
   };
 
   return (

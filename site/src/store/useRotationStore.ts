@@ -7,6 +7,7 @@ import { useRosterStore } from './useRosterStore';
 import { checkTeamFreshness } from '../utils/dataFreshness';
 import { expandRepeatBlocks, collapseRepeatResults } from '../logic/RepeatBlocks';
 import { useRotationHistoryStore } from './useRotationHistoryStore';
+import { DataLoader } from '../utils/DataLoader';
 import {
   HistoryManager,
   AddRowCommand,
@@ -313,10 +314,26 @@ export const useRotationStore = create<RotationState>()(
         },
 
         updateRowField: (index: number, field: string, value: any) => {
-          const oldValue = get().rows[index]?.[field];
+          const row = get().rows[index];
+          const oldValue = row?.[field];
           if (oldValue === value) return;
-          const cmd = new EditValueCommand(getRawRows, setRawRows, index, field, oldValue, value, triggerRecalc);
-          historyManager.execute(cmd);
+          const commands: Command[] = [new EditValueCommand(getRawRows, setRawRows, index, field, oldValue, value, triggerRecalc)];
+
+          // Speeds up authoring a rotation: picking a move carries the row's unit forward
+          if (field === 'action' && value && row?.unit) {
+            const nextRow = get().rows[index + 1];
+            const moveData = DataLoader.mechanicsDB[value];
+            const isOutro = !!moveData?.castTypes?.includes('Outro');
+            if (nextRow && !nextRow.unit && !nextRow.action && !isOutro) {
+              commands.push(new EditValueCommand(getRawRows, setRawRows, index + 1, 'unit', nextRow.unit, row.unit, triggerRecalc));
+              if (index + 1 === get().rows.length - 1) {
+                const newRow: RotationRow = { unit: '', action: '', timing: 'Auto', offset: 0 };
+                commands.push(new AddRowCommand(getRawRows, setRawRows, newRow, -1, triggerRecalc));
+              }
+            }
+          }
+
+          historyManager.execute(commands.length === 1 ? commands[0] : new CompositeCommand(commands));
         },
 
         updateRowFields: (index: number, fields: Record<string, any>) => {

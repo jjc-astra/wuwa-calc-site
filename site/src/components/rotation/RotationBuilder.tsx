@@ -133,6 +133,27 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     };
   }, [rows.length]);
 
+  // Sticky-to-bottom
+  const isNearBottomRef = useRef(true);
+  const prevRowCountRef = useRef(rows.length);
+  useEffect(() => {
+    const el = rotationBuilderRef.current;
+    if (!el) return;
+    const updateNearBottom = () => {
+      isNearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+    };
+    updateNearBottom();
+    el.addEventListener('scroll', updateNearBottom);
+    return () => el.removeEventListener('scroll', updateNearBottom);
+  }, []);
+  useEffect(() => {
+    const el = rotationBuilderRef.current;
+    if (el && rows.length > prevRowCountRef.current && isNearBottomRef.current) {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    }
+    prevRowCountRef.current = rows.length;
+  }, [rows.length]);
+
   const [activeSubPanel, setActiveSubPanel] = useState<{ rowIndex: number; trigger: string } | null>(null);
 
   const [draggedIndices, setDraggedIndices] = useState<number[]>([]);
@@ -187,14 +208,16 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
         } else if (isCtrlOrCmd && e.key === 'ArrowUp') {
           if (selectedIndices.length > 0) {
             e.preventDefault();
-            addRow('', '', selectedIndices[0]);
+            const firstIndex = selectedIndices[0];
+            addRow(rows[firstIndex]?.unit || '', '', firstIndex);
             // Follow the selected block down by one instead of leaving it pinned to the new blank row.
             setSelectedIndices(selectedIndices.map(i => i + 1));
           }
         } else if (isCtrlOrCmd && e.key === 'ArrowDown') {
           if (selectedIndices.length > 0) {
             e.preventDefault();
-            addRow('', '', selectedIndices[selectedIndices.length - 1] + 1);
+            const selLastIndex = selectedIndices[selectedIndices.length - 1];
+            addRow(rows[selLastIndex]?.unit || '', '', selLastIndex + 1);
           }
         }
       }
