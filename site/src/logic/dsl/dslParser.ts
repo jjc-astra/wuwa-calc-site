@@ -1,11 +1,66 @@
+import { DSL_POINTERS, DSL_PARSER_SCALAR_EXTRAS } from './dslRegistry';
+
 export interface CompiledDSL {
   triggers: Array<{ event: string; modifiers: string[]; args: (string | number)[] }>;
-  evaluate: (ctx: any, equipper?: string) => boolean;
+  evaluate: (ctx: unknown, equipper?: string) => boolean;
   raw: string;
 }
 
+// Compiles DSL_POINTERS with specific overrides ahead of generic pointer roots to prevent greedy prefix matching, ensuring all properties resolve.
+function validatePointerRegistry(): void {
+  for (const pointer of Object.values(DSL_POINTERS)) {
+    for (const prop of pointer.properties) {
+      if (!prop.isMethod && !prop.fullOverride && !prop.targetKey) {
+        console.warn(`[DSLParser] "${pointer.pointer}.${prop.propName}" has neither targetKey nor fullOverride -- it will not evaluate.`);
+      }
+    }
+  }
+}
+
+function buildTranslationMaps(): { pointerMap: Record<string, string>; scalarMap: Record<string, string> } {
+  validatePointerRegistry();
+  const pointerMap: Record<string, string> = {};
+  const scalarMap: Record<string, string> = {};
+
+  for (const pointer of Object.values(DSL_POINTERS)) {
+    for (const prop of pointer.properties) {
+      if (prop.fullOverride) {
+        const pattern = prop.regexPattern || prop.propName;
+        pointerMap[`@${pointer.pointer}\\.${pattern}`] = prop.fullOverride;
+      }
+    }
+  }
+  for (const pointer of Object.values(DSL_POINTERS)) {
+    if (pointer.targetVar) pointerMap[`@${pointer.pointer}`] = pointer.targetVar;
+  }
+
+  // Generic (pointer-agnostic) suffixes, longest-pattern-first so e.g. .MaxHP/.HPPct are matched
+  // before the shorter .HP that would otherwise partially consume them.
+  const scalarEntries: Array<[string, string]> = [];
+  const seen = new Set<string>();
+  for (const pointer of Object.values(DSL_POINTERS)) {
+    for (const prop of pointer.properties) {
+      if (!prop.fullOverride && !prop.isMethod && prop.targetKey) {
+        const key = `\\.${prop.regexPattern || prop.propName}`;
+        if (!seen.has(key)) { seen.add(key); scalarEntries.push([key, prop.targetKey]); }
+      }
+    }
+  }
+  for (const [key, val] of Object.entries(DSL_PARSER_SCALAR_EXTRAS)) {
+    if (!seen.has(key)) { seen.add(key); scalarEntries.push([key, val]); }
+  }
+  scalarEntries.sort((a, b) => b[0].length - a[0].length);
+  for (const [key, val] of scalarEntries) scalarMap[key] = val;
+
+  return { pointerMap, scalarMap };
+}
+
+const { pointerMap: POINTER_MAP, scalarMap: SCALAR_MAP } = buildTranslationMaps();
+
+type CompiledMathFn = (ctx: unknown, equipper?: string) => number;
+
 export const DSLParser = {
-  _mathCache: {} as Record<string, Function>,
+  _mathCache: {} as Record<string, CompiledMathFn>,
 
   compile: (dslString: string): CompiledDSL | null => {
     if (!dslString) return null;
@@ -26,7 +81,7 @@ export const DSLParser = {
       conditionStr = conditionStr.substring(1, conditionStr.length - 1);
     }
 
-    let triggers: Array<{ event: string; modifiers: string[]; args: (string | number)[] }> = [];
+    let triggers: Array<{ event: string; modifiers: string[]; args: (string | number)[] }>;
     if (triggerStr.startsWith('ANY(') && triggerStr.endsWith(')')) {
       const inner = triggerStr.substring(4, triggerStr.length - 1);
       triggers = DSLParser._splitArgs(inner).map(t => DSLParser._parseTrigger(t));
@@ -163,45 +218,7 @@ export const DSLParser = {
     jsStr = jsStr.replace(/%(?!\s*[\d@a-zA-Z(_])/g, ' / 100');
     jsStr = jsStr.replace(/@([A-Za-z0-9_ ]+)\(((?:[^)(]+|\([^)(]*\))*)\)/g, (_, p1, p2) => '"' + p1 + '_' + p2.trim() + '"');
 
-    const pointerMap: Record<string, string> = {
-      '@Self\\.GameTimeStart': 'ctx.move.gameTimeStart',
-      '@Self\\.PrevAction': 'ctx.self.prevAction',
-      '@Prev\\.(Unit|name)': 'ctx.prev.unit',
-      '@Prev\\.Action': 'ctx.prev.action',
-      '@Prev\\.CastTypes?': 'ctx.prev.castTypes',
-      '@Next\\.name': 'ctx.next.name',
-      '@Next\\.Action': 'ctx.next.action',
-      '@Next\\.CastTypes?': 'ctx.next.castTypes',
-      '@Next\\.Priority': 'ctx.next.priority',
-      '@Self\\.name': 'ctx.self.name',
-      '@Enemy\\.name': '"Enemy"',
-      '@Active\\.name': 'ctx.active.name',
-      '@Move\\.Name': 'ctx.move.name',
-      '@Move\\.CastTypes?': 'ctx.move.castTypes',
-      '@Move\\.DmgTypes?': 'ctx.move.dmgTypes',
-      '@Move\\.TimeStart': 'ctx.move.timeStart',
-      '@Move\\.Duration': 'ctx.move.duration',
-      '@Move\\.GameTime': 'ctx.move.gameTimePassed',
-      '@Move\\.FreezeTime': 'ctx.move.freezeTime',
-      '@Move\\.DamageStart': 'ctx.move.damageTimeframe.start',
-      '@Move\\.DamageEnd': 'ctx.move.damageTimeframe.end',
-      '@Move\\.SwapTime': 'ctx.move.swapTiming',
-      '@Move\\.BaseMult': 'ctx.move.baseMult',
-      '@Move\\.HitMults': 'ctx.move.hitMults',
-      '@Move\\.IsInHoldWindow': 'ctx.move.isInHoldWindow',
-      '@Self': 'ctx.self',
-      '@Enemy': 'ctx.enemy',
-      '@Active': 'ctx.active',
-      '@TeamOthers': 'ctx.teamOthers',
-      '@Team': 'ctx.team',
-      '@Equipper': 'equipper',
-      '@Prev': 'ctx.prev.unit',
-      '@Next': 'ctx.next.name',
-      '@Move': 'ctx.move',
-      '@Default': 'ctx.default'
-    };
-
-    for (const [key, val] of Object.entries(pointerMap)) {
+    for (const [key, val] of Object.entries(POINTER_MAP)) {
       jsStr = jsStr.replace(new RegExp(key + '(?![A-Za-z0-9_])', 'gi'), val);
     }
 
@@ -218,37 +235,7 @@ export const DSLParser = {
     jsStr = jsStr.replace(/\.Cooldown\(([^)]+)\)/gi, (_, p1) => `.getCooldown(${wrapQuotes(p1)})`);
     jsStr = jsStr.replace(/@StatusMult\(([^,]+),\s*([^)]+)\)/gi, (_, p1, p2) => `CombatCalculator.getNegativeStatusMult(${wrapQuotes(p1)}, ${p2})`);
 
-    const scalarMap: Record<string, string> = {
-      '\\.MaxHP': '.maxHp',
-      '\\.HPPct': '.hpPct',
-      '\\.HP': '.hp',
-      '\\.MaxEnergy': '.maxEnergy',
-      '\\.Energy': '.energy',
-      '\\.MaxConcerto': '.maxConcerto',
-      '\\.Concerto': '.concerto',
-      '\\.MaxForte([0-9]+)': '.maxForte$1',
-      '\\.Forte([0-9]+)': '.forte$1',
-      '\\.MaxTune': '.maxTune',
-      '\\.Tune': '.tune',
-      '\\.TimeStart': '.timeStart',
-      '\\.GameTimeStart': '.gameTimeStart',
-      '\\.SwapTime': '.swapTime',
-      '\\.ComboWindow': '.comboWindow',
-      '\\.EchoSummonTime': '.echoSummonTime',
-      '\\.PermanentDuration': '.permanentDuration',
-      '\\.BasicPriority': '.basicPriority',
-      '\\.HeavyPriority': '.heavyPriority',
-      '\\.SkillPriority': '.skillPriority',
-      '\\.EchoPriority': '.echoPriority',
-      '\\.DodgePriority': '.dodgePriority',
-      '\\.JumpPriority': '.jumpPriority',
-      '\\.LibPriority': '.libPriority',
-      '\\.IntroPriority': '.introPriority',
-      '\\.OutroPriority': '.outroPriority',
-      '\\.Sequence': '.sequence'
-    };
-
-    for (const [key, val] of Object.entries(scalarMap)) {
+    for (const [key, val] of Object.entries(SCALAR_MAP)) {
       jsStr = jsStr.replace(new RegExp(key, 'gi'), val);
     }
     return jsStr;
@@ -258,13 +245,13 @@ export const DSLParser = {
     if (condStr === 'true') return () => true;
     let jsStr = condStr;
     jsStr = DSLParser._resolveLogicalWrappers(jsStr);
-    jsStr = jsStr.replace(/([@A-Za-z0-9_.\(\)]+)\s*==\s*([\d\.]+)\.\.([\d\.]+)/g, '($1 >= $2 && $1 <= $3)');
+    jsStr = jsStr.replace(/([@A-Za-z0-9_.()]+)\s*==\s*([\d.]+)\.\.([\d.]+)/g, '($1 >= $2 && $1 <= $3)');
     jsStr = DSLParser._translatePointers(jsStr);
     jsStr = jsStr.replace(/\bNOT\b/g, '!').replace(/\bAND\b/g, '&&').replace(/\bOR\b/g, '||');
 
     try {
       const compiledFn = new Function('ctx', 'equipper', `return ${jsStr};`);
-      return (ctx: any, equipper?: string) => {
+      return (ctx: unknown, equipper?: string) => {
         try {
           return compiledFn(ctx, equipper);
         } catch (e) {
@@ -278,12 +265,12 @@ export const DSLParser = {
     }
   },
 
-  evaluateMath: (mathStr: string, ctx: any, equipper?: string): number => {
+  evaluateMath: (mathStr: string, ctx: unknown, equipper?: string): number => {
     if (!mathStr || typeof mathStr !== 'string') return parseFloat(mathStr) || 0;
     if (!DSLParser._mathCache[mathStr]) {
       const jsStr = DSLParser._translatePointers(mathStr);
       try {
-        DSLParser._mathCache[mathStr] = new Function('ctx', 'equipper', `return Number(${jsStr});`);
+        DSLParser._mathCache[mathStr] = new Function('ctx', 'equipper', `return Number(${jsStr});`) as CompiledMathFn;
       } catch (e) {
         console.error(`[DSLParser] Error compiling math: "${mathStr}"`, e);
         return 0;

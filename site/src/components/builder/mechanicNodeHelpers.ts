@@ -3,7 +3,7 @@
 import type { Effect, MechanicNode } from '../../types';
 import { CAST_TYPE_COLORS } from '../../data/db';
 import { ELEMENT_COLORS } from '../../utils/Common';
-import { DSLParser } from '../../logic/DSLParser';
+import { DSLParser } from '../../logic/dsl/dslParser';
 import { parseTimeInput } from '../../utils/Frames';
 
 export { tip } from '../../utils/Common';

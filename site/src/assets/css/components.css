@@ -522,8 +522,7 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     display: block;
 }
 
-/* Two open sub-panels stacked back-to-back. Cancels the first panel's own bottom
-   padding (rather than relying on :has() to shrink it directly) and swaps in a tighter gap. */
+/* Two open sub-panels stacked back-to-back: no double border, tighter gap between them. */
 .sub-panel.is-open + .sub-panel.is-open {
     border-top: none;
     margin-top: calc(-1 * var(--space-5));

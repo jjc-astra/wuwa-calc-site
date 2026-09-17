@@ -22,7 +22,7 @@ export const IdentityPanel: React.FC<IdentityPanelProps> = ({ nodeId, data, upda
     const collides = newId !== nodeId && useBuilderStore.getState().mechanics[newId];
     if (newId === nodeId) return;
     if (collides) {
-      // Name collides with an existing move's id -- keep the old name rather than overwrite it.
+      // Name collides with an existing move's id.
       alert(`A move named "${currentName.trim()}" already exists for this unit. Choose a different name.`);
       return;
     }

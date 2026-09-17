@@ -1,6 +1,6 @@
 import { DataLoader } from '../utils/DataLoader';
 import { CommonUtils } from '../utils/Common';
-import { DSLParser } from './DSLParser';
+import { DSLParser } from './dsl/dslParser';
 import { CHARACTER_DEFAULTS, SIM_CONSTANTS, ENEMY_DEFAULTS, STAT_NAME_MAP } from '../data/db';
 import type { Effect, HitConfig, DamageInstanceResult, BuffTotals, CalculatedStats } from '../types';
 

@@ -169,59 +169,6 @@ export const ENEMY_DEFAULTS = {
   statusBaseDmg: 3674
 };
 
-export const DSL_SCHEMA = {
-  events: [
-    'ALWAYS', 'OnStart', 'OnCast', 'OnHit', 'AfterHit',
-    'OnSwapIn', 'OnSwapOut', 'OnUnitChange', 'OnTick',
-    'OnTrackerAdd', 'OnTrackerRemove', 'OnTrackerConsume', 'OnTrackerChanged', 'OnTrackerDetonate',
-    'OnBuffAdd', 'OnBuffRemove', 'OnBuffConsume', 'OnBuffUpdate', 'OnBuffExpire'
-  ],
-  modifiers: [
-    'Self', 'Basic', 'Heavy', 'Skill', 'Liberation',
-    'Intro', 'Outro', 'Coordinated', 'TuneBreak', 'TuneRupture',
-    'Dodge', 'Jump', 'Echo', 'Utility', 'Heal',
-    'Spectro', 'Fusion', 'Glacio', 'Aero', 'Electro', 'Havoc', 'Physical',
-    'Defense', 'HP', 'ATK',
-    'Spectro Frazzle', 'Aero Erosion', 'Electro Flare', 'Electro Rage', 'Fusion Burst', 'Glacio Chafe'
-  ],
-  pointers: [
-    'Self', 'Enemy', 'Team', 'TeamOthers', 'Active',
-    'Next', 'Prev', 'Equipper', 'System', 'Move', 'Default'
-  ],
-  functions: ['StatusMult()'],
-  properties: {
-    Self: ['HP', 'MaxHP', 'Energy', 'MaxEnergy', 'Concerto', 'Sequence', 'PrevAction', 'Name', 'BuffStacks()', 'BuffMaxStacks()', 'HasBuff()', 'Tracker()', 'Cooldown()', 'Stat()'],
-    Enemy: ['HP', 'MaxHP', 'HPPct', 'BuffStacks()', 'BuffMaxStacks()', 'HasBuff()', 'Tune', 'MaxTune'],
-    Move: ['Name', 'CastTypes', 'DmgTypes', 'TimeStart', 'Duration', 'GameTime', 'FreezeTime', 'DamageStart', 'DamageEnd', 'SwapTime', 'BaseMult', 'HitMults', 'IsInHoldWindow'],
-    Prev: ['Action', 'CastTypes', 'Unit'],
-    Next: ['Name', 'Action', 'CastTypes', 'Priority'],
-    Active: ['Name'],
-    Default: ['SwapTime', 'ComboWindow', 'EchoSummonTime', 'PermanentDuration', 'BasicPriority', 'HeavyPriority', 'SkillPriority', 'EchoPriority', 'DodgePriority', 'JumpPriority', 'LibPriority', 'IntroPriority', 'OutroPriority']
-  }
-};
-
-// Not DSL sugar -- these are raw JS methods that already work today because a compiled rule is
-// just `new Function('ctx', 'equipper', 'return ' + jsStr)`. Any property that resolves to a real
-// JS array/string already supports its native methods (e.g. @Prev.CastTypes.includes('Outro'),
-// used by Lumi/Sanhua's swap-in checks); `Math.*` is a plain global, so Math.min/max/floor/etc.
-// work even though only ABS has dedicated DSL sugar. Listed here purely so autocomplete can
-// surface what's already usable -- these lists don't drive any translation/evaluation logic.
-export const DSL_ARRAY_PROPERTIES: Record<string, string[]> = {
-  Move: ['CastTypes', 'DmgTypes', 'HitMults'],
-  Prev: ['CastTypes'],
-  Next: ['CastTypes']
-};
-export const DSL_STRING_PROPERTIES: Record<string, string[]> = {
-  Self: ['Name', 'PrevAction'],
-  Move: ['Name'],
-  Prev: ['Unit', 'Action'],
-  Next: ['Name', 'Action'],
-  Active: ['Name']
-};
-export const DSL_ARRAY_METHODS = ['includes()', 'some()', 'every()', 'indexOf()', 'join()', 'length'];
-export const DSL_STRING_METHODS = ['includes()', 'startsWith()', 'endsWith()', 'toLowerCase()', 'length'];
-export const DSL_MATH_METHODS = ['min()', 'max()', 'floor()', 'ceil()', 'round()', 'abs()', 'pow()', 'sqrt()'];
-
 export const BUILDER_CATEGORIES = [
   'Basic Attack', 'Resonance Skill', 'Resonance Liberation',
   'Forte Circuit', 'Intro', 'Outro', 'Inherent Skill', 'Tune Break', 'Resonance Chain'
@@ -229,7 +176,7 @@ export const BUILDER_CATEGORIES = [
 
 export const CAST_OPTIONS = [
   'Basic', 'Heavy', 'Skill', 'Liberation',
-  'Intro', 'Outro', 'Coordinated', 'TuneBreak', 'TuneRupture',
+  'Intro', 'Outro', 'Coordinated', 'TuneBreak', 'TuneRupture', 'TuneHack',
   'Dodge', 'Jump', 'Echo', 'Utility', 'Heal'
 ];
 
@@ -244,6 +191,7 @@ export const CAST_TYPE_COLORS: Record<string, string> = {
   Coordinated: '#e0c050',
   TuneBreak: '#e0708f',
   TuneRupture: '#c94f6f',
+  TuneHack: '#b23458',
   Dodge: '#9a9a9a',
   Jump: '#9a9a9a',
   Echo: '#4fd0c0',
@@ -255,7 +203,7 @@ export const DMG_OPTIONS = [
   'Basic', 'Heavy', 'Skill', 'Liberation', 'Intro', 'Outro', 'Coordinated',
   'Spectro', 'Fusion', 'Glacio', 'Aero', 'Electro', 'Havoc', 'Physical',
   'Spectro Frazzle', 'Aero Erosion', 'Electro Flare', 'Electro Rage',
-  'Fusion Burst', 'Glacio Chafe', 'Echo', 'TuneBreak', 'TuneRupture'
+  'Fusion Burst', 'Glacio Chafe', 'Echo', 'TuneBreak', 'TuneRupture', 'TuneHack'
 ];
 
 export const STAT_OPTIONS = [
@@ -263,189 +211,21 @@ export const STAT_OPTIONS = [
   'CR Rate', 'CR DMG', 'ER %', 'Healing Bonus'
 ];
 
-// Hover copy for DSL autocomplete in the Mechanics Builder.
-// Grounded in CombatCalculator.ts's actual formula (e.g. Deepen/DMG Amp share a bucket).
-export const DSL_TOOLTIPS: {
-  events: Record<string, string>;
-  modifiers: Record<string, string>;
-  pointers: Record<string, string>;
-  properties: Record<string, Record<string, string>>;
+// Hover copy for the 'eff-stat' autocomplete mode (Stat Modifier effect target field) -- the DSL
+// pointer/event/modifier/property vocabulary's tooltips live in logic/dsl/dslRegistry.ts instead.
+// Formula (CombatCalculator.ts): baseDmg * critMult * (1+DMG Bonus) * (1+DMG Amp/Deepen) *
+// (1+DMG Taken) * (1+Multiplicative Mult) * resMult * defMult.
+// Any cast type containing "tune" (TuneBreak/TuneRupture/TuneHack/...) routes to calcTuneDmg:
+// skips DMG Bonus/crit/scalar; uses DMG Boost instead of Amp/Deepen.
+export const EFF_STAT_TOOLTIPS: {
   statModifiers: Record<string, string>;
   sheetStats: Record<string, string>;
-  functions: Record<string, string>;
-  systemMethods: Record<string, string>;
 } = {
-  events: {
-    ALWAYS: 'Evaluated continuously rather than tied to a specific event.',
-    OnStart: 'Fires once at the start of the rotation.',
-    OnCast: 'Fires the moment this move begins casting, before any hits land. Filter with [CastType], e.g. OnCast[Skill].',
-    OnHit: 'Fires each time a hit connects. Filter with [CastType/Element/Status], e.g. OnHit[Skill].',
-    AfterHit: 'Fires after a hit resolves, with an optional delay in seconds, e.g. AfterHit(0.5).',
-    OnSwapIn: 'Fires when this character swaps onto the field.',
-    OnSwapOut: 'Fires when this character swaps off the field.',
-    OnUnitChange: 'Fires on a character swap, alongside OnSwapIn/OnSwapOut -- for effects tied to the active character changing rather than to either side of the swap specifically.',
-    OnTick: 'Fires on each periodic tick of a duration-based effect, e.g. OnTick(1) for once per second.',
-    OnTrackerAdd: 'Fires when a tracker/stack is added. Filter with [TrackerName].',
-    OnTrackerRemove: 'Fires when a tracker/stack is removed. Filter with [TrackerName].',
-    OnTrackerConsume: 'Fires when a tracker/stack is consumed. Filter with [TrackerName].',
-    OnTrackerChanged: 'Fires whenever a tracker changes for any reason (add/remove/set/consume/delete). Filter with [TrackerName].',
-    OnTrackerDetonate: 'Fires when a tracker is detonated via the detonate action. Filter with [TrackerName], e.g. OnTrackerDetonate[Spectro Frazzle].',
-    OnBuffAdd: 'Fires when a buff is applied. Filter with [BuffName].',
-    OnBuffRemove: 'Fires when a Buff/CD Control effect strips the buff via the Remove action (ALL/HALF/N, same options as Consume). Filter with [BuffName].',
-    OnBuffConsume: "Fires when a Buff/CD Control effect spends the buff via the Consume action (ALL/HALF/N, same options as Remove) -- use it to distinguish the wearer spending their own buff from something else stripping it. Filter with [BuffName].",
-    OnBuffUpdate: 'Fires when an existing buff is refreshed or its stacks change. Filter with [BuffName].',
-    OnBuffExpire: 'Fires when a buff runs out on its own (duration reaches zero), as opposed to being explicitly removed or consumed. Filter with [BuffName].'
-  },
-  modifiers: {
-    Self: 'Restricts the event to actions performed by this character.',
-    Basic: 'Matches Basic Attacks.',
-    Heavy: 'Matches Heavy Attacks (held/Forte attacks).',
-    Skill: 'Matches Resonance Skill casts.',
-    Liberation: 'Matches Resonance Liberation casts.',
-    Intro: 'Matches Intro Skill casts.',
-    Outro: 'Matches Outro Skill casts.',
-    Coordinated: 'Matches Coordinated Attacks.',
-    TuneBreak: 'Matches Tune Break hits.',
-    TuneRupture: 'Matches Tune Rupture hits.',
-    Dodge: 'Matches Dodge-related actions (e.g. Dodge Counter).',
-    Jump: 'Matches Jump-related actions.',
-    Echo: 'Matches Echo skill casts.',
-    Utility: 'Matches Utility skill casts.',
-    Heal: 'Matches healing actions.',
-    Spectro: 'Matches hits or effects of Spectro damage type.',
-    Fusion: 'Matches hits or effects of Fusion damage type.',
-    Glacio: 'Matches hits or effects of Glacio damage type.',
-    Aero: 'Matches hits or effects of Aero damage type.',
-    Electro: 'Matches hits or effects of Electro damage type.',
-    Havoc: 'Matches hits or effects of Havoc damage type.',
-    Physical: 'Matches hits or effects of Physical damage type.',
-    Defense: 'Matches Defense-type actions (e.g. parries, shields).',
-    HP: 'Matches HP-based effects.',
-    ATK: 'Matches ATK-based effects.',
-    'Spectro Frazzle': 'Matches the Spectro Frazzle status specifically (used with OnTrackerDetonate).',
-    'Aero Erosion': 'Matches the Aero Erosion status specifically (used with OnTrackerDetonate).',
-    'Electro Flare': 'Matches the Electro Flare status specifically (used with OnTrackerDetonate).',
-    'Electro Rage': 'Matches the Electro Rage status specifically (used with OnTrackerDetonate).',
-    'Fusion Burst': 'Matches the Fusion Burst status specifically (used with OnTrackerDetonate).',
-    'Glacio Chafe': 'Matches the Glacio Chafe status specifically (used with OnTrackerDetonate).'
-  },
-  pointers: {
-    Self: 'The character that owns this mechanic node.',
-    Enemy: 'The target enemy.',
-    Team: 'All characters currently in the team roster.',
-    TeamOthers: 'All team members except Self.',
-    Active: 'The character currently on-field.',
-    Next: 'The character being swapped in next.',
-    Prev: 'The character or action that was active previously.',
-    Equipper: 'The character this weapon or echo is equipped on.',
-    System: 'Global effects not tied to a specific character.',
-    Move: 'The move currently being cast.',
-    Default: 'Built-in game default values (timings, priorities), not a character.'
-  },
-  properties: {
-    Self: {
-      HP: "Returns Self's current HP.",
-      MaxHP: "Returns Self's maximum HP.",
-      Energy: "Returns Self's current Resonance Energy.",
-      MaxEnergy: "Returns Self's maximum Resonance Energy.",
-      Concerto: "Returns Self's current Concerto Energy.",
-      Sequence: "Returns Self's Resonance Chain (sequence) level, 0-6.",
-      PrevAction: 'Returns the name of the last action Self performed.',
-      Name: "Returns Self's character name.",
-      'BuffStacks()': 'Method — returns the current stack count of a buff, e.g. @Self.BuffStacks(BuffName).',
-      'BuffMaxStacks()': 'Method — returns the configured max stack count of a buff, e.g. @Self.BuffMaxStacks(BuffName).',
-      'HasBuff()': 'Method — returns true if Self currently has the given buff, e.g. @Self.HasBuff(BuffName).',
-      'Tracker()': 'Method — returns the current value of a tracker/counter, e.g. @Self.Tracker(TrackerName).',
-      'Cooldown()': 'Method — returns the remaining cooldown in seconds of a skill, e.g. @Self.Cooldown(Skill).',
-      'Stat()': 'Method — returns the current value of a sheet stat, e.g. @Self.Stat(CR Rate).'
-    },
-    Enemy: {
-      HP: "Returns the enemy's current HP.",
-      MaxHP: "Returns the enemy's maximum HP.",
-      HPPct: "Returns the enemy's current HP as a percentage of max.",
-      'BuffStacks()': 'Method — returns the current stack count of a debuff/status on the enemy.',
-      'BuffMaxStacks()': 'Method — returns the configured max stack count of a debuff/status on the enemy.',
-      'HasBuff()': 'Method — returns true if the enemy currently has the given debuff/status.',
-      Tune: "Returns the enemy's current Tune (stagger) gauge value.",
-      MaxTune: "Returns the enemy's maximum Tune (stagger) gauge value."
-    },
-    Move: {
-      Name: 'Returns the name of the move currently being cast.',
-      CastTypes: 'Returns the list of cast-type tags for this move (e.g. Skill, Liberation).',
-      DmgTypes: 'Returns the list of damage-type tags for this move (e.g. element, cast type).',
-      TimeStart: 'Returns the time (seconds) this move started casting.',
-      Duration: "Returns this move's total action duration, in seconds.",
-      GameTime: 'Returns the current simulation time, in seconds.',
-      FreezeTime: "Returns this move's hitstop/freeze-frame duration, in seconds.",
-      DamageStart: "Returns the time offset (seconds) this move's damage window begins.",
-      DamageEnd: "Returns the time offset (seconds) this move's damage window ends.",
-      SwapTime: 'Returns the time offset (seconds) at which a swap becomes available during this move.',
-      BaseMult: "Returns this move's base damage multiplier.",
-      HitMults: 'Returns the list of per-hit damage multipliers for this move.',
-      IsInHoldWindow: 'Returns true while a Hold input is being charged during this move.'
-    },
-    Prev: {
-      Action: 'Returns the name of the previously executed action.',
-      CastTypes: 'Returns the cast-type tags of the previous action.',
-      Unit: 'Returns the character who performed the previous action.'
-    },
-    Next: {
-      Name: 'Returns the name of the character swapping in next.',
-      Action: 'Returns the queued action the incoming character will perform.',
-      CastTypes: "Returns the cast-type tags of the incoming character's queued action.",
-      Priority: "Returns the priority value of the incoming character's queued action."
-    },
-    Active: {
-      Name: 'Returns the name of the character currently on-field.'
-    },
-    Default: {
-      SwapTime: "The game's default swap-cancel timing, in seconds.",
-      ComboWindow: "The game's default window during which a follow-up input is buffered, in seconds.",
-      EchoSummonTime: "The game's default cast time before an Echo skill's effect triggers, in seconds.",
-      PermanentDuration: "A very large duration constant used for effects that shouldn't expire.",
-      BasicPriority: 'Default action-priority value for Basic Attacks.',
-      HeavyPriority: 'Default action-priority value for Heavy Attacks.',
-      SkillPriority: 'Default action-priority value for Resonance Skills.',
-      EchoPriority: 'Default action-priority value for Echo skills.',
-      DodgePriority: 'Default action-priority value for Dodges.',
-      JumpPriority: 'Default action-priority value for Jumps.',
-      LibPriority: 'Default action-priority value for Resonance Liberations.',
-      IntroPriority: 'Default action-priority value for Intro Skills.',
-      OutroPriority: 'Default action-priority value for Outro Skills.'
-    }
-  },
-  functions: {
-    'StatusMult()': 'Function — returns the negative-status damage multiplier for a given status and stack count, e.g. @StatusMult(Aero Erosion, @Self.Tracker(Stacks)).'
-  },
-  // Not DSL-implemented -- raw JS available because a rule compiles to real JS. Grounded in
-  // existing usage (Lumi/Sanhua's @Prev.CastTypes.includes('Outro') swap-in checks).
-  systemMethods: {
-    'includes()': "Native JS method -- true if the list/text contains the given value, e.g. @Prev.CastTypes.includes(Outro).",
-    'some()': 'Native JS method -- true if any entry in the list matches (used with a value to compare against, e.g. via .indexOf()).',
-    'every()': 'Native JS method -- true only if every entry in the list matches.',
-    'indexOf()': "Native JS method -- the position of a value in the list, or -1 if it's not present.",
-    'join()': "Native JS method -- combines a list's entries into one string, e.g. for display or debugging.",
-    length: "Native JS property -- how many entries a list has, or how many characters a piece of text has.",
-    'startsWith()': 'Native JS method -- true if the text begins with the given value.',
-    'endsWith()': 'Native JS method -- true if the text ends with the given value.',
-    'toLowerCase()': 'Native JS method -- lowercases the text, useful for case-insensitive comparisons.',
-    'min()': 'Math.min -- the smallest of the given numbers, e.g. Math.min(@Self.Forte1, 50).',
-    'max()': 'Math.max -- the largest of the given numbers, e.g. Math.max(@Self.Energy - 20, 0).',
-    'floor()': 'Math.floor -- rounds a number down to the nearest whole number.',
-    'ceil()': 'Math.ceil -- rounds a number up to the nearest whole number.',
-    'round()': 'Math.round -- rounds a number to the nearest whole number.',
-    'abs()': 'Math.abs -- absolute value; same result as the DSL\'s own ABS(...) sugar.',
-    'pow()': 'Math.pow -- raises a number to a power, e.g. Math.pow(@Self.Sequence, 2).',
-    'sqrt()': 'Math.sqrt -- square root of a number.'
-  },
-  // Formula (CombatCalculator.ts): baseDmg * critMult * (1+DMG Bonus) * (1+DMG Amp/Deepen) *
-  // (1+DMG Taken) * (1+Multiplicative Mult) * resMult * defMult.
-  // TuneBreak/Rupture (calcTuneDmg): skips DMG Bonus/crit/scalar; uses DMG Boost instead of Amp/Deepen.
   statModifiers: {
     'DMG Bonus': 'Adds to the additive damage-bonus multiplier (1 + Base DMG Bonus + this), applied before crit.',
     'DMG Amp': 'Multiplies final damage by (1 + this). Shares the same multiplier bucket as Deepen.',
     Deepen: 'Multiplies final damage by (1 + this). Shares the same multiplier bucket as DMG Amp.',
-    'DMG Boost': 'Tune Break/Rupture-only multiplier bucket: multiplies final Tune damage by (1 + this). Separate from DMG Amp/Deepen, which Tune damage does not use.',
+    'DMG Boost': 'Tune-only multiplier bucket (TuneBreak/TuneRupture/TuneHack/...): multiplies final Tune damage by (1 + this). Separate from DMG Amp/Deepen, which Tune damage does not use.',
     'DMG Taken': "Multiplies the target's final damage taken by (1 + this), a separate layer from DMG Amp/Deepen.",
     'Reduce RES': "Subtracted directly from the enemy's base Resistance before the resistance multiplier is computed.",
     'RES Shred': "Subtracted directly from the enemy's base Resistance, identically to Reduce RES.",
@@ -613,7 +393,17 @@ export const BuilderState = {
   templates: BUILDER_TEMPLATES
 };
 
-export const PANEL_CONFIG: Record<string, any> = {
+export interface PanelTag { label: string; key?: string; keys?: string[]; default?: string; suffix?: string; highlight?: string; }
+export interface PanelStat { label: string; key: string; suffix?: string; }
+export interface PanelField { label: string; key: string; default: string | number; suffix?: string; highlight?: string; }
+export interface PanelFieldGroup { title: string; fields: PanelField[]; }
+
+export type PanelConfig =
+  | { title: string; type: 'complex_dmg'; tags: PanelTag[]; stats: PanelStat[] }
+  | { title: string; type: 'complex_time'; groups: PanelFieldGroup[] }
+  | { title: string; type: 'gauge'; fields: PanelField[] };
+
+export const PANEL_CONFIG: Record<string, PanelConfig> = {
   dmg: {
     title: 'Detailed Damage Breakdown',
     type: 'complex_dmg',
@@ -639,6 +429,7 @@ export const PANEL_CONFIG: Record<string, any> = {
   },
   concerto: {
     title: 'Concerto Energy Breakdown',
+    type: 'gauge',
     fields: [
       { label: 'Generated', key: 'concerto_Delta', default: '+0' },
       { label: 'Current', key: 'concerto', default: '0' }
@@ -646,6 +437,7 @@ export const PANEL_CONFIG: Record<string, any> = {
   },
   energy: {
     title: 'Resonance Energy Breakdown',
+    type: 'gauge',
     fields: [
       { label: 'Generated', key: 'energy_Delta', default: '+0.0' },
       { label: 'Current', key: 'energy', default: '0.0' }
@@ -653,6 +445,7 @@ export const PANEL_CONFIG: Record<string, any> = {
   },
   tune: {
     title: 'Tune Break Build Breakdown',
+    type: 'gauge',
     fields: [
       { label: 'Generated', key: 'tune_Delta', default: '+0', suffix: '%' },
       { label: 'Tune Progress', key: 'tune', default: '0', suffix: '%' }
@@ -690,6 +483,7 @@ export const PANEL_CONFIG: Record<string, any> = {
   },
   offset: {
     title: 'Action Alignment Breakdown',
+    type: 'gauge',
     fields: [
       { label: 'Offset Value', key: 'offset', default: '0.00', highlight: 'text-main' }
     ]
@@ -701,6 +495,7 @@ for (let i = 1; i <= 6; i++) {
   const staticKey = i === 1 ? 'forte' : `forte${i}`;
   PANEL_CONFIG[`forte${i}`] = {
     title: `Forte ${i} Breakdown`,
+    type: 'gauge',
     fields: [
       { label: 'Generated', key: deltaKey, default: '+0' },
       { label: 'Current', key: staticKey, default: '0' }

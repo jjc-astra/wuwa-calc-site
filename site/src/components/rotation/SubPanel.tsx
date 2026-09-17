@@ -108,8 +108,8 @@ export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row }) => {
                 {isOpen && (
                   <div className="dmg-accordion-body">
                     <div className="panel-content-grid dmg-panel-top-row">
-                      {config.tags.map((t: any) => {
-                        const rawVals = Array.isArray(t.keys) ? t.keys.map((k: string) => instData[k]).filter(Boolean) : [instData[t.key]].filter(Boolean);
+                      {config.tags.map((t) => {
+                        const rawVals = Array.isArray(t.keys) ? t.keys.map((k: string) => instData[k]).filter(Boolean) : [instData[t.key ?? '']].filter(Boolean);
                         const cleanVals = rawVals.map((v: any) => (typeof v === 'number' && !Number.isInteger(v)) ? parseFloat(v.toFixed(3)) : v);
                         let displayVal = cleanVals.length > 0 ? cleanVals.join(', ') : (t.default || '-');
                         const formattedVal = displayVal !== '-' && t.suffix ? displayVal + t.suffix : displayVal;
@@ -125,7 +125,7 @@ export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row }) => {
                         <div className="table-wrapper">
                           <table className="dmg-stat-table">
                             <tbody>
-                              {config.stats.map((s: any) => {
+                              {config.stats.map((s) => {
                                 let label = s.label;
                                 let key = s.key;
                                 if (s.label === 'Scalar' || s.key === 'scalar') {
@@ -313,7 +313,7 @@ export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row }) => {
       <div className="sub-panel is-open">
         <div className="panel-header-main">{config.title}</div>
         <div className="complex-time-container">
-          {config.groups.map((group: any, idx: number) => (
+          {config.groups.map((group, idx: number) => (
             <div key={idx} className="time-panel-group" style={{ marginBottom: '12px' }}>
               <div
                 className="panel-header-tiny"
@@ -322,7 +322,7 @@ export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row }) => {
                 {group.title}
               </div>
               <div className="panel-content-grid">
-                {group.fields.map((f: any) => {
+                {group.fields.map((f) => {
                   const rawVal = row[f.key] !== undefined ? row[f.key] : f.default;
                   // Every field here is a raw Frames value -- format via the shared frames->seconds helper.
                   // A plain .toFixed(3) would print the raw frame count (e.g. "88s" instead of "1.47s").
@@ -385,7 +385,7 @@ export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row }) => {
     <div className="sub-panel is-open">
       <div className="panel-header-main">{config.title}</div>
       <div className="panel-content-grid">
-        {config.fields.map((f: any) => {
+        {config.fields.map((f) => {
           let stateVal = row[f.key];
           if (f.key === 'tune' && row.enemyTune !== undefined) stateVal = row.enemyTune;
           if (stateVal && typeof stateVal === 'object' && !Array.isArray(stateVal)) {

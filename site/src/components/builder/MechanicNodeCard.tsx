@@ -28,7 +28,7 @@ export type PanelKey = 'identity' | 'inputs' | 'timeMods' | 'hits' | 'castTags' 
 
 // Fields each sub-panel edits, for JsonOutputPane's highlight.
 // Keep in sync with each panel's own updateNode calls.
-// identity also covers Trigger Rule & Effects -- they share one expand/collapse section now.
+// identity also covers Trigger Rule & Effects, which share its expand/collapse section.
 const PANEL_FIELDS: Record<PanelKey, string[]> = {
   identity: ['name', 'provider', 'triggerRule', 'isPassive', 'isSwapInDefault', 'modeScope', 'effects'],
   inputs: ['input', 'inputType', 'stanceReq', 'stanceResult', 'stanceTime', 'holdConfig'],

@@ -1,14 +1,19 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { BuilderState, CAST_TYPE_COLORS, EFF_STAT_TOOLTIPS } from '../../data/db';
+import { DSL_POINTERS } from '../../logic/dsl/dslRegistry';
 import {
-  DSL_SCHEMA, DSL_TOOLTIPS, BuilderState, CAST_TYPE_COLORS,
-  DSL_ARRAY_PROPERTIES, DSL_STRING_PROPERTIES, DSL_ARRAY_METHODS, DSL_STRING_METHODS, DSL_MATH_METHODS
-} from '../../data/db';
+  resolveEventTooltip, resolveModifierTooltip, resolvePointerTooltip, resolveFunctionTooltip,
+  resolvePropertyTooltip, resolveSystemMethodTooltip,
+  makePointerRootRule, makePropertyRule, makeMethodChainRule, makeMathRule,
+  makeEventModifierBracketRule, makeEventListRule, collectMechanicReferences
+} from '../../logic/dsl/dslResolver';
 import { useBuilderStore } from '../../store/useBuilderStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { tokenizeDSL } from '../../utils/DSLHighlight';
 import { TooltipManager } from '../../utils/Common';
 import type { MechanicNode } from '../../types';
+import type { SuggestionItem, MatchRule } from '../../logic/dsl/dslTypes';
 
 interface AutocompleteInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   mode?: 'general' | 'eff-name' | 'eff-cd-name' | 'eff-stat' | 'eff-target' | 'eff-applies-during' | 'dsl-value';
@@ -18,60 +23,34 @@ interface AutocompleteInputProps extends React.InputHTMLAttributes<HTMLInputElem
   dmgOptions?: string[];
 }
 
-interface SuggestionItem {
-  val: string;
-  group: string;
-  prefix?: string;
-  append?: string;
-  /** Lookup key into DSL_TOOLTIPS when it differs from `val` (e.g. a pointer's trailing '.'/'(' stripped). */
-  tooltipKey?: string;
-  /** For the Properties group: which pointer (Self/Enemy/Move/...) this property belongs to. */
-  pointer?: string;
-  /** Display text, when it should differ from the text actually inserted (`val`). */
-  label?: string;
-}
-
-// Resolves an autocomplete item to its DSL_TOOLTIPS description, if one is configured for its group.
+// Resolves an autocomplete item to its tooltip description, if one is configured for its group.
 function resolveTooltip(item: SuggestionItem, group: string): string | undefined {
   const key = item.tooltipKey ?? item.val;
   switch (group) {
-    case 'Events': return DSL_TOOLTIPS.events[key];
-    case 'Modifiers': return DSL_TOOLTIPS.modifiers[key];
+    case 'Events': return resolveEventTooltip(key);
+    case 'Modifiers': return resolveModifierTooltip(key);
     case 'Pointers':
     case 'Targets':
-      return DSL_TOOLTIPS.pointers[key];
+      return resolvePointerTooltip(key);
     case 'Functions':
-      return DSL_TOOLTIPS.functions[key];
+      return resolveFunctionTooltip(key);
     case 'Array Methods':
     case 'String Methods':
     case 'Math Functions':
-      return DSL_TOOLTIPS.systemMethods[key];
+      return resolveSystemMethodTooltip(key);
     case 'Properties':
-      return item.pointer ? DSL_TOOLTIPS.properties[item.pointer]?.[key] : undefined;
+      return item.pointer ? resolvePropertyTooltip(item.pointer, key) : undefined;
     case 'Sheet Stats':
-      return DSL_TOOLTIPS.sheetStats[key];
+      return EFF_STAT_TOOLTIPS.sheetStats[key];
     case 'Combat Modifiers':
     case 'Specific Modifiers':
-      return DSL_TOOLTIPS.statModifiers[key];
+      return EFF_STAT_TOOLTIPS.statModifiers[key];
     case 'Continue':
       // Comma-separated entries are an AND filter (EventManager.ts's requiredModifiers check).
       return key === ',' ? 'Combines with AND — the action must match every listed modifier, not just one.' : undefined;
     default:
       return undefined;
   }
-}
-
-interface MatchRule {
-  trigger: RegExp;
-  matchGroup?: number;
-  options: SuggestionItem[] | ((match: RegExpMatchArray) => SuggestionItem[]);
-  prefix?: string;
-  append?: string;
-  dynamicAppend?: (val: string) => string | null;
-  /** Marks a rule where multiple comma-separated values can be typed. */
-  commaList?: boolean;
-  /** Bracket-close char the "Continue" prompt offers too; omitted with no enclosing bracket (e.g. Applies During). */
-  commaCloses?: string;
 }
 
 // Splits a commaList's captured content on ',': the segment being typed (search/replace)
@@ -108,25 +87,6 @@ function collectEffectNamesByNamespace(builderMechanics: Record<string, Mechanic
   addFrom(DataLoader.mechanicsDB);
   addFrom(builderMechanics);
   return byNamespace;
-}
-
-// Every mechanic node as an @Namespace(Move Name) ref. Uses `.name`, not the raw key, since
-// that's what CombatCalculator's hitModifiers carries as `moveName`. Scoped to System + current unit.
-function collectMechanicReferences(builderMechanics: Record<string, MechanicNode>, currentNamespace: string | null): SuggestionItem[] {
-  const seen = new Set<string>();
-  const results: SuggestionItem[] = [];
-  const addFrom = (mechanicsByKey: Record<string, MechanicNode>) => {
-    Object.entries(mechanicsByKey).forEach(([key, mech]) => {
-      if (seen.has(key) || !mech.name) return;
-      const namespace = key.startsWith('System_') ? 'System' : key.split('_')[0];
-      if (namespace !== 'System' && namespace !== currentNamespace) return;
-      seen.add(key);
-      results.push({ val: `@${namespace}(${mech.name})`, group: namespace === 'System' ? 'System Mechanics' : `${namespace} Mechanics` });
-    });
-  };
-  addFrom(DataLoader.mechanicsDB);
-  addFrom(builderMechanics);
-  return results;
 }
 
 // Bare mechanic names (not @Namespace(...) refs) for mechanics that declare a `cooldown` --
@@ -221,11 +181,6 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
   useEffect(() => {
     if (!isOpen) TooltipManager.hide();
   }, [isOpen]);
-
-  const parenEvents = ['AfterHit', 'OnTick'];
-  const bracketEvents = DSL_SCHEMA.events.filter(
-    e => !['ALWAYS', 'OnStart', 'OnSwapIn', 'OnSwapOut', 'OnUnitChange', ...parenEvents].includes(e)
-  );
 
   // Auto-scroll popup container to keep the active keyboard selection in view
   useEffect(() => {
@@ -332,7 +287,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
     if (mode === 'eff-target') {
       return [{
         trigger: /(.*)/,
-        options: DSL_SCHEMA.pointers.map(p => ({ val: '@' + p, group: 'Targets', tooltipKey: p })),
+        options: Object.values(DSL_POINTERS).map(p => ({ val: '@' + p.pointer, group: 'Targets', tooltipKey: p.pointer })),
         prefix: ''
       }];
     }
@@ -353,104 +308,19 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
     if (mode === 'dsl-value') {
       // Math-only fields (Priority, Combo/Freeze/Swap Time): pointer+property completion, no events/brackets.
       return [
-        {
-          trigger: /@([a-zA-Z]*)$/,
-          options: () => {
-            const base = DSL_SCHEMA.pointers.map(p => ({
-              val: p + (p === 'System' ? '(' : '.'),
-              group: 'Pointers',
-              tooltipKey: p
-            }));
-            const fns = DSL_SCHEMA.functions.map(f => ({ val: f, group: 'Functions', tooltipKey: f }));
-            const chars = Object.keys(DataLoader.characterDB).map(c => ({
-              val: c.replace(/[^A-Za-z0-9 ]/g, '') + '(',
-              group: 'Characters'
-            }));
-            const echoes = DataLoader.allMainEchoes.map(e => ({
-              val: e.replace(/[^A-Za-z0-9 ]/g, '') + '(',
-              group: 'Echoes'
-            }));
-            return [...base, ...fns, ...chars, ...echoes];
-          },
-          prefix: '@'
-        },
-        {
-          trigger: /@([a-zA-Z]+)\.([a-zA-Z]*)$/,
-          matchGroup: 2,
-          options: (match) => {
-            const pointer = match[1];
-            const propsMap = DSL_SCHEMA.properties as Record<string, string[]>;
-            if (!propsMap[pointer]) return [];
-            const props = propsMap[pointer].map(p => ({ val: p, group: 'Properties', pointer }));
-            if (pointer === 'Self') {
-              const fCount = parseInt((baseStats.forteCount as any) || '1', 10);
-              for (let i = 1; i <= fCount; i++) {
-                props.push({ val: `Forte${i}`, group: 'Properties', pointer });
-                props.push({ val: `MaxForte${i}`, group: 'Properties', pointer });
-              }
-            }
-            return props;
-          },
-          prefix: '.'
-        },
-        {
-          // Not DSL properties -- native JS methods on a property that's already a real array/string.
-          trigger: /@([a-zA-Z]+)\.([A-Za-z]+)\.([a-zA-Z]*)$/,
-          matchGroup: 3,
-          options: (match) => {
-            const [, pointer, property] = match;
-            if (DSL_ARRAY_PROPERTIES[pointer]?.includes(property)) return DSL_ARRAY_METHODS.map(m => ({ val: m, group: 'Array Methods' }));
-            if (DSL_STRING_PROPERTIES[pointer]?.includes(property)) return DSL_STRING_METHODS.map(m => ({ val: m, group: 'String Methods' }));
-            return [];
-          },
-          prefix: '.'
-        },
-        {
-          // Math is a plain JS global, not DSL syntax -- Math.min/max/floor/etc. already work.
-          trigger: /\bMath\.([a-zA-Z]*)$/i,
-          matchGroup: 1,
-          options: DSL_MATH_METHODS.map(m => ({ val: m, group: 'Math Functions' })),
-          prefix: ''
-        }
+        makePointerRootRule(),
+        makePropertyRule(baseStats),
+        makeMethodChainRule(),
+        makeMathRule()
       ];
     }
 
     // General DSL Input Rules
-    const currentNamespace = activeChar === 'Generic' ? 'System' : activeChar;
     return [
+      makeEventModifierBracketRule(activeChar, mechanics),
+      makePointerRootRule(),
       {
-        // OnCast[Self, ...] etc.: modifiers + move refs, scoped to System + current unit (like Applies During).
-        trigger: /\b(?:On|After)[a-zA-Z]*\[([^\]]*)$/i,
-        options: () => [
-          ...DSL_SCHEMA.modifiers.map(v => ({ val: v, group: 'Modifiers' })),
-          ...collectMechanicReferences(mechanics, currentNamespace)
-        ],
-        prefix: '',
-        commaList: true,
-        commaCloses: ']'
-      },
-      {
-        trigger: /@([a-zA-Z]*)$/,
-        options: () => {
-          const base = DSL_SCHEMA.pointers.map(p => ({
-            val: p + (p === 'System' ? '(' : '.'),
-            group: 'Pointers',
-            tooltipKey: p
-          }));
-          const fns = DSL_SCHEMA.functions.map(f => ({ val: f, group: 'Functions', tooltipKey: f }));
-          const chars = Object.keys(DataLoader.characterDB).map(c => ({
-            val: c.replace(/[^A-Za-z0-9 ]/g, '') + '(',
-            group: 'Characters'
-          }));
-          const echoes = DataLoader.allMainEchoes.map(e => ({
-            val: e.replace(/[^A-Za-z0-9 ]/g, '') + '(',
-            group: 'Echoes'
-          }));
-          return [...base, ...fns, ...chars, ...echoes];
-        },
-        prefix: '@'
-      },
-      {
+        // Completing inside an already-typed "@Namespace(" reference -- mechanics + effect names.
         trigger: /@([a-zA-Z0-9_ ]+)\(([^)]*)$/,
         matchGroup: 2,
         options: (match) => {
@@ -481,56 +351,11 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
         prefix: '',
         append: ')'
       },
-      {
-        trigger: /\b((?:On|After|Det|AL)[a-zA-Z]*)$/i,
-        options: DSL_SCHEMA.events.map(v => ({ val: v, group: 'Events' })),
-        prefix: '',
-        dynamicAppend: (val) => parenEvents.includes(val) ? '(' : (bracketEvents.includes(val) ? '[' : ' ')
-      },
-      {
-        trigger: /@([a-zA-Z]+)\.([a-zA-Z]*)$/,
-        matchGroup: 2,
-        options: (match) => {
-          const pointer = match[1];
-          const propsMap = DSL_SCHEMA.properties as Record<string, string[]>;
-          if (!propsMap[pointer]) return [];
-          const props = propsMap[pointer].map(p => ({ val: p, group: 'Properties', pointer }));
-          if (pointer === 'Self') {
-            const fCount = parseInt((baseStats.forteCount as any) || '1', 10);
-            for (let i = 1; i <= fCount; i++) {
-              props.push({ val: `Forte${i}`, group: 'Properties', pointer });
-              props.push({ val: `MaxForte${i}`, group: 'Properties', pointer });
-            }
-          }
-          return props;
-        },
-        prefix: '.'
-      },
-      {
-        // Not DSL properties -- native JS methods on a property that's already a real array/string.
-        trigger: /@([a-zA-Z]+)\.([A-Za-z]+)\.([a-zA-Z]*)$/,
-        matchGroup: 3,
-        options: (match) => {
-          const [, pointer, property] = match;
-          if (DSL_ARRAY_PROPERTIES[pointer]?.includes(property)) return DSL_ARRAY_METHODS.map(m => ({ val: m, group: 'Array Methods' }));
-          if (DSL_STRING_PROPERTIES[pointer]?.includes(property)) return DSL_STRING_METHODS.map(m => ({ val: m, group: 'String Methods' }));
-          return [];
-        },
-        prefix: '.'
-      },
-      {
-        // Math is a plain JS global, not DSL syntax -- Math.min/max/floor/etc. already work.
-        trigger: /\bMath\.([a-zA-Z]*)$/i,
-        matchGroup: 1,
-        options: DSL_MATH_METHODS.map(m => ({ val: m, group: 'Math Functions' })),
-        prefix: ''
-      },
-      {
-        trigger: /^()$/,
-        options: DSL_SCHEMA.events.map(v => ({ val: v, group: 'Events' })),
-        prefix: '',
-        dynamicAppend: (val) => parenEvents.includes(val) ? '(' : (bracketEvents.includes(val) ? '[' : ' ')
-      }
+      makeEventListRule(/\b((?:On|After|Det|AL)[a-zA-Z]*)$/i),
+      makePropertyRule(baseStats),
+      makeMethodChainRule(),
+      makeMathRule(),
+      makeEventListRule(/^()$/)
     ];
   };
 
@@ -649,7 +474,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
     const groupIdx = rule.matchGroup || 1;
     const completion = item.val;
 
-    let newVal = '';
+    let newVal: string;
     let newCursorPos = 0;
 
     if (mode === 'eff-stat' || mode === 'eff-target') {
@@ -731,13 +556,21 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
       <div className={`form-input dsl-input w-100 dsl-highlight-overlay ${className}`} aria-hidden="true">
         <div className="dsl-highlight-content" style={{ transform: `translateX(-${scrollLeft}px)` }}>
           {tokens.map((t, i) => (
-            <span key={i} style={{ color: t.color }}>{t.text}</span>
+            <span
+              key={i}
+              style={t.invalid
+                ? { color: t.color, textDecoration: 'underline wavy var(--danger)', textUnderlineOffset: '3px' }
+                : { color: t.color }}
+            >
+              {t.text}
+            </span>
           ))}
         </div>
       </div>
       <input
         ref={inputRef}
         type="text"
+        spellCheck={false}
         className={`form-input dsl-input dsl-input-real w-100 ${className}`}
         value={value}
         onChange={e => {

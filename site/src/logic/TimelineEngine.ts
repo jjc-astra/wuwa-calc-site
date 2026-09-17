@@ -1,6 +1,6 @@
 import { DataLoader } from '../utils/DataLoader';
 import { CommonUtils } from '../utils/Common';
-import { DSLParser } from './DSLParser';
+import { DSLParser } from './dsl/dslParser';
 import { CombatCalculator } from './CombatCalculator';
 import { ContextManager } from './ContextManager';
 import { EventManager } from './EventManager';
@@ -136,8 +136,6 @@ export class TimelineEngineClass {
 
       if (prevData.unit !== currentData.unit) {
         // swapCooldown is seconds-domain; convert once here into the frames-domain marker.
-        // Fires on row 0 too when it opens on a non-main-slot unit (prevData.unit defaults to
-        // the main slot -- see _getDefaultData) -- that's a real swap-in from the main DPS.
         globalSwapCdExpiresAt = Math.max(globalSwapCdExpiresAt, accumulatedTime + secondsToFrames(GAME_DEFAULTS.swapCooldown));
       }
 
@@ -1171,7 +1169,7 @@ export class TimelineEngineClass {
     if (expiringBuffs.length > 0) {
       expiringBuffs.forEach(buff => {
         const provider = buff.provider || currentData.unit;
-        // Modifier brackets are lowercased at DSL-parse time (DSLParser.ts), so match that case.
+        // Modifier brackets are lowercased at DSL-parse time (dslParser.ts), so match that case.
         const payloads = EventManager.emit('OnBuffExpire', new Set([(buff.name || '').toLowerCase()]), currentData, provider, team);
         if (payloads.length > 0) {
           this._executeEffectsStream(payloads, currentData, activeTeam, activeRows, this.currentGlobalRealTime, provider, team);
@@ -1562,7 +1560,7 @@ export class TimelineEngineClass {
       } else {
         if (isIntro) errors.push('Intro skills can only be used immediately after an Outro.');
         else if (!isSwapback) {
-          // Uses mechanicsIndex instead of .provider to look up unit actions; .provider is only set for third-party attributions (e.g., echoes).
+          // mechanicsIndex is keyed by owner; .provider is only set for third-party attributions (e.g., echoes).
           const expectedSwapIns: string[] = [];
           const ownMechanics = (DataLoader.mechanicsIndex[currentData.unit] || []).map(key => DataLoader.mechanicsDB[key]);
           ownMechanics.filter(m => m && m.isSwapInDefault).forEach(m => {

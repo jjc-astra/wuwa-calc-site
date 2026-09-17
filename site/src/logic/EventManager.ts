@@ -1,4 +1,4 @@
-import { DSLParser } from './DSLParser';
+import { DSLParser } from './dsl/dslParser';
 import { ContextManager } from './ContextManager';
 import type { MechanicNode, Effect } from '../types';
 

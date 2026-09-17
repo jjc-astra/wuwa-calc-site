@@ -5,7 +5,7 @@ import { DataLoader } from '../../utils/DataLoader';
 import { BuilderUtils } from '../../utils/BuilderUtils';
 import { BUILDER_CATEGORIES } from '../../data/db';
 import { ContextManager } from '../../logic/ContextManager';
-import { DSLParser } from '../../logic/DSLParser';
+import { DSLParser } from '../../logic/dsl/dslParser';
 import { DialGauge, VerticalGauge, MultiForteGauge } from './Gauge';
 import { SubPanel } from './SubPanel';
 import { Dropdown } from '../common/Dropdown';
