@@ -5,6 +5,7 @@ import { TimelineEngine } from '../logic/TimelineEngine';
 import { CombatCalculator } from '../logic/CombatCalculator';
 import { buildRotationResults, previewEndingRotationTiming } from '../logic/ResultsCalculator';
 import { DataLoader } from '../utils/DataLoader';
+import { applyBuilderOverridesToDataLoader } from './builderOverridePayload';
 
 let ready: Promise<void> | null = null;
 const getReady = () => ready ?? (ready = DataLoader.initDatabases());
@@ -43,23 +44,6 @@ function populateDamageInstances(evaluatedRows: any[], enemy: any, team: any[]):
 
 const worker = self as any;
 
-// Mirrors useBuilderStore.setActiveChar's "replay edits after the pristine fetch" step, against
-// this worker's separate DataLoader instance. A no-op for any entity with no cached edits.
-function applyBuilderOverrides(payload: any): void {
-  const overrides = payload.builderOverrides;
-  if (!overrides) return;
-  Object.entries(overrides.editedBaseStats || {}).forEach(([name, stats]) => {
-    const target = DataLoader.characterDB[name] || DataLoader.weaponDB[name];
-    if (target) Object.assign(target, stats as object);
-  });
-  Object.entries(overrides.editedMechanics || {}).forEach(([id, node]) => {
-    DataLoader.registerMechanicNode(id, node as any);
-  });
-  (overrides.deletedMechanicIds || []).forEach((id: string) => {
-    DataLoader.unregisterMechanicNode(id);
-  });
-}
-
 worker.onmessage = async (e: MessageEvent) => {
   const { id, type, payload } = e.data;
   try {
@@ -90,7 +74,9 @@ worker.onmessage = async (e: MessageEvent) => {
     }
 
     await DataLoader.loadTeamMechanics(payload.team);
-    applyBuilderOverrides(payload);
+    // Mirrors useBuilderStore.setActiveChar's "replay edits after the pristine fetch" step,
+    // against this worker's separate DataLoader instance -- a no-op with no cached edits.
+    applyBuilderOverridesToDataLoader(payload.builderOverrides);
 
     if (type === 'recalculate') {
       const { rows, team, options, enemy } = payload;

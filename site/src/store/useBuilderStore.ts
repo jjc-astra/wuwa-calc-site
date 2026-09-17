@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import { safeLocalStorage } from '../utils/safeLocalStorage';
 import type { MechanicNode, BaseStats } from '../types';
 import { DataLoader } from '../utils/DataLoader';
 import { IMAGE_FOLDERS } from '../data/db';
@@ -318,6 +319,7 @@ export const useBuilderStore = create<BuilderState>()(
     }),
     {
       name: 'wuwa_builder_cache',
+      storage: createJSONStorage(() => safeLocalStorage),
       // `mechanics`/`baseStats` excluded -- derived (pristine data + edits replayed via
       // setActiveChar), not part of the durable edit log. Persisting them verbatim used to
       // re-inject stale keys on reload; re-deriving always re-fetches fresh instead.

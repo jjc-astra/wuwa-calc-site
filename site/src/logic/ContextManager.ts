@@ -3,6 +3,26 @@ import { CombatCalculator } from './CombatCalculator';
 import { CHARACTER_DEFAULTS, ENEMY_DEFAULTS, GAME_DEFAULTS } from '../data/db';
 
 export const ContextManager = {
+  // Seconds until `actionName` (bare move name) next has a use available for `unitName`, given
+  // TimelineEngine's cooldown state (`cooldowns` for a plain single-timer move, `chargeCooldowns`
+  // for maxCharges > 1) -- 0 if available right now. Shared by TimelineEngine's own pre-cast wait
+  // and this file's own @Self.Cooldown()/checkCooldown DSL reads, so both agree on availability.
+  // Keep in sync with TimelineEngine's _startCooldown, which writes the state this reads.
+  cooldownRemaining: (
+    state: { cooldowns?: Record<string, number>; chargeCooldowns?: Record<string, number[]> } | undefined,
+    unitName: string,
+    actionName: string
+  ): number => {
+    const key = `${unitName}_${actionName}`;
+    const maxCharges = Math.max(1, parseInt(String(DataLoader.mechanicsDB[key]?.maxCharges ?? 1), 10) || 1);
+    if (maxCharges > 1) {
+      const pending = state?.chargeCooldowns?.[key];
+      if (!pending || pending.length < maxCharges) return 0;
+      return Math.max(0, Math.min(...pending));
+    }
+    return Math.max(0, state?.cooldowns?.[key] || 0);
+  },
+
   buildContext: (
     stateData: any,
     activeUnitName: string,
@@ -76,7 +96,7 @@ export const ContextManager = {
           return (check(activeBuff) || check(teamBuff) || check(auraBuff)) ? 1 : 0;
         },
         getTracker: (trackerName: string) => activeState.trackers?.[trackerName] || 0,
-        getCooldown: (actionName: string) => DataLoader.cooldownRemaining(activeState, activeUnitName, actionName),
+        getCooldown: (actionName: string) => ContextManager.cooldownRemaining(activeState, activeUnitName, actionName),
         getStat: (statKey: string) => finalStats[statKey] || 0
       };
 
@@ -145,7 +165,7 @@ export const ContextManager = {
           if (prevRow) return { unit: prevRow.unit, action: prevRow.action, castTypes: prevRow.castTypes || [] };
           return { unit: null, action: null, castTypes: [] };
         })(),
-        checkCooldown: (unitName: string, actionName: string) => DataLoader.cooldownRemaining(activeState, unitName, actionName)
+        checkCooldown: (unitName: string, actionName: string) => ContextManager.cooldownRemaining(activeState, unitName, actionName)
       };
     } catch (err) {
       console.error('[ContextManager] Critical error during buildContext:', err);

@@ -1,3 +1,8 @@
+// Undo/redo stacks are persisted (see useRotationStore's partialize) and some commands
+// (MoveRowsCommand) carry a full rows-array snapshot -- unbounded growth over a long editing
+// session can exceed localStorage's quota and start throwing on every subsequent action.
+const MAX_HISTORY_SIZE = 50;
+
 export interface Command {
   execute: () => void;
   undo: () => void;
@@ -42,6 +47,11 @@ export class HistoryManager {
     this.onChangeCallback = cb;
   }
 
+  private pushUndo(command: Command) {
+    this.undoStack.push(command);
+    if (this.undoStack.length > MAX_HISTORY_SIZE) this.undoStack.shift();
+  }
+
   execute(command: Command) {
     if (this.isExecuting) return;
     this.isExecuting = true;
@@ -50,7 +60,7 @@ export class HistoryManager {
     } finally {
       this.isExecuting = false;
     }
-    this.undoStack.push(command);
+    this.pushUndo(command);
     this.redoStack = [];
     this.notify();
   }
@@ -77,7 +87,7 @@ export class HistoryManager {
       const command = this.redoStack.pop();
       if (command) {
         command.execute();
-        this.undoStack.push(command);
+        this.pushUndo(command);
       }
     } finally {
       this.isExecuting = false;
@@ -116,9 +126,11 @@ export class HistoryManager {
   // Sets the stacks directly from already-revived commands -- no execute()/undo() side effects,
   // since the rows/flags they describe are already the current (persisted) state. Used to
   // restore history across a reload; see useRotationStore's onRehydrateStorage.
+  // Also trims on load, independent of pushUndo's cap -- a persisted stack longer than
+  // MAX_HISTORY_SIZE shouldn't have to wait for the next action to shrink back under quota.
   restoreStacks(undoStack: Command[], redoStack: Command[]) {
-    this.undoStack = undoStack;
-    this.redoStack = redoStack;
+    this.undoStack = undoStack.slice(-MAX_HISTORY_SIZE);
+    this.redoStack = redoStack.slice(-MAX_HISTORY_SIZE);
     this.notify();
   }
 }

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { postToWorker } from '../workers/calcWorkerClient';
-import { ENEMY_DEFAULTS } from '../data/db';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import { safeLocalStorage } from '../utils/safeLocalStorage';
+import { runFullCalculation } from '../workers/runFullCalculation';
 import { DataLoader } from '../utils/DataLoader';
 import type { DpsStats, DmgOverTimeSeries, DpsWindowKey, RotationResults } from '../types/results';
 
@@ -42,17 +42,9 @@ export const useComparisonStore = create<ComparisonState>()(
         try {
           // Top-level, not nested in `options` -- calc.worker.ts reads them from there.
           // Otherwise an Ending Rotation split silently compares against its truncated tail.
-          const endingRotationEnabled = options?.endingRotationEnabled;
-          const endRotationStartsEarlier = options?.endRotationStartsEarlier;
-          const { result: recalcResult } = postToWorker('recalculate', {
-            rows: rotation, team, options, enemy: ENEMY_DEFAULTS, endingRotationEnabled, endRotationStartsEarlier
-          });
-          const { loopStartIndex } = await recalcResult;
-
-          const { result: calcResult } = postToWorker('calculateDamage', {
-            rows: rotation, team, options, enemy: ENEMY_DEFAULTS, loopStartIndex, endingRotationEnabled, endRotationStartsEarlier
-          });
-          const { results } = (await calcResult) as { results: RotationResults };
+          const { results } = await runFullCalculation(
+            rotation, team, options, options?.endingRotationEnabled, options?.endRotationStartsEarlier
+          );
 
           set({
             pinned: { label, dpsStats: results.dpsStats, dmgOverTimeSeries: results.dmgOverTimeSeries },
@@ -113,6 +105,7 @@ export const useComparisonStore = create<ComparisonState>()(
     },
     {
       name: 'wuwa_calc_pinned_comparison',
+      storage: createJSONStorage(() => safeLocalStorage),
       partialize: (state) => ({ pinned: state.pinned })
     }
   )

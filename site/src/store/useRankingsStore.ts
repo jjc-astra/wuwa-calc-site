@@ -1,9 +1,8 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import { safeLocalStorage } from '../utils/safeLocalStorage';
 import { DataLoader } from '../utils/DataLoader';
 import { checkResultsFreshness } from '../utils/dataFreshness';
-import { postToWorker } from '../workers/calcWorkerClient';
-import { ENEMY_DEFAULTS } from '../data/db';
 import type { TeamSlot } from '../types/index';
 import type { RotationResults } from '../types/results';
 import type { DpsWindowKey } from '../types/results';
@@ -186,47 +185,21 @@ export const useRankingsStore = create<RankingsState>()(
     try {
       const filenames = await DataLoader.loadCharacterResults();
 
-      // Sequential on purpose: lets rows stream in as they finish instead of the whole
-      // leaderboard popping in at once (postToWorker already serializes through one queue).
       for (const filename of filenames) {
         const data = DataLoader.characterResults[filename];
         if (!data) continue;
 
+        // The leaderboard only trusts pre-computed results (from History's "Save Results") --
+        // an entry exported without them isn't run through the worker just to populate a row.
+        // (The Timeline drill-down is a separate, lighter recalculate-only pass -- see
+        // useRotationTimelineData.ts -- that's fine to run live; this summary row is not.)
+        if (!data.results) {
+          console.warn(`[useRankingsStore] "${filename}" has no saved results -- skipping.`);
+          continue;
+        }
+
         try {
-          let results: Omit<RotationResults, 'dmgOverTimeSeries'>;
-          if (data.results) {
-            // Already computed by History's "Save Results" -- skip the worker entirely.
-            results = data.results;
-          } else {
-            const options = data.settings || {};
-            // Top-level payload keys, since that's where calc.worker.ts reads them from --
-            // nested in `options` would silently ignore a saved Ending Rotation split.
-            const endingRotationEnabled = data.settings?.endingRotationEnabled;
-            const endRotationStartsEarlier = data.settings?.endRotationStartsEarlier;
-            // Mirrors the two-step round trip useRotationStore's Calculate button makes:
-            // 'recalculate' derives loopStartIndex, which 'calculateDamage' below needs.
-            const { result: recalcResult } = postToWorker('recalculate', {
-              rows: data.rotation,
-              team: data.team,
-              options,
-              enemy: ENEMY_DEFAULTS,
-              endingRotationEnabled,
-              endRotationStartsEarlier
-            });
-            const { loopStartIndex } = await recalcResult;
-
-            const { result: calcResult } = postToWorker('calculateDamage', {
-              rows: data.rotation,
-              team: data.team,
-              options,
-              enemy: ENEMY_DEFAULTS,
-              loopStartIndex,
-              endingRotationEnabled,
-              endRotationStartsEarlier
-            });
-            ({ results } = (await calcResult) as { results: RotationResults });
-          }
-
+          const results = data.results;
           const entry: RankingEntry = {
             id: filename,
             team: data.team,
@@ -250,6 +223,7 @@ export const useRankingsStore = create<RankingsState>()(
     }),
     {
       name: 'wuwa_rankings_ui_cache',
+      storage: createJSONStorage(() => safeLocalStorage),
       partialize: (state) => ({
         activeWindow: state.activeWindow,
         search: state.search,

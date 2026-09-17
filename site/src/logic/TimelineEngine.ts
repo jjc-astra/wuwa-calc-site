@@ -76,8 +76,6 @@ export class TimelineEngineClass {
       row.nextRow = i < activeRows.length - 1 ? activeRows[i + 1] : null;
     });
 
-    console.log(`[TimelineEngine] Starting recalculateState for ${activeRows.length} rows.`);
-
     for (let i = 0; i < activeRows.length; i++) {
       const currentData = activeRows[i];
       currentData.dropdownState = null;
@@ -139,9 +137,9 @@ export class TimelineEngineClass {
         globalSwapCdExpiresAt = Math.max(globalSwapCdExpiresAt, accumulatedTime + secondsToFrames(GAME_DEFAULTS.swapCooldown));
       }
 
-      // seconds -- cooldowns stay in seconds. Charge-aware (see DataLoader.cooldownRemaining):
+      // seconds -- cooldowns stay in seconds. Charge-aware (see ContextManager.cooldownRemaining):
       // a maxCharges > 1 move waits only once every charge is in use, not on its own single timer.
-      const actualCdRemaining = DataLoader.cooldownRemaining(currentData, currentData.unit, currentData.moveName);
+      const actualCdRemaining = ContextManager.cooldownRemaining(currentData, currentData.unit, currentData.moveName);
       const wCD = secondsToFrames(actualCdRemaining);
       let wBusy = 0;
       const busyUntil = unitBusyUntil[currentData.unit] || 0;

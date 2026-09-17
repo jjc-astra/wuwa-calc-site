@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import { safeLocalStorage } from '../utils/safeLocalStorage';
 import type { TeamSlot } from '../types';
 import {
   ENEMY_DEFAULTS,
@@ -373,6 +374,7 @@ export const useRosterStore = create<RosterState>()(
     }),
     {
       name: 'wuwa_calc_team_cache',
+      storage: createJSONStorage(() => safeLocalStorage),
       onRehydrateStorage: () => {
         return (state, error) => {
           if (!error && state) {

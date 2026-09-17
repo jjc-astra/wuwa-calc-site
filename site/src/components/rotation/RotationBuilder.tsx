@@ -62,6 +62,10 @@ function buildRotationScrollbarSegments(rows: any[], loopStartIndex: number, loo
   return segments;
 }
 
+// Module-level, not component state -- this component remounts on every navigation to this
+// route, but the backfill below should only run once per page load.
+let hasRunLoadRefresh = false;
+
 export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onToggle }) => {
   const isCollapsed = !isOpen;
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -108,16 +112,22 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     endRotationStartsEarlier,
     setEndRotationStartsEarlier,
     recalculate,
+    checkBuilderStaleness,
     results,
     isStale
   } = useRotationStore();
 
   const { team, importTeam } = useRosterStore();
 
-  // One-time refresh for a rehydrated rotation that's never been recalculated.
-  // markStale=false: don't flag a fresh result stale. includeDamage=true: damageInstances isn't persisted.
+  // Backfills damageInstances (not persisted) once per page load, without flagging isStale.
+  // checkBuilderStaleness then dims the results if a Builder edit since the last Calculate
+  // press makes them stale.
   useEffect(() => {
-    recalculate(false, true);
+    if (!hasRunLoadRefresh) {
+      hasRunLoadRefresh = true;
+      recalculate(false, true);
+    }
+    checkBuilderStaleness();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -254,13 +264,27 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     e.dataTransfer.effectAllowed = 'move';
   };
 
+  // A start-tag renders above its row, an end-tag below (RotationRow.tsx), so the same boundary
+  // line maps to opposite rows depending on role.
+  const markerDropTarget = (targetIndex: number, role: 'start' | 'end'): number => {
+    const position = dragOverInfo?.position;
+    if (role === 'start') return position === 'bottom' ? targetIndex + 1 : targetIndex;
+    return position === 'top' ? targetIndex - 1 : targetIndex;
+  };
+
   const handleDragOver = (e: React.DragEvent, targetIndex: number) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
 
     if (!draggedMarker && !draggedRepeatMarker && draggedIndices.includes(targetIndex)) return;
 
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    // Measures the row's own content area, not the full wrapper -- a row already carrying a
+    // loop/repeat marker band (or loop issue strips) renders extra height above its content, which
+    // would otherwise drag the midpoint down and register "bottom" well before the visual halfway
+    // point of the row people actually see.
+    const target = e.currentTarget as HTMLElement;
+    const content = target.querySelector('.row-grid-layer') as HTMLElement | null;
+    const rect = (content ?? target).getBoundingClientRect();
     const isBelow = e.clientY > rect.top + rect.height / 2;
     setDragOverInfo({ index: targetIndex, position: isBelow ? 'bottom' : 'top' });
   };
@@ -273,8 +297,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     e.preventDefault();
 
     if (draggedMarker) {
-      let adjustedTarget = targetIndex;
-      if (dragOverInfo?.position === 'bottom') adjustedTarget++;
+      const adjustedTarget = markerDropTarget(targetIndex, draggedMarker);
       if (rows[adjustedTarget]?.unit) {
         if (draggedMarker === 'start') setLoopStartOverride(adjustedTarget);
         else setLoopEndOverride(adjustedTarget);
@@ -285,8 +308,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     }
 
     if (draggedRepeatMarker) {
-      let adjustedTarget = targetIndex;
-      if (dragOverInfo?.position === 'bottom') adjustedTarget++;
+      const adjustedTarget = markerDropTarget(targetIndex, draggedRepeatMarker.role);
       if (rows[adjustedTarget]?.unit) {
         if (draggedRepeatMarker.role === 'start') setRepeatBlockStartIndex(draggedRepeatMarker.groupId, adjustedTarget);
         else setRepeatBlockEndIndex(draggedRepeatMarker.groupId, adjustedTarget);

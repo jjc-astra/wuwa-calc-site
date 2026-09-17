@@ -297,26 +297,6 @@ export class DataLoaderClass {
     return releaseKey ? (this.mechanicsDB[releaseKey].holdConfig as HoldConfig) : null;
   }
 
-  // Seconds until `actionName` (bare move name) next has a use available for `unitName`, given
-  // TimelineEngine's cooldown state (`cooldowns` for a plain single-timer move, `chargeCooldowns`
-  // for maxCharges > 1) -- 0 if available right now. Shared by TimelineEngine's own pre-cast wait
-  // and ContextManager's @Self.Cooldown()/checkCooldown DSL reads, so both agree on availability.
-  // Keep in sync with TimelineEngine's _startCooldown, which writes the state this reads.
-  cooldownRemaining(
-    state: { cooldowns?: Record<string, number>; chargeCooldowns?: Record<string, number[]> } | undefined,
-    unitName: string,
-    actionName: string
-  ): number {
-    const key = `${unitName}_${actionName}`;
-    const maxCharges = Math.max(1, parseInt(String(this.mechanicsDB[key]?.maxCharges ?? 1), 10) || 1);
-    if (maxCharges > 1) {
-      const pending = state?.chargeCooldowns?.[key];
-      if (!pending || pending.length < maxCharges) return 0;
-      return Math.max(0, Math.min(...pending));
-    }
-    return Math.max(0, state?.cooldowns?.[key] || 0);
-  }
-
   // Loads every submitted result for Rankings. index.json (filenames + optional rotationType)
   // stands in for a directory listing (public/ can't be listed at runtime). Cached by filename.
   async loadCharacterResults(): Promise<string[]> {

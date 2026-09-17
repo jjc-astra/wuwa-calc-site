@@ -7,6 +7,12 @@ export interface Block {
   count: number;
 }
 
+// A dangling boundary (its start or end row was deleted, or the pair got reversed) isn't a real
+// block -- callers that walk findBlocks' output should skip these rather than act on them.
+export function isValidBlock(b: Block): boolean {
+  return b.startIdx !== -1 && b.endIdx !== -1 && b.endIdx >= b.startIdx;
+}
+
 // Maps each repeat block's groupId to its start/end row index and rep count.
 export function findBlocks(rows: RotationRow[]): Map<string, Block> {
   const blocks = new Map<string, Block>();
@@ -31,8 +37,7 @@ export function expandRepeatBlocks(rows: RotationRow[]): { expanded: RotationRow
   const blocks = findBlocks(rows);
   const blockByStart = new Map<number, Block>();
   blocks.forEach(b => {
-    // A dangling boundary (its partner was deleted) isn't a real block -- leave those rows alone.
-    if (b.startIdx !== -1 && b.endIdx !== -1 && b.endIdx >= b.startIdx) blockByStart.set(b.startIdx, b);
+    if (isValidBlock(b)) blockByStart.set(b.startIdx, b);
   });
 
   const expanded: RotationRow[] = [];
