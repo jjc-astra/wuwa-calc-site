@@ -482,9 +482,8 @@ export class TimelineEngineClass {
     return activeRows;
   }
 
-  // loopStartOverride always wins. Otherwise the loop starts after the main DPS's first Outro
-  // (no Outro = whole rotation is the loop). Lives here so the calc worker can call it too.
-  findLoopStart(rows: any[], mainDps: string | undefined): { index: number; isOverride: boolean } {
+  // Determines loop start via override or main DPS's first true Outro; uses collapseMap to prevent premature loop splitting on Hold-Repeat blocks.
+  findLoopStart(rows: any[], mainDps: string | undefined, collapseMap?: number[]): { index: number; isOverride: boolean } {
     const overrideIndex = rows.findIndex(r => r.loopStartOverride === true && !!r.unit);
     if (overrideIndex !== -1) return { index: overrideIndex, isOverride: true };
 
@@ -492,6 +491,7 @@ export class TimelineEngineClass {
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         if (row.unit === mainDps && Array.isArray(row.castTypes) && row.castTypes.includes('Outro')) {
+          if (collapseMap && collapseMap.lastIndexOf(collapseMap[i]) !== i) continue;
           const next = i + 1;
           if (next < rows.length && rows[next]?.unit) return { index: next, isOverride: false };
           return { index: 0, isOverride: false };

@@ -84,7 +84,7 @@ worker.onmessage = async (e: MessageEvent) => {
       // Optional -- plain live-preview recalculate skips this to stay cheap; RotationBuilder's
       // mount-effect refresh asks for it to populate the DMG column on load too.
       if (payload.includeDamage) populateDamageInstances(evaluatedRows, enemy, team);
-      const { index: loopStartIndex, isOverride: loopStartIsOverride } = TimelineEngine.findLoopStart(evaluatedRows, team[0]?.character);
+      const { index: loopStartIndex, isOverride: loopStartIsOverride } = TimelineEngine.findLoopStart(evaluatedRows, team[0]?.character, payload.collapseMap);
       const { errors: loopErrors, warnings: loopWarnings } = TimelineEngine.analyzeLoop(
         evaluatedRows, team, options, enemy, loopStartIndex
       );

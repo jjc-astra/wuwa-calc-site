@@ -758,7 +758,7 @@ export const useRotationStore = create<RotationState>()(
           const { expanded, collapseMap } = expandRepeatBlocks(rows);
 
           set({ isCalculating: true });
-          const { seq, result } = postToWorker('recalculate', { rows: expanded, team, options, enemy, includeDamage, endingRotationEnabled, endRotationStartsEarlier, staleRefs, ...buildBuilderPayload(team) });
+          const { seq, result } = postToWorker('recalculate', { rows: expanded, team, options, enemy, includeDamage, endingRotationEnabled, endRotationStartsEarlier, staleRefs, collapseMap, ...buildBuilderPayload(team) });
           latestSeqByType.recalculate = seq;
           let data: any;
           try {
