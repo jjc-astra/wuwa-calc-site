@@ -771,16 +771,15 @@ export const useRotationStore = create<RotationState>()(
           // A newer recalculate() already landed -- drop this stale result.
           if (seq !== latestSeqByType.recalculate) return;
 
-          // Preserve existing damageInstances unless the result has fresh ones (TimelineEngine
-          // always resets them to [], truthy but not "fresh").
-          const existingDamageMap = new Map(get().rows.map((r, i) => [i, r.damageInstances]));
+          // Preserves existing damageInstances unless fresh, keying by row ID rather than index to guard against in-flight row mutations during worker round trips.
+          const existingDamageMap = new Map(get().rows.filter(r => r.id).map(r => [r.id, r.damageInstances]));
           const evaluatedRows = collapseRepeatResults(data.evaluatedRows, collapseMap, rows);
           evaluatedRows.forEach((row: any, i: number) => {
-            row.damageInstances = (row.damageInstances && row.damageInstances.length > 0)
-              ? row.damageInstances
-              : (existingDamageMap.get(i) || []);
             // Guarantees every committed row has an id, independent of whatever `rows[i]` has.
             if (!row.id) row.id = rows[i]?.id || crypto.randomUUID();
+            row.damageInstances = (row.damageInstances && row.damageInstances.length > 0)
+              ? row.damageInstances
+              : (existingDamageMap.get(row.id) || []);
           });
 
           set({
