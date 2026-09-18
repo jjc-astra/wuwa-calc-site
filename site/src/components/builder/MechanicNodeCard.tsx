@@ -41,17 +41,19 @@ const PANEL_FIELDS: Record<PanelKey, string[]> = {
 };
 
 export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data, groupSiblings, childOfHold }) => {
-  const { setMechanicNode, removeMechanicNode, activeChar, baseStats, setHighlightedNodeId, setHoveredFieldHighlight } = useBuilderStore();
+  const { setMechanicNode, removeMechanicNode, activeChar, baseStats, setHighlightedNodeId, setHoveredFieldHighlight, setOpenPanel } = useBuilderStore();
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Single ref shared by every field-hover source, so a fast leave-then-enter across
   // adjacent targets cancels the pending clear instead of flickering (50ms debounce both ways).
   const fieldHoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Which sub-panel is open, if any -- one at a time (like the rotation table's activeTrigger).
-  const [activeTrigger, setActiveTrigger] = useState<PanelKey | null>(null);
+  // Which sub-panel is open, if any -- one at a time. Lives in the store (keyed by nodeId)
+  // rather than local state, since a rename re-keys `mechanics` and remounts this card under
+  // its new id, which would otherwise reset local state back to closed.
+  const activeTrigger = useBuilderStore(state => state.openPanelByNode[nodeId] ?? null);
   const toggleTrigger = (key: PanelKey) => (e: React.MouseEvent) => {
     e.stopPropagation();
-    setActiveTrigger(activeTrigger === key ? null : key);
+    setOpenPanel(nodeId, activeTrigger === key ? null : key);
   };
 
   // Previews a sub-panel's fields on hover (cell or open body) -- independent of highlightedNodeId.
@@ -152,7 +154,7 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
         updateNode={updateNode}
         activeTrigger={activeTrigger}
         toggleTrigger={toggleTrigger}
-        setActiveTrigger={(key) => setActiveTrigger(key)}
+        setActiveTrigger={(key) => setOpenPanel(nodeId, key)}
         removeMechanicNode={removeMechanicNode}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}

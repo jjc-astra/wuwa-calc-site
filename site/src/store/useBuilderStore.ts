@@ -5,6 +5,7 @@ import type { MechanicNode, BaseStats, EntityFolder } from '../types';
 import { DataLoader } from '../utils/DataLoader';
 import { MechanicKey } from '../utils/MechanicKey';
 import { IMAGE_FOLDERS } from '../data/db';
+import type { PanelKey } from '../components/builder/MechanicNodeCard';
 
 interface BuilderState {
   activeChar: string | null;
@@ -16,6 +17,10 @@ interface BuilderState {
   // Node/fields to highlight in JsonOutputPane -- hover-driven, independent of
   // highlightedNodeId (summary row only).
   hoveredFieldHighlight: { nodeId: string; fields: string[] } | null;
+  // Which sub-panel (if any) is open per node -- lives here rather than as MechanicNodeCard local
+  // state so a rename (which re-keys `mechanics`, remounting that node's card under its new id)
+  // doesn't reset it. Keyed by node id, migrated in renameMechanicNode.
+  openPanelByNode: Record<string, PanelKey>;
   // Edit log for every entity ever edited, not just the active one.
   // setActiveChar replays these onto each fresh fetch when an entity opens.
   // `mechanics`/`baseStats` below are just the active entity's working copy.
@@ -24,6 +29,7 @@ interface BuilderState {
   deletedMechanicIds: string[];
   setHighlightedNodeId: (nodeId: string | null) => void;
   setHoveredFieldHighlight: (highlight: { nodeId: string; fields: string[] } | null) => void;
+  setOpenPanel: (nodeId: string, panel: PanelKey | null) => void;
   setActiveChar: (charName: string | null, folder?: string, rarity?: number) => Promise<void>;
   setBaseStat: (key: string, value: any) => void;
   // Replaces the whole baseStats object at once -- e.g. importing a Character JSON file,
@@ -73,10 +79,17 @@ export const useBuilderStore = create<BuilderState>()(
       mechanics: {},
       highlightedNodeId: null,
       hoveredFieldHighlight: null,
+      openPanelByNode: {},
       editedBaseStats: {},
       editedMechanics: {},
       deletedMechanicIds: [],
       setHighlightedNodeId: (nodeId) => set({ highlightedNodeId: nodeId }),
+      setOpenPanel: (nodeId, panel) => set(state => {
+        const updated = { ...state.openPanelByNode };
+        if (panel) updated[nodeId] = panel;
+        else delete updated[nodeId];
+        return { openPanelByNode: updated };
+      }),
       setHoveredFieldHighlight: (highlight) => set({ hoveredFieldHighlight: highlight }),
 
       setActiveChar: async (charName, folder = IMAGE_FOLDERS.CHARACTERS, rarity = 5) => {
@@ -195,9 +208,18 @@ export const useBuilderStore = create<BuilderState>()(
           delete updatedEdits[oldId];
           updatedEdits[newId] = node;
 
+          // Carries the open sub-panel across the id swap -- MechanicNodeCard remounts under
+          // newId (its React key), which would otherwise reset to closed.
+          const updatedOpenPanel = { ...state.openPanelByNode };
+          if (updatedOpenPanel[oldId] !== undefined) {
+            updatedOpenPanel[newId] = updatedOpenPanel[oldId];
+            delete updatedOpenPanel[oldId];
+          }
+
           return {
             mechanics: updated,
             editedMechanics: updatedEdits,
+            openPanelByNode: updatedOpenPanel,
             // Record oldId as deleted so a future re-fetch doesn't resurrect it from pristine data.
             deletedMechanicIds: [...state.deletedMechanicIds.filter(id => id !== oldId && id !== newId), oldId]
           };
@@ -213,9 +235,13 @@ export const useBuilderStore = create<BuilderState>()(
           const updatedEdits = { ...state.editedMechanics };
           delete updatedEdits[nodeId];
 
+          const updatedOpenPanel = { ...state.openPanelByNode };
+          delete updatedOpenPanel[nodeId];
+
           return {
             mechanics: updated,
             editedMechanics: updatedEdits,
+            openPanelByNode: updatedOpenPanel,
             deletedMechanicIds: [...state.deletedMechanicIds.filter(id => id !== nodeId), nodeId]
           };
         });
