@@ -9,6 +9,7 @@ import {
 } from './dslRegistry';
 import type { MatchRule, SuggestionItem } from './dslTypes';
 import { DataLoader } from '../../utils/DataLoader';
+import { MechanicKey } from '../../utils/MechanicKey';
 import type { MechanicNode, BaseStats } from '../../types';
 
 // Every mechanic node as an @Namespace(Move Name) ref, scoped to System + the current unit. Uses
@@ -21,7 +22,7 @@ export function collectMechanicReferences(mechanics: Record<string, MechanicNode
   const addFrom = (mechanicsByKey: Record<string, MechanicNode>) => {
     Object.entries(mechanicsByKey).forEach(([key, mech]) => {
       if (seen.has(key) || !mech.name) return;
-      const namespace = key.startsWith('System_') ? 'System' : key.split('_')[0];
+      const namespace = MechanicKey.parse(key).namespace;
       if (namespace !== 'System' && namespace !== currentNamespace) return;
       seen.add(key);
       results.push({ val: `@${namespace}(${mech.name})`, group: namespace === 'System' ? 'System Mechanics' : `${namespace} Mechanics` });
@@ -120,7 +121,7 @@ export function makeMathRule(): MatchRule {
 }
 
 export function makeEventModifierBracketRule(activeChar: string | null, mechanics: Record<string, MechanicNode>): MatchRule {
-  const currentNamespace = activeChar === 'Generic' ? 'System' : activeChar;
+  const currentNamespace = MechanicKey.toNamespace(activeChar);
   return {
     // OnCast[Self, ...] etc.: modifiers + move refs, scoped to System + current unit.
     trigger: /\b(?:On|After)[a-zA-Z]*\[([^\]]*)$/i,

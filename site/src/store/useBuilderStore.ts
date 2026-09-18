@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { safeLocalStorage } from '../utils/safeLocalStorage';
 import type { MechanicNode, BaseStats } from '../types';
 import { DataLoader } from '../utils/DataLoader';
+import { MechanicKey } from '../utils/MechanicKey';
 import { IMAGE_FOLDERS } from '../data/db';
 
 interface BuilderState {
@@ -51,9 +52,6 @@ interface BuilderState {
 // Guards against a stale in-flight setActiveChar call resolving after the user navigated away.
 let activeCharRequestSeq = 0;
 
-// Mirrors DataLoader.loadMechanic/clearMechanicCache's own prefix convention for mechanicsDB keys.
-export const nodeIdPrefix = (itemName: string) => (itemName === 'Generic' ? 'System_' : `${itemName}_`);
-
 // Maps a grid section's image folder to DataLoader's mechanic folder name.
 // Shared by setActiveChar, resetCache, and dataFreshness.ts's staleness check.
 export const mechFolderFor = (folder: string): string => {
@@ -99,7 +97,7 @@ export const useBuilderStore = create<BuilderState>()(
         // Replay cached edits onto the pristine fetch -- must run after loadMechanic, which
         // overwrites mechanicsDB with pristine JSON.
         const { editedBaseStats, editedMechanics, deletedMechanicIds } = get();
-        const prefix = nodeIdPrefix(charName);
+        const prefix = MechanicKey.prefix(charName);
         const charEdits = editedBaseStats[charName];
         if (charEdits) {
           const target = DataLoader.characterDB[charName] || DataLoader.weaponDB[charName];
@@ -226,14 +224,14 @@ export const useBuilderStore = create<BuilderState>()(
       hasChanges: itemName => {
         const { editedBaseStats, editedMechanics, deletedMechanicIds } = get();
         if (editedBaseStats[itemName]) return true;
-        const prefix = nodeIdPrefix(itemName);
+        const prefix = MechanicKey.prefix(itemName);
         if (Object.keys(editedMechanics).some(id => id.startsWith(prefix))) return true;
         if (deletedMechanicIds.some(id => id.startsWith(prefix))) return true;
         return false;
       },
 
       discardChanges: itemName => {
-        const prefix = nodeIdPrefix(itemName);
+        const prefix = MechanicKey.prefix(itemName);
         const hadBaseStatEdit = !!get().editedBaseStats[itemName];
         const isActive = get().activeChar === itemName;
         const isWeapon = !!DataLoader.weaponDB[itemName];
@@ -270,7 +268,7 @@ export const useBuilderStore = create<BuilderState>()(
       getTeamOverrides: itemNames => {
         const { editedBaseStats, editedMechanics, deletedMechanicIds } = get();
         const names = new Set(itemNames);
-        const prefixes = itemNames.map(nodeIdPrefix);
+        const prefixes = itemNames.map(MechanicKey.prefix);
         const matchesAny = (id: string) => prefixes.some(p => id.startsWith(p));
         return {
           editedBaseStats: Object.fromEntries(Object.entries(editedBaseStats).filter(([name]) => names.has(name))),
@@ -299,7 +297,7 @@ export const useBuilderStore = create<BuilderState>()(
 
         // Also clear this entity's edit log, or setActiveChar below just replays the same
         // edits back onto the refetched data.
-        const prefix = nodeIdPrefix(activeChar);
+        const prefix = MechanicKey.prefix(activeChar);
         set(state => {
           const nextEditedBaseStats = { ...state.editedBaseStats };
           delete nextEditedBaseStats[activeChar];

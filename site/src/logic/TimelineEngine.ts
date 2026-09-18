@@ -1,4 +1,5 @@
 import { DataLoader } from '../utils/DataLoader';
+import { MechanicKey } from '../utils/MechanicKey';
 import { CommonUtils } from '../utils/Common';
 import { DSLParser } from './dsl/dslParser';
 import { CombatCalculator } from './CombatCalculator';
@@ -635,7 +636,7 @@ export class TimelineEngineClass {
             EventManager.registerMechanic(mech, slot.character);
           });
         } else {
-          const directMech = DataLoader.mechanicsDB[itemName] || DataLoader.mechanicsDB[`System_${itemName}`];
+          const directMech = MechanicKey.findNode(DataLoader.mechanicsDB, itemName);
           if (directMech) EventManager.registerMechanic(directMech, slot.character);
         }
       };
@@ -655,7 +656,7 @@ export class TimelineEngineClass {
             if (DataLoader.mechanicsDB[k]) EventManager.registerMechanic(applyRank(DataLoader.mechanicsDB[k]), slot.character);
           });
         } else {
-          const directWep = DataLoader.mechanicsDB[weaponName] || DataLoader.mechanicsDB[`System_${weaponName}`];
+          const directWep = MechanicKey.findNode(DataLoader.mechanicsDB, weaponName);
           if (directWep) EventManager.registerMechanic(applyRank(directWep), slot.character);
         }
       };

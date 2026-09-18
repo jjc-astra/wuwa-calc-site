@@ -10,6 +10,7 @@ import {
 } from '../../logic/dsl/dslResolver';
 import { useBuilderStore } from '../../store/useBuilderStore';
 import { DataLoader } from '../../utils/DataLoader';
+import { MechanicKey } from '../../utils/MechanicKey';
 import { tokenizeDSL } from '../../utils/DSLHighlight';
 import { TooltipManager } from '../../utils/Common';
 import type { MechanicNode } from '../../types';
@@ -71,7 +72,7 @@ function collectEffectNamesByNamespace(builderMechanics: Record<string, Mechanic
   const byNamespace: Record<string, Set<string>> = {};
   const addFrom = (mechanicsByKey: Record<string, MechanicNode>) => {
     Object.entries(mechanicsByKey).forEach(([key, mech]) => {
-      const namespace = key.startsWith('System_') ? 'System' : key.split('_')[0];
+      const namespace = MechanicKey.parse(key).namespace;
       (mech.effects || []).forEach(e => {
         if (!e.name) return;
         // Buff and tracker effects both define a reusable name -- resource/time_scale/etc.
@@ -79,8 +80,7 @@ function collectEffectNamesByNamespace(builderMechanics: Record<string, Mechanic
         // a pool key like "energy"/"forte1", not an identifier meant to be referenced elsewhere).
         if (e.type && e.type !== 'buff' && e.type !== 'tracker') return;
         if (!byNamespace[namespace]) byNamespace[namespace] = new Set();
-        const bare = e.name.startsWith(namespace + '_') ? e.name.slice(namespace.length + 1) : e.name;
-        byNamespace[namespace].add(bare);
+        byNamespace[namespace].add(MechanicKey.stripNamespace(e.name, namespace));
       });
     });
   };
@@ -98,7 +98,7 @@ function collectCooldownReferences(builderMechanics: Record<string, MechanicNode
   const addFrom = (mechanicsByKey: Record<string, MechanicNode>) => {
     Object.entries(mechanicsByKey).forEach(([key, mech]) => {
       if (!mech.name || mech.cooldown === undefined || seen.has(mech.name)) return;
-      const namespace = key.startsWith('System_') ? 'System' : key.split('_')[0];
+      const namespace = MechanicKey.parse(key).namespace;
       if (namespace !== 'System' && namespace !== currentNamespace) return;
       seen.add(mech.name);
       results.push({ val: mech.name, group: namespace === 'System' ? 'System Cooldowns' : `${namespace} Cooldowns` });
@@ -193,7 +193,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
 
   const getRules = (): MatchRule[] => {
     if (mode === 'eff-name') {
-      const currentNamespace = (activeChar === 'Generic' || !activeChar) ? 'System' : activeChar;
+      const currentNamespace = MechanicKey.toNamespace(activeChar);
       return [
         {
           // Completing inside an already-typed "@Namespace(" shorthand (see below) -- unaffected
@@ -246,7 +246,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
     }
 
     if (mode === 'eff-cd-name') {
-      const currentNamespace = activeChar === 'Generic' ? 'System' : activeChar;
+      const currentNamespace = MechanicKey.toNamespace(activeChar);
       return [{
         trigger: /(.*)/,
         options: () => collectCooldownReferences(mechanics, currentNamespace),
@@ -295,7 +295,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
     if (mode === 'eff-applies-during') {
       // Cast Type or a move ref -- never a dmg type/element, already scoped by a Stat Modifier like "Fusion DMG Bonus".
       const castTypes = Object.keys(CAST_TYPE_COLORS).map(ct => ({ val: ct, group: 'Cast Type' }));
-      const currentNamespace = activeChar === 'Generic' ? 'System' : activeChar;
+      const currentNamespace = MechanicKey.toNamespace(activeChar);
       const mechanicRefs = collectMechanicReferences(mechanics, currentNamespace);
       return [{
         trigger: /(.*)/,

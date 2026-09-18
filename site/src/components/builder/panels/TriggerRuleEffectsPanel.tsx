@@ -8,7 +8,7 @@ import { TypeTag } from '../../common/TypeTag';
 import { Dropdown, type DropdownOption } from '../../common/Dropdown';
 import { parseTimeInput } from '../../../utils/Frames';
 import { effectLabel, flattenDslShorthand } from '../mechanicNodeHelpers';
-import { BuilderUtils } from '../../../utils/BuilderUtils';
+import { MechanicKey } from '../../../utils/MechanicKey';
 
 // Mirrors old site's makeInput/makeSelect wrapper: each field gets its own labeled,
 // min-width flex slot so fields share row space instead of one 100%-width input swallowing others.
@@ -56,7 +56,7 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
       setMechanicNode(releaseId, { ...releaseRest, holdGroupId } as MechanicNode);
     }
     // Brand new sibling -- name it off the Hold's own name, since nothing to reuse yet.
-    const id = BuilderUtils.generateId(provider, `${data.name} (${role})`);
+    const id = MechanicKey.build(provider, `${data.name} (${role})`);
     // Inserts the node contiguous with its Hold group in the JSON (after Repeat if present, else after Hold).
     const insertAfter = (role === 'Release' && existingRepeatId) || nodeId;
     setMechanicNode(id, {

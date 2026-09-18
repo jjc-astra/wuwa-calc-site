@@ -2,7 +2,7 @@
 import React from 'react';
 import type { MechanicNode } from '../../../types';
 import { useBuilderStore } from '../../../store/useBuilderStore';
-import { BuilderUtils } from '../../../utils/BuilderUtils';
+import { MechanicKey } from '../../../utils/MechanicKey';
 
 interface IdentityPanelProps {
   nodeId: string;
@@ -17,8 +17,7 @@ export const IdentityPanel: React.FC<IdentityPanelProps> = ({ nodeId, data, upda
   // blur only -- per-keystroke would change the store/React-list key and drop focus mid-typing.
   const handleNameBlur = () => {
     const currentName = data.name || '';
-    const owner = activeChar === 'Generic' ? 'System' : (activeChar || '');
-    const newId = currentName.trim() ? BuilderUtils.generateId(owner, currentName) : nodeId;
+    const newId = currentName.trim() ? MechanicKey.build(MechanicKey.toNamespace(activeChar), currentName) : nodeId;
     const collides = newId !== nodeId && useBuilderStore.getState().mechanics[newId];
     if (newId === nodeId) return;
     if (collides) {

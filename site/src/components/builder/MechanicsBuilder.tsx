@@ -4,6 +4,7 @@ import { checkBuilderItemFreshness } from '../../utils/dataFreshness';
 import { DataLoader, type ImplementedContentKind } from '../../utils/DataLoader';
 import { CommonUtils } from '../../utils/Common';
 import { BuilderUtils } from '../../utils/BuilderUtils';
+import { MechanicKey } from '../../utils/MechanicKey';
 import { BaseStatsForm } from './BaseStatsForm';
 import { MechanicNodeCard } from './MechanicNodeCard';
 import { JsonOutputPane } from './JsonOutputPane';
@@ -291,7 +292,7 @@ export const MechanicsBuilder: React.FC = () => {
     }
 
     const provider = activeChar || 'System';
-    let nodeId = BuilderUtils.generateId(provider, template.name);
+    let nodeId = MechanicKey.build(provider, template.name);
     if (mechanics[nodeId]) {
       let suffix = 2;
       while (mechanics[`${nodeId} (${suffix})`]) suffix++;

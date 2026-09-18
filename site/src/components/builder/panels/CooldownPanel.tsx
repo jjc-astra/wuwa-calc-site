@@ -1,7 +1,8 @@
 // src/components/builder/panels/CooldownPanel.tsx
 import React, { useState } from 'react';
 import type { MechanicNode } from '../../../types';
-import { useBuilderStore, nodeIdPrefix } from '../../../store/useBuilderStore';
+import { useBuilderStore } from '../../../store/useBuilderStore';
+import { MechanicKey } from '../../../utils/MechanicKey';
 import { AutocompleteInput } from '../../common/AutocompleteInput';
 import { displayTimeVal, makeTimeBlur } from '../mechanicNodeHelpers';
 
@@ -25,7 +26,7 @@ export const CooldownPanel: React.FC<CooldownPanelProps> = ({ data, updateNode }
     setShareDraft(null);
     if (newPartnerName === oldPartnerName) return;
 
-    const prefix = nodeIdPrefix(activeChar || 'Generic');
+    const prefix = MechanicKey.prefix(activeChar || 'Generic');
 
     if (oldPartnerName) {
       const oldPartner = mechanics[`${prefix}${oldPartnerName}`];

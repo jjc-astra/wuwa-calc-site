@@ -85,11 +85,6 @@ export const BuilderUtils = {
   },
 
 
-  generateId: (provider: string, name: string): string => {
-    const pageOwner = provider === 'Generic' ? 'System' : provider;
-    return `${pageOwner}_${name.trim()}`;
-  },
-
   guessCategory: (mechData: MechanicNode): string => {
     const casts = mechData.castTypes || [];
     if (casts.includes('Basic') || casts.includes('Heavy') || casts.includes('Dodge')) return 'Basic Attack';

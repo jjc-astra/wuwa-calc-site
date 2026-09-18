@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useBuilderStore, mechFolderFor, nodeIdPrefix } from '../../store/useBuilderStore';
+import { useBuilderStore, mechFolderFor } from '../../store/useBuilderStore';
 import { DataLoader } from '../../utils/DataLoader';
+import { MechanicKey } from '../../utils/MechanicKey';
 import { BuilderUtils } from '../../utils/BuilderUtils';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { ActionsMenuButton } from '../common/ActionsMenuButton';
@@ -398,10 +399,10 @@ export const JsonOutputPane: React.FC = () => {
     if (!activeChar || !parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
       throw new Error('No mechanic nodes found in file.');
     }
-    const prefix = nodeIdPrefix(activeChar);
-    // Re-homes a node authored under a different provider (or with no prefix at all) onto the
-    // entity currently open here, keeping whatever comes after the first underscore.
-    const rekey = (key: string) => (key.startsWith(prefix) ? key : `${prefix}${key.includes('_') ? key.slice(key.indexOf('_') + 1) : key}`);
+    const prefix = MechanicKey.prefix(activeChar);
+    // Re-homes a node authored under a different provider onto the entity currently open here.
+    const rekey = (key: string): string =>
+      key.startsWith(prefix) ? key : MechanicKey.build(activeChar, MechanicKey.parse(key).name);
 
     const importedKeys = new Set<string>();
     Object.entries(parsed).forEach(([key, node]) => {

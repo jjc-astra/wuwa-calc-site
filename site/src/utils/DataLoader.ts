@@ -1,4 +1,5 @@
 import { CommonUtils, DATA_REPO_BASE_URL, WIP_BASE_URL } from './Common';
+import { MechanicKey } from './MechanicKey';
 import type { CharacterData, WeaponData, MechanicNode, TeamSlot, HoldConfig } from '../types/index';
 import type { RotationResults } from '../types/results';
 
@@ -266,14 +267,14 @@ export class DataLoaderClass {
   // mechanicsDB directly.
   registerMechanicNode(key: string, node: MechanicNode): void {
     this.mechanicsDB[key] = node;
-    const indexKey = key.startsWith('System_') ? 'System' : key.split('_')[0];
+    const indexKey = MechanicKey.parse(key).namespace;
     if (!this.mechanicsIndex[indexKey]) this.mechanicsIndex[indexKey] = [];
     if (!this.mechanicsIndex[indexKey].includes(key)) this.mechanicsIndex[indexKey].push(key);
   }
 
   unregisterMechanicNode(key: string): void {
     delete this.mechanicsDB[key];
-    const indexKey = key.startsWith('System_') ? 'System' : key.split('_')[0];
+    const indexKey = MechanicKey.parse(key).namespace;
     if (this.mechanicsIndex[indexKey]) {
       this.mechanicsIndex[indexKey] = this.mechanicsIndex[indexKey].filter(k => k !== key);
     }
@@ -283,14 +284,14 @@ export class DataLoaderClass {
   findHoldReleaseConfig(charName: string, matchInput?: string): HoldConfig | null {
     const hasRepeatForInput = Object.keys(this.mechanicsDB).some(k => {
       const m = this.mechanicsDB[k];
-      if (!k.startsWith(`${charName}_`) || m.inputType !== 'Repeat') return false;
+      if (!MechanicKey.belongsTo(k, charName) || m.inputType !== 'Repeat') return false;
       return matchInput === undefined || m.input === matchInput;
     });
     if (hasRepeatForInput) return null;
 
     const releaseKey = Object.keys(this.mechanicsDB).find(k => {
       const m = this.mechanicsDB[k];
-      if (!k.startsWith(`${charName}_`) || m.inputType !== 'Release' || !m.holdConfig) return false;
+      if (!MechanicKey.belongsTo(k, charName) || m.inputType !== 'Release' || !m.holdConfig) return false;
       if (matchInput !== undefined && m.input !== matchInput) return false;
       return true;
     });
@@ -322,13 +323,10 @@ export class DataLoaderClass {
     this.wipSourced.delete(this.mechanicPath(folder, itemName));
 
     Object.keys(this.mechanicsDB).forEach(key => {
-      if (key.startsWith(itemName + '_') || (itemName === 'Generic' && key.startsWith('System_'))) {
-        delete this.mechanicsDB[key];
-      }
+      if (MechanicKey.belongsTo(key, itemName)) delete this.mechanicsDB[key];
     });
 
-    const indexKey = itemName === 'Generic' ? 'System' : itemName;
-    delete this.mechanicsIndex[indexKey];
+    delete this.mechanicsIndex[MechanicKey.toNamespace(itemName)];
   }
 }
 
