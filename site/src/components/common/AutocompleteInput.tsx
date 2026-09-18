@@ -1,20 +1,16 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { BuilderState, CAST_TYPE_COLORS, EFF_STAT_TOOLTIPS } from '../../data/db';
-import { DSL_POINTERS } from '../../logic/dsl/dslRegistry';
+import { EFF_STAT_TOOLTIPS } from '../../data/db';
 import {
   resolveEventTooltip, resolveModifierTooltip, resolvePointerTooltip, resolveFunctionTooltip,
   resolvePropertyTooltip, resolveSystemMethodTooltip,
   makePointerRootRule, makePropertyRule, makeMethodChainRule, makeMathRule,
-  makeEventModifierBracketRule, makeEventListRule, collectMechanicReferences
+  makeEventModifierBracketRule, makeEventListRule, makeNamespaceRefRule,
+  makeEffectNameRules, makeCooldownNameRule, makeStatRule, makeTargetRule, makeAppliesDuringRule
 } from '../../logic/dsl/dslResolver';
 import { useBuilderStore } from '../../store/useBuilderStore';
-import { DataLoader } from '../../utils/DataLoader';
-import { MechanicKey } from '../../utils/MechanicKey';
-import { UNSCOPED_MOD_LABELS, SCOPEABLE_MOD_LABELS } from '../../logic/combat/combatRegistry';
 import { tokenizeDSL } from '../../utils/DSLHighlight';
 import { TooltipManager } from '../../utils/Common';
-import type { MechanicNode } from '../../types';
 import type { SuggestionItem, MatchRule } from '../../logic/dsl/dslTypes';
 
 interface AutocompleteInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -65,49 +61,6 @@ function getCommaSegmentInfo(fullCaptured: string): { currentTerm: string; repla
   const replaceLength = rawLast.length - leadingWhitespaceLen;
   const chosenTerms = segments.slice(0, -1).map(s => s.trim()).filter(Boolean);
   return { currentTerm, replaceLength, chosenTerms };
-}
-
-// Effect names don't consistently carry their namespace (some repeat it, e.g.
-// "Lumi_Outro..."; some don't). Deriving namespace from the defining node covers both.
-function collectEffectNamesByNamespace(builderMechanics: Record<string, MechanicNode>): Record<string, Set<string>> {
-  const byNamespace: Record<string, Set<string>> = {};
-  const addFrom = (mechanicsByKey: Record<string, MechanicNode>) => {
-    Object.entries(mechanicsByKey).forEach(([key, mech]) => {
-      const namespace = MechanicKey.parse(key).namespace;
-      (mech.effects || []).forEach(e => {
-        if (!e.name) return;
-        // Buff and tracker effects both define a reusable name -- resource/time_scale/etc.
-        // effects reuse `name` for something else entirely (e.g. a resource effect's `name` is
-        // a pool key like "energy"/"forte1", not an identifier meant to be referenced elsewhere).
-        if (e.type && e.type !== 'buff' && e.type !== 'tracker') return;
-        if (!byNamespace[namespace]) byNamespace[namespace] = new Set();
-        byNamespace[namespace].add(MechanicKey.stripNamespace(e.name, namespace));
-      });
-    });
-  };
-  addFrom(DataLoader.mechanicsDB);
-  addFrom(builderMechanics);
-  return byNamespace;
-}
-
-// Bare mechanic names (not @Namespace(...) refs) for mechanics that declare a `cooldown` --
-// these are the only valid targets for a Buff/CD Control effect's cooldown side, since the
-// engine keys a cooldown by the move's plain `.name`, not a namespaced reference.
-function collectCooldownReferences(builderMechanics: Record<string, MechanicNode>, currentNamespace: string | null): SuggestionItem[] {
-  const seen = new Set<string>();
-  const results: SuggestionItem[] = [];
-  const addFrom = (mechanicsByKey: Record<string, MechanicNode>) => {
-    Object.entries(mechanicsByKey).forEach(([key, mech]) => {
-      if (!mech.name || mech.cooldown === undefined || seen.has(mech.name)) return;
-      const namespace = MechanicKey.parse(key).namespace;
-      if (namespace !== 'System' && namespace !== currentNamespace) return;
-      seen.add(mech.name);
-      results.push({ val: mech.name, group: namespace === 'System' ? 'System Cooldowns' : `${namespace} Cooldowns` });
-    });
-  };
-  addFrom(DataLoader.mechanicsDB);
-  addFrom(builderMechanics);
-  return results;
 }
 
 export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
@@ -193,115 +146,11 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
   }, [activeIndex, isOpen]);
 
   const getRules = (): MatchRule[] => {
-    if (mode === 'eff-name') {
-      const currentNamespace = MechanicKey.toNamespace(activeChar);
-      return [
-        {
-          // Completing inside an already-typed "@Namespace(" shorthand (see below) -- unaffected
-          // by the reordering, since by this point the user has already opted into it. Namespace
-          // allows spaces since some echo names carry them (e.g. "Impermanence Heron").
-          trigger: /@([a-zA-Z0-9_ ]+)\(([^)]*)$/,
-          matchGroup: 2,
-          options: (match) => {
-            const namespace = match[1];
-            const byNamespace = collectEffectNamesByNamespace(mechanics);
-            const names = byNamespace[namespace] ? Array.from(byNamespace[namespace]) : [];
-            return names.map(name => ({
-              val: name,
-              group: namespace === 'System' ? 'System Effects' : `${namespace} Effects`
-            }));
-          },
-          prefix: '',
-          append: ')'
-        },
-        {
-          // Plain typing (no leading @, the overwhelmingly common case): this unit's own existing
-          // effect names first, then System's -- not every character in the game.
-          trigger: /^([a-zA-Z0-9_ ]*)$/,
-          options: () => {
-            const byNamespace = collectEffectNamesByNamespace(mechanics);
-            const ownNames = (byNamespace[currentNamespace] ? Array.from(byNamespace[currentNamespace]) : [])
-              .map(name => ({ val: name, group: `${currentNamespace} Effects` }));
-            const systemNames = currentNamespace !== 'System'
-              ? (byNamespace['System'] ? Array.from(byNamespace['System']) : []).map(name => ({ val: name, group: 'System Effects' }))
-              : [];
-            return [...ownNames, ...systemNames];
-          },
-          prefix: ''
-        },
-        {
-          // Explicit opt-in only (typing "@"): the @Namespace(Name) shorthand that flattenDslShorthand
-          // turns into the "Namespace_Name" convention some effects use -- not the default suggestion.
-          trigger: /^@([a-zA-Z]*)$/,
-          options: () => {
-            const base = [{ val: 'System(', group: 'Namespaces' }];
-            const chars = Object.keys(DataLoader.characterDB).map(c => ({
-              val: c.replace(/[^a-zA-Z0-9]/g, '') + '(',
-              group: 'Namespaces'
-            }));
-            return [...base, ...chars];
-          },
-          prefix: '@'
-        }
-      ];
-    }
-
-    if (mode === 'eff-cd-name') {
-      const currentNamespace = MechanicKey.toNamespace(activeChar);
-      return [{
-        trigger: /(.*)/,
-        options: () => collectCooldownReferences(mechanics, currentNamespace),
-        prefix: ''
-      }];
-    }
-
-    if (mode === 'eff-stat') {
-      const sheetStats = (statOptions.length > 0 ? statOptions : BuilderState.STAT_OPTIONS).map(v => ({
-        val: v,
-        group: 'Sheet Stats'
-      }));
-      const combatMods = UNSCOPED_MOD_LABELS.map(v => ({ val: v, group: 'Combat Modifiers' }));
-
-      const specificMods: SuggestionItem[] = [];
-      const dmgList = dmgOptions.length > 0 ? dmgOptions : BuilderState.DMG_OPTIONS;
-      dmgList.forEach(dmgType => {
-        SCOPEABLE_MOD_LABELS.forEach(mod => {
-          specificMods.push({ val: `${dmgType} ${mod}`, group: 'Specific Modifiers', tooltipKey: mod });
-        });
-      });
-
-      const combined = [...sheetStats, ...combatMods, ...specificMods];
-      const uniqueStats: SuggestionItem[] = [];
-      const seen = new Set<string>();
-      combined.forEach(obj => {
-        if (!seen.has(obj.val)) {
-          seen.add(obj.val);
-          uniqueStats.push(obj);
-        }
-      });
-      return [{ trigger: /(.*)/, options: uniqueStats, prefix: '' }];
-    }
-
-    if (mode === 'eff-target') {
-      return [{
-        trigger: /(.*)/,
-        options: Object.values(DSL_POINTERS).map(p => ({ val: '@' + p.pointer, group: 'Targets', tooltipKey: p.pointer })),
-        prefix: ''
-      }];
-    }
-
-    if (mode === 'eff-applies-during') {
-      // Cast Type or a move ref -- never a dmg type/element, already scoped by a Stat Modifier like "Fusion DMG Bonus".
-      const castTypes = Object.keys(CAST_TYPE_COLORS).map(ct => ({ val: ct, group: 'Cast Type' }));
-      const currentNamespace = MechanicKey.toNamespace(activeChar);
-      const mechanicRefs = collectMechanicReferences(mechanics, currentNamespace);
-      return [{
-        trigger: /(.*)/,
-        options: [...castTypes, ...mechanicRefs],
-        prefix: '',
-        commaList: true
-      }];
-    }
+    if (mode === 'eff-name') return makeEffectNameRules(activeChar, mechanics);
+    if (mode === 'eff-cd-name') return [makeCooldownNameRule(activeChar, mechanics)];
+    if (mode === 'eff-stat') return [makeStatRule(statOptions, dmgOptions)];
+    if (mode === 'eff-target') return [makeTargetRule()];
+    if (mode === 'eff-applies-during') return [makeAppliesDuringRule(activeChar, mechanics)];
 
     if (mode === 'dsl-value') {
       // Math-only fields (Priority, Combo/Freeze/Swap Time): pointer+property completion, no events/brackets.
@@ -317,38 +166,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
     return [
       makeEventModifierBracketRule(activeChar, mechanics),
       makePointerRootRule(),
-      {
-        // Completing inside an already-typed "@Namespace(" reference -- mechanics + effect names.
-        trigger: /@([a-zA-Z0-9_ ]+)\(([^)]*)$/,
-        matchGroup: 2,
-        options: (match) => {
-          const namespace = match[1];
-          const mechKeys = new Set<string>();
-          Object.keys(DataLoader.mechanicsDB).forEach(k => mechKeys.add(k));
-          Object.keys(mechanics).forEach(k => mechKeys.add(k));
-
-          const results: SuggestionItem[] = [];
-          mechKeys.forEach(k => {
-            if (k.startsWith(namespace + '_')) {
-              results.push({
-                val: k.replace(namespace + '_', ''),
-                group: namespace === 'System' ? 'System Mechanics' : `${namespace} Mechanics`
-              });
-            }
-          });
-
-          const byNamespace = collectEffectNamesByNamespace(mechanics);
-          (byNamespace[namespace] ? Array.from(byNamespace[namespace]) : []).forEach(name => {
-            results.push({
-              val: name,
-              group: namespace === 'System' ? 'System Effects' : `${namespace} Effects`
-            });
-          });
-          return results;
-        },
-        prefix: '',
-        append: ')'
-      },
+      makeNamespaceRefRule(mechanics),
       makeEventListRule(/\b((?:On|After|Det|AL)[a-zA-Z]*)$/i),
       makePropertyRule(baseStats),
       makeMethodChainRule(),
