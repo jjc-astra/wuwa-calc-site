@@ -53,6 +53,15 @@ export interface EchoSlotData {
   substats: SubstatEntry[];
 }
 
+// The mechanics-data folders a team-slot field or Builder grid section can resolve to.
+export type EntityFolder = 'characters' | 'weapons' | 'sets' | 'echoes' | 'system';
+
+// A loadable/checkable mechanics entity -- one team slot's equipped item, or the System namespace.
+export interface EntityRef {
+  folder: EntityFolder;
+  name: string;
+}
+
 export interface TeamSlot {
   index: number;
   character: string;

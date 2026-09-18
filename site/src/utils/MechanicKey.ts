@@ -1,7 +1,7 @@
 // Centralizes `${namespace}_${name}` key conventions and parsing. 'System' is the one name for
 // the team-independent entity (Dodge, Jump, Tune Break...) everywhere in the app -- state, UI,
 // and mechanicsDB keys alike. The only place a different name exists is the data repo's on-disk
-// asset naming (mechanics/generic/generic.json, Icon_Generic.webp), which DataLoader.ts and
+// asset naming (mechanics/system/system.json, Icon_Generic.webp), which DataLoader.ts and
 // Common.ts's getIconPath each translate at that one boundary.
 // Pure string utilities with zero external dependencies to prevent circular imports.
 import type { MechanicNode } from '../types/index';

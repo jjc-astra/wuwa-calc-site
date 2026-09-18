@@ -1,5 +1,6 @@
 import { CommonUtils, DATA_REPO_BASE_URL, WIP_BASE_URL } from './Common';
-import { MechanicKey } from './MechanicKey';
+import { MechanicKey, SYSTEM_NAMESPACE } from './MechanicKey';
+import { getTeamEntityRefs } from './TeamUtils';
 import type { CharacterData, WeaponData, MechanicNode, TeamSlot, HoldConfig } from '../types/index';
 import type { RotationResults } from '../types/results';
 
@@ -116,9 +117,9 @@ export class DataLoaderClass {
   }
 
   // On-disk filename for a mechanic entity. The rest of the app calls this entity 'System', but
-  // the data repo's real file is lowercase generic.json -- this is the one place that translates.
+  // the data repo's real file is lowercase system.json -- this is the one place that translates.
   private mechanicFileName(itemName: string): string {
-    return itemName === 'System' ? 'generic' : itemName.replace(/\s+/g, '_');
+    return itemName === 'System' ? 'system' : itemName.replace(/\s+/g, '_');
   }
 
   // Same relPath convention loadMechanic uses internally, exposed for dataFreshness.ts.
@@ -127,7 +128,7 @@ export class DataLoaderClass {
   }
 
   // cache.mechanics key for (folder, itemName) -- combines folder with mechanicFileName's
-  // System->'generic' translation, so every caller agrees on the same key regardless of casing.
+  // System->'system' translation, so every caller agrees on the same key regardless of casing.
   mechanicCacheKey(folder: string, itemName: string): string {
     return `${folder}/${this.mechanicFileName(itemName)}`;
   }
@@ -189,7 +190,7 @@ export class DataLoaderClass {
     this.threePcSets = echoData.THREE_PC_SETS || [];
     this.onePcSets = echoData.ONE_PC_SETS || [];
 
-    await this.loadMechanic('generic', 'generic');
+    await this.loadMechanic('system', SYSTEM_NAMESPACE);
     this.resolveReady();
   }
 
@@ -198,16 +199,9 @@ export class DataLoaderClass {
   //
   // System (Dodge, Jump, Tune Break...) applies regardless of team, so it's always
   // loaded here -- calc.worker.ts's builder-override path clears it first and relies on this to restore it.
-  async loadTeamMechanics(team: Array<{ character?: string; weapon?: string; mainSet?: string; subSet?: string; subSet2a?: string; subSet2b?: string; mainEcho?: string }>): Promise<void> {
-    await this.loadMechanic('generic', 'generic');
-    for (const slot of team) {
-      if (slot.character) await this.loadMechanic('characters', slot.character);
-      if (slot.weapon) await this.loadMechanic('weapons', slot.weapon);
-      if (slot.mainSet) await this.loadMechanic('sets', slot.mainSet);
-      if (slot.subSet) await this.loadMechanic('sets', slot.subSet);
-      if (slot.subSet2a) await this.loadMechanic('sets', slot.subSet2a);
-      if (slot.subSet2b) await this.loadMechanic('sets', slot.subSet2b);
-      if (slot.mainEcho) await this.loadMechanic('echoes', slot.mainEcho);
+  async loadTeamMechanics(team: TeamSlot[]): Promise<void> {
+    for (const ref of getTeamEntityRefs(team, { includeSystem: true, dedupe: true })) {
+      await this.loadMechanic(ref.folder, ref.name);
     }
   }
 

@@ -16,8 +16,8 @@ export const FreshnessConflictDialog: React.FC = () => {
           <h3>Data updated on the server</h3>
           <p className="text-dim">
             {conflicts.length === 1
-              ? `${conflicts[0].itemName}'s mechanic data has changed on the server, but you have unsaved edits to it in the Mechanics Builder.`
-              : `These have changed on the server, but you have unsaved edits to them in the Mechanics Builder: ${conflicts.map(c => c.itemName).join(', ')}.`}
+              ? `${conflicts[0].name}'s mechanic data has changed on the server, but you have unsaved edits to it in the Mechanics Builder.`
+              : `These have changed on the server, but you have unsaved edits to them in the Mechanics Builder: ${conflicts.map(c => c.name).join(', ')}.`}
             {' '}Keep your local edits, or discard them and load the latest version?
           </p>
         </div>

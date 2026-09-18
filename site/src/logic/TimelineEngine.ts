@@ -678,7 +678,7 @@ export class TimelineEngineClass {
       });
     });
 
-    // Generic.json's status/Tune-Break nodes aren't owned by any team slot, so they never get
+    // System.json's status/Tune-Break nodes aren't owned by any team slot, so they never get
     // registered above -- register them once under a synthetic 'System' equipper.
     (DataLoader.mechanicsIndex['System'] || []).forEach(key => {
       const mech = DataLoader.mechanicsDB[key];

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { safeLocalStorage } from '../utils/safeLocalStorage';
-import type { MechanicNode, BaseStats } from '../types';
+import type { MechanicNode, BaseStats, EntityFolder } from '../types';
 import { DataLoader } from '../utils/DataLoader';
 import { MechanicKey } from '../utils/MechanicKey';
 import { IMAGE_FOLDERS } from '../data/db';
@@ -54,12 +54,12 @@ let activeCharRequestSeq = 0;
 
 // Maps a grid section's image folder to DataLoader's mechanic folder name.
 // Shared by setActiveChar, resetCache, and dataFreshness.ts's staleness check.
-export const mechFolderFor = (folder: string): string => {
+export const mechFolderFor = (folder: string): EntityFolder => {
   const lower = folder.toLowerCase();
   if (lower === 'weapons') return 'weapons';
   if (lower === 'echo sets' || lower === 'sets') return 'sets';
   if (lower === 'echoes') return 'echoes';
-  if (lower === 'system' || lower === 'generic') return 'generic';
+  if (lower === 'system') return 'system';
   return 'characters';
 };
 

@@ -6,17 +6,13 @@
 // Results files have no Builder counterpart, so they're always silently evicted.
 import { create } from 'zustand';
 import { DataLoader } from './DataLoader';
+import { getTeamEntityRefs } from './TeamUtils';
 import { useBuilderStore } from '../store/useBuilderStore';
-import type { TeamSlot } from '../types';
-
-export interface FreshnessItem {
-  folder: string;
-  itemName: string;
-}
+import type { TeamSlot, EntityRef, EntityFolder } from '../types';
 
 interface FreshnessConflictState {
-  conflicts: FreshnessItem[];
-  raise: (items: FreshnessItem[]) => void;
+  conflicts: EntityRef[];
+  raise: (items: EntityRef[]) => void;
   // Dismiss without touching anything -- edits stay until the user retriggers a check.
   keep: () => void;
   // Drops local edit logs, evicts from DataLoader so the next load gets the server version.
@@ -29,10 +25,10 @@ export const useFreshnessConflictStore = create<FreshnessConflictState>((set, ge
   conflicts: [],
 
   raise: items => set(state => {
-    const seen = new Set(state.conflicts.map(c => `${c.folder}/${c.itemName}`));
+    const seen = new Set(state.conflicts.map(c => `${c.folder}/${c.name}`));
     const merged = [...state.conflicts];
     items.forEach(item => {
-      const key = `${item.folder}/${item.itemName}`;
+      const key = `${item.folder}/${item.name}`;
       if (!seen.has(key)) { seen.add(key); merged.push(item); }
     });
     return { conflicts: merged };
@@ -42,14 +38,14 @@ export const useFreshnessConflictStore = create<FreshnessConflictState>((set, ge
 
   discard: async () => {
     const { conflicts } = get();
-    conflicts.forEach(({ folder, itemName }) => {
-      useBuilderStore.getState().discardChanges(itemName);
-      DataLoader.clearMechanicCache(folder, itemName);
+    conflicts.forEach(({ folder, name }) => {
+      useBuilderStore.getState().discardChanges(name);
+      DataLoader.clearMechanicCache(folder, name);
     });
     set({ conflicts: [] });
 
     const { activeChar, activeFolder, activeRarity, setActiveChar } = useBuilderStore.getState();
-    if (activeChar && conflicts.some(c => c.itemName === activeChar)) {
+    if (activeChar && conflicts.some(c => c.name === activeChar)) {
       await setActiveChar(activeChar, activeFolder, activeRarity);
     }
   }
@@ -57,17 +53,17 @@ export const useFreshnessConflictStore = create<FreshnessConflictState>((set, ge
 
 // Compares loadedHash against a fresh manifest. Evicts changed-and-unedited items (returned
 // so a separate cache, e.g. the calc worker's DataLoader, can mirror it) and raises edited ones.
-async function checkItems(items: FreshnessItem[]): Promise<FreshnessItem[]> {
+async function checkItems(items: EntityRef[]): Promise<EntityRef[]> {
   if (items.length === 0) return [];
   const manifest = await DataLoader.refreshManifest();
-  const conflicts: FreshnessItem[] = [];
-  const evicted: FreshnessItem[] = [];
+  const conflicts: EntityRef[] = [];
+  const evicted: EntityRef[] = [];
 
-  for (const { folder, itemName } of items) {
-    const cacheKey = DataLoader.mechanicCacheKey(folder, itemName);
+  for (const { folder, name } of items) {
+    const cacheKey = DataLoader.mechanicCacheKey(folder, name);
     if (!DataLoader.cache.mechanics.has(cacheKey)) continue; // never loaded -- nothing to check
 
-    const relPath = DataLoader.mechanicPath(folder, itemName);
+    const relPath = DataLoader.mechanicPath(folder, name);
     if (DataLoader.wipSourced.has(relPath)) continue; // no manifest baseline applies -- WIP owns this until reloaded
 
     const latestHash = manifest[relPath];
@@ -81,13 +77,13 @@ async function checkItems(items: FreshnessItem[]): Promise<FreshnessItem[]> {
     }
     if (knownHash === latestHash) continue;
 
-    if (useBuilderStore.getState().hasChanges(itemName)) {
-      conflicts.push({ folder, itemName });
+    if (useBuilderStore.getState().hasChanges(name)) {
+      conflicts.push({ folder, name });
     } else {
       // Evict then re-fetch immediately, or the Action dropdown blanks until something else calls loadMechanic.
-      DataLoader.clearMechanicCache(folder, itemName);
-      await DataLoader.loadMechanic(folder, itemName);
-      evicted.push({ folder, itemName });
+      DataLoader.clearMechanicCache(folder, name);
+      await DataLoader.loadMechanic(folder, name);
+      evicted.push({ folder, name });
     }
   }
 
@@ -95,27 +91,17 @@ async function checkItems(items: FreshnessItem[]): Promise<FreshnessItem[]> {
   return evicted;
 }
 
-// Loads every mechanic for the team (chars/weapons/sets/echoes) plus 'generic' system mechanics.
+// Loads every mechanic for the team (chars/weapons/sets/echoes) plus System mechanics.
 // Returns evicted items, so Calculate can mirror the drop in the calc worker's own DataLoader.
-export async function checkTeamFreshness(team: TeamSlot[]): Promise<FreshnessItem[]> {
-  const items: FreshnessItem[] = [{ folder: 'generic', itemName: 'System' }];
-  team.forEach(slot => {
-    if (slot.character) items.push({ folder: 'characters', itemName: slot.character });
-    if (slot.weapon) items.push({ folder: 'weapons', itemName: slot.weapon });
-    if (slot.mainSet) items.push({ folder: 'sets', itemName: slot.mainSet });
-    if (slot.subSet) items.push({ folder: 'sets', itemName: slot.subSet });
-    if (slot.subSet2a) items.push({ folder: 'sets', itemName: slot.subSet2a });
-    if (slot.subSet2b) items.push({ folder: 'sets', itemName: slot.subSet2b });
-    if (slot.mainEcho) items.push({ folder: 'echoes', itemName: slot.mainEcho });
-  });
-  return checkItems(items);
+export async function checkTeamFreshness(team: TeamSlot[]): Promise<EntityRef[]> {
+  return checkItems(getTeamEntityRefs(team, { includeSystem: true, dedupe: true }));
 }
 
 // Checked before the Builder opens an entity, and on every reload/refocus poll of what's open
 // (App.tsx's refreshActiveBuilderItem). Returns evicted items (empty if unchanged), so callers
 // can skip a setActiveChar replay that would re-trigger JsonOutputPane's highlight effect.
-export async function checkBuilderItemFreshness(folder: string, itemName: string): Promise<FreshnessItem[]> {
-  return checkItems([{ folder, itemName }]);
+export async function checkBuilderItemFreshness(folder: EntityFolder, name: string): Promise<EntityRef[]> {
+  return checkItems([{ folder, name }]);
 }
 
 // Results files have no Builder counterpart -- changes are just evicted from characterResults.

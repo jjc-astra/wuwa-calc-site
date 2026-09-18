@@ -69,8 +69,8 @@ worker.onmessage = async (e: MessageEvent) => {
     // Mirrors whatever the main thread's dataFreshness.ts check already evicted from its own
     // DataLoader, which this worker's separate instance never saw.
     if (Array.isArray(payload.staleRefs) && payload.staleRefs.length > 0) {
-      payload.staleRefs.forEach((ref: { folder: string; itemName: string }) =>
-        DataLoader.clearMechanicCache(ref.folder, ref.itemName));
+      payload.staleRefs.forEach((ref: { folder: string; name: string }) =>
+        DataLoader.clearMechanicCache(ref.folder, ref.name));
     }
 
     await DataLoader.loadTeamMechanics(payload.team);
