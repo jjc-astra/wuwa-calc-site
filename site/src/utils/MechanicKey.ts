@@ -1,17 +1,16 @@
-// Centralizes `${namespace}_${name}` key conventions, parsing, and 'Generic'<->'System' aliasing.
+// Centralizes `${namespace}_${name}` key conventions and parsing. 'System' is the one name for
+// the team-independent entity (Dodge, Jump, Tune Break...) everywhere in the app -- state, UI,
+// and mechanicsDB keys alike. The only place a different name exists is the data repo's on-disk
+// asset naming (mechanics/generic/generic.json, Icon_Generic.webp), which DataLoader.ts and
+// Common.ts's getIconPath each translate at that one boundary.
 // Pure string utilities with zero external dependencies to prevent circular imports.
 import type { MechanicNode } from '../types/index';
 
 export const SYSTEM_NAMESPACE = 'System';
-export const GENERIC_ENTITY = 'Generic';
 
 export const MechanicKey = {
-  // Maps entity names to db namespaces ('Generic'/falsy -> 'System').
-  toNamespace: (entityName: string | null | undefined): string =>
-    (!entityName || entityName === GENERIC_ENTITY) ? SYSTEM_NAMESPACE : entityName,
-
-  // Maps db namespaces back to UI entity names ('System' -> 'Generic').
-  toEntityName: (namespace: string): string => (namespace === SYSTEM_NAMESPACE ? GENERIC_ENTITY : namespace),
+  // Namespace for a possibly-absent active entity -- defaults to System.
+  toNamespace: (entityName: string | null | undefined): string => entityName || SYSTEM_NAMESPACE,
 
   // Generates the `${namespace}_` key prefix for an entity.
   prefix: (entityName: string): string => `${MechanicKey.toNamespace(entityName)}_`,
@@ -24,7 +23,7 @@ export const MechanicKey = {
     return idx === -1 ? { namespace: key, name: '' } : { namespace: key.slice(0, idx), name: key.slice(idx + 1) };
   },
 
-  // Checks ownership against an entity, resolving Generic/System aliasing.
+  // Checks ownership against an entity, defaulting an absent entity to System.
   belongsTo: (key: string, entityName: string): boolean => key.startsWith(MechanicKey.prefix(entityName)),
 
   // Strips a leading `${namespace}_` prefix from labels if present.

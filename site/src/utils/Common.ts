@@ -133,7 +133,8 @@ export const CommonUtils = {
 
   getIconPath: (name: string, folder: ImageFolder): string => {
     if (!name) return TRANSPARENT_PIXEL;
-    const n = name.startsWith('Rover') ? 'Rover' : name;
+    // The data repo's icon for the 'System' entity is still filed under its old name, Generic.
+    const n = name.startsWith('Rover') ? 'Rover' : name === 'System' ? 'Generic' : name;
     return CommonUtils.getImage(`${folder}/Icon_${n.replaceAll(' ', '')}${EXTENSION}`);
   },
 

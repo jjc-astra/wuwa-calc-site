@@ -16,7 +16,7 @@ import { TooltipManager } from '../../utils/Common';
 import { Dropdown } from '../common/Dropdown';
 
 // Maps a grid section's image folder to the isContentImplemented() kind to check.
-// 'System' (Generic) has no implemented-content notion, so it's always treated as implemented.
+// 'System' has no implemented-content notion, so it's always treated as implemented.
 const IMPLEMENTED_KIND_BY_FOLDER: Partial<Record<ImageFolder, ImplementedContentKind>> = {
   [IMAGE_FOLDERS.CHARACTERS]: 'character',
   [IMAGE_FOLDERS.WEAPONS]: 'weapon',
@@ -237,7 +237,7 @@ export const MechanicsBuilder: React.FC = () => {
           {buildSection('Weapons', Object.keys(DataLoader.weaponDB), DataLoader.weaponDB, IMAGE_FOLDERS.WEAPONS)}
           {buildSection('Main Echoes', DataLoader.allMainEchoes, undefined, IMAGE_FOLDERS.ECHOES)}
           {buildSection('Echo Sets', DataLoader.sonataSets, undefined, IMAGE_FOLDERS.ECHO_SETS)}
-          {buildSection('System', ['Generic'], undefined, IMAGE_FOLDERS.SYSTEM)}
+          {buildSection('System', ['System'], undefined, IMAGE_FOLDERS.SYSTEM)}
         </div>
       </div>
     );
@@ -250,7 +250,7 @@ export const MechanicsBuilder: React.FC = () => {
   const isOnePcSet = DataLoader.onePcSets.includes(activeChar);
 
   let targetCategories: string[] = [];
-  if (activeChar === 'Generic') {
+  if (activeChar === 'System') {
     targetCategories = ['System Mechanics'];
   } else if (isCharacter) {
     targetCategories = BuilderState.categories;
@@ -316,7 +316,7 @@ export const MechanicsBuilder: React.FC = () => {
             const catMechs = (Object.entries(mechanics) as [string, MechanicNode][]).filter(([id, m]) => {
               if (holdGroupSkipIds.has(id)) return false;
               if (m.category && targetCategories.includes(m.category)) return m.category === cat;
-              if (activeChar === 'Generic') return cat === 'System Mechanics';
+              if (activeChar === 'System') return cat === 'System Mechanics';
               if (!isCharacter) {
                 if (targetCategories.includes('Echo Skill')) {
                   const isPassive = !!m.isPassive || id.toLowerCase().includes('passive') || (m.name || '').toLowerCase().includes('passive') ||

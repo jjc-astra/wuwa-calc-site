@@ -115,10 +115,10 @@ export class DataLoaderClass {
     return wip ? ({ ...real, ...wip } as T) : real;
   }
 
-  // On-disk filename for a mechanic entity. Rest of the app calls the Generic/System entity
-  // 'Generic', but the real file is lowercase generic.json -- this is the one place that translates.
+  // On-disk filename for a mechanic entity. The rest of the app calls this entity 'System', but
+  // the data repo's real file is lowercase generic.json -- this is the one place that translates.
   private mechanicFileName(itemName: string): string {
-    return itemName === 'Generic' ? 'generic' : itemName.replace(/\s+/g, '_');
+    return itemName === 'System' ? 'generic' : itemName.replace(/\s+/g, '_');
   }
 
   // Same relPath convention loadMechanic uses internally, exposed for dataFreshness.ts.
@@ -127,7 +127,7 @@ export class DataLoaderClass {
   }
 
   // cache.mechanics key for (folder, itemName) -- combines folder with mechanicFileName's
-  // Generic->'generic' translation, so every caller agrees on the same key regardless of casing.
+  // System->'generic' translation, so every caller agrees on the same key regardless of casing.
   mechanicCacheKey(folder: string, itemName: string): string {
     return `${folder}/${this.mechanicFileName(itemName)}`;
   }
@@ -196,7 +196,7 @@ export class DataLoaderClass {
   // Loads every mechanic a team needs. Shared by the roster store and the calc worker's own
   // separate DataLoader instance.
   //
-  // Generic/System (Dodge, Jump, Tune Break...) applies regardless of team, so it's always
+  // System (Dodge, Jump, Tune Break...) applies regardless of team, so it's always
   // loaded here -- calc.worker.ts's builder-override path clears it first and relies on this to restore it.
   async loadTeamMechanics(team: Array<{ character?: string; weapon?: string; mainSet?: string; subSet?: string; subSet2a?: string; subSet2b?: string; mainEcho?: string }>): Promise<void> {
     await this.loadMechanic('generic', 'generic');

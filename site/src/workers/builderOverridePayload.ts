@@ -3,11 +3,11 @@ import { useBuilderStore } from '../store/useBuilderStore';
 import { DataLoader } from '../utils/DataLoader';
 import type { TeamSlot, BaseStats, MechanicNode } from '../types';
 
-// Active team entities plus 'Generic', used to resolve relevant Builder overrides and force clean re-fetches on recalculation.
+// Active team entities plus 'System', used to resolve relevant Builder overrides and force clean re-fetches on recalculation.
 export type EntityRef = { name: string; folder: 'characters' | 'weapons' | 'sets' | 'echoes' | 'generic' };
 
 export function buildEntityRefs(team: TeamSlot[]): EntityRef[] {
-  const refs: EntityRef[] = [{ name: 'Generic', folder: 'generic' }];
+  const refs: EntityRef[] = [{ name: 'System', folder: 'generic' }];
   team.forEach(slot => {
     if (slot.character) refs.push({ name: slot.character, folder: 'characters' });
     if (slot.weapon) refs.push({ name: slot.weapon, folder: 'weapons' });

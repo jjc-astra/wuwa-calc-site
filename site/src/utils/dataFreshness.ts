@@ -81,8 +81,7 @@ async function checkItems(items: FreshnessItem[]): Promise<FreshnessItem[]> {
     }
     if (knownHash === latestHash) continue;
 
-    const builderItemName = folder === 'generic' ? 'Generic' : itemName;
-    if (useBuilderStore.getState().hasChanges(builderItemName)) {
+    if (useBuilderStore.getState().hasChanges(itemName)) {
       conflicts.push({ folder, itemName });
     } else {
       // Evict then re-fetch immediately, or the Action dropdown blanks until something else calls loadMechanic.
@@ -99,7 +98,7 @@ async function checkItems(items: FreshnessItem[]): Promise<FreshnessItem[]> {
 // Loads every mechanic for the team (chars/weapons/sets/echoes) plus 'generic' system mechanics.
 // Returns evicted items, so Calculate can mirror the drop in the calc worker's own DataLoader.
 export async function checkTeamFreshness(team: TeamSlot[]): Promise<FreshnessItem[]> {
-  const items: FreshnessItem[] = [{ folder: 'generic', itemName: 'Generic' }];
+  const items: FreshnessItem[] = [{ folder: 'generic', itemName: 'System' }];
   team.forEach(slot => {
     if (slot.character) items.push({ folder: 'characters', itemName: slot.character });
     if (slot.weapon) items.push({ folder: 'weapons', itemName: slot.weapon });

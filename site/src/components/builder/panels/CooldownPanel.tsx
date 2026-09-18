@@ -26,7 +26,7 @@ export const CooldownPanel: React.FC<CooldownPanelProps> = ({ data, updateNode }
     setShareDraft(null);
     if (newPartnerName === oldPartnerName) return;
 
-    const prefix = MechanicKey.prefix(activeChar || 'Generic');
+    const prefix = MechanicKey.prefix(activeChar || 'System');
 
     if (oldPartnerName) {
       const oldPartner = mechanics[`${prefix}${oldPartnerName}`];
