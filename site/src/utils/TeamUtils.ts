@@ -1,6 +1,6 @@
-// Single source of truth for walking a team's equipped items as EntityRefs -- shared by
+// Single source of truth for walking a team's equipped items as EntityRefs. Used by
 // builderOverridePayload.ts (override lookup), dataFreshness.ts (staleness checks), and
-// DataLoader.ts (mechanics loading), which otherwise each unroll their own copy of this mapping.
+// DataLoader.ts (mechanics loading).
 import type { TeamSlot, EntityRef, EntityFolder } from '../types';
 import { SYSTEM_NAMESPACE } from './MechanicKey';
 

@@ -247,7 +247,7 @@ export class DataLoaderClass {
     const data = await this.loadJSON<Record<string, MechanicNode>>(CommonUtils.getData(this.mechanicPath(folder, itemName)));
     if (data) {
       for (const [key, mechData] of Object.entries(data)) {
-        // Cloned before registering -- live nodes get mutated later (e.g. _compiledRule attached).
+        // Clone before registering: live nodes get mutated later (e.g. _compiledRule attached).
         this.pristineMechanics[key] = JSON.parse(JSON.stringify(mechData));
         this.registerMechanicNode(key, mechData);
       }

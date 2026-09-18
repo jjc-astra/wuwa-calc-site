@@ -1,6 +1,6 @@
-// Shared MatchRule factories for every AutocompleteInput.tsx mode. The matching/insertion engine
-// (handleAutocomplete/handleSelect in AutocompleteInput.tsx) is untouched; these factories only
-// build the `options` data each MatchRule serves, so AutocompleteInput.tsx stays a UI wrapper.
+// Shared MatchRule factories for every AutocompleteInput.tsx mode. These build the `options` data
+// each MatchRule serves; the matching/insertion engine (handleAutocomplete/handleSelect) stays in
+// AutocompleteInput.tsx, which is otherwise just the UI.
 import {
   DSL_POINTERS, DSL_EVENTS, DSL_EVENT_TOOLTIPS, DSL_MODIFIERS, DSL_MODIFIER_TOOLTIPS,
   DSL_FUNCTIONS, DSL_FUNCTION_TOOLTIPS, DSL_TYPE_METHODS, DSL_MATH_METHODS, DSL_MATH_METHOD_TOOLTIPS
@@ -232,9 +232,8 @@ export function makeEffectNameRules(activeChar: string | null, mechanics: Record
   const currentNamespace = MechanicKey.toNamespace(activeChar);
   return [
     {
-      // Completing inside an already-typed "@Namespace(" shorthand -- unaffected by the
-      // reordering below, since by this point the user has already opted into it. Namespace
-      // allows spaces since some echo names carry them (e.g. "Impermanence Heron").
+      // Completing inside a typed "@Namespace(" shorthand. Namespace allows spaces since some
+      // echo names carry them (e.g. "Impermanence Heron").
       trigger: /@([a-zA-Z0-9_ ]+)\(([^)]*)$/,
       matchGroup: 2,
       options: (match) => {

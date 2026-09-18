@@ -30,9 +30,9 @@ interface BuilderState {
   // Node/fields to highlight in JsonOutputPane -- hover-driven, independent of
   // highlightedNodeId (summary row only).
   hoveredFieldHighlight: { nodeId: string; fields: string[] } | null;
-  // Which sub-panel (if any) is open per node -- lives here rather than as MechanicNodeCard local
-  // state so a rename (which re-keys `mechanics`, remounting that node's card under its new id)
-  // doesn't reset it. Keyed by node id, migrated in renameMechanicNode.
+  // Which sub-panel (if any) is open per node. Stored here, not in MechanicNodeCard, because a
+  // rename re-keys `mechanics` and remounts the card under its new id. Keyed by node id and
+  // migrated in renameMechanicNode.
   openPanelByNode: Record<string, PanelKey>;
   // Current id -> original (pristine) id, for renamed nodes -- lets a per-row revert find the
   // original after the rename re-keyed it. Persisted with the edit log.
@@ -201,8 +201,8 @@ export const useBuilderStore = create<BuilderState>()(
             updated = { ...state.mechanics, [nodeId]: node };
           }
           DataLoader.registerMechanicNode(nodeId, node);
-          // An edit that lands back on the pristine copy isn't an edit -- drop it from the log so
-          // hasChanges, the header strip, and worker overrides stop treating it as changed.
+          // An edit identical to the pristine copy isn't an edit; keep it out of the log so
+          // hasChanges, the header strip, and worker overrides ignore it.
           const nextEdits = { ...state.editedMechanics, [nodeId]: node };
           const pristine = DataLoader.pristineMechanics[nodeId];
           if (pristine && !state.renamedFrom[nodeId] && nodesEqual(node, pristine)) delete nextEdits[nodeId];
@@ -233,8 +233,7 @@ export const useBuilderStore = create<BuilderState>()(
           delete updatedEdits[oldId];
           updatedEdits[newId] = node;
 
-          // Carries the open sub-panel across the id swap -- MechanicNodeCard remounts under
-          // newId (its React key), which would otherwise reset to closed.
+          // Carries the open sub-panel across the id swap (MechanicNodeCard remounts under newId).
           const updatedOpenPanel = { ...state.openPanelByNode };
           if (updatedOpenPanel[oldId] !== undefined) {
             updatedOpenPanel[newId] = updatedOpenPanel[oldId];
@@ -247,7 +246,7 @@ export const useBuilderStore = create<BuilderState>()(
           const updatedRenamed = { ...state.renamedFrom };
           delete updatedRenamed[oldId];
           if (newId !== origin && DataLoader.pristineMechanics[origin]) updatedRenamed[newId] = origin;
-          // Renamed back to the original id with identical content: no longer an edit.
+          // Back at the original id with identical content isn't an edit.
           if (newId === origin && nodesEqual(node, DataLoader.pristineMechanics[origin])) delete updatedEdits[newId];
 
           return {
