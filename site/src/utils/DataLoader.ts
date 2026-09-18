@@ -44,6 +44,9 @@ export class DataLoaderClass {
   weaponDB: Record<string, WeaponData> = {};
   buildDB: Record<string, any> = {};
   mechanicsDB: Record<string, MechanicNode> = {};
+  // Untouched copy of each node as last fetched -- the baseline the Builder diffs edits against
+  // (mechanicsDB holds live/edited nodes once the edit log is replayed onto it).
+  pristineMechanics: Record<string, MechanicNode> = {};
   mechanicsIndex: Record<string, string[]> = {};
   charList: string[] = [];
   // Submitted rankings page results, lazily populated via loadCharacterResults rather than initDatabases.
@@ -244,6 +247,8 @@ export class DataLoaderClass {
     const data = await this.loadJSON<Record<string, MechanicNode>>(CommonUtils.getData(this.mechanicPath(folder, itemName)));
     if (data) {
       for (const [key, mechData] of Object.entries(data)) {
+        // Cloned before registering -- live nodes get mutated later (e.g. _compiledRule attached).
+        this.pristineMechanics[key] = JSON.parse(JSON.stringify(mechData));
         this.registerMechanicNode(key, mechData);
       }
       this.cache.mechanics.add(cacheKey);
@@ -318,6 +323,9 @@ export class DataLoaderClass {
 
     Object.keys(this.mechanicsDB).forEach(key => {
       if (MechanicKey.belongsTo(key, itemName)) delete this.mechanicsDB[key];
+    });
+    Object.keys(this.pristineMechanics).forEach(key => {
+      if (MechanicKey.belongsTo(key, itemName)) delete this.pristineMechanics[key];
     });
 
     delete this.mechanicsIndex[MechanicKey.toNamespace(itemName)];

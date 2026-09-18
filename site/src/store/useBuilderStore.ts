@@ -5,7 +5,20 @@ import type { MechanicNode, BaseStats, EntityFolder } from '../types';
 import { DataLoader } from '../utils/DataLoader';
 import { MechanicKey } from '../utils/MechanicKey';
 import { IMAGE_FOLDERS } from '../data/db';
+import { nodesEqual } from '../utils/nodeDiff';
 import type { PanelKey } from '../components/builder/MechanicNodeCard';
+
+export type NodeChangeKind = 'modified' | 'renamed' | 'new';
+
+// How a node differs from its last-fetched (pristine) copy, or null if it doesn't.
+export function nodeChangeKind(nodeId: string, node: MechanicNode | undefined, renamedFrom: Record<string, string>): NodeChangeKind | null {
+  if (!node) return null;
+  const origin = renamedFrom[nodeId] ?? nodeId;
+  const pristine = DataLoader.pristineMechanics[origin];
+  if (!pristine) return 'new';
+  if (origin !== nodeId) return 'renamed';
+  return nodesEqual(node, pristine) ? null : 'modified';
+}
 
 interface BuilderState {
   activeChar: string | null;
@@ -21,6 +34,9 @@ interface BuilderState {
   // state so a rename (which re-keys `mechanics`, remounting that node's card under its new id)
   // doesn't reset it. Keyed by node id, migrated in renameMechanicNode.
   openPanelByNode: Record<string, PanelKey>;
+  // Current id -> original (pristine) id, for renamed nodes -- lets a per-row revert find the
+  // original after the rename re-keyed it. Persisted with the edit log.
+  renamedFrom: Record<string, string>;
   // Edit log for every entity ever edited, not just the active one.
   // setActiveChar replays these onto each fresh fetch when an entity opens.
   // `mechanics`/`baseStats` below are just the active entity's working copy.
@@ -41,6 +57,9 @@ interface BuilderState {
   setMechanicNode: (nodeId: string, node: MechanicNode, insertAfter?: string) => void;
   renameMechanicNode: (oldId: string, newId: string, node: MechanicNode) => void;
   removeMechanicNode: (nodeId: string) => void;
+  // Restores one node to its pristine copy (or drops it if it never existed there). Returns false
+  // if a renamed node's original id is now taken by another row.
+  revertMechanicNode: (nodeId: string) => boolean;
   resetCache: () => void;
   // Drives the "!" dirty badge on a grid card without switching to it first.
   hasChanges: (itemName: string) => boolean;
@@ -80,6 +99,7 @@ export const useBuilderStore = create<BuilderState>()(
       highlightedNodeId: null,
       hoveredFieldHighlight: null,
       openPanelByNode: {},
+      renamedFrom: {},
       editedBaseStats: {},
       editedMechanics: {},
       deletedMechanicIds: [],
@@ -181,9 +201,14 @@ export const useBuilderStore = create<BuilderState>()(
             updated = { ...state.mechanics, [nodeId]: node };
           }
           DataLoader.registerMechanicNode(nodeId, node);
+          // An edit that lands back on the pristine copy isn't an edit -- drop it from the log so
+          // hasChanges, the header strip, and worker overrides stop treating it as changed.
+          const nextEdits = { ...state.editedMechanics, [nodeId]: node };
+          const pristine = DataLoader.pristineMechanics[nodeId];
+          if (pristine && !state.renamedFrom[nodeId] && nodesEqual(node, pristine)) delete nextEdits[nodeId];
           return {
             mechanics: updated,
-            editedMechanics: { ...state.editedMechanics, [nodeId]: node },
+            editedMechanics: nextEdits,
             deletedMechanicIds: state.deletedMechanicIds.filter(id => id !== nodeId)
           };
         });
@@ -216,14 +241,62 @@ export const useBuilderStore = create<BuilderState>()(
             delete updatedOpenPanel[oldId];
           }
 
+          // Chains through earlier renames so it always points at the pristine original; renaming
+          // back to that original clears the link.
+          const origin = state.renamedFrom[oldId] ?? oldId;
+          const updatedRenamed = { ...state.renamedFrom };
+          delete updatedRenamed[oldId];
+          if (newId !== origin && DataLoader.pristineMechanics[origin]) updatedRenamed[newId] = origin;
+          // Renamed back to the original id with identical content: no longer an edit.
+          if (newId === origin && nodesEqual(node, DataLoader.pristineMechanics[origin])) delete updatedEdits[newId];
+
           return {
             mechanics: updated,
             editedMechanics: updatedEdits,
             openPanelByNode: updatedOpenPanel,
+            renamedFrom: updatedRenamed,
             // Record oldId as deleted so a future re-fetch doesn't resurrect it from pristine data.
             deletedMechanicIds: [...state.deletedMechanicIds.filter(id => id !== oldId && id !== newId), oldId]
           };
         });
+      },
+
+      revertMechanicNode: nodeId => {
+        const state = get();
+        const origin = state.renamedFrom[nodeId] ?? nodeId;
+        const pristine = DataLoader.pristineMechanics[origin];
+        if (pristine && origin !== nodeId && origin in state.mechanics) return false;
+
+        DataLoader.unregisterMechanicNode(nodeId);
+        const restored: MechanicNode | null = pristine ? JSON.parse(JSON.stringify(pristine)) : null;
+        if (restored) DataLoader.registerMechanicNode(origin, restored);
+
+        set(s => {
+          // Swaps in place (like rename) so the row keeps its position.
+          const updated: Record<string, MechanicNode> = {};
+          Object.entries(s.mechanics).forEach(([key, val]) => {
+            if (key !== nodeId) updated[key] = val;
+            else if (restored) updated[origin] = restored;
+          });
+
+          const nextEdits = { ...s.editedMechanics };
+          delete nextEdits[nodeId];
+          delete nextEdits[origin];
+          const nextRenamed = { ...s.renamedFrom };
+          delete nextRenamed[nodeId];
+          const nextOpenPanel = { ...s.openPanelByNode };
+          if (restored && origin !== nodeId && nextOpenPanel[nodeId] !== undefined) nextOpenPanel[origin] = nextOpenPanel[nodeId];
+          delete nextOpenPanel[nodeId];
+
+          return {
+            mechanics: updated,
+            editedMechanics: nextEdits,
+            renamedFrom: nextRenamed,
+            openPanelByNode: nextOpenPanel,
+            deletedMechanicIds: s.deletedMechanicIds.filter(id => id !== nodeId && id !== origin)
+          };
+        });
+        return true;
       },
 
       removeMechanicNode: nodeId => {
@@ -237,11 +310,14 @@ export const useBuilderStore = create<BuilderState>()(
 
           const updatedOpenPanel = { ...state.openPanelByNode };
           delete updatedOpenPanel[nodeId];
+          const updatedRenamed = { ...state.renamedFrom };
+          delete updatedRenamed[nodeId];
 
           return {
             mechanics: updated,
             editedMechanics: updatedEdits,
             openPanelByNode: updatedOpenPanel,
+            renamedFrom: updatedRenamed,
             deletedMechanicIds: [...state.deletedMechanicIds.filter(id => id !== nodeId), nodeId]
           };
         });
@@ -272,6 +348,7 @@ export const useBuilderStore = create<BuilderState>()(
             editedBaseStats: nextEditedBaseStats,
             editedMechanics: nextEditedMechanics,
             deletedMechanicIds: nextDeletedMechanicIds,
+            renamedFrom: Object.fromEntries(Object.entries(state.renamedFrom).filter(([id]) => !id.startsWith(prefix))),
             ...(isActive ? { baseStats: {}, mechanics: {} } : {})
           };
         });
@@ -335,6 +412,7 @@ export const useBuilderStore = create<BuilderState>()(
             mechanics: {},
             editedBaseStats: nextEditedBaseStats,
             editedMechanics: nextEditedMechanics,
+            renamedFrom: Object.fromEntries(Object.entries(state.renamedFrom).filter(([id]) => !id.startsWith(prefix))),
             deletedMechanicIds: state.deletedMechanicIds.filter(id => !id.startsWith(prefix))
           };
         });
@@ -353,7 +431,8 @@ export const useBuilderStore = create<BuilderState>()(
         activeRarity: state.activeRarity,
         editedBaseStats: state.editedBaseStats,
         editedMechanics: state.editedMechanics,
-        deletedMechanicIds: state.deletedMechanicIds
+        deletedMechanicIds: state.deletedMechanicIds,
+        renamedFrom: state.renamedFrom
       })
     }
   )

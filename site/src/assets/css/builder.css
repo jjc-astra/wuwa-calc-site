@@ -794,6 +794,33 @@
     width: 100%;
 }
 .builder-view .mech-name-flags { margin-top: 2px; }
+.builder-view .mech-name-line { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.builder-view .mech-name-line .mech-name-display { min-width: 0; }
+.builder-view .mech-changed-badge {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    animation: flash 1s infinite ease-in-out;
+}
+.builder-view .mech-changed-badge:hover { animation: none; }
+.mech-revert-option { color: var(--danger); }
+
+/* Outline style matching the "MECHANICS CHANGED" strip's icon (.calc-warning-msg svg). */
+.builder-view .mech-changed-badge { color: var(--warning); }
+.builder-view .mech-changed-badge svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
 .builder-view .tag-add-btn {
     flex-shrink: 0;
     width: 16px;

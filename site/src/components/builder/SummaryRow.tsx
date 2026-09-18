@@ -8,6 +8,7 @@ import { TypeTag } from '../common/TypeTag';
 import { GAME_DEFAULTS } from '../../data/db';
 import { displayTimeVal, fmtNum, resAbbr, resFullName, sumNumeric, castTagColor, dmgTagColor, tip, resolveDefaultNum, makeTimeBlur } from './mechanicNodeHelpers';
 import type { PanelKey } from './MechanicNodeCard';
+import { NodeChangeBadge } from './NodeChangeBadge';
 
 const chevronIcon = (
   <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
@@ -127,7 +128,10 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
         onMouseEnter={() => onFieldMouseEnter('identity')}
         onMouseLeave={onFieldMouseLeave}
       >
-        <span className={`mech-name-display ${childOfHold ? 'mech-child-name' : ''}`}>{data.name || 'New Mechanic'}</span>
+        <div className="mech-name-line">
+          <span className={`mech-name-display ${childOfHold ? 'mech-child-name' : ''}`}>{data.name || 'New Mechanic'}</span>
+          <NodeChangeBadge nodeId={nodeId} />
+        </div>
         {nameFlagTags.length > 0 && (
           <div className="mech-tag-row mech-name-flags">
             {nameFlagTags.map((t, i) => (
