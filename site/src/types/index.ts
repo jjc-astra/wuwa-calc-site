@@ -263,6 +263,7 @@ export interface CalculatedStats {
   aeroDmgBonus: number;
   spectroDmgBonus: number;
   havocDmgBonus: number;
+  physicalDmgBonus: number;
   talentAtkPct?: number;
   [key: string]: number | undefined;
 }

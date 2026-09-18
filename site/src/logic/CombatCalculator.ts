@@ -2,6 +2,8 @@ import { DataLoader } from '../utils/DataLoader';
 import { CommonUtils } from '../utils/Common';
 import { DSLParser } from './dsl/dslParser';
 import { CHARACTER_DEFAULTS, SIM_CONSTANTS, ENEMY_DEFAULTS, STAT_NAME_MAP } from '../data/db';
+import { SCOPE_HIT_TAGS } from './combat/combatRegistry';
+import { findScope, resolveMultiplierBucket, resolveSheetDmgBonusKey } from './combat/statParser';
 import type { Effect, HitConfig, DamageInstanceResult, BuffTotals, CalculatedStats } from '../types';
 
 // Resolves '@' buff exprs against the provider's own unbuffed stats -- avoids recursive
@@ -15,34 +17,18 @@ function resolveBuffValue(rawVal: any, selfStats: Record<string, number> | null)
 }
 
 // Shared by aggregateBuffTotals and aggregateNegativeStatusBuffTotals so their stat-name ->
-// bucket rules can't drift apart.
+// bucket rules can't drift apart. Bucket resolution itself lives in combat/statParser.ts.
 function classifyBuffIntoTotals(sLower: string, totalVal: number, isPct: boolean, buffTotals: BuffTotals): void {
-  if (sLower.includes('amp') || sLower.includes('deepen')) buffTotals.dmgAmp += totalVal;
-  // Separate bucket from dmgAmp/Deepen; only calcTuneDmg reads dmgBoost.
-  else if (sLower.includes('dmg boost')) buffTotals.dmgBoost += totalVal;
-  else if (sLower.includes('taken')) buffTotals.dmgTaken += totalVal;
-  else if (sLower.includes('multiplicative')) buffTotals.multiplicativeMult += totalVal;
-  else if (sLower.includes('additive')) buffTotals.additiveMult += totalVal;
-  else if (sLower.includes('reduce res') || sLower.includes('res shred')) buffTotals.reduceRes += totalVal;
-  else if (sLower.includes('ignore res') || sLower.includes('res pen')) buffTotals.ignoreRes += totalVal;
-  else if (sLower.includes('reduce def') || sLower.includes('def shred')) buffTotals.reduceDef += totalVal;
-  else if (sLower.includes('ignore def')) buffTotals.ignoreDef += totalVal;
-  else if (sLower.includes('crit rate') || sLower === 'cr rate') buffTotals.critRate += totalVal;
-  else if (sLower.includes('crit dmg') || sLower === 'cr dmg') buffTotals.critDamage += totalVal;
-  else if (sLower.includes('atk') && isPct) buffTotals.percentAtk += totalVal;
-  else if (sLower.includes('atk') && !isPct) buffTotals.flatAtk += totalVal;
-  else if (sLower.includes('hp') && isPct) buffTotals.percentHP += totalVal;
-  else if (sLower.includes('hp') && !isPct) buffTotals.flatHP += totalVal;
-  else if (sLower.includes('def') && isPct) buffTotals.percentDef += totalVal;
-  else if (sLower.includes('def') && !isPct) buffTotals.flatDef += totalVal;
-  else if (sLower.includes('dmg bonus') || sLower.includes('dmg%') || sLower.includes('damage bonus') || sLower.includes('dmg')) buffTotals.dmgBonus += totalVal;
+  const bucket = resolveMultiplierBucket(sLower, isPct);
+  if (bucket) buffTotals[bucket] += totalVal;
 }
 
 const DEFAULT_ECHO_STATS = {
   flatHP: 0, percentHP: 0, flatAtk: 0, percentAtk: 0, flatDef: 0, percentDef: 0,
   critRate: 0, critDamage: 0, energyRegen: 0, healingBonus: 0,
   skillDmgBonus: 0, basicDmgBonus: 0, heavyDmgBonus: 0, libDmgBonus: 0,
-  glacioDmgBonus: 0, fusionDmgBonus: 0, electroDmgBonus: 0, aeroDmgBonus: 0, spectroDmgBonus: 0, havocDmgBonus: 0
+  glacioDmgBonus: 0, fusionDmgBonus: 0, electroDmgBonus: 0, aeroDmgBonus: 0, spectroDmgBonus: 0, havocDmgBonus: 0,
+  physicalDmgBonus: 0
 };
 
 export const CombatCalculator = {
@@ -186,7 +172,8 @@ export const CombatCalculator = {
       electroDmgBonus: echoStats.electroDmgBonus || 0,
       aeroDmgBonus: echoStats.aeroDmgBonus || 0,
       spectroDmgBonus: echoStats.spectroDmgBonus || 0,
-      havocDmgBonus: echoStats.havocDmgBonus || 0
+      havocDmgBonus: echoStats.havocDmgBonus || 0,
+      physicalDmgBonus: echoStats.physicalDmgBonus || 0
     };
 
     let talentAtkPct = 0;
@@ -218,18 +205,8 @@ export const CombatCalculator = {
       if (buff.stat) {
         let baseStatKey = STAT_NAME_MAP[buff.stat] || buff.stat;
         if (stats[baseStatKey] === undefined) {
-          const sLower = buff.stat.toLowerCase();
-          if (sLower.includes('basic') && sLower.includes('dmg')) baseStatKey = 'basicDmgBonus';
-          else if (sLower.includes('heavy') && sLower.includes('dmg')) baseStatKey = 'heavyDmgBonus';
-          else if (sLower.includes('skill') && sLower.includes('dmg')) baseStatKey = 'skillDmgBonus';
-          else if ((sLower.includes('liberation') || sLower.includes('lib')) && sLower.includes('dmg')) baseStatKey = 'libDmgBonus';
-          else if (sLower.includes('glacio') && sLower.includes('dmg')) baseStatKey = 'glacioDmgBonus';
-          else if (sLower.includes('fusion') && sLower.includes('dmg')) baseStatKey = 'fusionDmgBonus';
-          else if (sLower.includes('electro') && sLower.includes('dmg')) baseStatKey = 'electroDmgBonus';
-          else if (sLower.includes('aero') && sLower.includes('dmg')) baseStatKey = 'aeroDmgBonus';
-          else if (sLower.includes('spectro') && sLower.includes('dmg')) baseStatKey = 'spectroDmgBonus';
-          else if (sLower.includes('havoc') && sLower.includes('dmg')) baseStatKey = 'havocDmgBonus';
-          else if (sLower.includes('physical') && sLower.includes('dmg')) baseStatKey = 'physicalDmgBonus';
+          const resolved = resolveSheetDmgBonusKey(buff.stat.toLowerCase());
+          if (resolved) baseStatKey = resolved;
         }
 
         let rawVal = buff.value;
@@ -289,17 +266,6 @@ export const CombatCalculator = {
       return providerStatsCache[providerName];
     };
 
-    const tagSpecs = [
-      { key: 'basic', tags: ['basic'] }, { key: 'heavy', tags: ['heavy'] },
-      { key: 'skill', tags: ['skill'] }, { key: 'liberation', tags: ['liberation', 'lib'] },
-      { key: 'lib ', tags: ['liberation', 'lib'] }, { key: 'intro', tags: ['intro'] },
-      { key: 'outro', tags: ['outro'] }, { key: 'coordinated', tags: ['coordinated'] },
-      { key: 'glacio', tags: ['glacio'] }, { key: 'fusion', tags: ['fusion'] },
-      { key: 'electro', tags: ['electro'] }, { key: 'aero', tags: ['aero'] },
-      { key: 'spectro', tags: ['spectro'] }, { key: 'havoc', tags: ['havoc'] },
-      { key: 'physical', tags: ['physical'] }
-    ];
-
     for (const [key, buff] of Object.entries(activeBuffs) as [string, Effect][]) {
       if (!buff || (buff.duration !== undefined && Number(buff.duration) <= 0 && buff.stacks !== undefined && buff.stacks <= 0) || !buff.stat) continue;
       const targetUnit = buff.target || '@Self';
@@ -322,20 +288,8 @@ export const CombatCalculator = {
 
       // Fallback for buffs with no explicit applyTo: infer scope from the stat name.
       if (!hasExplicitApplyTo) {
-        let requiredTagFound = false;
-        let tagMatched = true;
-        for (const spec of tagSpecs) {
-          if (sLower.includes(spec.key)) {
-            requiredTagFound = true;
-            if (spec.tags.some(t => modsSet.has(t))) {
-              tagMatched = true;
-              break;
-            } else {
-              tagMatched = false;
-            }
-          }
-        }
-        if (requiredTagFound && !tagMatched) continue;
+        const requiredScope = findScope(sLower);
+        if (requiredScope && !SCOPE_HIT_TAGS[requiredScope].some(t => modsSet.has(t))) continue;
       }
 
       appliedBuffs[key] = buff;

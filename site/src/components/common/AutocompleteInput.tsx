@@ -11,6 +11,7 @@ import {
 import { useBuilderStore } from '../../store/useBuilderStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { MechanicKey } from '../../utils/MechanicKey';
+import { UNSCOPED_MOD_LABELS, SCOPEABLE_MOD_LABELS } from '../../logic/combat/combatRegistry';
 import { tokenizeDSL } from '../../utils/DSLHighlight';
 import { TooltipManager } from '../../utils/Common';
 import type { MechanicNode } from '../../types';
@@ -259,15 +260,12 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
         val: v,
         group: 'Sheet Stats'
       }));
-      const combatMods = [
-        'DMG Bonus', 'DMG Amp', 'Deepen', 'DMG Boost', 'DMG Taken', 'Reduce RES', 'RES Shred',
-        'Ignore RES', 'RES Pen', 'Reduce DEF', 'Ignore DEF', 'Additive Mult', 'Multiplicative Mult'
-      ].map(v => ({ val: v, group: 'Combat Modifiers' }));
+      const combatMods = UNSCOPED_MOD_LABELS.map(v => ({ val: v, group: 'Combat Modifiers' }));
 
       const specificMods: SuggestionItem[] = [];
       const dmgList = dmgOptions.length > 0 ? dmgOptions : BuilderState.DMG_OPTIONS;
       dmgList.forEach(dmgType => {
-        ['DMG Bonus', 'DMG Amp', 'Deepen', 'DMG Taken', 'Ignore RES', 'Ignore DEF', 'Additive Mult', 'Multiplicative Mult'].forEach(mod => {
+        SCOPEABLE_MOD_LABELS.forEach(mod => {
           specificMods.push({ val: `${dmgType} ${mod}`, group: 'Specific Modifiers', tooltipKey: mod });
         });
       });

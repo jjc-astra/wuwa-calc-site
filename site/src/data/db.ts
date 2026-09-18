@@ -104,7 +104,8 @@ export const STAT_NAME_MAP: Record<string, string> = {
   'Electro DMG': 'electroDmgBonus',
   'Aero DMG': 'aeroDmgBonus',
   'Spectro DMG': 'spectroDmgBonus',
-  'Havoc DMG': 'havocDmgBonus'
+  'Havoc DMG': 'havocDmgBonus',
+  'Physical DMG': 'physicalDmgBonus'
 };
 
 export const DEFAULT_SUBSTATS = ['CR Rate', 'CR DMG', 'ATK %', 'ER %', 'ATK'];
