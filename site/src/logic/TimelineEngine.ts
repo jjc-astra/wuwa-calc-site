@@ -449,11 +449,7 @@ export class TimelineEngineClass {
       this._resolveComboWindows(currentData, dbMove, prevData, team);
       // For the Timeline's spam-click indicator; deferred until here so @Self/@Move context
       // reflects this row's fully-computed state.
-      currentData.priority = dbMove.priority === undefined
-        ? 0
-        : (typeof dbMove.priority === 'string' && (dbMove.priority.includes('@') || /[+\-*/]/.test(dbMove.priority)))
-          ? Number(this._resolveDynamicMath(dbMove.priority, currentData, currentData.unit, team))
-          : parseFloat(String(dbMove.priority));
+      currentData.priority = this._resolvePriority(dbMove, currentData, currentData.unit, team);
     }
 
     const emptyRow = activeRows[activeRows.length - 1];
@@ -790,6 +786,14 @@ export class TimelineEngineClass {
     }
   }
 
+  _resolvePriority(move: MechanicNode, currentData: any, unit: string, team: any[]): number {
+    if (move.priority === undefined) return 0;
+    const value = (typeof move.priority === 'string' && (move.priority.includes('@') || /[+\-*/]/.test(move.priority)))
+      ? Number(this._resolveDynamicMath(move.priority, currentData, unit, team))
+      : parseFloat(String(move.priority));
+    return isNaN(value) ? 0 : value;
+  }
+
   _resolveTimings(currentData: any, moveData: MechanicNode, team: any[]): any {
     const timingType = currentData.timing || 'Auto';
     const unitName = currentData.unit;
@@ -806,11 +810,21 @@ export class TimelineEngineClass {
     const swapTiming = moveData.swapTiming !== undefined ? resolveMath(moveData.swapTiming, toFrames(GAME_DEFAULTS.swapTime)) : undefined;
     const hitCount = Array.isArray(moveData.hitMults) ? moveData.hitMults.length : 0;
 
+    const nextRow = currentData.nextRow;
+    const nextMoveData = nextRow?.action ? this._getModifiedMoveData(nextRow.action) : null;
+
+    // A cancel with no rule is only usable by a next move that outranks this one and isn't the
+    // same input binding + type (e.g. a Basic+Hold heavy can cancel a Basic string).
+    const bindingOf = (m: MechanicNode) => `${m.input ?? ''}|${m.inputType ?? ''}`;
+    const nextMoveCancels = !!nextMoveData
+      && bindingOf(nextMoveData) !== bindingOf(moveData)
+      && this._resolvePriority(nextMoveData, currentData, nextRow.unit, team) > this._resolvePriority(moveData, currentData, unitName, team);
+
     const validCancels: Array<{ index: number; time: Frames; hits: number }> = [];
     if (moveData.cancelTimings && moveData.cancelTimings.length > 0) {
       moveData.cancelTimings.forEach((ct, idx) => {
         let isValid = false;
-        if (!ct.triggerRule || ct.triggerRule.trim() === '') isValid = true;
+        if (!ct.triggerRule || ct.triggerRule.trim() === '') isValid = nextMoveCancels;
         else {
           if (!ct._compiledRule || typeof ct._compiledRule.evaluate !== 'function') {
             ct._compiledRule = DSLParser.compile(ct.triggerRule);
@@ -933,8 +947,6 @@ export class TimelineEngineClass {
     let finalHits = hitCount;
 
     if (timingType === 'Auto') {
-      const nextRow = currentData.nextRow;
-      const nextMoveData = nextRow?.action ? this._getModifiedMoveData(nextRow.action) : null;
       const isNextOutro = nextMoveData?.castTypes?.includes('Outro');
       const isNextSwap = nextRow && nextRow.unit !== currentData.unit && nextRow.unit !== '';
 
