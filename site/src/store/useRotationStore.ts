@@ -723,9 +723,22 @@ export const useRotationStore = create<RotationState>()(
           ];
           const loopStart = get().loopStartIndex;
           const loopRows = rows.slice(loopStart, lastContentIdx + 1);
+          // Repeat blocks in the loop are copied as independent blocks: fresh groupIds, since
+          // findBlocks needs one start/end pair per id.
+          const groupIdRemap = new Map<string, string>();
+          const remapGroupId = (id: string | undefined) => {
+            if (id === undefined) return undefined;
+            if (!groupIdRemap.has(id)) groupIdRemap.set(id, crypto.randomUUID());
+            return groupIdRemap.get(id);
+          };
           loopRows.forEach((r, i) => {
             // Only the authored fields carry over -- `r` also carries TimelineEngine's runtime state.
-            const newRow = makeRow({ unit: r.unit, action: r.action, timing: r.timing });
+            const authored = toClipboardRow(r) as RotationRowFields;
+            const newRow = makeRow({
+              ...authored,
+              ...(authored.repeatBlockStart !== undefined && { repeatBlockStart: remapGroupId(authored.repeatBlockStart) }),
+              ...(authored.repeatBlockEnd !== undefined && { repeatBlockEnd: remapGroupId(authored.repeatBlockEnd) })
+            });
             commands.push(new AddRowCommand(getRawRows, setRawRows, newRow, lastContentIdx + 1 + i, triggerRecalc));
           });
           historyManager.execute(new CompositeCommand(commands));
