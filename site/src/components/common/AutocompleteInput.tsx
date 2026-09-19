@@ -10,6 +10,7 @@ import {
 } from '../../logic/dsl/dslResolver';
 import { useBuilderStore } from '../../store/useBuilderStore';
 import { tokenizeDSL } from '../../utils/DSLHighlight';
+import { forteAliases } from '../../utils/ForteNames';
 import { TooltipManager } from '../../utils/Common';
 import type { SuggestionItem, MatchRule } from '../../logic/dsl/dslTypes';
 
@@ -123,7 +124,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
     };
   }, [isOpen]);
 
-  const tokens = useMemo(() => tokenizeDSL(value), [value]);
+  const tokens = useMemo(() => tokenizeDSL(value, forteAliases(baseStats)), [value, baseStats]);
   const syncScroll = () => {
     if (inputRef.current) setScrollLeft(inputRef.current.scrollLeft);
   };

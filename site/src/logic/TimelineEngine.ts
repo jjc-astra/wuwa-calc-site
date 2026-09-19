@@ -1,4 +1,5 @@
 import { DataLoader } from '../utils/DataLoader';
+import { forteLabel } from '../utils/ForteNames';
 import { MechanicKey } from '../utils/MechanicKey';
 import { CommonUtils } from '../utils/Common';
 import { DSLParser } from './dsl/dslParser';
@@ -1028,11 +1029,11 @@ export class TimelineEngineClass {
     const reqFor = (key: string): number => (costs[key] || 0) + (castRes[key] < 0 ? Math.abs(castRes[key]) : 0);
     const currentValue = (key: string): number => key === 'tune' ? (currentData.enemyTune || 0) : (currentData[key]?.[unit] || 0);
 
+    const unitStats = DataLoader.characterDB[unit];
     const trackedKeys: Array<{ key: string; label: string }> = [
       { key: 'concerto', label: 'Concerto' },
       { key: 'tune', label: 'Tune' },
-      { key: 'forte1', label: 'Forte 1' }, { key: 'forte2', label: 'Forte 2' }, { key: 'forte3', label: 'Forte 3' },
-      { key: 'forte4', label: 'Forte 4' }, { key: 'forte5', label: 'Forte 5' }, { key: 'forte6', label: 'Forte 6' }
+      ...[1, 2, 3, 4, 5, 6].map(i => ({ key: `forte${i}`, label: forteLabel(unitStats, i) }))
     ];
 
     let shortKeys = trackedKeys.filter(k => reqFor(k.key) > 0 && currentValue(k.key) < reqFor(k.key));
@@ -1505,7 +1506,7 @@ export class TimelineEngineClass {
     validateRes('concerto', currentData.concerto?.[currentData.unit] || 0, 'Concerto');
     validateRes('tune', currentData.enemyTune || 0, 'Tune');
     for (let i = 1; i <= 6; i++) {
-      validateRes(`forte${i}`, currentData[`forte${i}`]?.[currentData.unit] || 0, `Forte ${i}`);
+      validateRes(`forte${i}`, currentData[`forte${i}`]?.[currentData.unit] || 0, forteLabel(DataLoader.characterDB[currentData.unit], i));
     }
 
     // Surfaces a cooldown wait directly, even with no trigger rule -- independent of any

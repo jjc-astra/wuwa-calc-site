@@ -26,8 +26,8 @@ const POINTER_NAMES = new Set(Object.keys(DSL_POINTERS));
 // makePropertyRule), never listed statically in the registry -- validated by shape instead.
 const DYNAMIC_FORTE_PROPERTY = /^(Max)?Forte[0-9]+$/;
 
-function isValidProperty(pointerName: string, propText: string): boolean {
-  if (pointerName === 'Self' && DYNAMIC_FORTE_PROPERTY.test(propText)) return true;
+function isValidProperty(pointerName: string, propText: string, extraSelfProperties: string[]): boolean {
+  if (pointerName === 'Self' && (DYNAMIC_FORTE_PROPERTY.test(propText) || extraSelfProperties.includes(propText))) return true;
   const pointer = DSL_POINTERS[pointerName];
   if (!pointer) return false;
   return pointer.properties.some(p => p.propName.replace(/\(\)$/, '') === propText);
@@ -40,7 +40,9 @@ function isValidProperty(pointerName: string, propText: string): boolean {
 const TOKEN_REGEX =
   /(@[A-Za-z_][A-Za-z0-9_]*(?:\s[A-Za-z0-9_]+)*(?=\()|@[A-Za-z_][A-Za-z0-9_]*)|(\.[A-Za-z_][A-Za-z0-9_]*)|(\b(?:IF|AND|OR|NOT|ANY|ALL|XOR|ALWAYS|MATH|ABS)\b)|(\b(?:On|After)[A-Za-z]*\b)|(&&|\|\||==|!=|>=|<=|\.\.|[<>+\-*/%])|([()[\]])|(-?\d+(?:\.\d+)?%?)/gi;
 
-export function tokenizeDSL(input: string): DSLToken[] {
+// extraSelfProperties: per-character @Self properties (e.g. custom forte names) the static
+// registry can't know about.
+export function tokenizeDSL(input: string, extraSelfProperties: string[] = []): DSLToken[] {
   if (!input) return [];
 
   const tokens: DSLToken[] = [];
@@ -80,7 +82,7 @@ export function tokenizeDSL(input: string): DSLToken[] {
       }
     } else if (property) {
       if (contiguous && activePointer && chainStep === 1) {
-        const valid = isValidProperty(activePointer, full.slice(1));
+        const valid = isValidProperty(activePointer, full.slice(1), extraSelfProperties);
         tokens.push({ text: full, color: PROPERTY_COLOR, invalid: !valid });
         chainStep = 2;
       } else {

@@ -247,7 +247,7 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
               key={k}
               val={String(v)}
               label={`${resAbbr(k)} ${Number(v) > 0 ? '+' + v : v}`}
-              tooltip={resFullName(k)}
+              tooltip={resFullName(k, baseStats)}
               onClick={(e: React.MouseEvent) => {
                 e.stopPropagation();
                 setCastResType(k);
@@ -276,7 +276,7 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
       >
         <div className="mech-tag-row">
           {hitResourceKeys.length === 0 ? <span className="dim">—</span> : hitResourceKeys.map(k => (
-            <TypeTag key={k} val={k} label={`${resAbbr(k)} ${fmtNum(sumNumeric(data.hitResources?.[k]))}`} tooltip={resFullName(k)} />
+            <TypeTag key={k} val={k} label={`${resAbbr(k)} ${fmtNum(sumNumeric(data.hitResources?.[k]))}`} tooltip={resFullName(k, baseStats)} />
           ))}
         </div>
       </td>

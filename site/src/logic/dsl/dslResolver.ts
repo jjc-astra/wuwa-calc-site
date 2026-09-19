@@ -10,6 +10,7 @@ import { BuilderState, CAST_TYPE_COLORS } from '../../data/db';
 import { UNSCOPED_MOD_LABELS, SCOPEABLE_MOD_LABELS } from '../combat/combatRegistry';
 import { DataLoader } from '../../utils/DataLoader';
 import { MechanicKey } from '../../utils/MechanicKey';
+import { forteAliases } from '../../utils/ForteNames';
 import type { MechanicNode, BaseStats } from '../../types';
 
 // Every mechanic node as an @Namespace(Move Name) ref, scoped to System + the current unit. Uses
@@ -128,6 +129,7 @@ export function makePropertyRule(baseStats: BaseStats): MatchRule {
           props.push({ val: `Forte${i}`, group: 'Properties', pointer: pointerName });
           props.push({ val: `MaxForte${i}`, group: 'Properties', pointer: pointerName });
         }
+        forteAliases(baseStats).forEach(alias => props.push({ val: alias, group: 'Properties', pointer: pointerName }));
       }
       return props;
     },

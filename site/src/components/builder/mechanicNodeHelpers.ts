@@ -5,6 +5,7 @@ import { CAST_TYPE_COLORS } from '../../data/db';
 import { ELEMENT_COLORS } from '../../utils/Common';
 import { DSLParser } from '../../logic/dsl/dslParser';
 import { parseTimeInput } from '../../utils/Frames';
+import { forteLabel } from '../../utils/ForteNames';
 
 export { tip } from '../../utils/Common';
 
@@ -31,9 +32,9 @@ export function resAbbr(key: string): string {
 }
 
 // Full name for tooltips -- resAbbr's "ER" etc. is for compact chip labels only.
-export function resFullName(key: string): string {
+export function resFullName(key: string, stats?: Record<string, any>): string {
   const forte = key.match(/^forte(\d+)$/i);
-  if (forte) return `Forte ${forte[1]}`;
+  if (forte) return forteLabel(stats, parseInt(forte[1], 10));
   const map: Record<string, string> = { energy: 'Energy', concerto: 'Concerto', tune: 'Tune' };
   return map[key] || key.charAt(0).toUpperCase() + key.slice(1);
 }

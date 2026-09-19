@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useBuilderStore } from '../../store/useBuilderStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { CommonUtils } from '../../utils/Common';
+import { forteNameKey } from '../../utils/ForteNames';
 import { IMAGE_FOLDERS } from '../../data/db';
 import { Dropdown } from '../common/Dropdown';
 
@@ -79,7 +80,10 @@ export const BaseStatsForm: React.FC = () => {
 
   const extraForteInputs = [];
   for (let i = 1; i <= forteCount; i++) {
-    extraForteInputs.push(makeInput(`maxForte${i}`, `Max Forte ${i}`, 100));
+    extraForteInputs.push(
+      makeInput(forteNameKey(i), `Forte ${i} Name`, '', `Forte ${i}`),
+      makeInput(`maxForte${i}`, `Forte ${i} Max`, 100)
+    );
   }
 
   return (

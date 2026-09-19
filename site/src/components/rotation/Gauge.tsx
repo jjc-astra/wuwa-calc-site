@@ -4,6 +4,7 @@ import React from 'react';
 import { DataLoader } from '../../utils/DataLoader';
 import { MECHANICS_NOTATION } from '../../data/db';
 import { TooltipManager, CommonUtils } from '../../utils/Common';
+import { forteLabel } from '../../utils/ForteNames';
 
 const formatGaugeValue = (val: number): number => (Number.isInteger(val) ? val : parseFloat(val.toFixed(2)));
 
@@ -128,9 +129,9 @@ export const MultiForteGauge: React.FC<MultiForteGaugeProps> = ({ unit, stateDat
             >
               <div
                 className={`gauge-dial ${isFull ? 'is-full' : ''}`}
-                data-name={`Forte ${num}`}
+                data-name={forteLabel(dbChar, num)}
                 style={{ '--p': `${pct}%` } as React.CSSProperties}
-                {...gaugeTooltipHandlers(`Forte ${num}`, val)}
+                {...gaugeTooltipHandlers(forteLabel(dbChar, num), val)}
               />
             </div>
           );

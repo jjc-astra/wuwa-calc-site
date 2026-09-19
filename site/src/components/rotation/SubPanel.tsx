@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { PANEL_CONFIG } from '../../data/db';
 import { useRosterStore } from '../../store/useRosterStore';
 import { DataLoader } from '../../utils/DataLoader';
+import { forteLabel } from '../../utils/ForteNames';
 import { PanelInfoItem } from '../common/PanelInfoItem';
 import { FormulaRow } from '../common/FormulaRow';
 import { BuffCard } from '../common/BuffCard';
@@ -381,9 +382,11 @@ export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row }) => {
 
   // --- 4. STANDARD GAUGE & RESOURCE PANELS ---
   const u = row.unit;
+  const forteSlot = trigger.match(/^forte(\d+)$/);
+  const title = forteSlot ? `${forteLabel(DataLoader.characterDB[u], parseInt(forteSlot[1], 10))} Breakdown` : config.title;
   return (
     <div className="sub-panel is-open">
-      <div className="panel-header-main">{config.title}</div>
+      <div className="panel-header-main">{title}</div>
       <div className="panel-content-grid">
         {config.fields.map((f) => {
           let stateVal = row[f.key];
