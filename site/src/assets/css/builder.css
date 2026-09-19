@@ -168,6 +168,7 @@
     overflow-x: hidden;
     white-space: pre-wrap;
     word-wrap: break-word;
+    --wrap-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='14 12 19 17 14 22'/%3E%3Cpath d='M5 2v11a4 4 0 0 0 4 4h10'/%3E%3C/svg%3E");
 }
 
 /* Matches .code-edit-input::selection's amber, since read-only text (unlike the transparent
@@ -190,7 +191,7 @@
     bottom: 0;
     width: 3.5ch;
     pointer-events: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='14 12 19 17 14 22'/%3E%3Cpath d='M5 2v11a4 4 0 0 0 4 4h10'/%3E%3C/svg%3E");
+    background-image: var(--wrap-arrow);
     background-size: 1.8ch 1.5em;
     background-repeat: repeat-y;
     background-position: center top;
@@ -234,6 +235,25 @@
     overflow: hidden;
     pointer-events: none;
     color: inherit;
+}
+/* The textarea can't hang-indent wrapped lines or hide its scrollbar, so the backdrop must wrap
+   at the same columns and width, or text, caret and selection drift apart on long lines. */
+.code-edit-backdrop,
+.code-edit-input { scrollbar-gutter: stable; }
+.code-edit-backdrop .code-line { padding-left: 0; text-indent: 0; }
+.code-edit-backdrop .code-line::before { display: none; }
+/* Wrap arrows for the edit view sit in the left padding, since the textarea's continuation lines
+   start at the text column and can't take a hanging indent. Positioned by EditableCodeBlock. */
+.code-wrap-arrows { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.code-wrap-arrow {
+    position: absolute;
+    left: 0;
+    width: 15px;
+    height: 1.5em;
+    background-image: var(--wrap-arrow);
+    background-size: 1.8ch 1.5em;
+    background-repeat: no-repeat;
+    background-position: center;
 }
 .code-edit-input {
     width: 100%;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useBuilderStore, mechFolderFor } from '../../store/useBuilderStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { MechanicKey } from '../../utils/MechanicKey';
@@ -209,6 +209,36 @@ const EditableCodeBlock: React.FC<EditableCodeBlockProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditing]);
 
+  // Wrapped continuation rows in the backdrop (tops in its scroll space), for the arrow gutter.
+  // The textarea can't hang-indent, so the backdrop wraps like it does and the arrows are drawn
+  // beside the text instead.
+  const arrowsInnerRef = useRef<HTMLDivElement>(null);
+  const [wrapArrowTops, setWrapArrowTops] = useState<number[]>([]);
+
+  const measureWrap = () => {
+    const backdrop = backdropRef.current;
+    if (!backdrop) return;
+    const lineHeight = parseFloat(getComputedStyle(backdrop).lineHeight);
+    if (!lineHeight) return;
+    const tops: number[] = [];
+    backdrop.querySelectorAll<HTMLElement>('.code-line').forEach(line => {
+      const rows = Math.round(line.offsetHeight / lineHeight);
+      for (let k = 1; k < rows; k++) tops.push(line.offsetTop + k * lineHeight);
+    });
+    setWrapArrowTops(prev => (prev.length === tops.length && prev.every((t, i) => t === tops[i]) ? prev : tops));
+  };
+
+  useLayoutEffect(() => {
+    if (!isEditing) return;
+    measureWrap();
+    const backdrop = backdropRef.current;
+    if (!backdrop) return;
+    const observer = new ResizeObserver(measureWrap);
+    observer.observe(backdrop);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditing, draftHighlightedHTML]);
+
   const syncScroll = () => {
     if (!textareaRef.current) return;
     scrollPosRef.current = { top: textareaRef.current.scrollTop, left: textareaRef.current.scrollLeft };
@@ -216,6 +246,7 @@ const EditableCodeBlock: React.FC<EditableCodeBlockProps> = ({
       backdropRef.current.scrollTop = textareaRef.current.scrollTop;
       backdropRef.current.scrollLeft = textareaRef.current.scrollLeft;
     }
+    if (arrowsInnerRef.current) arrowsInnerRef.current.style.transform = `translateY(${-textareaRef.current.scrollTop}px)`;
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -263,6 +294,11 @@ const EditableCodeBlock: React.FC<EditableCodeBlockProps> = ({
         onKeyDown={handleKeyDown}
         spellCheck={false}
       />
+      <div className="code-wrap-arrows" aria-hidden="true">
+        <div ref={arrowsInnerRef} style={{ transform: `translateY(${-scrollPosRef.current.top}px)` }}>
+          {wrapArrowTops.map(top => <div key={top} className="code-wrap-arrow" style={{ top }} />)}
+        </div>
+      </div>
     </div>
   );
 };
