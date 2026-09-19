@@ -44,7 +44,9 @@ export class DataLoaderClass {
   weaponDB: Record<string, WeaponData> = {};
   buildDB: Record<string, any> = {};
   mechanicsDB: Record<string, MechanicNode> = {};
-  // Untouched copy of each node as last fetched -- the baseline the Builder diffs edits against
+  // mechanicsDB, mechanicsIndex and pristineMechanics move together -- write them only through
+  // registerFetchedNode / registerMechanicNode / unregisterMechanicNode / clearMechanicCache.
+  // pristineMechanics is each node as last fetched, the baseline the Builder diffs edits against
   // (mechanicsDB holds live/edited nodes once the edit log is replayed onto it).
   pristineMechanics: Record<string, MechanicNode> = {};
   mechanicsIndex: Record<string, string[]> = {};
@@ -247,9 +249,7 @@ export class DataLoaderClass {
     const data = await this.loadJSON<Record<string, MechanicNode>>(CommonUtils.getData(this.mechanicPath(folder, itemName)));
     if (data) {
       for (const [key, mechData] of Object.entries(data)) {
-        // Clone before registering: live nodes get mutated later (e.g. _compiledRule attached).
-        this.pristineMechanics[key] = JSON.parse(JSON.stringify(mechData));
-        this.registerMechanicNode(key, mechData);
+        this.registerFetchedNode(key, mechData);
       }
       this.cache.mechanics.add(cacheKey);
       this.missingUntil.delete(cacheKey);
@@ -269,6 +269,13 @@ export class DataLoaderClass {
     const indexKey = MechanicKey.parse(key).namespace;
     if (!this.mechanicsIndex[indexKey]) this.mechanicsIndex[indexKey] = [];
     if (!this.mechanicsIndex[indexKey].includes(key)) this.mechanicsIndex[indexKey].push(key);
+  }
+
+  // A node as fetched: registers the live copy plus an untouched baseline for the Builder's diff.
+  // Cloned first because live nodes get mutated later (e.g. _compiledRule attached).
+  registerFetchedNode(key: string, node: MechanicNode): void {
+    this.pristineMechanics[key] = JSON.parse(JSON.stringify(node));
+    this.registerMechanicNode(key, node);
   }
 
   unregisterMechanicNode(key: string): void {
@@ -321,13 +328,11 @@ export class DataLoaderClass {
     this.missingUntil.delete(cacheKey);
     this.wipSourced.delete(this.mechanicPath(folder, itemName));
 
-    Object.keys(this.mechanicsDB).forEach(key => {
-      if (MechanicKey.belongsTo(key, itemName)) delete this.mechanicsDB[key];
-    });
-    Object.keys(this.pristineMechanics).forEach(key => {
-      if (MechanicKey.belongsTo(key, itemName)) delete this.pristineMechanics[key];
-    });
-
+    for (const map of [this.mechanicsDB, this.pristineMechanics]) {
+      Object.keys(map).forEach(key => {
+        if (MechanicKey.belongsTo(key, itemName)) delete map[key];
+      });
+    }
     delete this.mechanicsIndex[MechanicKey.toNamespace(itemName)];
   }
 }

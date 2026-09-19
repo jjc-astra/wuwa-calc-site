@@ -4,7 +4,7 @@
 // asset naming (mechanics/system/system.json, Icon_Generic.webp), which DataLoader.ts and
 // Common.ts's getIconPath each translate at that one boundary.
 // Pure string utilities with zero external dependencies to prevent circular imports.
-import type { MechanicNode } from '../types/index';
+import type { MechanicNode, MoveOrigin } from '../types/index';
 
 export const SYSTEM_NAMESPACE = 'System';
 
@@ -30,6 +30,13 @@ export const MechanicKey = {
   stripNamespace: (name: string, namespace: string): string => {
     const prefix = `${namespace}_`;
     return name.startsWith(prefix) ? name.slice(prefix.length) : name;
+  },
+
+  // A move's origin. The owner is the key's namespace, not whoever casts it -- an echo skill cast
+  // by Lumi is @Inferno Rider(...). `caster` stands in as the owner when there's no key to read.
+  origin: (key: string | undefined, caster: string, moveName: string | undefined): MoveOrigin => {
+    const owner = key?.includes('_') ? MechanicKey.parse(key).namespace : caster;
+    return { caster, owner, ref: `@${owner}(${moveName})` };
   },
 
   // Looks up a node by key, falling back to prefixing with the System namespace.

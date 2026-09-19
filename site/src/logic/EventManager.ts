@@ -46,6 +46,37 @@ export class EventManagerClass {
     });
   }
 
+  // Copies a listener's effect, filling in its source and resolving @Equipper and the provider.
+  private resolveEffect(eff: Effect, listener: RegisteredListener, activeUnitName: string): Effect {
+    const resolved: Effect = { ...eff };
+    if (!resolved.source) resolved.source = listener.name;
+    if (resolved.target === '@Equipper') resolved.target = listener.equipper;
+    const provider = resolved.provider;
+    if (!provider || provider === 'System' || provider === '@Equipper' || provider === listener.name || provider === listener.provider) {
+      resolved.provider = listener.equipper || activeUnitName;
+    }
+    return resolved;
+  }
+
+  // A listener that carries its own hits fires as a proc'd mechanic; MATH(...) hit mults resolve here.
+  private resolveProc(listener: RegisteredListener, activeUnitName: string, ctx: any): Effect {
+    const hitMults = (listener.hitMults || []).map(mult =>
+      typeof mult === 'string' && mult.startsWith('MATH(')
+        ? DSLParser.evaluateMath(mult.substring(5, mult.length - 1), ctx, listener.equipper)
+        : mult
+    );
+    return {
+      type: 'procced_mechanic',
+      source: listener.name,
+      provider: listener.equipper || activeUnitName,
+      mechanicData: { ...listener, hitMults }
+    } as any;
+  }
+
+  private cooldownEffect(listener: RegisteredListener): Effect {
+    return { type: 'cooldown', name: listener.name, target: listener.equipper, value: listener.cooldown };
+  }
+
   emit(
     eventType: string,
     actionModifiers: Set<string> | null,
@@ -134,30 +165,9 @@ export class EventManagerClass {
           currentCount++;
           if (listener.evaluate(ctx, listener.equipper)) {
             if (listener.hitMults && listener.hitMults.length > 0) {
-              const finalHitMults = listener.hitMults.map(mult => {
-                if (typeof mult === 'string' && mult.startsWith('MATH(')) {
-                  const mathStr = mult.substring(5, mult.length - 1);
-                  return DSLParser.evaluateMath(mathStr, ctx, listener.equipper);
-                }
-                return mult;
-              });
-              triggeredEffects.push({
-                type: 'procced_mechanic',
-                source: listener.name,
-                provider: listener.equipper || activeUnitName,
-                mechanicData: { ...listener, hitMults: finalHitMults }
-              } as any);
+              triggeredEffects.push(this.resolveProc(listener, activeUnitName, ctx));
             }
-            (listener.effects || []).forEach(eff => {
-              const resolvedEffect: Effect = { ...eff };
-              if (!resolvedEffect.source) resolvedEffect.source = listener.name;
-              if (resolvedEffect.target === '@Equipper') resolvedEffect.target = listener.equipper;
-              const p = resolvedEffect.provider;
-              if (!p || p === 'System' || p === '@Equipper' || p === listener.name || p === listener.provider) {
-                resolvedEffect.provider = listener.equipper || activeUnitName;
-              }
-              triggeredEffects.push(resolvedEffect);
-            });
+            (listener.effects || []).forEach(eff => triggeredEffects.push(this.resolveEffect(eff, listener, activeUnitName)));
           }
         }
 
@@ -182,61 +192,19 @@ export class EventManagerClass {
         }
 
         if (matchesHit && listener.evaluate(ctx, listener.equipper)) {
-          (listener.effects || []).forEach(eff => {
-            const resolvedEffect: Effect = { ...eff };
-            if (!resolvedEffect.source) resolvedEffect.source = listener.name;
-            if (resolvedEffect.target === '@Equipper') resolvedEffect.target = listener.equipper;
-            const p = resolvedEffect.provider;
-            if (!p || p === 'System' || p === '@Equipper' || p === listener.name || p === listener.provider) {
-              resolvedEffect.provider = listener.equipper || activeUnitName;
-            }
-            triggeredEffects.push(resolvedEffect);
-          });
-          if (listener.cooldown) {
-            triggeredEffects.push({
-              type: 'cooldown',
-              name: listener.name,
-              target: listener.equipper,
-              value: listener.cooldown
-            });
-          }
+          (listener.effects || []).forEach(eff => triggeredEffects.push(this.resolveEffect(eff, listener, activeUnitName)));
+          if (listener.cooldown) triggeredEffects.push(this.cooldownEffect(listener));
         }
       } else {
         if (listener.evaluate(ctx, listener.equipper)) {
           if ((listener.hitMults && listener.hitMults.length > 0) && (!isAlways || eventType === 'ALWAYS')) {
-            const finalHitMults = listener.hitMults.map(mult => {
-              if (typeof mult === 'string' && mult.startsWith('MATH(')) {
-                const mathStr = mult.substring(5, mult.length - 1);
-                return DSLParser.evaluateMath(mathStr, ctx, listener.equipper);
-              }
-              return mult;
-            });
-            triggeredEffects.push({
-              type: 'procced_mechanic',
-              source: listener.name,
-              provider: listener.equipper || activeUnitName,
-              mechanicData: { ...listener, hitMults: finalHitMults }
-            } as any);
+            triggeredEffects.push(this.resolveProc(listener, activeUnitName, ctx));
           }
           (listener.effects || []).forEach(eff => {
             if (isAlways && eventType !== 'ALWAYS' && eff.type && eff.type !== 'buff') return;
-            const resolvedEffect: Effect = { ...eff };
-            if (!resolvedEffect.source) resolvedEffect.source = listener.name;
-            if (resolvedEffect.target === '@Equipper') resolvedEffect.target = listener.equipper;
-            const p = resolvedEffect.provider;
-            if (!p || p === 'System' || p === '@Equipper' || p === listener.name || p === listener.provider) {
-              resolvedEffect.provider = listener.equipper || activeUnitName;
-            }
-            triggeredEffects.push(resolvedEffect);
+            triggeredEffects.push(this.resolveEffect(eff, listener, activeUnitName));
           });
-          if (listener.cooldown && (!isAlways || eventType === 'ALWAYS')) {
-            triggeredEffects.push({
-              type: 'cooldown',
-              name: listener.name,
-              target: listener.equipper,
-              value: listener.cooldown
-            });
-          }
+          if (listener.cooldown && (!isAlways || eventType === 'ALWAYS')) triggeredEffects.push(this.cooldownEffect(listener));
         } else if (isAlways) {
           (listener.effects || []).forEach(eff => {
             if (eff.type === 'buff' || !eff.type) {

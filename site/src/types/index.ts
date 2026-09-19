@@ -195,6 +195,14 @@ export interface BuffTotals {
   ignoreDef: number;
 }
 
+// Where a move comes from: the unit its hits and effects are attributed to, the namespace it
+// lives under (character, echo, weapon, set or System), and its "@Owner(Move Name)" pointer.
+export interface MoveOrigin {
+  caster: string;
+  owner: string;
+  ref: string;
+}
+
 export interface HitConfig {
   hitMult: number | string;
   provider: string;
@@ -205,6 +213,8 @@ export interface HitConfig {
   isOpen?: boolean;
   actionId?: string;
   moveName?: string;
+  // "@Owner(Move Name)" pointer for this hit's move, as built by MechanicKey.ref.
+  moveRef?: string;
   gameTime?: Frames;
   // Sub-hit index within actionId (0 for single-hit, 0/1/2... for multi-hit).
   // actionId+hitIndex together ID "the same move slot" across an Avg Loop's repeats.

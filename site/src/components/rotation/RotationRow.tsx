@@ -5,6 +5,9 @@ import { DataLoader } from '../../utils/DataLoader';
 import { BuilderUtils } from '../../utils/BuilderUtils';
 import { BUILDER_CATEGORIES } from '../../data/db';
 import { ContextManager } from '../../logic/ContextManager';
+import { getMechanicOwners, getCastableMechanics, OWNER_KIND_ORDER } from '../../logic/MechanicOwners';
+import type { MechanicOwner } from '../../logic/MechanicOwners';
+import type { TeamSlot } from '../../types';
 import { DSLParser } from '../../logic/dsl/dslParser';
 import { DialGauge, VerticalGauge, MultiForteGauge } from './Gauge';
 import { SubPanel } from './SubPanel';
@@ -168,38 +171,26 @@ export const RotationRow: React.FC<RotationRowProps> = ({
     interface Candidate { id: string; m: any; groupLabel: string; isValid: boolean }
     const candidates: Candidate[] = [];
 
-    // 1. Character Mechanics
-    const charKeys = DataLoader.mechanicsIndex[selectedUnit] || [];
-    charKeys.forEach(k => {
-      const m = DataLoader.mechanicsDB[k];
-      if (!m || m.isPassive) return;
-      const isValid = checkValid(m);
-      if (isValid || k === row.action) {
-        const cat = m.category || BuilderUtils.guessCategory(m);
-        const groupName = skillGroupNames[cat];
-        const groupLabel = groupName ? `${cat}: ${groupName}` : cat;
-        candidates.push({ id: k, m, groupLabel, isValid });
-      }
-    });
-
-    // 2. Equipped Echo Skill from Roster Slot
-    if (slot?.mainEcho) {
-      const echoKeys = DataLoader.mechanicsIndex[slot.mainEcho] || [];
-      echoKeys.forEach(k => {
-        const m = DataLoader.mechanicsDB[k];
-        if (!m || m.isPassive) return;
-        const isValid = checkValid(m);
-        if (isValid || k === row.action) candidates.push({ id: k, m, groupLabel: 'Echo Skill', isValid });
+    // Every owner the unit draws castable moves from (its own, the equipped echo/weapon/sets,
+    // System), sorted so a same-input tie resolves character > echo > System as before.
+    const owners = getMechanicOwners([slot ?? ({ character: selectedUnit } as TeamSlot)])
+      .sort((a, b) => OWNER_KIND_ORDER.indexOf(a.kind) - OWNER_KIND_ORDER.indexOf(b.kind));
+    const groupLabelFor = (owner: MechanicOwner, m: any): string => {
+      if (owner.kind === 'system') return 'System';
+      if (owner.kind === 'echo') return 'Echo Skill';
+      if (owner.kind !== 'character') return owner.name;
+      const cat = m.category || BuilderUtils.guessCategory(m);
+      const groupName = skillGroupNames[cat];
+      return groupName ? `${cat}: ${groupName}` : cat;
+    };
+    const seenKeys = new Set<string>();
+    owners.forEach(owner => {
+      getCastableMechanics(owner).forEach(({ key, mech }) => {
+        if (seenKeys.has(key)) return;
+        seenKeys.add(key);
+        const isValid = checkValid(mech);
+        if (isValid || key === row.action) candidates.push({ id: key, m: mech, groupLabel: groupLabelFor(owner, mech), isValid });
       });
-    }
-
-    // 3. System Mechanics (Dodge, Jump, etc.)
-    const sysKeys = DataLoader.mechanicsIndex['System'] || [];
-    sysKeys.forEach(k => {
-      const m = DataLoader.mechanicsDB[k];
-      if (!m || m.isPassive) return;
-      const isValid = checkValid(m);
-      if (isValid || k === row.action) candidates.push({ id: k, m, groupLabel: 'System', isValid });
     });
 
     // --- COLLAPSE CANDIDATES THAT SHARE THE SAME INPUT ---

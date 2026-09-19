@@ -1,5 +1,6 @@
 import { DataLoader } from '../utils/DataLoader';
 import { forteLabel } from '../utils/ForteNames';
+import { getMechanicOwners } from './MechanicOwners';
 import { MechanicKey } from '../utils/MechanicKey';
 import { CommonUtils } from '../utils/Common';
 import { DSLParser } from './dsl/dslParser';
@@ -8,7 +9,7 @@ import { ContextManager } from './ContextManager';
 import { EventManager } from './EventManager';
 import { calculateEchoStatsForSlot } from '../store/useRosterStore';
 import { CHARACTER_DEFAULTS, ENEMY_DEFAULTS, GAME_DEFAULTS, MECHANICS_NOTATION } from '../data/db';
-import type { Effect, MechanicNode, HoldConfig } from '../types';
+import type { Effect, MechanicNode, HoldConfig, MoveOrigin } from '../types';
 import { type Frames, toFrames, roundFrames, secondsToFrames, framesToSeconds, formatFramesAsSeconds } from '../utils/Frames';
 
 export interface QueuedHit {
@@ -18,7 +19,7 @@ export interface QueuedHit {
   hitIndex: number;
   totalHits: number;
   hitMult: number | string;
-  provider: string;
+  origin: MoveOrigin;
   hitModifiers: Set<string>;
   executeAt: Frames;
   isProc: boolean;
@@ -618,70 +619,20 @@ export class TimelineEngineClass {
   _setupEventBoard(team: any[] = []): string[] {
     EventManager.reset();
     const activeTeam = team.map(t => t.character).filter(Boolean);
-    team.forEach(slot => {
-      if (!slot.character) return;
-      // Activates echo-set bonus nodes only when the slot meets the required piece threshold; defaults for non-set mechanics.
-      // Only passives listen for events -- an echo's castable skills (e.g. Inferno Rider 1-3) are
-      // cast from rows, and registering them as listeners would re-fire them as procs.
-      const registerAll = (itemName: string, pieces: number = Infinity) => {
-        if (!itemName || pieces <= 0) return;
-        const indexKeys = DataLoader.mechanicsIndex[itemName] || [];
-        if (indexKeys.length > 0) {
-          indexKeys.forEach(k => {
-            const mech = DataLoader.mechanicsDB[k];
-            if (!mech?.isPassive) return;
-            const need = parseInt((mech.category || '').match(/^(\d+)-pc/)?.[1] || '0', 10);
-            if (need > 0 && need > pieces) return;
-            EventManager.registerMechanic(mech, slot.character, k);
-          });
-        } else {
-          const directMech = MechanicKey.findNode(DataLoader.mechanicsDB, itemName);
-          if (directMech?.isPassive) EventManager.registerMechanic(directMech, slot.character);
+    getMechanicOwners(team).forEach(owner => {
+      const keys = DataLoader.mechanicsIndex[owner.name] || [];
+      if (keys.length === 0) {
+        const directNode = owner.allowDirectNode && MechanicKey.findNode(DataLoader.mechanicsDB, owner.name);
+        if (directNode && owner.listens(directNode, owner.name)) {
+          EventManager.registerMechanic(owner.transform ? owner.transform(directNode) : directNode, owner.equipper);
         }
-      };
-
-      const registerWeapon = (weaponName: string, rank: number) => {
-        if (!weaponName) return;
-        const applyRank = (mech: MechanicNode) => {
-          const m = JSON.parse(JSON.stringify(mech));
-          if (m.effects) {
-            m.effects = m.effects.map((e: any) => ({ ...e, value: CommonUtils.parseRankValue(e.value, rank) }));
-          }
-          return m;
-        };
-        const indexKeys = DataLoader.mechanicsIndex[weaponName] || [];
-        if (indexKeys.length > 0) {
-          indexKeys.forEach(k => {
-            if (DataLoader.mechanicsDB[k]) EventManager.registerMechanic(applyRank(DataLoader.mechanicsDB[k]), slot.character, k);
-          });
-        } else {
-          const directWep = MechanicKey.findNode(DataLoader.mechanicsDB, weaponName);
-          if (directWep) EventManager.registerMechanic(applyRank(directWep), slot.character);
-        }
-      };
-
-      const pieces = DataLoader.resolveSetPieceCounts(slot);
-      registerAll(slot.mainSet, pieces.mainSet);
-      registerAll(slot.subSet, pieces.subSet);
-      registerAll(slot.subSet2a, pieces.subSet2a);
-      registerAll(slot.subSet2b, pieces.subSet2b);
-      registerAll(slot.mainEcho);
-      registerWeapon(slot.weapon, slot.rank);
-
-      const charKeys = DataLoader.mechanicsIndex[slot.character] || [];
-      charKeys.forEach(key => {
+        return;
+      }
+      keys.forEach(key => {
         const mech = DataLoader.mechanicsDB[key];
-        if (mech && (mech.isPassive || key === `${slot.character}_Outro`)) {
-          EventManager.registerMechanic(mech, slot.character, key);
-        }
+        if (!mech || !owner.listens(mech, key)) return;
+        EventManager.registerMechanic(owner.transform ? owner.transform(mech) : mech, owner.equipper, key);
       });
-    });
-
-    // System.json's status/Tune-Break nodes aren't owned by any team slot, so they never get
-    // registered above -- register them once under a synthetic 'System' equipper.
-    (DataLoader.mechanicsIndex['System'] || []).forEach(key => {
-      const mech = DataLoader.mechanicsDB[key];
-      if (mech?.isPassive) EventManager.registerMechanic(mech, 'System', key);
     });
 
     return activeTeam;
@@ -1055,7 +1006,7 @@ export class TimelineEngineClass {
         const hitRes = hit.originMoveData.hitResources;
         if (!hitRes) continue;
         const isRelevant = shortKeys.some(k => {
-          if (k.key !== 'tune' && hit.provider !== unit) return false;
+          if (k.key !== 'tune' && hit.origin.caster !== unit) return false;
           const arr = hitRes[k.key];
           return Array.isArray(arr) && arr.length > hit.hitIndex && (parseFloat(String(arr[hit.hitIndex])) || 0) !== 0;
         });
@@ -1092,14 +1043,14 @@ export class TimelineEngineClass {
           const amount = (Array.isArray(resArray) && resArray.length > nextHit.hitIndex) ? resArray[nextHit.hitIndex] : 0;
           if (amount !== 0) {
             const targetSelector = resKey === 'energy' ? '@Team' : '@Self';
-            this._processEffect({ type: 'resource', name: resKey, value: amount, target: targetSelector, provider: nextHit.provider }, currentData, nextHit.provider, activeTeam, activeRows, currentData.arrayIndex, team);
+            this._processEffect({ type: 'resource', name: resKey, value: amount, target: targetSelector, provider: nextHit.origin.caster }, currentData, nextHit.origin.caster, activeTeam, activeRows, currentData.arrayIndex, team);
           }
         }
       }
 
       currentData.activeProcSource = nextHit.originActionId;
-      const onHitEffects = EventManager.emit('OnHit', nextHit.hitModifiers, currentData, nextHit.provider, team);
-      this._executeEffectsStream(onHitEffects, currentData, activeTeam, activeRows, nextHit.executeAt, nextHit.provider, team);
+      const onHitEffects = EventManager.emit('OnHit', nextHit.hitModifiers, currentData, nextHit.origin.caster, team);
+      this._executeEffectsStream(onHitEffects, currentData, activeTeam, activeRows, nextHit.executeAt, nextHit.origin.caster, team);
       delete currentData.activeProcSource;
 
       // Builds this hit's UI-facing history entry (DMG-cell breakdown); skipped in lightweight mode.
@@ -1117,13 +1068,13 @@ export class TimelineEngineClass {
 
         nextHit.originRow._pendingHits.push({
           config: {
-            hitMult: nextHit.hitMult, provider: nextHit.provider, dmgTypes: nextHit.originMoveData.dmgTypes,
+            hitMult: nextHit.hitMult, provider: nextHit.origin.caster, dmgTypes: nextHit.originMoveData.dmgTypes,
             castTypes: nextHit.originMoveData.castTypes, scalar: nextHit.originMoveData.scalar,
             title: nextHit.isProc ? `[Proc] ${hitName}` : (nextHit.totalHits > 1 ? `Hit ${nextHit.hitIndex + 1}` : 'Active Hit'),
             isOpen: false,
             actionId: nextHit.originActionId,
             moveName: nextHit.originMoveData.name,
-            moveRef: this._moveRef(nextHit.isProc ? (nextHit.originMoveData as any).mechanicKey : nextHit.originActionId, nextHit.provider, nextHit.originMoveData.name),
+            moveRef: nextHit.origin.ref,
             gameTime: hitGameTime,
             hitIndex: nextHit.hitIndex
           },
@@ -1131,8 +1082,8 @@ export class TimelineEngineClass {
         });
       }
 
-      const afterHitEffects = EventManager.emit('AfterHit', nextHit.hitModifiers, currentData, nextHit.provider, team, { hitIndex: nextHit.hitIndex + 1, totalHits: nextHit.totalHits });
-      this._executeEffectsStream(afterHitEffects, currentData, activeTeam, activeRows, nextHit.executeAt, nextHit.provider, team);
+      const afterHitEffects = EventManager.emit('AfterHit', nextHit.hitModifiers, currentData, nextHit.origin.caster, team, { hitIndex: nextHit.hitIndex + 1, totalHits: nextHit.totalHits });
+      this._executeEffectsStream(afterHitEffects, currentData, activeTeam, activeRows, nextHit.executeAt, nextHit.origin.caster, team);
     }
   }
 
@@ -1231,9 +1182,9 @@ export class TimelineEngineClass {
     this._executeEffectsStream(tickEffects, currentData, activeTeam, activeRows, this.currentGlobalRealTime, currentData.unit, team);
   }
 
-  _scheduleHits(currentData: any, moveData: MechanicNode, provider: string, rawMults: any[], executeStartTime: number, executeEndTime: number, isProc: boolean, hitModifiers: Set<string>, team: any[]): void {
+  _scheduleHits(currentData: any, moveData: MechanicNode, origin: MoveOrigin, rawMults: any[], executeStartTime: number, executeEndTime: number, isProc: boolean, hitModifiers: Set<string>, team: any[]): void {
     const snapshotMath = (hm: any, pUnit: string) => (typeof hm === 'string' && (hm.includes('@') || /[+\-*/]/.test(hm))) ? this._resolveDynamicMath(hm, currentData, pUnit, team) : hm;
-    const snapshottedMults = rawMults.map(hm => snapshotMath(hm, provider));
+    const snapshottedMults = rawMults.map(hm => snapshotMath(hm, origin.caster));
     const hitCount = snapshottedMults.length;
     for (let i = 0; i < hitCount; i++) {
       let hitTime = executeEndTime;
@@ -1247,7 +1198,7 @@ export class TimelineEngineClass {
         hitIndex: i,
         totalHits: hitCount,
         hitMult: snapshottedMults[i],
-        provider: provider,
+        origin,
         hitModifiers: hitModifiers,
         executeAt: roundFrames(hitTime),
         isProc: isProc
@@ -1255,21 +1206,16 @@ export class TimelineEngineClass {
     }
   }
 
-  // "@Owner(Move Name)" for a mechanicsDB key; `fallbackOwner` when there's no key to read it from.
-  _moveRef(mechanicKey: string | undefined, fallbackOwner: string, moveName: string | undefined): string {
-    const owner = mechanicKey?.includes('_') ? MechanicKey.parse(mechanicKey).namespace : fallbackOwner;
-    return `@${owner}(${moveName})`;
-  }
-
   _queueProccedMechanic(currentData: any, proc: any, executeAt: number, team: any[]): void {
     const mData = proc.mechanicData;
     const rawProcMults = Array.isArray(mData.hitMults) ? mData.hitMults : [];
+    const origin = MechanicKey.origin(mData.mechanicKey, proc.provider, mData.name);
     // Adds name/pointer so an OnHit[...] rule can target this specific proc'd mechanic by name.
     const procModifiers = new Set([
       ...(mData.dmgTypes || []),
       ...(mData.castTypes || []),
       mData.name,
-      this._moveRef(mData.mechanicKey, proc.provider, mData.name)
+      origin.ref
     ].map((m: any) => String(m).toLowerCase()));
     if (rawProcMults.length > 0) {
       // A proc'd mechanic can carry its own damageTimeframe, offsetting from executeAt; left
@@ -1279,7 +1225,7 @@ export class TimelineEngineClass {
         : roundFrames(parseFloat(val));
       const tfStart = mData.damageTimeframe?.start !== undefined ? resolveOffset(mData.damageTimeframe.start) : toFrames(0);
       const tfEnd = mData.damageTimeframe?.end !== undefined ? resolveOffset(mData.damageTimeframe.end) : tfStart;
-      this._scheduleHits(currentData, mData, proc.provider, rawProcMults, executeAt + tfStart, executeAt + tfEnd, true, procModifiers, team);
+      this._scheduleHits(currentData, mData, origin, rawProcMults, executeAt + tfStart, executeAt + tfEnd, true, procModifiers, team);
     }
     this.damageQueue.sort((a, b) => a.executeAt - b.executeAt);
   }
@@ -1407,7 +1353,7 @@ export class TimelineEngineClass {
     const currentFreezeTime = currentData.freezeTime || 0;
     if (currentFreezeTime > 0 && this.damageQueue.length > 0) {
       this.damageQueue.forEach(queuedHit => {
-        if (queuedHit.provider !== unitName) {
+        if (queuedHit.origin.caster !== unitName) {
           queuedHit.executeAt += currentFreezeTime;
         }
       });
@@ -1418,16 +1364,14 @@ export class TimelineEngineClass {
       this._startCooldown(currentData, unitName, moveData);
     }
 
-    // The pointer names the move's owner (character, echo, weapon...), not the unit casting it --
-    // an echo skill cast by Lumi is @Inferno Rider(...), matching how rules write the reference.
-    const moveRef = this._moveRef(currentData.action, unitName, moveData.name);
+    const origin = MechanicKey.origin(currentData.action, unitName, moveData.name);
 
     // dmgTypes plus name/pointer, so OnHit[...] can target one specific move, not just a
     // shared dmg type.
     const hitModifiers = new Set([
       ...(moveData.dmgTypes || []),
       moveData.name,
-      moveRef
+      origin.ref
     ].map(m => String(m).toLowerCase()));
     const elements = ['Glacio', 'Aero', 'Electro', 'Fusion', 'Spectro', 'Havoc', 'Physical'];
     const moveElements = (moveData.dmgTypes || []).filter(t => elements.includes(t));
@@ -1436,7 +1380,7 @@ export class TimelineEngineClass {
       ...moveElements,
       currentData.action,
       moveData.name,
-      moveRef
+      origin.ref
     ].map(m => String(m).toLowerCase()));
 
     this._applyMoveCosts(currentData, moveData);
@@ -1448,7 +1392,7 @@ export class TimelineEngineClass {
     const tfEnd = currentData.timeStart + (currentData.damageTimeframe?.end || currentData.baseDuration);
 
     if (rawHitMults.length > 0) {
-      this._scheduleHits(currentData, moveData, unitName, rawHitMults, tfStart, tfEnd, false, hitModifiers, team);
+      this._scheduleHits(currentData, moveData, origin, rawHitMults, tfStart, tfEnd, false, hitModifiers, team);
     }
 
     this._executeEffectsStream(instantEffects, currentData, activeTeam, activeRows, currentData.timeStart, unitName, team);
