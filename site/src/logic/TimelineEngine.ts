@@ -446,7 +446,7 @@ export class TimelineEngineClass {
       }
 
       this._evaluateMechanics(currentData, activeTeam, activeRows, i, team, dbMove);
-      this._resolveComboWindows(currentData, dbMove, prevData, team);
+      this._resolveComboWindows(currentData, dbMove, team);
       // For the Timeline's spam-click indicator; deferred until here so @Self/@Move context
       // reflects this row's fully-computed state.
       currentData.priority = this._resolvePriority(dbMove, currentData, currentData.unit, team);
@@ -621,20 +621,22 @@ export class TimelineEngineClass {
     team.forEach(slot => {
       if (!slot.character) return;
       // Activates echo-set bonus nodes only when the slot meets the required piece threshold; defaults for non-set mechanics.
+      // Only passives listen for events -- an echo's castable skills (e.g. Inferno Rider 1-3) are
+      // cast from rows, and registering them as listeners would re-fire them as procs.
       const registerAll = (itemName: string, pieces: number = Infinity) => {
         if (!itemName || pieces <= 0) return;
         const indexKeys = DataLoader.mechanicsIndex[itemName] || [];
         if (indexKeys.length > 0) {
           indexKeys.forEach(k => {
             const mech = DataLoader.mechanicsDB[k];
-            if (!mech) return;
+            if (!mech?.isPassive) return;
             const need = parseInt((mech.category || '').match(/^(\d+)-pc/)?.[1] || '0', 10);
             if (need > 0 && need > pieces) return;
-            EventManager.registerMechanic(mech, slot.character);
+            EventManager.registerMechanic(mech, slot.character, k);
           });
         } else {
           const directMech = MechanicKey.findNode(DataLoader.mechanicsDB, itemName);
-          if (directMech) EventManager.registerMechanic(directMech, slot.character);
+          if (directMech?.isPassive) EventManager.registerMechanic(directMech, slot.character);
         }
       };
 
@@ -650,7 +652,7 @@ export class TimelineEngineClass {
         const indexKeys = DataLoader.mechanicsIndex[weaponName] || [];
         if (indexKeys.length > 0) {
           indexKeys.forEach(k => {
-            if (DataLoader.mechanicsDB[k]) EventManager.registerMechanic(applyRank(DataLoader.mechanicsDB[k]), slot.character);
+            if (DataLoader.mechanicsDB[k]) EventManager.registerMechanic(applyRank(DataLoader.mechanicsDB[k]), slot.character, k);
           });
         } else {
           const directWep = MechanicKey.findNode(DataLoader.mechanicsDB, weaponName);
@@ -670,7 +672,7 @@ export class TimelineEngineClass {
       charKeys.forEach(key => {
         const mech = DataLoader.mechanicsDB[key];
         if (mech && (mech.isPassive || key === `${slot.character}_Outro`)) {
-          EventManager.registerMechanic(mech, slot.character);
+          EventManager.registerMechanic(mech, slot.character, key);
         }
       });
     });
@@ -679,7 +681,7 @@ export class TimelineEngineClass {
     // registered above -- register them once under a synthetic 'System' equipper.
     (DataLoader.mechanicsIndex['System'] || []).forEach(key => {
       const mech = DataLoader.mechanicsDB[key];
-      if (mech?.isPassive) EventManager.registerMechanic(mech, 'System');
+      if (mech?.isPassive) EventManager.registerMechanic(mech, 'System', key);
     });
 
     return activeTeam;
@@ -756,7 +758,7 @@ export class TimelineEngineClass {
     });
   }
 
-  _resolveComboWindows(currentData: any, dbMove: MechanicNode, prevData: any, team: any[]): void {
+  _resolveComboWindows(currentData: any, dbMove: MechanicNode, team: any[]): void {
     const resolveTime = (val: any): Frames | null => {
       if (val === undefined) return null;
       return (typeof val === 'string' && (val.includes('@') || /[+\-*/]/.test(val)))
@@ -764,26 +766,16 @@ export class TimelineEngineClass {
         : roundFrames(parseFloat(val));
     };
 
-    const isUtility = currentData.castTypes?.includes('Dodge') ||
-                      currentData.castTypes?.includes('Echo') ||
-                      currentData.castTypes?.includes('Utility');
-
     if (!currentData.action) return;
 
-    if (!isUtility) {
-      const customWindow = dbMove.comboWindow !== undefined ? resolveTime(dbMove.comboWindow) : null;
-      const postMoveWindow = customWindow !== null ? customWindow : GAME_DEFAULTS.comboWindow;
-      const animTime = currentData.animationCommitment;
-      currentData.unitCombos[currentData.unit] = {
-        action: currentData.action,
-        expiration: currentData.gameTimeStart + animTime + postMoveWindow
-      };
-    } else if (prevData && prevData.unitCombos?.[currentData.unit]) {
-      currentData.unitCombos[currentData.unit] = {
-        action: prevData.unitCombos[currentData.unit].action,
-        expiration: prevData.unitCombos[currentData.unit].expiration + currentData.duration
-      };
-    }
+    // Every cast row (echo skills, Dodge, Jump, Tune Break, utility...) counts as the unit's own
+    // last action (@Self.PrevAction) and refreshes its combo window.
+    const customWindow = dbMove.comboWindow !== undefined ? resolveTime(dbMove.comboWindow) : null;
+    const postMoveWindow = customWindow !== null ? customWindow : GAME_DEFAULTS.comboWindow;
+    currentData.unitCombos[currentData.unit] = {
+      action: currentData.action,
+      expiration: currentData.gameTimeStart + currentData.animationCommitment + postMoveWindow
+    };
   }
 
   _resolvePriority(move: MechanicNode, currentData: any, unit: string, team: any[]): number {
@@ -1131,6 +1123,7 @@ export class TimelineEngineClass {
             isOpen: false,
             actionId: nextHit.originActionId,
             moveName: nextHit.originMoveData.name,
+            moveRef: this._moveRef(nextHit.isProc ? (nextHit.originMoveData as any).mechanicKey : nextHit.originActionId, nextHit.provider, nextHit.originMoveData.name),
             gameTime: hitGameTime,
             hitIndex: nextHit.hitIndex
           },
@@ -1262,6 +1255,12 @@ export class TimelineEngineClass {
     }
   }
 
+  // "@Owner(Move Name)" for a mechanicsDB key; `fallbackOwner` when there's no key to read it from.
+  _moveRef(mechanicKey: string | undefined, fallbackOwner: string, moveName: string | undefined): string {
+    const owner = mechanicKey?.includes('_') ? MechanicKey.parse(mechanicKey).namespace : fallbackOwner;
+    return `@${owner}(${moveName})`;
+  }
+
   _queueProccedMechanic(currentData: any, proc: any, executeAt: number, team: any[]): void {
     const mData = proc.mechanicData;
     const rawProcMults = Array.isArray(mData.hitMults) ? mData.hitMults : [];
@@ -1270,7 +1269,7 @@ export class TimelineEngineClass {
       ...(mData.dmgTypes || []),
       ...(mData.castTypes || []),
       mData.name,
-      `@${proc.provider}(${mData.name})`
+      this._moveRef(mData.mechanicKey, proc.provider, mData.name)
     ].map((m: any) => String(m).toLowerCase()));
     if (rawProcMults.length > 0) {
       // A proc'd mechanic can carry its own damageTimeframe, offsetting from executeAt; left
@@ -1419,12 +1418,16 @@ export class TimelineEngineClass {
       this._startCooldown(currentData, unitName, moveData);
     }
 
+    // The pointer names the move's owner (character, echo, weapon...), not the unit casting it --
+    // an echo skill cast by Lumi is @Inferno Rider(...), matching how rules write the reference.
+    const moveRef = this._moveRef(currentData.action, unitName, moveData.name);
+
     // dmgTypes plus name/pointer, so OnHit[...] can target one specific move, not just a
     // shared dmg type.
     const hitModifiers = new Set([
       ...(moveData.dmgTypes || []),
       moveData.name,
-      `@${unitName}(${moveData.name})`
+      moveRef
     ].map(m => String(m).toLowerCase()));
     const elements = ['Glacio', 'Aero', 'Electro', 'Fusion', 'Spectro', 'Havoc', 'Physical'];
     const moveElements = (moveData.dmgTypes || []).filter(t => elements.includes(t));
@@ -1433,7 +1436,7 @@ export class TimelineEngineClass {
       ...moveElements,
       currentData.action,
       moveData.name,
-      `@${currentData.unit}(${moveData.name})`
+      moveRef
     ].map(m => String(m).toLowerCase()));
 
     this._applyMoveCosts(currentData, moveData);

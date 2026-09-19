@@ -395,7 +395,8 @@ export const CombatCalculator = {
     const titleStr = hitConfig.title || 'Active Hit';
     const actionId = hitConfig.actionId || '';
     const moveName = hitConfig.moveName || '';
-    const formattedPointer = `@${executingUnit}(${moveName})`;
+    // Names the move's owner (character, echo...), matching TimelineEngine._moveRef.
+    const formattedPointer = hitConfig.moveRef || `@${executingUnit}(${moveName})`;
 
     const hitModifiers = Array.from(new Set([
       ...dmgTypes, ...castTypes, actionId, moveName, formattedPointer

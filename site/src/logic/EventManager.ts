@@ -4,6 +4,9 @@ import type { MechanicNode, Effect } from '../types';
 
 export interface RegisteredListener extends MechanicNode {
   equipper: string;
+  // The mechanicsDB key this listener was registered from; its namespace (the owning character,
+  // weapon, set, or echo) is what @Namespace(Move) references resolve against.
+  mechanicKey?: string;
   triggerEvent: string;
   evaluate: (ctx: any, equipper?: string) => boolean;
   requiredModifiers?: string[];
@@ -22,7 +25,7 @@ export class EventManagerClass {
     };
   }
 
-  registerMechanic(mechanic: MechanicNode, equipperName: string): void {
+  registerMechanic(mechanic: MechanicNode, equipperName: string, mechanicKey?: string): void {
     const hasNoRule = !mechanic.triggerRule || mechanic.triggerRule.trim() === '';
     const ruleToCompile = hasNoRule && mechanic.isPassive ? 'ALWAYS' : mechanic.triggerRule;
     if (!ruleToCompile) return;
@@ -35,6 +38,7 @@ export class EventManagerClass {
       this.listeners[t.event].push({
         ...mechanic,
         equipper: equipperName,
+        mechanicKey,
         triggerEvent: t.event,
         evaluate: compiledRule.evaluate,
         requiredModifiers: t.modifiers
