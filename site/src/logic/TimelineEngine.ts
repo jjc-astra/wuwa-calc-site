@@ -32,6 +32,20 @@ export interface QueuedHit {
   isProc: boolean;
 }
 
+// What a run produces. Each mode skips the work whose output nobody reads, so a throwaway pass
+// isn't slowed down by bookkeeping meant for the screen.
+//   full    the rotation table: everything, plus console warnings for rows with problems
+//   silent  the same rows and hits without the warnings, for passes that re-simulate rows
+//           another pass already reported (Results, the Ending Rotation preview)
+//   lean    only timings, resources and messages: no dropdown snapshots and no per-hit damage
+//           log, for the loop analysis, which never reads them
+export type EngineMode = 'full' | 'silent' | 'lean';
+const RUN_PROFILES: Record<EngineMode, { dropdownSnapshots: boolean; hitLog: boolean; logWarnings: boolean }> = {
+  full:   { dropdownSnapshots: true,  hitLog: true,  logWarnings: true },
+  silent: { dropdownSnapshots: true,  hitLog: true,  logWarnings: false },
+  lean:   { dropdownSnapshots: false, hitLog: false, logWarnings: false }
+};
+
 export class TimelineEngineClass {
   damageQueue: QueuedHit[] = [];
   currentGlobalGameTime = 0;
@@ -41,25 +55,21 @@ export class TimelineEngineClass {
   _localBuffCache: Record<string, Effect> = {};
   _globalBuffCache: Record<string, Effect | null> = {};
   _enemyConfig: { level: number; res: number; hp: number } = ENEMY_DEFAULTS;
-  // Skips UI-only bookkeeping (dropdown snapshots, per-hit history) that throwaway analyzeLoop
-  // sims never read.
-  _lightweightMode = false;
-  // Skips the per-row console warnings, for passes that re-simulate rows another pass already reported.
-  _quiet = false;
+  // Which optional work this recalculateState call does (see EngineMode).
+  _run = RUN_PROFILES.full;
   // Memoizes _getModifiedMoveData per actionId for one recalculateState call; reset each call.
   _moveDataCache: Record<string, MechanicNode | null> = {};
 
   recalculateState(
     activeRows: any[],
     team: any[] = [],
-    options: { startEnergy?: boolean; startConcerto?: boolean; lightweight?: boolean; quiet?: boolean } = {},
+    options: { startEnergy?: boolean; startConcerto?: boolean; mode?: EngineMode } = {},
     enemyConfig: { level: number; res: number; hp: number } = ENEMY_DEFAULTS
   ): any[] {
     if (activeRows.length === 0) return [];
 
     this.isRecalculating = true;
-    this._lightweightMode = !!options.lightweight;
-    this._quiet = !!options.quiet;
+    this._run = RUN_PROFILES[options.mode ?? 'full'];
     this._moveDataCache = {};
     this._enemyConfig = enemyConfig;
     this.damageQueue = [];
@@ -100,7 +110,7 @@ export class TimelineEngineClass {
         this._applyInheritance(currentData, prevData, accumulatedGameTime, team);
         currentData.timeStart = accumulatedTime;
         currentData.gameTimeStart = accumulatedGameTime;
-        if (!this._lightweightMode) currentData.dropdownState = plainCopy(currentData, ROW_LINK_KEYS);
+        if (this._run.dropdownSnapshots) currentData.dropdownState = plainCopy(currentData, ROW_LINK_KEYS);
         continue;
       }
 
@@ -392,14 +402,14 @@ export class TimelineEngineClass {
         }
       }
 
-      // Pre-cast dropdown snapshot, skipped in lightweight mode (nothing renders it there).
-      if (!this._lightweightMode) {
+      // Pre-cast dropdown snapshot, for the row's panels.
+      if (this._run.dropdownSnapshots) {
         currentData.dropdownState = dropdownSnapshot(currentData);
       }
 
       this._runValidation(currentData, prevData, team, dbMove);
 
-      if (!this._lightweightMode && !this._quiet && (currentData.warningMsgs.length > 0 || currentData.errorMsgs.length > 0)) {
+      if (this._run.logWarnings && (currentData.warningMsgs.length > 0 || currentData.errorMsgs.length > 0)) {
         console.warn(`[TimelineEngine] Row #${i + 1} (${currentData.unit} - ${currentData.action}):`, {
           errors: currentData.errorMsgs,
           warnings: currentData.warningMsgs,
@@ -423,8 +433,8 @@ export class TimelineEngineClass {
       emptyRow.gameTimeStart = accumulatedGameTime;
       emptyRow.timeStart = accumulatedTime;
 
-      if (!this._lightweightMode) emptyRow.dropdownState = plainCopy(emptyRow, ROW_LINK_KEYS);
-    } else if (emptyRow && !this._lightweightMode) {
+      if (this._run.dropdownSnapshots) emptyRow.dropdownState = plainCopy(emptyRow, ROW_LINK_KEYS);
+    } else if (emptyRow && this._run.dropdownSnapshots) {
       emptyRow.dropdownState = plainCopy(emptyRow, ROW_LINK_KEYS);
     }
 
@@ -507,7 +517,7 @@ export class TimelineEngineClass {
       ...loopTemplate.map(cloneAuthored)
     ];
     const extendedInput = [...extendedContent, { unit: '', action: '', timing: 'Auto', offset: 0 }];
-    const extendedResult = this.recalculateState(extendedInput, team, { ...options, lightweight: true }, enemyConfig);
+    const extendedResult = this.recalculateState(extendedInput, team, { ...options, mode: 'lean' }, enemyConfig);
 
     const secondRepStart = openerRows.length + loopTemplate.length;
     const contentEnd = extendedContent.length; // excludes the synthetic trailing blank row
@@ -948,8 +958,8 @@ export class TimelineEngineClass {
       this._fire('OnHit', nextHit.hitModifiers, currentData, nextHit.origin.caster, activeTeam, activeRows, team, nextHit.executeAt);
       delete currentData.activeProcSource;
 
-      // Builds this hit's UI-facing history entry (DMG-cell breakdown); skipped in lightweight mode.
-      if (!this._lightweightMode) {
+      // Builds this hit's history entry: the DMG-cell breakdown, and what Results prices.
+      if (this._run.hitLog) {
         const hitName = nextHit.originMoveData.name + (nextHit.totalHits > 1 ? ` (Hit ${nextHit.hitIndex + 1})` : '');
         if (!nextHit.originRow._pendingHits) nextHit.originRow._pendingHits = [];
 
