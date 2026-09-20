@@ -81,7 +81,8 @@ function buildExtendedTimeline(
   enemyConfig: { level: number; res: number; hp: number },
   loopStartIndex: number,
   endingRotationEnabled: boolean,
-  endRotationStartsEarlier: boolean = false
+  endRotationStartsEarlier: boolean = false,
+  shared?: SharedExtendedRun
 ): { evaluatedRows: any[]; openerEndTime: Frames; loopDuration: Frames | null } {
   const contentRows = rows.filter(r => r && r.unit);
   const { openerRows, loopTemplate, endingRows } = splitLoopSegments(contentRows, loopStartIndex, endingRotationEnabled);
@@ -117,7 +118,9 @@ function buildExtendedTimeline(
   for (let i = 0; i < repsToSimulate; i++) extendedContent.push(...loopTemplate);
   extendedContent.push(...endingRows);
 
-  return { evaluatedRows: runSimple(extendedContent), openerEndTime, loopDuration };
+  const previewRun = shared?.run;
+  const reusable = previewRun && previewRun.reps === repsToSimulate && previewRun.contentLength === extendedContent.length;
+  return { evaluatedRows: reusable ? previewRun.evaluatedRows : runSimple(extendedContent), openerEndTime, loopDuration };
 }
 
 // Prices every row's queued hits in order against the enemy's running HP (each hit reads the HP
@@ -147,6 +150,13 @@ export function populateDamageInstances(rows: any[], enemyConfig: { hp: number }
   priceHits(rows, team, enemyConfig, (row, _hit, result) => row.damageInstances.push(result));
 }
 
+// The Ending Rotation preview and the Results pass simulate the same opener + N loops + ending
+// timeline whenever they pick the same N. The preview records its run here so the Results pass
+// can reuse it instead of simulating again.
+export interface SharedExtendedRun {
+  run?: { reps: number; contentLength: number; evaluatedRows: any[] };
+}
+
 // Live-preview counterpart to buildExtendedTimeline, used by calc.worker.ts's cheap
 // 'recalculate' pass. Re-derives when Ending Rotation actually starts (after enough whole
 // loops fill 120s, not right after the table's single loop rep) and splices it onto
@@ -158,7 +168,8 @@ export function previewEndingRotationTiming(
   enemyConfig: { level: number; res: number; hp: number },
   loopStartIndex: number,
   populateDamage: boolean = false,
-  endRotationStartsEarlier: boolean = false
+  endRotationStartsEarlier: boolean = false,
+  shared?: SharedExtendedRun
 ): any[] {
   const contentRows = evaluatedRows.filter(r => r && r.unit);
   const { openerRows, loopTemplate, endingRows } = splitLoopSegments(contentRows, loopStartIndex, true);
@@ -178,6 +189,7 @@ export function previewEndingRotationTiming(
 
   const previewInput = [...extendedContent.map(cloneAuthored), { unit: '', action: '', timing: 'Auto', offset: 0 }];
   const previewEvaluated = TimelineEngine.recalculateState(previewInput, team, { ...options, mode: 'silent' }, enemyConfig);
+  if (shared) shared.run = { reps: repsToSimulate, contentLength: extendedContent.length, evaluatedRows: previewEvaluated };
 
   // So Ending Rotation's re-timed rows get their own DMG column too.
   if (populateDamage) populateDamageInstances(previewEvaluated, enemyConfig, team);
@@ -514,9 +526,10 @@ export function buildRotationResults(
   enemyConfig: { level: number; res: number; hp: number },
   loopStartIndex: number,
   endingRotationEnabled: boolean = false,
-  endRotationStartsEarlier: boolean = false
+  endRotationStartsEarlier: boolean = false,
+  shared?: SharedExtendedRun
 ): RotationResults {
-  const { evaluatedRows, openerEndTime, loopDuration } = buildExtendedTimeline(rows, team, options, enemyConfig, loopStartIndex, endingRotationEnabled, endRotationStartsEarlier);
+  const { evaluatedRows, openerEndTime, loopDuration } = buildExtendedTimeline(rows, team, options, enemyConfig, loopStartIndex, endingRotationEnabled, endRotationStartsEarlier, shared);
   const hits = buildHitList(evaluatedRows, team, enemyConfig);
   const teamNames = team.filter(s => s.character).map(s => s.character);
   const twoMinHits = windowedHits(hits, -Infinity, TWO_MIN);

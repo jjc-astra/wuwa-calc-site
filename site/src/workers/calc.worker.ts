@@ -2,7 +2,7 @@
 // main thread, with its own separate DataLoader -- compiled DSL trigger-rule functions can't be
 // structured-cloned, so there's no way to share one instance across postMessage anyway.
 import { TimelineEngine } from '../logic/TimelineEngine';
-import { buildRotationResults, populateDamageInstances, previewEndingRotationTiming } from '../logic/ResultsCalculator';
+import { buildRotationResults, populateDamageInstances, previewEndingRotationTiming, type SharedExtendedRun } from '../logic/ResultsCalculator';
 import { DataLoader } from '../utils/DataLoader';
 import { applyBuilderOverridesToDataLoader } from './builderOverridePayload';
 
@@ -85,18 +85,24 @@ worker.onmessage = async (e: MessageEvent) => {
         loopWarnings
       });
     } else if (type === 'calculateDamage') {
-      const { rows, team, options, enemy, loopStartIndex, endingRotationEnabled, endRotationStartsEarlier } = payload;
+      const { rows, team, options, enemy, endingRotationEnabled, endRotationStartsEarlier } = payload;
 
       let evaluatedRows = TimelineEngine.recalculateState(rows, team, options, enemy);
       populateDamageInstances(evaluatedRows, enemy, team);
+      // The live calculator passes the loop start it already has; one-shot callers omit it.
+      const loopStartIndex: number = typeof payload.loopStartIndex === 'number'
+        ? payload.loopStartIndex
+        : TimelineEngine.findLoopStart(evaluatedRows, team[0]?.character).index;
       // Same re-timing as the 'recalculate' preview above, or Calculate would overwrite the
       // Ending Rotation rows' columns with the plain single-pass evaluation.
+      const shared: SharedExtendedRun = {};
       if (endingRotationEnabled) {
-        evaluatedRows = previewEndingRotationTiming(evaluatedRows, team, options, enemy, loopStartIndex, true, !!endRotationStartsEarlier);
+        evaluatedRows = previewEndingRotationTiming(evaluatedRows, team, options, enemy, loopStartIndex, true, !!endRotationStartsEarlier, shared);
       }
 
-      // Separate extended (opener + N-loop-repetition) pass -- feeds the Results panel.
-      const results = buildRotationResults(rows, team, options, enemy, loopStartIndex, endingRotationEnabled, !!endRotationStartsEarlier);
+      // Extended (opener + N-loop-repetition) pass -- feeds the Results panel. Reuses the Ending
+      // Rotation preview's simulation when it ran the same timeline.
+      const results = buildRotationResults(rows, team, options, enemy, loopStartIndex, endingRotationEnabled, !!endRotationStartsEarlier, shared);
 
       worker.postMessage({ id, ok: true, evaluatedRows: stripFunctions(evaluatedRows), results });
     }
