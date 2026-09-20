@@ -242,8 +242,10 @@ export const useRankingsStore = create<RankingsState>()(
           filters: { ...currentState.filters, ...(persisted.filters || {}) }
         };
       },
+      // Deferred: restoring from localStorage finishes while the store is still being created,
+      // when `useRankingsStore` isn't assigned yet.
       onRehydrateStorage: () => () => {
-        useRankingsStore.setState({ hasHydrated: true });
+        queueMicrotask(() => useRankingsStore.setState({ hasHydrated: true }));
       }
     }
   )

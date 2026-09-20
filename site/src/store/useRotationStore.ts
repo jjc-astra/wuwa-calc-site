@@ -909,15 +909,19 @@ export const useRotationStore = create<RotationState>()(
         undoStackData: state.undoStackData,
         redoStackData: state.redoStackData
       }),
+      // Persisted rows never carry an id (see toPersistedRow), but the row list is keyed by it.
+      // Done here, not in onRehydrateStorage below: that callback runs while the store is still
+      // being created, so it can't reach `useRotationStore` yet.
+      merge: (persisted, current) => {
+        const merged = { ...current, ...(persisted as Partial<RotationState>) };
+        return { ...merged, rows: merged.rows.map(r => (r.id ? r : { ...r, id: crypto.randomUUID() })) };
+      },
       // Rebuilds historyManager's real stacks from the persisted descriptions -- restoreStacks
       // just assigns them (no execute()/undo() side effects), since `rows` above is already the
-      // up-to-date result of those commands having run before the reload.
+      // up-to-date result of those commands having run before the reload. `ctx` only touches
+      // `useRotationStore` lazily, once a revived command actually runs.
       onRehydrateStorage: () => state => {
         if (!state) return;
-        // Persisted rows never carry an id (see toPersistedRow) -- backfill on rehydrate.
-        if (state.rows.some(r => !r.id)) {
-          useRotationStore.setState({ rows: state.rows.map(r => (r.id ? r : { ...r, id: crypto.randomUUID() })) });
-        }
         const ctx: RevivalContext = {
           getRows: () => useRotationStore.getState().rows,
           setRows: rows => useRotationStore.setState({ rows }),

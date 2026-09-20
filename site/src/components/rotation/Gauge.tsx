@@ -2,10 +2,11 @@
 
 import React from 'react';
 import { DataLoader } from '../../utils/DataLoader';
-import { CHARACTER_DEFAULTS, MECHANICS_NOTATION } from '../../data/db';
+import { MECHANICS_NOTATION } from '../../data/db';
 import { TooltipManager, CommonUtils } from '../../utils/Common';
 import { forteLabel } from '../../utils/ForteNames';
-import { forteKey, maxForteKey, holdSlotNumber } from '../../utils/ResourceKeys';
+import { forteKey, holdSlotNumber } from '../../utils/ResourceKeys';
+import { forteMax } from '../../logic/resources';
 
 const gaugePercent = (value: number, max: number): number => Math.min(100, Math.max(0, (value / (max || 100)) * 100));
 
@@ -92,9 +93,8 @@ export const MultiForteGauge: React.FC<MultiForteGaugeProps> = ({ unit, stateDat
         {Array.from({ length: forteCount }).map((_, idx) => {
           const num = idx + 1;
           const fKey = forteKey(num);
-          const maxKey = maxForteKey(num);
           let val = stateData?.[fKey]?.[unit] || 0;
-          let max = dbChar[maxKey] !== undefined ? parseFloat(dbChar[maxKey]) : CHARACTER_DEFAULTS.maxForte;
+          let max = forteMax(dbChar, num);
           let isGlowing = false;
 
           if (holdConfig && num === holdForteNum) {

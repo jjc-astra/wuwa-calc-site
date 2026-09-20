@@ -110,6 +110,8 @@ export class TimelineEngineClass {
       // the live cursor-tracking block further down reuses it instead of re-resolving the same
       // holdConfig/DSL-window/maxCap work a second time for the same row.
       let holdConfigCache: { config: HoldConfig; mode: string; speed: number; maxVal: number; center: number; size: number } | null = null;
+      // Waits the same lookahead adds for a hold's release, listed with this row's other wait reasons below.
+      const holdWaitReasons: Array<{ label: string; valueFrames: Frames }> = [];
 
       const dbMove =
         this._getModifiedMoveData(currentData.action) ||
@@ -220,16 +222,14 @@ export class TimelineEngineClass {
           if (appliedDelay > 0) {
             finalWaitTime += appliedDelay;
             currentData.waitTime = finalWaitTime;
-            if (!currentData.offsetReasons) currentData.offsetReasons = [];
-            currentData.offsetReasons.push({ label: 'Manual Hold Wait', valueFrames: toFrames(appliedDelay) });
+            holdWaitReasons.push({ label: 'Manual Hold Wait', valueFrames: toFrames(appliedDelay) });
           }
           // Not surfaced here: the user has explicitly opted out of waiting for "done", so an
           // auto-search miss isn't an error for them the way it is in every other timing mode.
         } else if (holdReachable && holdReleaseDelay > 0) {
           finalWaitTime += holdReleaseDelay;
           currentData.waitTime = finalWaitTime;
-          if (!currentData.offsetReasons) currentData.offsetReasons = [];
-          currentData.offsetReasons.push({ label: mode === 'clamp' ? 'Forte Full Wait' : 'Forte Window Wait', valueFrames: toFrames(holdReleaseDelay) });
+          holdWaitReasons.push({ label: mode === 'clamp' ? 'Forte Full Wait' : 'Forte Window Wait', valueFrames: toFrames(holdReleaseDelay) });
         } else if (!holdReachable) {
           // Speed is 0 (or otherwise can't reach the target) -- surfaced by _runValidation as
           // an error instead of silently releasing as if it were already ready.
@@ -304,6 +304,7 @@ export class TimelineEngineClass {
       if (wCD > 0) reasons.push({ label: 'Waiting for Skill CD', valueFrames: wCD });
       if (wBusy > 0) reasons.push({ label: 'Off-Field Animation Lock', valueFrames: toFrames(wBusy) });
       if (resourceWaitFrames > 0) reasons.push({ label: resourceWaitLabel || 'Waiting for Resource', valueFrames: toFrames(resourceWaitFrames) });
+      reasons.push(...holdWaitReasons);
       if (baseActDur > 0) reasons.push({ label: 'Base Action Duration', valueFrames: toFrames(baseActDur) });
       else reasons.push({ label: 'Instant Cast', valueFrames: toFrames(0) });
 
@@ -1118,7 +1119,7 @@ export class TimelineEngineClass {
 
   // Emits several events for one tracker, gathering every listener's effects before running any of them.
   _fireTrackerEvents(events: string[], trackerName: string, currentData: any, unitName: string, activeTeam: string[], activeRows: any[], team: any[]): void {
-    const effects = events.flatMap(event => EventManager.emit(event, new Set([trackerName]), currentData, unitName, team));
+    const effects = events.flatMap(event => EventManager.emit(event, eventModifier(trackerName), currentData, unitName, team));
     this._executeEffectsStream(effects, currentData, activeTeam, activeRows, this.currentGlobalRealTime, unitName, team);
   }
 
@@ -1535,8 +1536,11 @@ export class TimelineEngineClass {
       newVal = Math.max(0, currentVal - (effect.value !== undefined ? parseFloat(String(effect.value)) : 1));
     }
 
+    // Setting a tracker that doesn't exist yet to 0 still creates it -- a Hold pressed at game
+    // time 0 has to register its start, or its Release has nothing to wait against.
+    const createsTracker = (action === 'set' || action === 'copy') && currentData.trackers[effect.name || ''] === undefined;
     const delta = newVal - currentVal;
-    if (delta === 0 && action !== 'detonate') return;
+    if (delta === 0 && action !== 'detonate' && !createsTracker) return;
 
     currentData.trackers[effect.name || ''] = newVal;
 

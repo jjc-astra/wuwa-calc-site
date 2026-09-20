@@ -25,6 +25,7 @@
 //
 // Options:  --only <substring>   run only scenarios whose name contains it
 //           --max-diffs <n>      diffs to print per scenario (default 12)
+//           --dump <file>        (check) also write the current output there as JSON
 import { createServer } from 'vite';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -339,6 +340,18 @@ function generateSweep(dataLoader, team) {
   return rows;
 }
 
+// Opens with the first unit's holds and releases, so a Hold pressed at game time 0 is exercised.
+function generateHoldOpen(dataLoader, team) {
+  const first = team[0].character;
+  const holds = (dataLoader.mechanicsIndex[first] || []).filter(key => {
+    const move = dataLoader.mechanicsDB[key];
+    return move && !move.isPassive && (move.inputType === 'Hold' || move.inputType === 'Release');
+  });
+  const rows = holds.slice(0, 6).map((action, i) => ({ id: `r${i}`, unit: first, action, timing: 'Auto', offset: 0 }));
+  rows.push({ id: 'end', unit: '', action: '', timing: 'Auto', offset: 0 });
+  return rows;
+}
+
 function buildScenarios() {
   const scenarios = [];
   for (const team of TEAMS) {
@@ -355,6 +368,7 @@ function buildScenarios() {
       });
     }
     scenarios.push({ name: `${team.name}/sweep`, team, seed: 101, mode: 'sweep', options: { startEnergy: true, startConcerto: true }, endingRotation: false, includeResults: true });
+    scenarios.push({ name: `${team.name}/hold-open`, team, seed: 103, mode: 'hold-open', options: { startEnergy: true, startConcerto: true }, endingRotation: false, includeResults: false });
     scenarios.push({ name: `${team.name}/sweep-cold`, team, seed: 102, mode: 'sweep', options: { startEnergy: false, startConcerto: false }, endingRotation: true, includeResults: false });
   }
   return scenarios.filter(s => s.name.includes(only));
@@ -417,7 +431,9 @@ function runScenario(scenario, ctx) {
     const scenarioTeam = team.map(s => JSON.parse(JSON.stringify(s)));
     const rows = scenario.mode === 'sweep'
       ? generateSweep(mods.DataLoader, scenarioTeam)
-      : generateRotation(mods.DataLoader, scenarioTeam, scenario.seed, ROTATION_LENGTH);
+      : scenario.mode === 'hold-open'
+        ? generateHoldOpen(mods.DataLoader, scenarioTeam)
+        : generateRotation(mods.DataLoader, scenarioTeam, scenario.seed, ROTATION_LENGTH);
     const out = { generatedRows: canon(rows.map(r => ({ unit: r.unit, action: r.action, timing: r.timing }))) };
 
     let evaluated = TimelineEngine.recalculateState(rows, scenarioTeam, scenario.options, enemy);
@@ -525,6 +541,8 @@ async function check() {
     throw new Error('Frozen data no longer matches the baseline. Re-run `npm run engine:baseline`.');
   }
   const current = await runAll();
+  const dumpTo = flag('--dump', '');
+  if (dumpTo) fs.writeFileSync(dumpTo, JSON.stringify(current));
   let failed = 0;
   for (const name of Object.keys(current)) {
     const expected = base.results[name];

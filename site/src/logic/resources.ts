@@ -24,6 +24,12 @@ export function readResource(state: any, key: string, unit: string): number {
   return (isEnemyResource(key) ? state.enemyTune : state[key]?.[unit]) || 0;
 }
 
+// A character's maximum for one forte slot. Unset, zero or unreadable falls back to the default,
+// so the engine's cap, `@Self.MaxForteN` and the gauges always agree.
+export function forteMax(stats: Record<string, any> | undefined, slot: number | string): number {
+  return parseFloat(String(stats?.[maxForteKey(slot)])) || CHARACTER_DEFAULTS.maxForte;
+}
+
 // The highest a resource can go. Keys that aren't resources are uncapped.
 export function resourceCap(charName: string, key: string): number {
   if (key === 'concerto' || key === 'maxConcerto') return CHARACTER_DEFAULTS.maxConcerto;
@@ -32,7 +38,7 @@ export function resourceCap(charName: string, key: string): number {
   if (key === 'energy' || key === 'maxEnergy') return parseFloat(String(dbChar.maxEnergy)) || CHARACTER_DEFAULTS.maxEnergy;
   if (key.startsWith('forte') || key.startsWith('maxForte')) {
     const slot = key.replace('maxForte', '').replace('forte', '');
-    return parseFloat(String((dbChar as any)[maxForteKey(slot)])) || CHARACTER_DEFAULTS.maxForte;
+    return forteMax(dbChar, slot);
   }
   return Infinity;
 }

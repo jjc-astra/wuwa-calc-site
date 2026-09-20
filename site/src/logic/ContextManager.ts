@@ -3,7 +3,7 @@ import { CombatCalculator } from './CombatCalculator';
 import { CHARACTER_DEFAULTS, ENEMY_DEFAULTS, GAME_DEFAULTS } from '../data/db';
 import { forteAlias } from '../utils/ForteNames';
 import { forteKey, maxForteKey } from '../utils/ResourceKeys';
-import { readResource } from './resources';
+import { forteMax, readResource } from './resources';
 
 export const ContextManager = {
   // Seconds until `actionName` (bare move name) next has a use available for `unitName`, given
@@ -107,7 +107,7 @@ export const ContextManager = {
         const fKey = forteKey(i);
         const maxKey = maxForteKey(i);
         selfContext[fKey] = readResource(activeState, fKey, activeUnitName);
-        selfContext[maxKey] = dbChar[maxKey] !== undefined ? parseFloat(dbChar[maxKey] as any) : CHARACTER_DEFAULTS.maxForte;
+        selfContext[maxKey] = forteMax(dbChar, i);
         const alias = forteAlias(dbChar, i);
         if (alias) {
           selfContext[alias] = selfContext[fKey];

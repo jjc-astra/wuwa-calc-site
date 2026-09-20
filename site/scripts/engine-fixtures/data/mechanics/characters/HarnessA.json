@@ -442,6 +442,18 @@
         "type": "tracker",
         "name": "Mark",
         "action": "delete"
+      },
+      {
+        "type": "tracker",
+        "name": "Combo Count",
+        "action": "add",
+        "value": 2
+      },
+      {
+        "type": "tracker",
+        "name": "Combo Count",
+        "action": "detonate",
+        "value": 1
       }
     ]
   },
@@ -661,6 +673,20 @@
       {
         "type": "buff",
         "name": "HarnessA_Tracker Seen",
+        "duration": 6,
+        "maxStacks": 9
+      }
+    ]
+  },
+  "HarnessA_Combo Watch": {
+    "name": "Combo Watch",
+    "category": "Inherent Skill",
+    "isPassive": true,
+    "triggerRule": "ANY(OnTrackerAdd[Combo Count], OnTrackerDetonate[Combo Count])",
+    "effects": [
+      {
+        "type": "buff",
+        "name": "HarnessA_Combo Seen",
         "duration": 6,
         "maxStacks": 9
       }

@@ -23,5 +23,6 @@ export function stacksAfterSpending(current: number, spec: unknown, whole: boole
 // The lowercase set a hit/cast/proc is matched against by `OnHit[...]`-style modifiers.
 export const modifierSet = (parts: unknown[]): Set<string> => new Set(parts.map(part => String(part).toLowerCase()));
 
-// The one-name set a buff or tracker event fires with.
+// The one-name set a buff or tracker event fires with. Lowercase, since `Event[Name]` brackets
+// are lowercased when the DSL is parsed (dslParser.ts).
 export const eventModifier = (name: string | undefined): Set<string> => new Set([(name || '').toLowerCase()]);
