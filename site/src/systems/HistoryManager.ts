@@ -1,7 +1,9 @@
 // Undo/redo stacks are persisted (see useRotationStore's partialize) and some commands
 // (MoveRowsCommand) carry a full rows-array snapshot -- unbounded growth over a long editing
 // session can exceed localStorage's quota and start throwing on every subsequent action.
-import { makeBlankRow } from '../logic/rotationRows';
+// So commands remember only what a row IS (unit, action, timing, markers) -- never what the
+// simulation calculated for it, which the recalculate after every undo/redo rebuilds anyway.
+import { makeBlankRow, toPersistedRow } from '../logic/rotationRows';
 
 const MAX_HISTORY_SIZE = 50;
 
@@ -203,7 +205,8 @@ export class DeleteRowsCommand extends BaseRowsCommand {
   // indices, so the exact same constructor works both for a fresh delete (see
   // computeDeletedData, called against the live rows) and for reviving a persisted command
   // (deletedData read straight back from storage, since the rows it refers to may no longer
-  // exist at those indices by the time of revival).
+  // exist at those indices by the time of revival). Each row is cut down to its authored fields
+  // here, which also slims history saved before that was the rule.
   constructor(
     getRows: () => any[],
     setRows: (rows: any[]) => void,
@@ -211,13 +214,13 @@ export class DeleteRowsCommand extends BaseRowsCommand {
     onComplete?: () => void
   ) {
     super(getRows, setRows, onComplete);
-    this.deletedData = deletedData;
+    this.deletedData = deletedData.map(({ row, index }) => ({ row: { id: row.id, ...toPersistedRow(row) }, index }));
   }
 
   static computeDeletedData(rows: any[], indicesToDelete: number[]): { row: any; index: number }[] {
     return indicesToDelete
       .filter((idx: number) => idx >= 0 && idx < rows.length)
-      .map((idx: number) => ({ row: cloneRowsSansLinks([rows[idx]])[0], index: idx }))
+      .map((idx: number) => ({ row: rows[idx], index: idx }))
       .sort((a, b) => b.index - a.index);
   }
 
