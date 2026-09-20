@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import { safeLocalStorage } from '../utils/safeLocalStorage';
+import { persist } from 'zustand/middleware';
+import { persistStorage } from '../utils/safeLocalStorage';
 import type { MechanicNode, BaseStats, EntityFolder } from '../types';
 import { DataLoader } from '../utils/DataLoader';
 import { MechanicKey } from '../utils/MechanicKey';
@@ -74,6 +74,34 @@ interface BuilderState {
   };
 }
 
+// A copy of `record` without `keys`.
+const omit = <T,>(record: Record<string, T>, ...keys: string[]): Record<string, T> => {
+  const copy = { ...record };
+  keys.forEach(key => delete copy[key]);
+  return copy;
+};
+
+// The entries of `record` whose id doesn't belong to `entityName`.
+const omitEntity = <T,>(record: Record<string, T>, entityName: string): Record<string, T> =>
+  Object.fromEntries(Object.entries(record).filter(([id]) => !MechanicKey.belongsTo(id, entityName)));
+
+// The edit log with everything `entityName` ever edited forgotten.
+const withoutEntityEdits = (state: BuilderState, entityName: string) => ({
+  editedBaseStats: omit(state.editedBaseStats, entityName),
+  editedMechanics: omitEntity(state.editedMechanics, entityName),
+  deletedMechanicIds: state.deletedMechanicIds.filter(id => !MechanicKey.belongsTo(id, entityName)),
+  renamedFrom: omitEntity(state.renamedFrom, entityName)
+});
+
+// New base stats for the open entity. Written straight onto the live DataLoader entry too (so
+// Gauge and friends see it without a reload), and logged as an edit.
+const withBaseStats = (state: BuilderState, baseStats: BaseStats) => {
+  if (!state.activeChar) return { baseStats };
+  const target = DataLoader.baseStatsFor(state.activeChar);
+  if (target) Object.assign(target, baseStats);
+  return { baseStats, editedBaseStats: { ...state.editedBaseStats, [state.activeChar]: baseStats } };
+};
+
 // Guards against a stale in-flight setActiveChar call resolving after the user navigated away.
 let activeCharRequestSeq = 0;
 
@@ -130,24 +158,23 @@ export const useBuilderStore = create<BuilderState>()(
         // Replay cached edits onto the pristine fetch -- must run after loadMechanic, which
         // overwrites mechanicsDB with pristine JSON.
         const { editedBaseStats, editedMechanics, deletedMechanicIds } = get();
-        const prefix = MechanicKey.prefix(charName);
         const charEdits = editedBaseStats[charName];
         if (charEdits) {
-          const target = DataLoader.characterDB[charName] || DataLoader.weaponDB[charName];
+          const target = DataLoader.baseStatsFor(charName);
           if (target) Object.assign(target, charEdits);
         }
         Object.entries(editedMechanics).forEach(([id, node]) => {
-          if (id.startsWith(prefix)) DataLoader.registerMechanicNode(id, node);
+          if (MechanicKey.belongsTo(id, charName)) DataLoader.registerMechanicNode(id, node);
         });
         deletedMechanicIds.forEach(id => {
-          if (id.startsWith(prefix)) DataLoader.unregisterMechanicNode(id);
+          if (MechanicKey.belongsTo(id, charName)) DataLoader.unregisterMechanicNode(id);
         });
 
-        const loadedStats = DataLoader.characterDB[charName] || DataLoader.weaponDB[charName] || {};
+        const loadedStats = DataLoader.baseStatsFor(charName) || {};
         const loadedMechs: Record<string, MechanicNode> = {};
 
         Object.keys(DataLoader.mechanicsDB).forEach(key => {
-          if (key.startsWith(prefix)) {
+          if (MechanicKey.belongsTo(key, charName)) {
             loadedMechs[key] = DataLoader.mechanicsDB[key];
           }
         });
@@ -161,30 +188,9 @@ export const useBuilderStore = create<BuilderState>()(
         });
       },
 
-      setBaseStat: (key, value) => {
-        set(state => {
-          if (!state.activeChar) return { baseStats: { ...state.baseStats, [key]: value } };
-          const nextBaseStats = { ...state.baseStats, [key]: value };
-          const target = DataLoader.characterDB[state.activeChar] || DataLoader.weaponDB[state.activeChar];
-          if (target) Object.assign(target, nextBaseStats);
-          return {
-            baseStats: nextBaseStats,
-            editedBaseStats: { ...state.editedBaseStats, [state.activeChar]: nextBaseStats }
-          };
-        });
-      },
+      setBaseStat: (key, value) => set(state => withBaseStats(state, { ...state.baseStats, [key]: value })),
 
-      setAllBaseStats: stats => {
-        set(state => {
-          if (!state.activeChar) return { baseStats: stats };
-          const target = DataLoader.characterDB[state.activeChar] || DataLoader.weaponDB[state.activeChar];
-          if (target) Object.assign(target, stats);
-          return {
-            baseStats: stats,
-            editedBaseStats: { ...state.editedBaseStats, [state.activeChar]: stats }
-          };
-        });
-      },
+      setAllBaseStats: stats => set(state => withBaseStats(state, stats)),
 
       setMechanicNode: (nodeId, node, insertAfter) => {
         set(state => {
@@ -229,9 +235,7 @@ export const useBuilderStore = create<BuilderState>()(
           DataLoader.unregisterMechanicNode(oldId);
           DataLoader.registerMechanicNode(newId, node);
 
-          const updatedEdits = { ...state.editedMechanics };
-          delete updatedEdits[oldId];
-          updatedEdits[newId] = node;
+          const updatedEdits = { ...omit(state.editedMechanics, oldId), [newId]: node };
 
           // Carries the open sub-panel across the id swap (MechanicNodeCard remounts under newId).
           const updatedOpenPanel = { ...state.openPanelByNode };
@@ -243,8 +247,7 @@ export const useBuilderStore = create<BuilderState>()(
           // Chains through earlier renames so it always points at the pristine original; renaming
           // back to that original clears the link.
           const origin = state.renamedFrom[oldId] ?? oldId;
-          const updatedRenamed = { ...state.renamedFrom };
-          delete updatedRenamed[oldId];
+          const updatedRenamed = omit(state.renamedFrom, oldId);
           if (newId !== origin && DataLoader.pristineMechanics[origin]) updatedRenamed[newId] = origin;
           // Back at the original id with identical content isn't an edit.
           if (newId === origin && nodesEqual(node, DataLoader.pristineMechanics[origin])) delete updatedEdits[newId];
@@ -278,19 +281,14 @@ export const useBuilderStore = create<BuilderState>()(
             else if (restored) updated[origin] = restored;
           });
 
-          const nextEdits = { ...s.editedMechanics };
-          delete nextEdits[nodeId];
-          delete nextEdits[origin];
-          const nextRenamed = { ...s.renamedFrom };
-          delete nextRenamed[nodeId];
           const nextOpenPanel = { ...s.openPanelByNode };
           if (restored && origin !== nodeId && nextOpenPanel[nodeId] !== undefined) nextOpenPanel[origin] = nextOpenPanel[nodeId];
           delete nextOpenPanel[nodeId];
 
           return {
             mechanics: updated,
-            editedMechanics: nextEdits,
-            renamedFrom: nextRenamed,
+            editedMechanics: omit(s.editedMechanics, nodeId, origin),
+            renamedFrom: omit(s.renamedFrom, nodeId),
             openPanelByNode: nextOpenPanel,
             deletedMechanicIds: s.deletedMechanicIds.filter(id => id !== nodeId && id !== origin)
           };
@@ -300,23 +298,13 @@ export const useBuilderStore = create<BuilderState>()(
 
       removeMechanicNode: nodeId => {
         set(state => {
-          const updated = { ...state.mechanics };
-          delete updated[nodeId];
           DataLoader.unregisterMechanicNode(nodeId);
 
-          const updatedEdits = { ...state.editedMechanics };
-          delete updatedEdits[nodeId];
-
-          const updatedOpenPanel = { ...state.openPanelByNode };
-          delete updatedOpenPanel[nodeId];
-          const updatedRenamed = { ...state.renamedFrom };
-          delete updatedRenamed[nodeId];
-
           return {
-            mechanics: updated,
-            editedMechanics: updatedEdits,
-            openPanelByNode: updatedOpenPanel,
-            renamedFrom: updatedRenamed,
+            mechanics: omit(state.mechanics, nodeId),
+            editedMechanics: omit(state.editedMechanics, nodeId),
+            openPanelByNode: omit(state.openPanelByNode, nodeId),
+            renamedFrom: omit(state.renamedFrom, nodeId),
             deletedMechanicIds: [...state.deletedMechanicIds.filter(id => id !== nodeId), nodeId]
           };
         });
@@ -325,40 +313,26 @@ export const useBuilderStore = create<BuilderState>()(
       hasChanges: itemName => {
         const { editedBaseStats, editedMechanics, deletedMechanicIds } = get();
         if (editedBaseStats[itemName]) return true;
-        const prefix = MechanicKey.prefix(itemName);
-        if (Object.keys(editedMechanics).some(id => id.startsWith(prefix))) return true;
-        if (deletedMechanicIds.some(id => id.startsWith(prefix))) return true;
-        return false;
+        const isItems = (id: string) => MechanicKey.belongsTo(id, itemName);
+        return Object.keys(editedMechanics).some(isItems) || deletedMechanicIds.some(isItems);
       },
 
       discardChanges: itemName => {
-        const prefix = MechanicKey.prefix(itemName);
         const hadBaseStatEdit = !!get().editedBaseStats[itemName];
         const isActive = get().activeChar === itemName;
         const isWeapon = !!DataLoader.weaponDB[itemName];
-        set(state => {
-          const nextEditedBaseStats = { ...state.editedBaseStats };
-          delete nextEditedBaseStats[itemName];
-          const nextEditedMechanics = Object.fromEntries(
-            Object.entries(state.editedMechanics).filter(([id]) => !id.startsWith(prefix))
-          );
-          const nextDeletedMechanicIds = state.deletedMechanicIds.filter(id => !id.startsWith(prefix));
-          return {
-            editedBaseStats: nextEditedBaseStats,
-            editedMechanics: nextEditedMechanics,
-            deletedMechanicIds: nextDeletedMechanicIds,
-            renamedFrom: Object.fromEntries(Object.entries(state.renamedFrom).filter(([id]) => !id.startsWith(prefix))),
-            ...(isActive ? { baseStats: {}, mechanics: {} } : {})
-          };
-        });
+        set(state => ({
+          ...withoutEntityEdits(state, itemName),
+          ...(isActive ? { baseStats: {}, mechanics: {} } : {})
+        }));
         // setBaseStat/setAllBaseStats write straight onto the live DataLoader entry (see
-        // comment there) -- undo that here too, or a discarded edit keeps showing up outside
+        // withBaseStats) -- undo that here too, or a discarded edit keeps showing up outside
         // the Builder (e.g. Gauge.tsx's forte-dial count) until a full page reload. Only the
         // active entity's DataLoader entry can carry a live edit in the first place.
         if (hadBaseStatEdit && isActive) {
           DataLoader.loadMergedDB<Record<string, any>>(isWeapon ? 'db_weapons.json' : 'db_characters.json').then(fresh => {
             const pristine = fresh[itemName];
-            const target = DataLoader.characterDB[itemName] || DataLoader.weaponDB[itemName];
+            const target = DataLoader.baseStatsFor(itemName);
             if (!pristine || !target) return;
             Object.keys(target).forEach(k => delete (target as any)[k]);
             Object.assign(target, pristine);
@@ -370,8 +344,7 @@ export const useBuilderStore = create<BuilderState>()(
       getTeamOverrides: itemNames => {
         const { editedBaseStats, editedMechanics, deletedMechanicIds } = get();
         const names = new Set(itemNames);
-        const prefixes = itemNames.map(MechanicKey.prefix);
-        const matchesAny = (id: string) => prefixes.some(p => id.startsWith(p));
+        const matchesAny = (id: string) => itemNames.some(name => MechanicKey.belongsTo(id, name));
         return {
           editedBaseStats: Object.fromEntries(Object.entries(editedBaseStats).filter(([name]) => names.has(name))),
           // Strips _compiledRule (a cached live function) -- can't cross postMessage to the
@@ -399,28 +372,13 @@ export const useBuilderStore = create<BuilderState>()(
 
         // Also clear this entity's edit log, or setActiveChar below just replays the same
         // edits back onto the refetched data.
-        const prefix = MechanicKey.prefix(activeChar);
-        set(state => {
-          const nextEditedBaseStats = { ...state.editedBaseStats };
-          delete nextEditedBaseStats[activeChar];
-          const nextEditedMechanics = Object.fromEntries(
-            Object.entries(state.editedMechanics).filter(([id]) => !id.startsWith(prefix))
-          );
-          return {
-            baseStats: {},
-            mechanics: {},
-            editedBaseStats: nextEditedBaseStats,
-            editedMechanics: nextEditedMechanics,
-            renamedFrom: Object.fromEntries(Object.entries(state.renamedFrom).filter(([id]) => !id.startsWith(prefix))),
-            deletedMechanicIds: state.deletedMechanicIds.filter(id => !id.startsWith(prefix))
-          };
-        });
+        set(state => ({ baseStats: {}, mechanics: {}, ...withoutEntityEdits(state, activeChar) }));
         await get().setActiveChar(activeChar, activeFolder, activeRarity);
       }
     }),
     {
       name: 'wuwa_builder_cache',
-      storage: createJSONStorage(() => safeLocalStorage),
+      storage: persistStorage(),
       // `mechanics`/`baseStats` excluded -- derived (pristine data + edits replayed via
       // setActiveChar), not part of the durable edit log. Persisting them verbatim used to
       // re-inject stale keys on reload; re-deriving always re-fetches fresh instead.

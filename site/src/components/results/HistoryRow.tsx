@@ -17,8 +17,7 @@ interface HistoryRowProps {
 }
 
 function buildFilename(entry: HistoryEntry, suffix: string): string {
-  const names = CommonUtils.buildTeamIds(entry.team);
-  return names.length > 0 ? `Rotation_${names.join('_')}${suffix}.json` : `Rotation_Config${suffix}.json`;
+  return CommonUtils.exportFilename('Rotation', entry.team, suffix);
 }
 
 export const HistoryRow: React.FC<HistoryRowProps> = ({ entry }) => {

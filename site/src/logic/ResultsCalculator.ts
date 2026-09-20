@@ -5,7 +5,7 @@ import { CombatCalculator } from './CombatCalculator';
 import { STAT_DB, STAT_NAME_MAP } from '../data/db';
 import { PRIMARY_DMG_TYPES } from '../data/gameVocab';
 import { DPS_WINDOWS } from '../data/dpsWindows';
-import type { HitConfig, TeamSlot } from '../types';
+import type { HitConfig, TeamSlot, DamageInstanceResult } from '../types';
 import { type Frames, toFrames, roundFrames, framesToSeconds } from '../utils/Frames';
 import type {
   DpsStats,
@@ -120,6 +120,33 @@ function buildExtendedTimeline(
   return { evaluatedRows: runSimple(extendedContent), openerEndTime, loopDuration };
 }
 
+// Prices every row's queued hits in order against the enemy's running HP (each hit reads the HP
+// left by the ones before it), handing each result to `onPriced`.
+function priceHits(
+  rows: any[],
+  team: any[],
+  enemyConfig: { hp: number },
+  onPriced: (row: any, hit: any, result: DamageInstanceResult) => void
+): void {
+  let runningEnemyHp = enemyConfig.hp;
+  rows.forEach((row: any) => {
+    (row._pendingHits || []).forEach((hit: any) => {
+      hit.context.enemyHp = runningEnemyHp;
+      const result = CombatCalculator.calculateDamageInstance(hit.config, hit.context, team);
+      runningEnemyHp = Math.max(0, runningEnemyHp - result.total);
+      onPriced(row, hit, result);
+    });
+  });
+}
+
+// Fills each row's `damageInstances` (the per-row damage breakdown dropdown) from a short pass over
+// the literal authored rows. Mutates rows in place; runs independent of the Results panel's
+// extended (opener + N-loop) pass, and starts from full enemy HP.
+export function populateDamageInstances(rows: any[], enemyConfig: { hp: number }, team: any[]): void {
+  rows.forEach((row: any) => { row.damageInstances = []; });
+  priceHits(rows, team, enemyConfig, (row, _hit, result) => row.damageInstances.push(result));
+}
+
 // Live-preview counterpart to buildExtendedTimeline, used by calc.worker.ts's cheap
 // 'recalculate' pass. Re-derives when Ending Rotation actually starts (after enough whole
 // loops fill 120s, not right after the table's single loop rep) and splices it onto
@@ -152,22 +179,8 @@ export function previewEndingRotationTiming(
   const previewInput = [...extendedContent.map(cloneAuthored), { unit: '', action: '', timing: 'Auto', offset: 0 }];
   const previewEvaluated = TimelineEngine.recalculateState(previewInput, team, { ...options, quiet: true }, enemyConfig);
 
-  // Mirrors calc.worker.ts's populateDamageInstances so Ending Rotation's re-timed rows get
-  // their own DMG column too (starts from full enemy HP, same simplification the caller uses).
-  if (populateDamage) {
-    let runningEnemyHp = enemyConfig.hp;
-    previewEvaluated.forEach((row: any) => {
-      row.damageInstances = [];
-      if (row._pendingHits && row._pendingHits.length > 0) {
-        row._pendingHits.forEach((hit: any) => {
-          hit.context.enemyHp = runningEnemyHp;
-          const result = CombatCalculator.calculateDamageInstance(hit.config, hit.context, team);
-          runningEnemyHp = Math.max(0, runningEnemyHp - result.total);
-          row.damageInstances.push(result);
-        });
-      }
-    });
-  }
+  // So Ending Rotation's re-timed rows get their own DMG column too.
+  if (populateDamage) populateDamageInstances(previewEvaluated, enemyConfig, team);
 
   const evaluatedEndingRows = previewEvaluated.filter((r: any) => r && r.unit).slice(-endingRows.length);
 
@@ -184,27 +197,18 @@ export function previewEndingRotationTiming(
   });
 }
 
-// Walks every row's queued hits and prices them, mirroring useRotationStore's calculateDamage()
-// loop but over the extended timeline instead of the literal authored rows.
+// Prices every queued hit over the extended timeline (rather than the literal authored rows).
 function buildHitList(evaluatedRows: any[], team: any[], enemyConfig: { level: number; res: number; hp: number }): RotationHit[] {
   const hits: RotationHit[] = [];
-  let runningEnemyHp = enemyConfig.hp;
-
-  evaluatedRows.forEach((row: any) => {
-    if (!row._pendingHits || row._pendingHits.length === 0) return;
-    row._pendingHits.forEach((hit: any) => {
-      hit.context.enemyHp = runningEnemyHp;
-      const result = CombatCalculator.calculateDamageInstance(hit.config, hit.context, team);
-      runningEnemyHp = Math.max(0, runningEnemyHp - result.total);
-      hits.push({
-        gameTime: toFrames(result.gameTime ?? hit.config.gameTime ?? 0),
-        total: result.total,
-        provider: hit.config.provider,
-        dmgTypes: hit.config.dmgTypes || [],
-        formulaUsed: result.formulaUsed,
-        config: hit.config,
-        context: hit.context
-      });
+  priceHits(evaluatedRows, team, enemyConfig, (_row, hit, result) => {
+    hits.push({
+      gameTime: toFrames(result.gameTime ?? hit.config.gameTime ?? 0),
+      total: result.total,
+      provider: hit.config.provider,
+      dmgTypes: hit.config.dmgTypes || [],
+      formulaUsed: result.formulaUsed,
+      config: hit.config,
+      context: hit.context
     });
   });
 

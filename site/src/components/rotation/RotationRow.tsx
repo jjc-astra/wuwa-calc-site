@@ -14,6 +14,7 @@ import { SubPanel } from './SubPanel';
 import { Dropdown } from '../common/Dropdown';
 import type { DropdownGroup } from '../common/Dropdown';
 import { TooltipManager, getCharacterThemeColor } from '../../utils/Common';
+import { teamCharacters } from '../../utils/TeamUtils';
 import { toFrames, secondsToFrames, framesToSeconds, formatFramesAsSeconds } from '../../utils/Frames';
 import { applyBuilderOverridesFor } from '../../workers/builderOverridePayload';
 
@@ -124,7 +125,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
   const [offsetDraft, setOffsetDraft] = useState<string | null>(null);
   const [repeatCountDraft, setRepeatCountDraft] = useState<string | null>(null);
 
-  const teamUnits = team.map(t => t.character).filter(Boolean);
+  const teamUnits = teamCharacters(team);
   const selectedUnit = row.unit || '';
 
   const dbChar: Record<string, any> = selectedUnit ? DataLoader.characterDB[selectedUnit] || {} : {};

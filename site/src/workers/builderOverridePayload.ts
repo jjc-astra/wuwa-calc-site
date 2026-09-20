@@ -24,7 +24,7 @@ export interface BuilderOverrides {
 export function applyBuilderOverridesToDataLoader(overrides: BuilderOverrides | undefined): void {
   if (!overrides) return;
   Object.entries(overrides.editedBaseStats).forEach(([name, stats]) => {
-    const target = DataLoader.characterDB[name] || DataLoader.weaponDB[name];
+    const target = DataLoader.baseStatsFor(name);
     if (target) Object.assign(target, stats);
   });
   Object.entries(overrides.editedMechanics).forEach(([id, node]) => {

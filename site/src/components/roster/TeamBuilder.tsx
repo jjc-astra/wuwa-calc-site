@@ -7,6 +7,7 @@ import { TeamPreview } from '../common/TeamPreview';
 import { useAccordionAnimDone } from '../../hooks/useAccordionAnimDone';
 import { useCollapseMaxHeight } from '../../hooks/useCollapseMaxHeight';
 import { CommonUtils } from '../../utils/Common';
+import { serializableTeam } from '../../utils/TeamUtils';
 
 interface TeamBuilderProps {
   isOpen: boolean;
@@ -23,39 +24,29 @@ export const TeamBuilder: React.FC<TeamBuilderProps> = ({ isOpen, onToggle }) =>
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleExport = () => {
-    const dataToExport = team.map(slot => {
-      const { domRef, ...cleanData } = slot;
-      return cleanData;
-    });
-    
-    const names = CommonUtils.buildTeamIds(dataToExport);
-    const filename = names.length > 0 ? `Team_${names.join('_')}.json` : 'Team_Config.json';
-    CommonUtils.downloadJson(dataToExport, filename);
+    const dataToExport = serializableTeam(team);
+    CommonUtils.downloadJson(dataToExport, CommonUtils.exportFilename('Team', dataToExport));
   };
 
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      try {
-        const data = JSON.parse(ev.target?.result as string);
-        // Accepts a plain team export (array) or a rotation export (team nested under .team).
-        const teamData = Array.isArray(data) ? data : Array.isArray(data?.team) ? data.team : null;
-        if (teamData) {
-          await importTeam(teamData);
-          if (!isOpen) onToggle();
-        } else {
-          alert('No team data found in this file.');
-        }
-      } catch (err) {
-        console.error('[TeamBuilder] Error importing team:', err);
-        alert('Error loading team.');
-      }
-    };
-    reader.readAsText(file);
     if (fileInputRef.current) fileInputRef.current.value = '';
+
+    try {
+      const data = JSON.parse(await CommonUtils.readTextFile(file));
+      // Accepts a plain team export (array) or a rotation export (team nested under .team).
+      const teamData = Array.isArray(data) ? data : Array.isArray(data?.team) ? data.team : null;
+      if (teamData) {
+        await importTeam(teamData);
+        if (!isOpen) onToggle();
+      } else {
+        alert('No team data found in this file.');
+      }
+    } catch (err) {
+      console.error('[TeamBuilder] Error importing team:', err);
+      alert('Error loading team.');
+    }
   };
 
   return (

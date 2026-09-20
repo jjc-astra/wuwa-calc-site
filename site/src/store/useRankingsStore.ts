@@ -1,7 +1,8 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import { safeLocalStorage } from '../utils/safeLocalStorage';
+import { persist } from 'zustand/middleware';
+import { persistStorage } from '../utils/safeLocalStorage';
 import { DataLoader } from '../utils/DataLoader';
+import { teamCharacters } from '../utils/TeamUtils';
 import { checkResultsFreshness } from '../utils/dataFreshness';
 import type { TeamSlot } from '../types/index';
 import type { RotationResults } from '../types/results';
@@ -33,7 +34,7 @@ function rotationGroupKey(entry: RankingEntry): string {
 // category sums each unit's per-castType breakdown, since one character mixes several.
 function majorityDmgTypes(entry: RankingEntry, window: DpsWindowKey): { element: string | null; category: RankingDmgCategory | null } {
   const c = entry.contribution[window];
-  const teamNames = new Set(entry.team.map(s => s.character).filter(Boolean));
+  const teamNames = new Set(teamCharacters(entry.team));
 
   const elementTotals: Record<string, number> = {};
   c.team.forEach(slice => {
@@ -218,7 +219,7 @@ export const useRankingsStore = create<RankingsState>()(
     }),
     {
       name: 'wuwa_rankings_ui_cache',
-      storage: createJSONStorage(() => safeLocalStorage),
+      storage: persistStorage(),
       partialize: (state) => ({
         activeWindow: state.activeWindow,
         search: state.search,

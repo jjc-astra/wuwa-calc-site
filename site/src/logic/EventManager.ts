@@ -12,6 +12,12 @@ export interface RegisteredListener extends MechanicNode {
   requiredModifiers?: string[];
 }
 
+// The trigger rule a node actually runs under: a passive with no rule of its own is always on.
+export const effectiveTriggerRule = (mechanic: MechanicNode): string | undefined => {
+  const hasNoRule = !mechanic.triggerRule || mechanic.triggerRule.trim() === '';
+  return hasNoRule && mechanic.isPassive ? 'ALWAYS' : mechanic.triggerRule;
+};
+
 export class EventManagerClass {
   listeners: Record<string, RegisteredListener[]> = {};
 
@@ -26,8 +32,7 @@ export class EventManagerClass {
   }
 
   registerMechanic(mechanic: MechanicNode, equipperName: string, mechanicKey?: string): void {
-    const hasNoRule = !mechanic.triggerRule || mechanic.triggerRule.trim() === '';
-    const ruleToCompile = hasNoRule && mechanic.isPassive ? 'ALWAYS' : mechanic.triggerRule;
+    const ruleToCompile = effectiveTriggerRule(mechanic);
     if (!ruleToCompile) return;
 
     const compiledRule = DSLParser.compile(ruleToCompile);

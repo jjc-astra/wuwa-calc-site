@@ -1,6 +1,6 @@
 import React from 'react';
 import { useRosterStore } from '../../store/useRosterStore';
-import { MAIN_STATS_4_COST, MAIN_STATS_3_COST, MAIN_STATS_1_COST, STAT_DB, COST_DISTRIBUTION } from '../../data/db';
+import { STAT_DB, costsForLayout, mainStatOptionsFor } from '../../data/db';
 import { Dropdown } from '../common/Dropdown';
 
 interface EchoCardProps {
@@ -13,9 +13,8 @@ export const EchoCard: React.FC<EchoCardProps> = ({ slotIndex, echoIndex }) => {
   const slot = team[slotIndex];
   const echo = slot.echoes[echoIndex];
 
-  const costs = COST_DISTRIBUTION[slot.layout || '4 3 3 1 1'] || [4, 3, 3, 1, 1];
-  const cost = costs[echoIndex];
-  const mainStatOptions = cost === 4 ? MAIN_STATS_4_COST : cost === 3 ? MAIN_STATS_3_COST : MAIN_STATS_1_COST;
+  const cost = costsForLayout(slot.layout)[echoIndex];
+  const mainStatOptions = mainStatOptionsFor(cost);
   const statKeys = Object.keys(STAT_DB);
 
   const handleMainStatChange = (value: string) => {

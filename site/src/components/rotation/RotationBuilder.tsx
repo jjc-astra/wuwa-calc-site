@@ -6,6 +6,7 @@ import { RotationRow } from './RotationRow';
 import { useAccordionAnimDone } from '../../hooks/useAccordionAnimDone';
 import { useCollapseMaxHeight } from '../../hooks/useCollapseMaxHeight';
 import { CommonUtils, getCharacterThemeColor } from '../../utils/Common';
+import { serializableTeam } from '../../utils/TeamUtils';
 import { DataLoader } from '../../utils/DataLoader';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { ExportResultsDialog } from '../common/ExportResultsDialog';
@@ -372,10 +373,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     const includeResults = !!results && !isStale;
     const exportObject: Record<string, unknown> = {
       rotation: rows.map(toSavedRow),
-      team: team.map(slot => {
-        const { domRef, ...cleanData } = slot;
-        return cleanData;
-      }),
+      team: serializableTeam(team),
       settings: { startEnergy, startConcerto, endingRotationEnabled, endRotationStartsEarlier }
     };
     if (includeResults) {
@@ -383,9 +381,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
       exportObject.results = resultsWithoutDmgOverTime;
     }
 
-    const names = CommonUtils.buildTeamIds(team);
-    const suffix = includeResults ? '_Results' : '';
-    const filename = names.length > 0 ? `Rotation_${names.join('_')}${suffix}.json` : `Rotation_Config${suffix}.json`;
+    const filename = CommonUtils.exportFilename('Rotation', team, includeResults ? '_Results' : '');
     setExportPending({ exportObject, filename });
   };
 
@@ -412,30 +408,26 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
   // lets the user keep instead of losing to the imported file.
   const teamSignature = (t: any[]): string => (t || []).map(s => `${s?.character || ''}|${s?.sequence || 0}`).join(',');
 
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async ev => {
-      try {
-        const rawData = JSON.parse(ev.target?.result as string);
-        const rotData = Array.isArray(rawData) ? rawData : rawData.rotation;
-        if (!rotData) return;
-
-        const sameRoster = rawData.team && teamSignature(rawData.team) === teamSignature(team);
-        if (sameRoster) {
-          setPendingImport({ rawData, rotData });
-        } else {
-          await applyImport(rawData, rotData, true);
-        }
-      } catch (err) {
-        console.error('[RotationBuilder] Error loading rotation:', err);
-        alert('Error loading rotation.');
-      }
-    };
-    reader.readAsText(file);
     if (fileInputRef.current) fileInputRef.current.value = '';
+
+    try {
+      const rawData = JSON.parse(await CommonUtils.readTextFile(file));
+      const rotData = Array.isArray(rawData) ? rawData : rawData.rotation;
+      if (!rotData) return;
+
+      const sameRoster = rawData.team && teamSignature(rawData.team) === teamSignature(team);
+      if (sameRoster) {
+        setPendingImport({ rawData, rotData });
+      } else {
+        await applyImport(rawData, rotData, true);
+      }
+    } catch (err) {
+      console.error('[RotationBuilder] Error loading rotation:', err);
+      alert('Error loading rotation.');
+    }
   };
 
   // Hold Repeat blocks, unlike Loop Start/End, are never singletons -- several can coexist, each

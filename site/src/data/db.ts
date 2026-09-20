@@ -113,6 +113,17 @@ export const COST_DISTRIBUTION: Record<string, number[]> = {
   '4 1 1 1 1': [4, 1, 1, 1, 1]
 };
 
+// What a slot uses until told otherwise, and for a layout name nobody recognizes.
+export const DEFAULT_ECHO_LAYOUT = '4 3 3 1 1';
+
+// The five echo costs of a layout, slot by slot.
+export const costsForLayout = (layout?: string): number[] =>
+  COST_DISTRIBUTION[layout || DEFAULT_ECHO_LAYOUT] || COST_DISTRIBUTION[DEFAULT_ECHO_LAYOUT];
+
+// The main stats an echo of this cost can roll.
+export const mainStatOptionsFor = (cost: number): string[] =>
+  cost === 4 ? MAIN_STATS_4_COST : cost === 3 ? MAIN_STATS_3_COST : MAIN_STATS_1_COST;
+
 export const SIM_CONSTANTS = {
   DEFAULT_ROW_DURATION: 1.5,
   MAX_SEQUENCE: 6,

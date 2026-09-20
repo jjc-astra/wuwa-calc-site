@@ -2,6 +2,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useBuilderStore, mechFolderFor } from '../../store/useBuilderStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { MechanicKey } from '../../utils/MechanicKey';
+import { CommonUtils } from '../../utils/Common';
 import { BuilderUtils } from '../../utils/BuilderUtils';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { ActionsMenuButton } from '../common/ActionsMenuButton';
@@ -453,24 +454,20 @@ export const JsonOutputPane: React.FC = () => {
     });
   };
 
-  const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     const kind = pendingImportKind.current;
     pendingImportKind.current = null;
     if (importInputRef.current) importInputRef.current.value = '';
     if (!file || !kind) return;
 
-    const reader = new FileReader();
-    reader.onload = ev => {
-      try {
-        const parsed = parseImportedJson(ev.target?.result as string);
-        if (kind === 'character') applyCharacterImport(parsed);
-        else applyMechanicsImport(parsed);
-      } catch (err) {
-        alert(`Failed to import ${kind === 'character' ? 'character' : 'mechanics'} JSON: ${err instanceof Error ? err.message : 'invalid file.'}`);
-      }
-    };
-    reader.readAsText(file);
+    try {
+      const parsed = parseImportedJson(await CommonUtils.readTextFile(file));
+      if (kind === 'character') applyCharacterImport(parsed);
+      else applyMechanicsImport(parsed);
+    } catch (err) {
+      alert(`Failed to import ${kind === 'character' ? 'character' : 'mechanics'} JSON: ${err instanceof Error ? err.message : 'invalid file.'}`);
+    }
   };
 
   const startImport = (kind: 'character' | 'mechanics') => {

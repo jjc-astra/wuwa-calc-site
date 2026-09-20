@@ -245,6 +245,16 @@ export class DataLoaderClass {
     return { mainSet: slot.mainSet ? 5 : 0, subSet: 0, subSet2a: 0, subSet2b: 0 };
   }
 
+  // The main echoes a slot's set choice allows: the main set's echoes, plus a 3pc set's paired
+  // subSet's. Empty until there's a main set; a set with no mapping allows any main echo.
+  allowedMainEchoes(slot: { mainSet: string; subSet: string }): string[] {
+    if (!slot.mainSet) return [];
+    const allowed: string[] = [...(this.setEchoMapping[slot.mainSet] || [])];
+    if (this.threePcSets.includes(slot.mainSet) && slot.subSet) allowed.push(...(this.setEchoMapping[slot.subSet] || []));
+    const unique = Array.from(new Set(allowed));
+    return unique.length === 0 ? this.allMainEchoes : unique;
+  }
+
   async loadMechanic(folder: string, itemName: string): Promise<void> {
     if (!itemName) return;
     const cacheKey = this.mechanicCacheKey(folder, itemName);
@@ -290,6 +300,11 @@ export class DataLoaderClass {
     if (this.mechanicsIndex[indexKey]) {
       this.mechanicsIndex[indexKey] = this.mechanicsIndex[indexKey].filter(k => k !== key);
     }
+  }
+
+  // An entity's base stats, live -- a character's or a weapon's, whichever owns the name.
+  baseStatsFor(name: string): (CharacterData | WeaponData) | undefined {
+    return this.characterDB[name] || this.weaponDB[name];
   }
 
   // Locates a character's Hold Release mechanic (optionally input-scoped) to keep TimelineEngine and Gauge lookup logic unified.

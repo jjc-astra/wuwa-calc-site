@@ -22,6 +22,9 @@
 //   - Also snapshots the vocabulary lists (cast types, elements, DSL modifiers, tooltips, DPS
 //     windows...) and the DSL parser's translation of every DSL string in the data, so
 //     refactors of those registries can't change them unnoticed.
+//   - Drives the real rotation, roster and Builder stores (and the worker pipeline behind them, run
+//     in-process) through scripted edits, undo/redo and a persist round trip -- see
+//     store-scenarios.mjs.
 //   - Canonicalizes every evaluated row (all fields, sorted keys), the DSL context each row
 //     exposes, and the results, then compares deeply -- any changed number, message, buff or
 //     ordering-sensitive array shows up with its path.
@@ -35,6 +38,7 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { storeHarnessPlugin, snapshotStores } from './store-scenarios.mjs';
 
 const siteRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dataRepoDir = process.env.WUWA_DATA_PATH || path.resolve(siteRoot, '../../wuwa-calc-data/data');
@@ -410,19 +414,6 @@ function probeContext(ctx, row, team, mods) {
   return canon(probe);
 }
 
-function priceDamage(rows, enemy, team, CombatCalculator) {
-  let runningEnemyHp = enemy.hp;
-  rows.forEach(row => {
-    row.damageInstances = [];
-    (row._pendingHits || []).forEach(hit => {
-      hit.context.enemyHp = runningEnemyHp;
-      const result = CombatCalculator.calculateDamageInstance(hit.config, hit.context, team);
-      runningEnemyHp = Math.max(0, runningEnemyHp - result.total);
-      row.damageInstances.push(result);
-    });
-  });
-}
-
 function runScenario(scenario, ctx) {
   const { mods, teams } = ctx;
   const { TimelineEngine, CombatCalculator, ContextManager, ResultsCalculator, db } = mods;
@@ -449,7 +440,7 @@ function runScenario(scenario, ctx) {
     const out = { generatedRows: canon(rows.map(r => ({ unit: r.unit, action: r.action, timing: r.timing }))) };
 
     let evaluated = TimelineEngine.recalculateState(rows, scenarioTeam, scenario.options, enemy);
-    priceDamage(evaluated, enemy, scenarioTeam, CombatCalculator);
+    ResultsCalculator.populateDamageInstances(evaluated, enemy, scenarioTeam);
     const { index: loopStartIndex, isOverride } = TimelineEngine.findLoopStart(evaluated, scenarioTeam[0].character);
     const loop = TimelineEngine.analyzeLoop(evaluated, scenarioTeam, scenario.options, enemy, loopStartIndex);
     out.loop = canon({ loopStartIndex, isOverride, ...loop });
@@ -462,7 +453,7 @@ function runScenario(scenario, ctx) {
       const tail = evaluated.slice(loopStartIndex, lastContent + 1).map(r => ({ id: `${r.id}-e`, unit: r.unit, action: r.action, timing: r.timing, offset: 0 }));
       const withEnding = [...evaluated.slice(0, lastContent + 1).map(r => ({ id: r.id, unit: r.unit, action: r.action, timing: r.timing, offset: 0, ...(r.loopEndOverride ? { loopEndOverride: true } : {}), ...(r.loopStartOverride ? { loopStartOverride: true } : {}) })), ...tail, { id: 'end', unit: '', action: '', timing: 'Auto', offset: 0 }];
       const reEvaluated = TimelineEngine.recalculateState(withEnding, scenarioTeam, scenario.options, enemy);
-      priceDamage(reEvaluated, enemy, scenarioTeam, CombatCalculator);
+      ResultsCalculator.populateDamageInstances(reEvaluated, enemy, scenarioTeam);
       endingRows = ResultsCalculator.previewEndingRotationTiming(reEvaluated, scenarioTeam, scenario.options, enemy, loopStartIndex, true, false);
       evaluated = reEvaluated;
       out.endingRotation = true;
@@ -583,7 +574,7 @@ async function snapshotVocab(load) {
 
 async function runAll() {
   installEnvironment();
-  const server = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' });
+  const server = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'error', plugins: [storeHarnessPlugin] });
   try {
     const load = p => server.ssrLoadModule(p);
     const [{ DataLoader }, { TimelineEngine }, { CombatCalculator }, { ContextManager }, ResultsCalculator, db] = await Promise.all([
@@ -615,6 +606,8 @@ async function runAll() {
     if (!only || only.startsWith('__')) {
       results.__vocab = await snapshotVocab(load);
       results.__dsl = await snapshotDsl(load);
+      // Last: the store scenarios edit DataLoader state (Builder edits, rosters) the rest must not see.
+      Object.assign(results, await snapshotStores({ server, canon, mulberry32, generateRotation }));
     }
     return results;
   } finally {

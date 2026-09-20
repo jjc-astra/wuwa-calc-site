@@ -5,7 +5,7 @@
 // crash the action the user just took. All six persisted stores share one localStorage quota
 // per origin, so any of them hitting the ceiling would otherwise break every store's saves,
 // not just its own.
-import type { StateStorage } from 'zustand/middleware';
+import { createJSONStorage, type StateStorage } from 'zustand/middleware';
 
 export const safeLocalStorage: StateStorage = {
   getItem: (name) => localStorage.getItem(name),
@@ -18,3 +18,6 @@ export const safeLocalStorage: StateStorage = {
   },
   removeItem: (name) => localStorage.removeItem(name)
 };
+
+// What every persisted store passes as its `storage`: JSON in safeLocalStorage.
+export const persistStorage = <S,>() => createJSONStorage<S>(() => safeLocalStorage);

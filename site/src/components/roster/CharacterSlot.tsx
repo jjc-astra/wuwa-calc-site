@@ -78,16 +78,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
   const themeColor = getCharacterThemeColor(charData || undefined);
   const isThreePcSet = DataLoader.threePcSets.includes(slot.mainSet);
   const isOnePcSet = DataLoader.onePcSets.includes(slot.mainSet);
-
-  let allowedEchoes: string[] = [];
-  if (slot.mainSet) {
-    if (DataLoader.setEchoMapping[slot.mainSet]) allowedEchoes.push(...DataLoader.setEchoMapping[slot.mainSet]);
-    if (isThreePcSet && slot.subSet && DataLoader.setEchoMapping[slot.subSet]) {
-      allowedEchoes.push(...DataLoader.setEchoMapping[slot.subSet]);
-    }
-    allowedEchoes = Array.from(new Set(allowedEchoes));
-    if (allowedEchoes.length === 0) allowedEchoes = DataLoader.allMainEchoes;
-  }
+  const allowedEchoes = DataLoader.allowedMainEchoes(slot);
 
   const renderAvatar = (
     type: 'char' | 'wep' | 'mainSet' | 'subSet' | 'subSet2a' | 'subSet2b' | 'mainEcho',

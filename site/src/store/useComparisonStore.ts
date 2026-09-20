@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import { safeLocalStorage } from '../utils/safeLocalStorage';
+import { persist } from 'zustand/middleware';
+import { persistStorage } from '../utils/safeLocalStorage';
 import { runFullCalculation } from '../workers/runFullCalculation';
 import { DataLoader } from '../utils/DataLoader';
 import type { DpsStats, DmgOverTimeSeries, DpsWindowKey, RotationResults } from '../types/results';
@@ -105,7 +105,7 @@ export const useComparisonStore = create<ComparisonState>()(
     },
     {
       name: 'wuwa_calc_pinned_comparison',
-      storage: createJSONStorage(() => safeLocalStorage),
+      storage: persistStorage(),
       partialize: (state) => ({ pinned: state.pinned })
     }
   )

@@ -2,7 +2,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { DataLoader } from '../../utils/DataLoader';
 import { postToWorker } from '../../workers/calcWorkerClient';
-import { buildBuilderPayload } from '../../workers/builderOverridePayload';
 import { expandRepeatBlocks } from '../../logic/RepeatBlocks';
 import { ENEMY_DEFAULTS } from '../../data/db';
 import type { TeamSlot } from '../../types';
@@ -48,8 +47,7 @@ export function useRotationTimelineData(resultId: string | null): TimelineDataSt
           enemy: ENEMY_DEFAULTS,
           // Sends keys at payload root for calc.worker.ts, ensuring Ending Rotation splits properly account for full loop iterations.
           endingRotationEnabled: data.settings?.endingRotationEnabled,
-          endRotationStartsEarlier: data.settings?.endRotationStartsEarlier,
-          ...buildBuilderPayload(data.team)
+          endRotationStartsEarlier: data.settings?.endRotationStartsEarlier
         });
         const { evaluatedRows, loopStartIndex } = await result;
         if (requestIdRef.current !== thisRequestId) return; // collapsed/re-triggered since

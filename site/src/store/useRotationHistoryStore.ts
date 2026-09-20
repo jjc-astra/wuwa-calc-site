@@ -2,8 +2,8 @@
 // One row per successful Calculate press (wired in from useRotationStore.calculateDamage).
 // Newest-first in the Results panel's History tab.
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import { safeLocalStorage } from '../utils/safeLocalStorage';
+import { persist } from 'zustand/middleware';
+import { persistStorage } from '../utils/safeLocalStorage';
 import type { TeamSlot } from '../types/index';
 import type { RotationResults } from '../types/results';
 import type { RotationRowFields } from './useRotationStore';
@@ -66,7 +66,7 @@ export const useRotationHistoryStore = create<RotationHistoryState>()(
     }),
     {
       name: 'wuwa_calc_rotation_history',
-      storage: createJSONStorage(() => safeLocalStorage),
+      storage: persistStorage(),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
         // Drops any entry missing its core fields, so a malformed persisted entry can't crash

@@ -1,16 +1,15 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import { safeLocalStorage } from '../utils/safeLocalStorage';
+import { persist } from 'zustand/middleware';
+import { persistStorage } from '../utils/safeLocalStorage';
 import type { TeamSlot } from '../types';
 import {
   ENEMY_DEFAULTS,
   DEFAULT_SUBSTATS,
-  COST_DISTRIBUTION,
+  DEFAULT_ECHO_LAYOUT,
+  costsForLayout,
+  mainStatOptionsFor,
   SECONDARY_MAIN_STATS,
   MAIN_STAT_VALUES,
-  MAIN_STATS_4_COST,
-  MAIN_STATS_3_COST,
-  MAIN_STATS_1_COST,
   STAT_DB,
   STAT_NAME_MAP
 } from '../data/db';
@@ -18,19 +17,17 @@ import { DataLoader } from '../utils/DataLoader';
 import { CombatCalculator } from '../logic/CombatCalculator';
 import { useRotationStore } from './useRotationStore';
 import { CommonUtils } from '../utils/Common';
+import { getTeamEntityRefs, slotFieldFolder } from '../utils/TeamUtils';
+import { SYSTEM_NAMESPACE } from '../utils/MechanicKey';
+import { effectiveTriggerRule } from '../logic/EventManager';
 import { applyBuilderOverridesForTeam } from '../workers/builderOverridePayload';
 import { emptyEchoStats } from '../data/gameVocab';
 
-const defaultLayoutMainStats = (layout: string): string[] => {
-  const costs = COST_DISTRIBUTION[layout] || [4, 3, 3, 1, 1];
-  return costs.map(cost => {
-    const options = cost === 4 ? MAIN_STATS_4_COST : cost === 3 ? MAIN_STATS_3_COST : MAIN_STATS_1_COST;
-    return options[0] || '';
-  });
-};
+const defaultLayoutMainStats = (layout: string): string[] =>
+  costsForLayout(layout).map(cost => mainStatOptionsFor(cost)[0] || '');
 
 const createEmptySlot = (index: number): TeamSlot => {
-  const layout = '4 3 3 1 1';
+  const layout = DEFAULT_ECHO_LAYOUT;
   const defaultMainStats = defaultLayoutMainStats(layout);
   const slot: TeamSlot = {
     index,
@@ -61,7 +58,7 @@ const createEmptySlot = (index: number): TeamSlot => {
 export const calculateEchoStatsForSlot = (slot: TeamSlot) => {
   const echoStats = { ...slot.echoStats };
   Object.keys(echoStats).forEach(k => ((echoStats as any)[k] = 0));
-  const costs = COST_DISTRIBUTION[slot.layout || '4 3 3 1 1'] || [4, 3, 3, 1, 1];
+  const costs = costsForLayout(slot.layout);
 
   slot.echoes.forEach((echo, i) => {
     const cost = costs[i];
@@ -82,6 +79,18 @@ export const calculateEchoStatsForSlot = (slot: TeamSlot) => {
     });
   });
   return echoStats;
+};
+
+// Publishes a new team: the Builder edits for its members are replayed onto the DataLoader first.
+const publishTeam = (team: TeamSlot[]) => {
+  applyBuilderOverridesForTeam(team);
+  useRosterStore.setState({ team });
+};
+
+// publishTeam, then re-run the rotation against the new team.
+const commitTeam = (team: TeamSlot[]) => {
+  publishTeam(team);
+  useRotationStore.getState().recalculate();
 };
 
 interface RosterState {
@@ -134,7 +143,7 @@ export const useRosterStore = create<RosterState>()(
           await DataLoader.loadMechanic('echoes', build.mainEcho);
         }
 
-        const costs = COST_DISTRIBUTION[slot.layout || '4 3 3 1 1'] || [4, 3, 3, 1, 1];
+        const costs = costsForLayout(slot.layout);
         let remainingSubs = { ...(build.subStats || build.substats || {}) };
         const subStatKeys = Object.keys(remainingSubs);
 
@@ -182,9 +191,7 @@ export const useRosterStore = create<RosterState>()(
         slot.echoes = newEchoes;
         slot.echoStats = calculateEchoStatsForSlot(slot);
         team[slotIndex] = slot;
-        applyBuilderOverridesForTeam(team);
-        set({ team });
-        useRotationStore.getState().recalculate();
+        commitTeam(team);
       },
 
       setSlotField: async (slotIndex, field, value) => {
@@ -192,10 +199,9 @@ export const useRosterStore = create<RosterState>()(
         const slot = { ...team[slotIndex], [field]: value };
 
         if (field === 'layout') {
-          const costs = COST_DISTRIBUTION[value || '4 3 3 1 1'] || [4, 3, 3, 1, 1];
+          const costs = costsForLayout(value);
           slot.echoes = slot.echoes.map((echo, i) => {
-            const cost = costs[i];
-            const validOptions = cost === 4 ? MAIN_STATS_4_COST : cost === 3 ? MAIN_STATS_3_COST : MAIN_STATS_1_COST;
+            const validOptions = mainStatOptionsFor(costs[i]);
             return {
               ...echo,
               mainStat: validOptions.includes(echo.mainStat) ? echo.mainStat : validOptions[0] || ''
@@ -206,51 +212,30 @@ export const useRosterStore = create<RosterState>()(
           slot.mode = 'None';
           await DataLoader.loadMechanic('characters', value);
           team[slotIndex] = slot;
-          applyBuilderOverridesForTeam(team);
-          set({ team });
+          publishTeam(team);
           await get().applyRecommendedBuild(slotIndex, value);
           return;
-        } else if (field === 'weapon' && value) {
-          await DataLoader.loadMechanic('weapons', value);
-        } else if (field === 'mainSet' && value) {
-          await DataLoader.loadMechanic('sets', value);
-        } else if ((field === 'subSet' || field === 'subSet2a' || field === 'subSet2b') && value) {
-          await DataLoader.loadMechanic('sets', value);
+        } else {
+          // A field that names an item (weapon, a set, the main echo) needs its mechanics loaded.
+          const folder = slotFieldFolder(field);
+          if (folder && value) await DataLoader.loadMechanic(folder, value);
         }
 
         const isOnePcSet = DataLoader.onePcSets.includes(slot.mainSet);
 
-        if (field === 'mainSet') {
-          // A 1pc main set is worn as the main-slot echo itself -- there's no separate
-          // main-slot echo pick to make, so any stale one from a previous mainSet is dropped.
-          if (isOnePcSet) slot.mainEcho = '';
-        }
+        // A 1pc main set is worn as the main-slot echo itself -- there's no separate main-slot
+        // echo pick to make, so any stale one from a previous mainSet is dropped.
+        if (field === 'mainSet' && isOnePcSet) slot.mainEcho = '';
 
         if ((field === 'mainSet' || field === 'subSet') && !isOnePcSet) {
-          const isThreePcSet = DataLoader.threePcSets.includes(slot.mainSet);
-          let allowedEchoes: string[] = [];
-          if (slot.mainSet) {
-            if (DataLoader.setEchoMapping[slot.mainSet]) allowedEchoes.push(...DataLoader.setEchoMapping[slot.mainSet]);
-            if (isThreePcSet && slot.subSet && DataLoader.setEchoMapping[slot.subSet]) {
-              allowedEchoes.push(...DataLoader.setEchoMapping[slot.subSet]);
-            }
-            allowedEchoes = Array.from(new Set(allowedEchoes));
-            if (allowedEchoes.length === 0) allowedEchoes = DataLoader.allMainEchoes;
-          }
-          if (slot.mainEcho && slot.mainSet && !allowedEchoes.includes(slot.mainEcho)) {
+          if (slot.mainEcho && slot.mainSet && !DataLoader.allowedMainEchoes(slot).includes(slot.mainEcho)) {
             slot.mainEcho = '';
           }
         }
 
-        if (field === 'mainEcho' && value) {
-          await DataLoader.loadMechanic('echoes', value);
-        }
-
         slot.echoStats = calculateEchoStatsForSlot(slot);
         team[slotIndex] = slot;
-        applyBuilderOverridesForTeam(team);
-        set({ team });
-        useRotationStore.getState().recalculate();
+        commitTeam(team);
       },
 
       // Resets one roster row back to the same blank slot a fresh team starts with -- unlike
@@ -259,9 +244,7 @@ export const useRosterStore = create<RosterState>()(
       clearSlot: (slotIndex) => {
         const team = [...get().team];
         team[slotIndex] = createEmptySlot(slotIndex);
-        applyBuilderOverridesForTeam(team);
-        set({ team });
-        useRotationStore.getState().recalculate();
+        commitTeam(team);
       },
 
       setSubstat: (slotIndex, echoIndex, subIndex, name, value) => {
@@ -293,9 +276,8 @@ export const useRosterStore = create<RosterState>()(
         const merged = current.map((existing, i) => ({ ...existing, ...(teamData[i] || {}), index: i }));
 
         await DataLoader.loadTeamMechanics(merged);
-        applyBuilderOverridesForTeam(merged);
         merged.forEach(slot => { slot.echoStats = calculateEchoStatsForSlot(slot); });
-        set({ team: merged });
+        publishTeam(merged);
         // Awaited (unlike sibling recalculate() calls) -- importRotation() fires its own
         // recalculate() right after, and without waiting these two race on the same async
         // checkTeamFreshness() gap, letting a stale response silently overwrite fresh rows.
@@ -308,81 +290,59 @@ export const useRosterStore = create<RosterState>()(
         if (!slot || !slot.character) return {};
 
         const activeBuffs: any[] = [];
-        const mechanicsDB = DataLoader.mechanicsDB;
 
         // `rank` only passed for weapon sources -- resolves slash-delimited rank-scaled values
         // (e.g. "12/15/18/21/24%") via CommonUtils.parseRankValue; other sources never use it.
         const applyBuffsFromSource = (sourceName: string, isSelf: boolean, rank?: number) => {
-          if (!sourceName) return;
-          Object.keys(mechanicsDB)
-            .filter(k => k.startsWith(sourceName))
-            .forEach(mechId => {
-              const mech = mechanicsDB[mechId];
-              const hasNoRule = !mech.triggerRule || mech.triggerRule.trim() === '';
-              const isAlways =
-                (!hasNoRule && mech.triggerRule!.trim().startsWith('ALWAYS')) ||
-                (hasNoRule && mech.isPassive);
+          (DataLoader.mechanicsIndex[sourceName] || []).forEach(mechId => {
+            const mech = DataLoader.mechanicsDB[mechId];
+            if (!mech?.effects || !effectiveTriggerRule(mech)?.trim().startsWith('ALWAYS')) return;
 
-              if (isAlways && mech.effects) {
-                mech.effects.forEach(eff => {
-                  if (eff.type === 'buff' && eff.stat) {
-                    const appliesToSelf =
-                      (eff.target === '@Self' || eff.target === '@Equipper') && isSelf;
-                    const appliesToTeam = eff.target === '@Team';
-                    const appliesToOthers = eff.target === '@TeamOthers' && !isSelf;
-                    if (appliesToSelf || appliesToTeam || appliesToOthers) {
-                      const value = rank !== undefined ? CommonUtils.parseRankValue(eff.value, rank) : eff.value;
-                      activeBuffs.push({
-                        stat: eff.stat,
-                        value,
-                        stacks: eff.maxStacks || 1
-                      });
-                    }
-                  }
-                });
+            mech.effects.forEach(eff => {
+              if (eff.type === 'buff' && eff.stat) {
+                const appliesToSelf =
+                  (eff.target === '@Self' || eff.target === '@Equipper') && isSelf;
+                const appliesToTeam = eff.target === '@Team';
+                const appliesToOthers = eff.target === '@TeamOthers' && !isSelf;
+                if (appliesToSelf || appliesToTeam || appliesToOthers) {
+                  const value = rank !== undefined ? CommonUtils.parseRankValue(eff.value, rank) : eff.value;
+                  activeBuffs.push({
+                    stat: eff.stat,
+                    value,
+                    stacks: eff.maxStacks || 1
+                  });
+                }
               }
             });
+          });
+        };
+
+        // Everything one slot wears, plus the character itself.
+        const applyBuffsFromSlot = (owner: TeamSlot, isSelf: boolean) => {
+          getTeamEntityRefs([owner], { includeSystem: false }).forEach(ref =>
+            applyBuffsFromSource(ref.name, isSelf, ref.folder === 'weapons' ? owner.rank : undefined));
         };
 
         team.forEach((tSlot, tIndex) => {
-          if (tIndex !== slotIndex && tSlot.character) {
-            applyBuffsFromSource(tSlot.character, false);
-            applyBuffsFromSource(tSlot.weapon, false, tSlot.rank);
-            applyBuffsFromSource(tSlot.mainSet, false);
-            applyBuffsFromSource(tSlot.subSet, false);
-            applyBuffsFromSource(tSlot.subSet2a, false);
-            applyBuffsFromSource(tSlot.subSet2b, false);
-            applyBuffsFromSource(tSlot.mainEcho, false);
-          }
+          if (tIndex !== slotIndex && tSlot.character) applyBuffsFromSlot(tSlot, false);
         });
-
-        applyBuffsFromSource(slot.character, true);
-        applyBuffsFromSource(slot.weapon, true, slot.rank);
-        applyBuffsFromSource(slot.mainSet, true);
-        applyBuffsFromSource(slot.subSet, true);
-        applyBuffsFromSource(slot.subSet2a, true);
-        applyBuffsFromSource(slot.subSet2b, true);
-        applyBuffsFromSource(slot.mainEcho, true);
-        applyBuffsFromSource('System', true);
+        applyBuffsFromSlot(slot, true);
+        applyBuffsFromSource(SYSTEM_NAMESPACE, true);
 
         return CombatCalculator.calculateFinalStats(slot.character, activeBuffs, team);
       }
     }),
     {
       name: 'wuwa_calc_team_cache',
-      storage: createJSONStorage(() => safeLocalStorage),
+      storage: persistStorage(),
       onRehydrateStorage: () => {
         return (state, error) => {
           if (!error && state) {
             // Await initDatabases() before applying team overrides to prevent missing base-stat lookups during Zustand rehydration.
             DataLoader.ready.then(() =>
-              Promise.all(state.team.map(async slot => {
-                if (slot.character) await DataLoader.loadMechanic('characters', slot.character);
-                if (slot.weapon) await DataLoader.loadMechanic('weapons', slot.weapon);
-                if (slot.mainSet) await DataLoader.loadMechanic('sets', slot.mainSet);
-                if (slot.subSet) await DataLoader.loadMechanic('sets', slot.subSet);
-                if (slot.mainEcho) await DataLoader.loadMechanic('echoes', slot.mainEcho);
-              })).then(() => applyBuilderOverridesForTeam(state.team))
+              Promise.all(
+                getTeamEntityRefs(state.team, { includeSystem: false, dedupe: true }).map(ref => DataLoader.loadMechanic(ref.folder, ref.name))
+              ).then(() => applyBuilderOverridesForTeam(state.team))
             );
           }
         };

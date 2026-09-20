@@ -1,4 +1,5 @@
 import { DataLoader } from '../utils/DataLoader';
+import { teamCharacters } from '../utils/TeamUtils';
 import { CombatCalculator } from './CombatCalculator';
 import { CHARACTER_DEFAULTS, ENEMY_DEFAULTS, GAME_DEFAULTS } from '../data/db';
 import { forteAlias } from '../utils/ForteNames';
@@ -40,7 +41,7 @@ export const ContextManager = {
     }
     try {
       const activeState = stateData?.dropdownState || stateData || {};
-      const teamNames = team.map(t => t.character).filter(Boolean);
+      const teamNames = teamCharacters(team);
 
       const validBuffs = Object.values(activeState.activeBuffs || {}).filter((buff: any) =>
         buff.target === activeUnitName || buff.target === '@Team' || buff.target === 'Active'

@@ -10,6 +10,7 @@ import { eventModifier, isDslExpr, modifierSet, stacksAfterSpending } from './en
 import { isElement } from '../data/gameVocab';
 import { MechanicKey } from '../utils/MechanicKey';
 import { CommonUtils } from '../utils/Common';
+import { teamCharacters } from '../utils/TeamUtils';
 import { DSLParser } from './dsl/dslParser';
 import { ContextManager } from './ContextManager';
 import { EventManager } from './EventManager';
@@ -131,7 +132,7 @@ export class TimelineEngineClass {
       this._applyInheritance(currentData, prevData, accumulatedGameTime, team);
 
       if (i === 0) {
-        const teamMembers = team.map(t => t.character).filter(Boolean);
+        const teamMembers = teamCharacters(team);
         teamMembers.forEach(charName => {
           if (charName) {
             if (!currentData.energy) currentData.energy = {};
@@ -575,7 +576,7 @@ export class TimelineEngineClass {
 
   _setupEventBoard(team: any[] = []): string[] {
     EventManager.reset();
-    const activeTeam = team.map(t => t.character).filter(Boolean);
+    const activeTeam = teamCharacters(team);
     getMechanicOwners(team).forEach(owner => {
       const keys = DataLoader.mechanicsIndex[owner.name] || [];
       if (keys.length === 0) {
@@ -626,7 +627,7 @@ export class TimelineEngineClass {
     }
 
     if (prevData.pendingNextBuffs && prevData.pendingNextBuffs.length > 0 && currentData.unit) {
-      const activeTeam = team.map(t => t.character).filter(Boolean);
+      const activeTeam = teamCharacters(team);
       prevData.pendingNextBuffs.forEach((eff: any) => {
         const nextEff = { ...eff, target: currentData.unit };
         this._processEffect(nextEff, currentData, eff.provider || prevData.unit, activeTeam, [], currentData.arrayIndex, team);
@@ -645,7 +646,7 @@ export class TimelineEngineClass {
   }
 
   _primeCombatStart(firstRowData: any, team: any[]): void {
-    const teamMembers = team.map(t => t.character).filter(Boolean);
+    const teamMembers = teamCharacters(team);
     const activeTeam = teamMembers;
 
     const passives = [

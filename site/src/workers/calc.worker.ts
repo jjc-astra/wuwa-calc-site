@@ -2,8 +2,7 @@
 // main thread, with its own separate DataLoader -- compiled DSL trigger-rule functions can't be
 // structured-cloned, so there's no way to share one instance across postMessage anyway.
 import { TimelineEngine } from '../logic/TimelineEngine';
-import { CombatCalculator } from '../logic/CombatCalculator';
-import { buildRotationResults, previewEndingRotationTiming } from '../logic/ResultsCalculator';
+import { buildRotationResults, populateDamageInstances, previewEndingRotationTiming } from '../logic/ResultsCalculator';
 import { DataLoader } from '../utils/DataLoader';
 import { applyBuilderOverridesToDataLoader } from './builderOverridePayload';
 
@@ -23,23 +22,6 @@ function stripFunctions(value: any, seen = new WeakMap<object, any>()): any {
     clone[key] = v && typeof v === 'object' ? stripFunctions(v, seen) : v;
   }
   return clone;
-}
-
-// Short pass over the literal authored rows, feeding the per-row damage-breakdown dropdown,
-// independent of the Results panel's extended (opener + N-loop) pass. Mutates rows in place.
-function populateDamageInstances(evaluatedRows: any[], enemy: any, team: any[]): void {
-  let runningEnemyHp = enemy.hp;
-  evaluatedRows.forEach((row: any) => {
-    row.damageInstances = [];
-    if (row._pendingHits && row._pendingHits.length > 0) {
-      row._pendingHits.forEach((hit: any) => {
-        hit.context.enemyHp = runningEnemyHp;
-        const result = CombatCalculator.calculateDamageInstance(hit.config, hit.context, team);
-        runningEnemyHp = Math.max(0, runningEnemyHp - result.total);
-        row.damageInstances.push(result);
-      });
-    }
-  });
 }
 
 const worker = self as any;

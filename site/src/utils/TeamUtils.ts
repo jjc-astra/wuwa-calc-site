@@ -14,6 +14,22 @@ const SLOT_ENTITY_MAPPINGS: { field: keyof TeamSlot; folder: EntityFolder }[] = 
   { field: 'mainEcho', folder: 'echoes' }
 ];
 
+// Which mechanics folder a slot field's item lives in, for the fields that name one.
+export const slotFieldFolder = (field: keyof TeamSlot): EntityFolder | undefined =>
+  SLOT_ENTITY_MAPPINGS.find(mapping => mapping.field === field)?.folder;
+
+// The characters in a team, in slot order (empty slots skipped).
+export const teamCharacters = (team: Array<{ character?: string }>): string[] =>
+  team.map(slot => slot.character).filter((name): name is string => !!name);
+
+// A team as plain data for saving or exporting, without the UI-only `domRef`.
+export const serializableTeam = (team: TeamSlot[]): TeamSlot[] =>
+  team.map(slot => {
+    const copy = { ...slot };
+    delete copy.domRef;
+    return copy;
+  });
+
 export function getTeamEntityRefs(
   team: TeamSlot[],
   options: { includeSystem?: boolean; dedupe?: boolean } = {}

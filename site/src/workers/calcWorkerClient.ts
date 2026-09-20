@@ -3,6 +3,8 @@
 // off the main thread, so the Rankings batch loader reuses the same worker instance and queue
 // instead of duplicating this state management.
 import CalcWorker from './calc.worker.ts?worker';
+import { buildBuilderPayload } from './builderOverridePayload';
+import type { TeamSlot, EntityRef } from '../types';
 
 // Created lazily on the first postToWorker() call, not at module load -- this module is in
 // the static import graph regardless of page, so eager creation would spin up a worker on
@@ -28,7 +30,29 @@ let requestSeq = 0;
 // this single module-level queue is what keeps the guarantee app-wide, not just per-store.
 let workerQueue: Promise<void> = Promise.resolve();
 
-export function postToWorker(type: 'recalculate' | 'calculateDamage', payload: any): { seq: number; result: Promise<any> } {
+// What the worker needs to run a rotation. The team's Builder overrides ride along on every request
+// (postToWorker adds them), so callers only describe the rotation.
+export interface WorkerRequest {
+  rows: any[];
+  team: TeamSlot[];
+  options: Record<string, unknown>;
+  enemy: { level: number; res: number; hp: number };
+  endingRotationEnabled?: boolean;
+  endRotationStartsEarlier?: boolean;
+  // Mechanics the main thread just evicted as stale, so the worker's own DataLoader drops them too.
+  staleRefs?: EntityRef[];
+  // 'recalculate' only: also fill each row's damage breakdown, and how to fold the expanded rows back.
+  includeDamage?: boolean;
+  collapseMap?: number[];
+  // 'calculateDamage' only: where the loop starts, in `rows`' (expanded) index space.
+  loopStartIndex?: number;
+}
+
+export function postToWorker(
+  type: 'recalculate' | 'calculateDamage',
+  request: WorkerRequest
+): { seq: number; result: Promise<any>; builderOverrides: ReturnType<typeof buildBuilderPayload>['builderOverrides'] } {
+  const payload = { ...request, ...buildBuilderPayload(request.team) };
   const seq = ++requestSeq;
   const result = workerQueue.then(
     () =>
@@ -50,5 +74,5 @@ export function postToWorker(type: 'recalculate' | 'calculateDamage', payload: a
     () => undefined,
     () => undefined
   );
-  return { seq, result };
+  return { seq, result, builderOverrides: payload.builderOverrides };
 }

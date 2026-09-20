@@ -225,6 +225,21 @@ export const CommonUtils = {
       });
   },
 
+  /** "Rotation_Lumi-RC_Sanhua.json"-style name for exporting a team; "Rotation_Config.json" for an empty one. */
+  exportFilename: (prefix: string, team: Array<{ character?: string; weapon?: string; sequence?: number }>, suffix = ''): string => {
+    const names = CommonUtils.buildTeamIds(team);
+    return `${prefix}_${names.length > 0 ? names.join('_') : 'Config'}${suffix}.json`;
+  },
+
+  /** The text of a file the user picked. */
+  readTextFile: (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsText(file);
+    }),
+
   /** Triggers a browser download of `data` as a pretty-printed JSON file named `filename`. */
   downloadJson: (data: unknown, filename: string): void => {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });

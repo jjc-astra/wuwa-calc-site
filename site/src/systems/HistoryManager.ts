@@ -1,6 +1,8 @@
 // Undo/redo stacks are persisted (see useRotationStore's partialize) and some commands
 // (MoveRowsCommand) carry a full rows-array snapshot -- unbounded growth over a long editing
 // session can exceed localStorage's quota and start throwing on every subsequent action.
+import { makeBlankRow } from '../logic/rotationRows';
+
 const MAX_HISTORY_SIZE = 50;
 
 export interface Command {
@@ -225,7 +227,7 @@ export class DeleteRowsCommand extends BaseRowsCommand {
       current.splice(item.index, 1);
     });
     if (current.length === 0) {
-      current = [{ id: crypto.randomUUID(), unit: '', action: '', timing: 'Auto', offset: 0 }];
+      current = [makeBlankRow()];
     }
     this.setRows(current);
     this.onComplete?.();
@@ -251,56 +253,11 @@ export class DeleteRowsCommand extends BaseRowsCommand {
   }
 }
 
-export class EditValueCommand extends BaseRowsCommand {
-  private index: number;
-  private field: string;
-  private oldValue: any;
-  private newValue: any;
-
-  constructor(
-    getRows: () => any[],
-    setRows: (rows: any[]) => void,
-    index: number,
-    field: string,
-    oldValue: any,
-    newValue: any,
-    onComplete?: () => void
-  ) {
-    super(getRows, setRows, onComplete);
-    this.index = index;
-    this.field = field;
-    this.oldValue = oldValue;
-    this.newValue = newValue;
-  }
-
-  execute() {
-    const current = [...this.getRows()];
-    if (this.index >= 0 && this.index < current.length) {
-      current[this.index] = { ...current[this.index], [this.field]: this.newValue };
-      this.setRows(current);
-      this.onComplete?.();
-    }
-  }
-
-  undo() {
-    const current = [...this.getRows()];
-    if (this.index >= 0 && this.index < current.length) {
-      current[this.index] = { ...current[this.index], [this.field]: this.oldValue };
-      this.setRows(current);
-      this.onComplete?.();
-    }
-  }
-
-  serialize(): SerializedCommand {
-    return { type: 'editValue', index: this.index, field: this.field, oldValue: this.oldValue, newValue: this.newValue };
-  }
-}
-
-// Same as EditValueCommand but sets several fields on a row as one atomic step (e.g.
-// Simultaneous offset, which mirrors into both `offset` and `manualOffset`) -- undoes/redoes
-// together so an intermediate recalc never sees just one field updated.
+// Sets several fields on a row as one atomic step (e.g. Simultaneous offset, which mirrors into
+// both `offset` and `manualOffset`) -- undoes/redoes together so an intermediate recalc never sees
+// just one field updated.
 export class EditFieldsCommand extends BaseRowsCommand {
-  private index: number;
+  protected index: number;
   private oldValues: Record<string, any>;
   private newValues: Record<string, any>;
 
@@ -341,9 +298,35 @@ export class EditFieldsCommand extends BaseRowsCommand {
   }
 }
 
-// Shared by SetLoopStartCommand/SetLoopEndCommand: moves a singleton boolean flag between rows.
-abstract class SetRowFlagCommandBase extends BaseRowsCommand {
-  protected field: 'loopStartOverride' | 'loopEndOverride';
+// One field of EditFieldsCommand. Persists under its own type, so older saved history still revives.
+export class EditValueCommand extends EditFieldsCommand {
+  private field: string;
+  private oldValue: any;
+  private newValue: any;
+
+  constructor(
+    getRows: () => any[],
+    setRows: (rows: any[]) => void,
+    index: number,
+    field: string,
+    oldValue: any,
+    newValue: any,
+    onComplete?: () => void
+  ) {
+    super(getRows, setRows, index, { [field]: oldValue }, { [field]: newValue }, onComplete);
+    this.field = field;
+    this.oldValue = oldValue;
+    this.newValue = newValue;
+  }
+
+  serialize(): SerializedCommand {
+    return { type: 'editValue', index: this.index, field: this.field, oldValue: this.oldValue, newValue: this.newValue };
+  }
+}
+
+// Moves a marker -- a flag or tag one row carries (loop start/end, a Hold Repeat block's start/end)
+// -- from one row to another as one undoable step. Undo moves it back.
+abstract class MoveMarkerCommand extends BaseRowsCommand {
   protected newIndex: number | null;
   protected prevIndex: number | null;
 
@@ -352,25 +335,41 @@ abstract class SetRowFlagCommandBase extends BaseRowsCommand {
   constructor(
     getRows: () => any[],
     setRows: (rows: any[]) => void,
-    field: 'loopStartOverride' | 'loopEndOverride',
     newIndex: number | null,
     prevIndex: number | null,
     onComplete?: () => void
   ) {
     super(getRows, setRows, onComplete);
-    this.field = field;
     this.newIndex = newIndex;
     this.prevIndex = prevIndex;
   }
 
-  protected apply(clearIndex: number | null, setIndex: number | null) {
+  // The row fields the marker occupies -- all of them come off the row it leaves.
+  protected abstract markerFields(): readonly string[];
+  // What a row looks like carrying the marker (`carried` is whatever travelled with it).
+  protected abstract markerValues(carried: any): Record<string, any>;
+  // What travels with the marker to its next row, read off the row it leaves (undefined: nothing).
+  protected carriedFrom(_row: any): any {
+    return undefined;
+  }
+  // Stands in for `carried` when the marker isn't coming off another row (a brand-new one).
+  protected initialCarried(): any {
+    return undefined;
+  }
+
+  private apply(clearIndex: number | null, setIndex: number | null) {
     const current = [...this.getRows()];
+    let carried = this.initialCarried();
     if (clearIndex !== null && clearIndex >= 0 && clearIndex < current.length) {
-      const { [this.field]: _removed, ...rest } = current[clearIndex];
+      const row = current[clearIndex];
+      const leaving = this.carriedFrom(row);
+      if (leaving !== undefined) carried = leaving;
+      const rest = { ...row };
+      this.markerFields().forEach(field => delete rest[field]);
       current[clearIndex] = rest;
     }
     if (setIndex !== null && setIndex >= 0 && setIndex < current.length) {
-      current[setIndex] = { ...current[setIndex], [this.field]: true };
+      current[setIndex] = { ...current[setIndex], ...this.markerValues(carried) };
     }
     this.setRows(current);
     this.onComplete?.();
@@ -382,6 +381,31 @@ abstract class SetRowFlagCommandBase extends BaseRowsCommand {
 
   undo() {
     this.apply(this.newIndex, this.prevIndex);
+  }
+}
+
+// Shared by SetLoopStartCommand/SetLoopEndCommand: a singleton boolean flag on one row.
+abstract class SetRowFlagCommandBase extends MoveMarkerCommand {
+  protected field: 'loopStartOverride' | 'loopEndOverride';
+
+  constructor(
+    getRows: () => any[],
+    setRows: (rows: any[]) => void,
+    field: 'loopStartOverride' | 'loopEndOverride',
+    newIndex: number | null,
+    prevIndex: number | null,
+    onComplete?: () => void
+  ) {
+    super(getRows, setRows, newIndex, prevIndex, onComplete);
+    this.field = field;
+  }
+
+  protected markerFields() {
+    return [this.field];
+  }
+
+  protected markerValues() {
+    return { [this.field]: true };
   }
 }
 
@@ -433,10 +457,8 @@ export class SetLoopEndCommand extends SetRowFlagCommandBase {
 }
 
 // Targets multi-instance Hold Repeat blocks by `groupId`, carrying existing `repeatCount` on drag moves while using `initialCount` solely on creation.
-export class SetRepeatBlockStartCommand extends BaseRowsCommand {
+export class SetRepeatBlockStartCommand extends MoveMarkerCommand {
   private groupId: string;
-  private newIndex: number | null;
-  private prevIndex: number | null;
   private initialCount: number;
 
   constructor(
@@ -448,10 +470,8 @@ export class SetRepeatBlockStartCommand extends BaseRowsCommand {
     initialCount: number,
     onComplete?: () => void
   ) {
-    super(getRows, setRows, onComplete);
+    super(getRows, setRows, newIndex, prevIndex, onComplete);
     this.groupId = groupId;
-    this.newIndex = newIndex;
-    this.prevIndex = prevIndex;
     this.initialCount = initialCount;
   }
 
@@ -460,28 +480,20 @@ export class SetRepeatBlockStartCommand extends BaseRowsCommand {
     return idx === -1 ? null : idx;
   }
 
-  private apply(clearIndex: number | null, setIndex: number | null) {
-    const current = [...this.getRows()];
-    let carriedCount = this.initialCount;
-    if (clearIndex !== null && clearIndex >= 0 && clearIndex < current.length) {
-      const row = current[clearIndex];
-      if (row.repeatCount !== undefined) carriedCount = row.repeatCount;
-      const { repeatBlockStart, repeatCount, ...rest } = row;
-      current[clearIndex] = rest;
-    }
-    if (setIndex !== null && setIndex >= 0 && setIndex < current.length) {
-      current[setIndex] = { ...current[setIndex], repeatBlockStart: this.groupId, repeatCount: carriedCount };
-    }
-    this.setRows(current);
-    this.onComplete?.();
+  protected markerFields() {
+    return ['repeatBlockStart', 'repeatCount'];
   }
 
-  execute() {
-    this.apply(this.prevIndex, this.newIndex);
+  protected carriedFrom(row: any) {
+    return row.repeatCount;
   }
 
-  undo() {
-    this.apply(this.newIndex, this.prevIndex);
+  protected initialCarried() {
+    return this.initialCount;
+  }
+
+  protected markerValues(carriedCount: number) {
+    return { repeatBlockStart: this.groupId, repeatCount: carriedCount };
   }
 
   serialize(): SerializedCommand {
@@ -489,11 +501,10 @@ export class SetRepeatBlockStartCommand extends BaseRowsCommand {
   }
 }
 
-// Same shape as SetRepeatBlockStartCommand, targeting `repeatBlockEnd` -- no count to carry.
-export class SetRepeatBlockEndCommand extends BaseRowsCommand {
+// Same shape as SetRepeatBlockStartCommand, but what rides along is the Final Rep Timing override
+// (carried with the end marker when it's dragged) rather than a count.
+export class SetRepeatBlockEndCommand extends MoveMarkerCommand {
   private groupId: string;
-  private newIndex: number | null;
-  private prevIndex: number | null;
 
   constructor(
     getRows: () => any[],
@@ -503,10 +514,8 @@ export class SetRepeatBlockEndCommand extends BaseRowsCommand {
     prevIndex: number | null,
     onComplete?: () => void
   ) {
-    super(getRows, setRows, onComplete);
+    super(getRows, setRows, newIndex, prevIndex, onComplete);
     this.groupId = groupId;
-    this.newIndex = newIndex;
-    this.prevIndex = prevIndex;
   }
 
   static findIndexForGroup(rows: any[], groupId: string): number | null {
@@ -514,33 +523,16 @@ export class SetRepeatBlockEndCommand extends BaseRowsCommand {
     return idx === -1 ? null : idx;
   }
 
-  private apply(clearIndex: number | null, setIndex: number | null) {
-    const current = [...this.getRows()];
-    // Carries an existing Final Rep Timing override along with the end marker when it's dragged
-    let carriedFinalTiming: string | undefined;
-    if (clearIndex !== null && clearIndex >= 0 && clearIndex < current.length) {
-      const row = current[clearIndex];
-      carriedFinalTiming = row.repeatFinalTiming;
-      const { repeatBlockEnd, repeatFinalTiming, ...rest } = row;
-      current[clearIndex] = rest;
-    }
-    if (setIndex !== null && setIndex >= 0 && setIndex < current.length) {
-      current[setIndex] = {
-        ...current[setIndex],
-        repeatBlockEnd: this.groupId,
-        ...(carriedFinalTiming !== undefined && { repeatFinalTiming: carriedFinalTiming })
-      };
-    }
-    this.setRows(current);
-    this.onComplete?.();
+  protected markerFields() {
+    return ['repeatBlockEnd', 'repeatFinalTiming'];
   }
 
-  execute() {
-    this.apply(this.prevIndex, this.newIndex);
+  protected carriedFrom(row: any) {
+    return row.repeatFinalTiming;
   }
 
-  undo() {
-    this.apply(this.newIndex, this.prevIndex);
+  protected markerValues(carriedFinalTiming: string | undefined) {
+    return { repeatBlockEnd: this.groupId, ...(carriedFinalTiming !== undefined && { repeatFinalTiming: carriedFinalTiming }) };
   }
 
   serialize(): SerializedCommand {
