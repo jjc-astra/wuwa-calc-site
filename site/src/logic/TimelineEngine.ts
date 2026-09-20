@@ -645,14 +645,20 @@ export class TimelineEngineClass {
     }
 
     currentData.timeScales = structuredClone(prevData.timeScales || {});
+    // Stance is tracked per unit: a unit that swaps out midair stays midair for its combo window
+    // (a swap back inside it finds them still airborne), then lands.
+    currentData.unitStances = { ...(prevData.unitStances || {}) };
+    if (prevData.unit) currentData.unitStances[prevData.unit] = prevData.stance || CHARACTER_DEFAULTS.defaultStance;
     if (prevData.unit && currentData.unit && currentData.unit !== prevData.unit) {
       const isIntro = currentData.castTypes?.includes('Intro');
       const myCombo = prevData.unitCombos?.[currentData.unit];
       const isDuringCombo = myCombo && currentTime <= myCombo.expiration;
-      currentData.stance = (isIntro || isDuringCombo) ? CHARACTER_DEFAULTS.defaultStance : (prevData.stance || CHARACTER_DEFAULTS.defaultStance);
+      currentData.stance = (!isIntro && isDuringCombo && currentData.unitStances[currentData.unit]) || CHARACTER_DEFAULTS.defaultStance;
     } else {
       currentData.stance = prevData.stance || CHARACTER_DEFAULTS.defaultStance;
     }
+    // The move's own stanceReq overwrites `stance` later; validation needs the stance it started from.
+    currentData.entryStance = currentData.stance;
   }
 
   _primeCombatStart(firstRowData: any, team: any[]): void {
@@ -1358,8 +1364,8 @@ export class TimelineEngineClass {
     }
 
     if (moveData.stanceReq && moveData.stanceReq !== 'Any') {
-      const actualStance = prevData.stance || 'Grounded';
-      if (currentData.unit === prevData.unit && actualStance !== moveData.stanceReq) {
+      const actualStance = currentData.entryStance || 'Grounded';
+      if (actualStance !== moveData.stanceReq) {
         warnings.push(`Stance mismatch: Requires ${moveData.stanceReq}, but character is ${actualStance}.`);
       }
     }
