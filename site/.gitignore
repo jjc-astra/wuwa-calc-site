@@ -16,7 +16,8 @@ dist-ssr
 # and DataLoader.ts's loadJSON/loadMergedDB). Never committed; test data stays local.
 public/wip-data
 
-# Frozen data + recorded output for scripts/engine-check.mjs.
+# Local-only dev scripts (one-off migrations, behavior-lock harness) and the harness's frozen data.
+scripts/
 .engine-baseline
 
 # Editor directories and files
