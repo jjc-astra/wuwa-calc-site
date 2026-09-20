@@ -876,6 +876,19 @@
     text-overflow: ellipsis;
 }
 
+/* Square "+" variant of .base-btn for the sub-panels' add rows. */
+.builder-view .mech-add-icon-btn {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    line-height: 1;
+}
+
 .builder-view .mech-add-row {
     display: flex;
     gap: var(--space-1);
@@ -969,6 +982,64 @@
     top: 3px;
     font-size: 0.62rem;
     color: var(--text-dim);
+}
+
+/* Segments follow .dps-compare-segment (tinted fill + 1px border); "Any" uses the timeline's fast-forward stripes. */
+.builder-view .mech-stance-bar {
+    display: flex;
+    gap: 3px;
+    height: 24px;
+    background: none;
+    border: none;
+}
+.builder-view .mech-stance-seg {
+    flex: 1 1 0;
+    min-width: 0;
+    border: 1px solid transparent;
+    border-radius: 4px;
+}
+.builder-view .mech-stance-seg.is-grounded { background-color: rgba(50, 220, 50, 0.15); border-color: var(--success); }
+.builder-view .mech-stance-seg.is-midair { background-color: rgba(220, 50, 50, 0.15); border-color: var(--danger-text); }
+/* Stripes reuse the two segments' fills; the border is alternating green/red dashes. */
+.builder-view .mech-stance-seg.is-any {
+    --dash-x: repeating-linear-gradient(90deg, var(--success) 0 6px, transparent 6px 9px, var(--danger-text) 9px 15px, transparent 15px 18px);
+    --dash-y: repeating-linear-gradient(180deg, var(--success) 0 6px, transparent 6px 9px, var(--danger-text) 9px 15px, transparent 15px 18px);
+    border-color: transparent;
+    background-origin: border-box;
+    background-repeat: no-repeat;
+    background-image:
+        var(--dash-x), var(--dash-x), var(--dash-y), var(--dash-y),
+        repeating-linear-gradient(
+            -45deg,
+            rgba(50, 220, 50, 0.15) 0px,
+            rgba(50, 220, 50, 0.15) 4px,
+            transparent 4px,
+            transparent 9px,
+            rgba(220, 50, 50, 0.15) 9px,
+            rgba(220, 50, 50, 0.15) 13px,
+            transparent 13px,
+            transparent 18px
+        );
+    background-size: 100% 1px, 100% 1px, 1px 100%, 1px 100%, 100% 100%;
+    background-position: top left, bottom left, top left, top right, 0 0;
+}
+.builder-view .mech-stance-bar .mech-timeline-label { top: 5px; color: var(--text-main); z-index: 1; }
+.builder-view .mech-stance-bar .mech-timeline-label:first-of-type { left: 8px !important; }
+.builder-view .mech-stance-bar .mech-timeline-label:last-of-type { right: 8px !important; }
+
+/* Add-row and stance dropdowns take the roster's underlined look instead of the Builder's boxed selects. */
+.builder-view .mech-stance-table .base-select,
+.builder-view .mech-add-row .base-select {
+    border: none;
+    border-bottom: 1px dashed var(--input-underline);
+    border-radius: 2px;
+    padding: var(--space-1);
+    padding-right: var(--space-1);
+    height: auto;
+}
+.builder-view .mech-stance-table .base-select {
+    width: 100%;
+    max-width: none;
 }
 
 .builder-view .mech-hit-table {

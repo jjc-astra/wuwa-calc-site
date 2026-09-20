@@ -17,6 +17,7 @@ import { EventManager } from './EventManager';
 import { calculateEchoStatsForSlot } from '../store/useRosterStore';
 import { CHARACTER_DEFAULTS, ENEMY_DEFAULTS, GAME_DEFAULTS, MECHANICS_NOTATION } from '../data/db';
 import type { Effect, MechanicNode, HoldConfig, MoveOrigin } from '../types';
+import { sortedStanceChanges } from '../utils/Stance';
 import { type Frames, toFrames, roundFrames, secondsToFrames, framesToSeconds, formatFramesAsSeconds } from '../utils/Frames';
 
 export interface QueuedHit {
@@ -282,9 +283,9 @@ export class TimelineEngineClass {
       if (dbMove.stanceReq === 'Midair') currentData.stance = 'Midair';
       else if (dbMove.stanceReq === 'Grounded') currentData.stance = 'Grounded';
 
-      if (dbMove.stanceResult && dbMove.stanceResult !== 'Retain') {
-        const transitionTime = dbMove.stanceTime !== undefined ? parseFloat(String(dbMove.stanceTime)) : 0;
-        if (currentData.duration >= transitionTime) currentData.stance = dbMove.stanceResult;
+      // Only changes the move plays out before it's cancelled/swapped land; the last one sets the end stance.
+      for (const change of sortedStanceChanges(dbMove)) {
+        if (currentData.duration >= change.frame) currentData.stance = change.stance;
       }
 
       if (currentData.timing === 'Simultaneous' && i > 0) {

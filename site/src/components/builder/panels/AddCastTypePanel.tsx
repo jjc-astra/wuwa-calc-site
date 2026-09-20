@@ -4,7 +4,7 @@ import type { MechanicNode } from '../../../types';
 import { BuilderState } from '../../../data/db';
 import { Dropdown } from '../../common/Dropdown';
 import { TypeTag } from '../../common/TypeTag';
-import { castTagColor } from '../mechanicNodeHelpers';
+import { castTagColor, tip } from '../mechanicNodeHelpers';
 
 interface AddCastTypePanelProps {
   data: MechanicNode;
@@ -37,13 +37,14 @@ export const AddCastTypePanel: React.FC<AddCastTypePanelProps> = ({ data, update
         </div>
       )}
       <div className="mech-add-row">
+        <span className="form-label" style={{ margin: 0 }}>Add Cast Type</span>
         <Dropdown
-          className="base-select mech-mini-select"
+          className="base-select mech-mini-select has-value"
           value={castSelect}
           onChange={setCastSelect}
           options={BuilderState.CAST_OPTIONS.map(o => ({ value: o, label: o }))}
         />
-        <button type="button" className="base-btn text-xs" onClick={handleAddCastTag}>Add</button>
+        <button type="button" className="base-btn mech-add-icon-btn" onClick={handleAddCastTag} {...tip('Add cast type')}>+</button>
       </div>
     </div>
   );

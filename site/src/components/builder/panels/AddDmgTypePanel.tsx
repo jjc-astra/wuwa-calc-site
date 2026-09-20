@@ -4,7 +4,7 @@ import type { MechanicNode } from '../../../types';
 import { BuilderState } from '../../../data/db';
 import { Dropdown } from '../../common/Dropdown';
 import { TypeTag } from '../../common/TypeTag';
-import { dmgTagColor } from '../mechanicNodeHelpers';
+import { dmgTagColor, tip } from '../mechanicNodeHelpers';
 
 interface AddDmgTypePanelProps {
   data: MechanicNode;
@@ -37,13 +37,14 @@ export const AddDmgTypePanel: React.FC<AddDmgTypePanelProps> = ({ data, updateNo
         </div>
       )}
       <div className="mech-add-row">
+        <span className="form-label" style={{ margin: 0 }}>Add Damage Type</span>
         <Dropdown
-          className="base-select mech-mini-select"
+          className="base-select mech-mini-select has-value"
           value={dmgSelect}
           onChange={setDmgSelect}
           options={BuilderState.DMG_OPTIONS.map(o => ({ value: o, label: o }))}
         />
-        <button type="button" className="base-btn text-xs" onClick={handleAddDmgTag}>Add</button>
+        <button type="button" className="base-btn mech-add-icon-btn" onClick={handleAddDmgTag} {...tip('Add damage type')}>+</button>
       </div>
     </div>
   );

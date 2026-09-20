@@ -33,7 +33,7 @@ export type PanelKey = 'identity' | 'inputs' | 'timeMods' | 'hits' | 'castTags' 
 // identity also covers Trigger Rule & Effects, which share its expand/collapse section.
 const PANEL_FIELDS: Record<PanelKey, string[]> = {
   identity: ['name', 'provider', 'triggerRule', 'isPassive', 'isSwapInDefault', 'modeScope', 'effects'],
-  inputs: ['input', 'inputType', 'stanceReq', 'stanceResult', 'stanceTime', 'holdConfig'],
+  inputs: ['input', 'inputType', 'stanceReq', 'stanceChanges', 'holdConfig'],
   timeMods: ['freezeTime', 'swapTiming', 'priority', 'comboWindow', 'cancelTimings'],
   hits: ['scalar', 'hitMults', 'damageTimeframe', 'hitResources'],
   castTags: ['castTypes'],

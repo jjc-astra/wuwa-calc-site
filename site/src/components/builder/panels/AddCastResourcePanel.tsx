@@ -2,6 +2,7 @@
 import React from 'react';
 import type { MechanicNode } from '../../../types';
 import { Dropdown, type DropdownOption } from '../../common/Dropdown';
+import { tip } from '../mechanicNodeHelpers';
 
 interface AddCastResourcePanelProps {
   data: MechanicNode;
@@ -27,8 +28,9 @@ export const AddCastResourcePanel: React.FC<AddCastResourcePanelProps> = ({
     <div className="sub-panel is-open">
       <div className="panel-header-main">Add On-Cast Resource</div>
       <div className="mech-add-row">
+        <span className="form-label" style={{ margin: 0 }}>Add Resource</span>
         <Dropdown
-          className="base-select mech-mini-select"
+          className="base-select mech-mini-select has-value"
           value={castResType}
           onChange={setCastResType}
           options={[
@@ -39,7 +41,7 @@ export const AddCastResourcePanel: React.FC<AddCastResourcePanelProps> = ({
           ]}
         />
         <input type="text" className="form-input mech-mini-input" value={castResAmt} onChange={e => setCastResAmt(e.target.value)} placeholder="10" />
-        <button type="button" className="base-btn text-xs" onClick={handleAddCastResource}>Add</button>
+        <button type="button" className="base-btn mech-add-icon-btn" onClick={handleAddCastResource} {...tip('Add on-cast resource')}>+</button>
       </div>
     </div>
   );

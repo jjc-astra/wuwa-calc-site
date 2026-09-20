@@ -121,6 +121,11 @@ export interface HoldConfig {
   windowSize?: string;
 }
 
+export interface StanceChange {
+  stance: 'Grounded' | 'Midair';
+  time: Frames | string;
+}
+
 export interface CancelTiming {
   time: Frames;
   hits?: number;
@@ -160,6 +165,9 @@ export interface MechanicNode {
   freezeTime?: Frames | string;
   comboWindow?: Frames | string;
   stanceReq?: 'Any' | 'Grounded' | 'Midair';
+  // Stance flips after the move starts, each at `time` frames in. Read through getStanceChanges.
+  stanceChanges?: StanceChange[];
+  // Legacy single change; superseded by stanceChanges.
   stanceResult?: 'Retain' | 'Grounded' | 'Midair';
   stanceTime?: Frames | string;
   input?: string;

@@ -206,13 +206,14 @@ export const HitBreakdownPanel: React.FC<HitBreakdownPanelProps> = ({ nodeId, da
           </table>
           {availableHitResTypes.length > 0 && (
             <div className="mech-add-row mt-sm">
+              <span className="form-label" style={{ margin: 0 }}>Add Hit Resource</span>
               <Dropdown
-                className="base-select mech-mini-select"
+                className="base-select mech-mini-select has-value"
                 value={effectiveNewHitResType}
                 onChange={setNewHitResType}
                 options={availableHitResTypes}
               />
-              <button type="button" className="base-btn text-xs" onClick={handleAddHitResource}>Add Hit Resource</button>
+              <button type="button" className="base-btn mech-add-icon-btn" onClick={handleAddHitResource} {...tip('Add hit resource')}>+</button>
             </div>
           )}
         </>

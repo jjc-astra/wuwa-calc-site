@@ -2,6 +2,7 @@ import type { MechanicNode } from '../types';
 import { CommonUtils } from './Common';
 import { DataLoader } from './DataLoader';
 import { MECHANICS_NOTATION } from '../data/db';
+import { getStanceChanges } from './Stance';
 
 export const BuilderUtils = {
   /**
@@ -30,10 +31,10 @@ export const BuilderUtils = {
       if (node.input) clean.input = node.input;
       if (node.inputType) clean.inputType = node.inputType;
       if (node.stanceReq && node.stanceReq !== 'Any') clean.stanceReq = node.stanceReq;
-      if (node.stanceResult && node.stanceResult !== 'Retain') clean.stanceResult = node.stanceResult;
-
-      const stanceTime = node.stanceResult !== 'Retain' ? CommonUtils.parseMixed(node.stanceTime) : undefined;
-      if (stanceTime !== undefined) clean.stanceTime = stanceTime;
+      const stanceChanges = getStanceChanges(node);
+      if (stanceChanges.length > 0) {
+        clean.stanceChanges = stanceChanges.map(c => ({ stance: c.stance, time: CommonUtils.parseMixed(c.time) ?? 0 }));
+      }
 
       if (node.inputType === 'Release') {
         const cfg = node.holdConfig || {};

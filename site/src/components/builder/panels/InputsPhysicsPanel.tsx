@@ -1,10 +1,44 @@
 // src/components/builder/panels/InputsPhysicsPanel.tsx
 import React from 'react';
-import type { MechanicNode } from '../../../types';
+import type { MechanicNode, StanceChange } from '../../../types';
 import { AutocompleteInput } from '../../common/AutocompleteInput';
 import { Dropdown, type DropdownOption } from '../../common/Dropdown';
 import { MECHANICS_NOTATION } from '../../../data/db';
-import { displayTimeVal, makeTimeBlur } from '../mechanicNodeHelpers';
+import { displayTimeVal, tip } from '../mechanicNodeHelpers';
+import { parseTimeInput } from '../../../utils/Frames';
+import { getStanceChanges, stanceChangeFrames } from '../../../utils/Stance';
+
+// Grounded (green) / Midair (red) across the move's length; a stance the move accepts either of
+// (an "Any" start, before its first change) is hatched with both.
+const StanceBar: React.FC<{ data: MechanicNode; changes: StanceChange[] }> = ({ data, changes }) => {
+  const duration = typeof data.actionDuration === 'number' ? data.actionDuration : 0;
+  const cancelFrames = (data.cancelTimings || []).map(ct => ct.time).filter((t): t is number => typeof t === 'number');
+  const ordered = changes
+    .map(c => ({ stance: c.stance, frame: stanceChangeFrames(c) }))
+    .sort((a, b) => a.frame - b.frame);
+  const max = Math.max(duration, ...cancelFrames, ...ordered.map(c => c.frame), 1);
+  const start = data.stanceReq || 'Any';
+  const segments = [{ stance: start as string, from: 0 }, ...ordered.map(c => ({ stance: c.stance as string, from: Math.min(c.frame, max) }))];
+
+  return (
+    <div className="mech-timeline-bar mech-stance-bar">
+      {segments.map((s, i) => {
+        const to = i < segments.length - 1 ? segments[i + 1].from : max;
+        if (to <= s.from) return null;
+        return (
+          <div
+            key={i}
+            className={`mech-stance-seg is-${s.stance.toLowerCase()}`}
+            style={{ flexGrow: to - s.from }}
+            {...tip(`${s.stance === 'Any' ? 'Any stance' : s.stance}: ${s.from}f - ${to}f`)}
+          />
+        );
+      })}
+      <span className="mech-timeline-label" style={{ left: 4 }}>0f</span>
+      <span className="mech-timeline-label" style={{ right: 4 }}>{max}f</span>
+    </div>
+  );
+};
 
 interface InputsPhysicsPanelProps {
   data: MechanicNode;
@@ -19,9 +53,19 @@ export const InputsPhysicsPanel: React.FC<InputsPhysicsPanelProps> = ({ data, up
   const d = MECHANICS_NOTATION.HOLD_DEFAULTS;
   const isClamp = (holdCfg.cursorMode || d.CURSOR_MODE) === 'clamp';
 
+  const changes = getStanceChanges(data);
+  // Writing stanceChanges also retires the legacy stanceResult/stanceTime pair it was read from.
+  const setChanges = (next: StanceChange[]) => updateNode({ stanceChanges: next, stanceResult: undefined, stanceTime: undefined });
+  const addChange = () => {
+    const last = changes.length > 0 ? changes[changes.length - 1].stance : data.stanceReq;
+    // Starts at the animation's end so the new change doesn't alter the move until it's moved earlier.
+    const endFrame = typeof data.actionDuration === 'number' ? data.actionDuration : '';
+    setChanges([...changes, { stance: last === 'Midair' ? 'Grounded' : 'Midair', time: endFrame }]);
+  };
+
   return (
     <div className="sub-panel is-open">
-      <div className="panel-header-main">Inputs &amp; Physics</div>
+      <div className="panel-header-main">Inputs</div>
       <div className="form-row">
         <div className="form-group">
           <label className="form-label">Input Binding</label>
@@ -55,39 +99,75 @@ export const InputsPhysicsPanel: React.FC<InputsPhysicsPanelProps> = ({ data, up
             ]}
           />
         </div>
-        <div className="form-group">
-          <label className="form-label">Stance Required</label>
-          <Dropdown
-            className="base-select"
-            value={data.stanceReq || 'Any'}
-            onChange={v => updateNode({ stanceReq: v as any })}
-            options={[
-              { value: 'Any', label: 'Any' },
-              { value: 'Grounded', label: 'Grounded' },
-              { value: 'Midair', label: 'Midair' }
-            ]}
-          />
-        </div>
       </div>
 
-      <div className="form-row">
-        <div className="form-group">
-          <label className="form-label">Stance Result</label>
-          <Dropdown
-            className="base-select"
-            value={data.stanceResult || 'Retain'}
-            onChange={v => updateNode({ stanceResult: v as any, stanceTime: v === 'Retain' ? '' : data.stanceTime })}
-            options={[
-              { value: 'Retain', label: 'Retain' },
-              { value: 'Grounded', label: 'Grounded' },
-              { value: 'Midair', label: 'Midair' }
-            ]}
-          />
-        </div>
-        <div className="form-group relative">
-          <label className="form-label">Transition Time</label>
-          <input type="text" className="form-input w-100" value={displayTimeVal(data.stanceTime, 'f')} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateNode({ stanceTime: e.target.value })} onBlur={makeTimeBlur(data, updateNode, 'stanceTime', 'frames')} placeholder="e.g. 0 or 15f" disabled={data.stanceResult === 'Retain'} />
-        </div>
+      <div className="panel-header-main mt-sm">Stance Transitions</div>
+      <StanceBar data={data} changes={changes} />
+      <table className="mech-hit-table mech-stance-table">
+        <thead>
+          <tr>
+            <th>Change</th>
+            <th>Stance</th>
+            <th>Frame</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>—</td>
+            <td>
+              <Dropdown
+                className="base-select mech-mini-select has-value"
+                value={data.stanceReq || 'Any'}
+                onChange={v => updateNode({ stanceReq: v as any })}
+                options={[
+                  { value: 'Any', label: 'Any' },
+                  { value: 'Grounded', label: 'Grounded' },
+                  { value: 'Midair', label: 'Midair' }
+                ]}
+              />
+            </td>
+            <td><span className="dim">0f</span></td>
+            <td />
+          </tr>
+          {changes.map((c, i) => (
+            <tr key={i}>
+              <td>{i + 1}</td>
+              <td>
+                <Dropdown
+                  className="base-select mech-mini-select has-value"
+                  value={c.stance}
+                  onChange={v => setChanges(changes.map((x, j) => (j === i ? { ...x, stance: v as StanceChange['stance'] } : x)))}
+                  options={[
+                    { value: 'Grounded', label: 'Grounded' },
+                    { value: 'Midair', label: 'Midair' }
+                  ]}
+                />
+              </td>
+              <td>
+                <input
+                  type="text"
+                  className="cell-value"
+                  value={displayTimeVal(c.time, 'f')}
+                  onChange={e => setChanges(changes.map((x, j) => (j === i ? { ...x, time: e.target.value } : x)))}
+                  onBlur={() => {
+                    if (typeof c.time !== 'string' || c.time.trim() === '') return;
+                    const parsed = parseTimeInput(c.time, 'frames');
+                    if (parsed !== c.time) setChanges(changes.map((x, j) => (j === i ? { ...x, time: parsed } : x)));
+                  }}
+                  placeholder="0f"
+                />
+              </td>
+              <td>
+                <button type="button" className="mech-list-remove" onClick={() => setChanges(changes.filter((_, j) => j !== i))} {...tip('Remove stance change')}>×</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="mech-add-row">
+        <span className="form-label" style={{ margin: 0 }}>Add Stance Change</span>
+        <button type="button" className="base-btn mech-add-icon-btn" onClick={addChange} {...tip('Add stance change')}>+</button>
       </div>
 
       {data.inputType === 'Release' && !groupSiblings?.repeat && (
