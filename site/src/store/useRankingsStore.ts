@@ -6,6 +6,7 @@ import { checkResultsFreshness } from '../utils/dataFreshness';
 import type { TeamSlot } from '../types/index';
 import type { RotationResults } from '../types/results';
 import type { DpsWindowKey } from '../types/results';
+import { dpsFieldOf } from '../data/dpsWindows';
 import { DEFAULT_RANKING_FILTERS, RANKING_ELEMENTS, RANKING_DMG_CATEGORIES } from '../components/rankings/RankingFilterToolbar';
 import type { RankingFilters, RankingElement, RankingDmgCategory } from '../components/rankings/RankingFilterToolbar';
 
@@ -20,12 +21,6 @@ export interface RankingEntry {
   contribution: RotationResults['contribution'];
 }
 
-export const RANKING_DPS_FIELD: Record<DpsWindowKey, 'openerDps' | 'firstLoopDps' | 'avgLoopDps' | 'twoMinDps'> = {
-  opener: 'openerDps',
-  firstLoop: 'firstLoopDps',
-  avgLoop: 'avgLoopDps',
-  twoMin: 'twoMinDps'
-};
 
 // "Same rotation" for Best Only: same characters, same slots, same sequence.
 // Gear/echoes and button order don't factor in.
@@ -114,8 +109,8 @@ export function filterRankingEntries(
     for (const entry of candidates) {
       const key = rotationGroupKey(entry);
       const existing = bestByGroup.get(key);
-      const dps = entry.dpsStats[RANKING_DPS_FIELD[activeWindow]] ?? 0;
-      const existingDps = existing ? existing.dpsStats[RANKING_DPS_FIELD[activeWindow]] ?? 0 : -Infinity;
+      const dps = entry.dpsStats[dpsFieldOf(activeWindow)] ?? 0;
+      const existingDps = existing ? existing.dpsStats[dpsFieldOf(activeWindow)] ?? 0 : -Infinity;
       if (!existing || dps > existingDps) bestByGroup.set(key, entry);
     }
     candidates = Array.from(bestByGroup.values());
@@ -123,7 +118,7 @@ export function filterRankingEntries(
 
   return candidates
     .slice()
-    .sort((a, b) => (b.dpsStats[RANKING_DPS_FIELD[activeWindow]] ?? 0) - (a.dpsStats[RANKING_DPS_FIELD[activeWindow]] ?? 0));
+    .sort((a, b) => (b.dpsStats[dpsFieldOf(activeWindow)] ?? 0) - (a.dpsStats[dpsFieldOf(activeWindow)] ?? 0));
 }
 
 interface RankingsState {

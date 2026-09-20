@@ -4,12 +4,14 @@ import { RangeSlider } from '../common/RangeSlider';
 import type { RangeValue } from '../common/RangeSlider';
 import { ELEMENT_COLORS } from '../../utils/Common';
 import { colorForLabel } from '../results/chartPalette';
+import { ELEMENTS } from '../../data/gameVocab';
+import type { CastType, ElementName } from '../../data/gameVocab';
 
 // 6 elements + 5 castType categories only -- Intro/Outro/status dmgTypes rarely drive a team's
 // *majority* damage, the filter's key (see useRankingsStore.ts's majorityDmgTypes).
-export const RANKING_ELEMENTS = ['Spectro', 'Fusion', 'Glacio', 'Aero', 'Electro', 'Havoc'] as const;
-export type RankingElement = typeof RANKING_ELEMENTS[number];
-export const RANKING_DMG_CATEGORIES = ['Basic', 'Heavy', 'Skill', 'Liberation', 'Echo'] as const;
+export type RankingElement = Exclude<ElementName, 'Physical'>;
+export const RANKING_ELEMENTS: readonly RankingElement[] = ELEMENTS.filter((element): element is RankingElement => element !== 'Physical');
+export const RANKING_DMG_CATEGORIES = ['Basic', 'Heavy', 'Skill', 'Liberation', 'Echo'] as const satisfies readonly CastType[];
 export type RankingDmgCategory = typeof RANKING_DMG_CATEGORIES[number];
 
 export interface RankingFilters {

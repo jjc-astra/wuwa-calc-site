@@ -3,6 +3,8 @@
 import { TimelineEngine } from './TimelineEngine';
 import { CombatCalculator } from './CombatCalculator';
 import { STAT_DB, STAT_NAME_MAP } from '../data/db';
+import { PRIMARY_DMG_TYPES } from '../data/gameVocab';
+import { DPS_WINDOWS } from '../data/dpsWindows';
 import type { HitConfig, TeamSlot } from '../types';
 import { type Frames, toFrames, roundFrames, framesToSeconds } from '../utils/Frames';
 import type {
@@ -21,9 +23,7 @@ const TWO_MIN = toFrames(120 * 60);
 // Fixed avg-loop sample size: first loop + 2 more, regardless of how short a loop is.
 const AVG_LOOP_REPS = 3;
 
-// dmgTypes the pie chart buckets hits by (deliberately dmgTypes, not castTypes -- a move's
-// cast/animation category can differ from its dmg-bonus-scaling category). Rest folds into "Other".
-const PRIMARY_DMG_TYPES = ['Basic', 'Heavy', 'Skill', 'Liberation', 'Intro', 'Outro', 'Echo'];
+// Hits whose dmgTypes name none of PRIMARY_DMG_TYPES fold into "Other" in the pie chart.
 
 interface RotationHit {
   gameTime: Frames;
@@ -92,7 +92,7 @@ function buildExtendedTimeline(
 
   const runSimple = (contentToRun: any[]) => {
     const extendedInput = [...contentToRun.map(cloneAuthored), { unit: '', action: '', timing: 'Auto', offset: 0 }];
-    return TimelineEngine.recalculateState(extendedInput, team, options, enemyConfig);
+    return TimelineEngine.recalculateState(extendedInput, team, { ...options, quiet: true }, enemyConfig);
   };
 
   if (loopTemplate.length === 0) {
@@ -150,7 +150,7 @@ export function previewEndingRotationTiming(
   extendedContent.push(...endingRows);
 
   const previewInput = [...extendedContent.map(cloneAuthored), { unit: '', action: '', timing: 'Auto', offset: 0 }];
-  const previewEvaluated = TimelineEngine.recalculateState(previewInput, team, options, enemyConfig);
+  const previewEvaluated = TimelineEngine.recalculateState(previewInput, team, { ...options, quiet: true }, enemyConfig);
 
   // Mirrors calc.worker.ts's populateDamageInstances so Ending Rotation's re-timed rows get
   // their own DMG column too (starts from full enemy HP, same simplification the caller uses).
@@ -232,20 +232,34 @@ function primaryDmgType(dmgTypes: string[]): string {
   return 'Other';
 }
 
+// The slice of the extended simulation a DPS window covers: hits after `start` up to and
+// including `end`, plus the length its DPS is measured over. null for a loop window when the
+// rotation has no loop to measure.
+interface WindowSpan { start: number; end: Frames; length: Frames }
+
+function windowSpan(key: DpsWindowKey, openerEndTime: Frames, loopDuration: Frames | null): WindowSpan | null {
+  switch (key) {
+    case 'opener':
+      return { start: -Infinity, end: openerEndTime, length: openerEndTime };
+    case 'firstLoop':
+      return loopDuration === null ? null : { start: openerEndTime, end: toFrames(openerEndTime + loopDuration), length: loopDuration };
+    case 'avgLoop':
+      return loopDuration === null
+        ? null
+        : { start: openerEndTime, end: toFrames(openerEndTime + AVG_LOOP_REPS * loopDuration), length: toFrames(AVG_LOOP_REPS * loopDuration) };
+    case 'twoMin':
+      return { start: -Infinity, end: TWO_MIN, length: TWO_MIN };
+  }
+}
+
 function buildDpsStats(hits: RotationHit[], openerEndTime: Frames, loopDuration: Frames | null): DpsStats {
   // DPS is damage/second, so each window's frame length converts to seconds at the division.
-  const openerDps = openerEndTime > 0 ? sumTotal(windowedHits(hits, -Infinity, openerEndTime)) / framesToSeconds(openerEndTime) : null;
-  const firstLoopDps =
-    loopDuration !== null
-      ? sumTotal(windowedHits(hits, openerEndTime, toFrames(openerEndTime + loopDuration))) / framesToSeconds(loopDuration)
-      : null;
-  const avgLoopDps =
-    loopDuration !== null
-      ? sumTotal(windowedHits(hits, openerEndTime, toFrames(openerEndTime + AVG_LOOP_REPS * loopDuration))) /
-        framesToSeconds(toFrames(AVG_LOOP_REPS * loopDuration))
-      : null;
-  const twoMinDps = sumTotal(windowedHits(hits, -Infinity, TWO_MIN)) / framesToSeconds(TWO_MIN);
-  return { openerDps, firstLoopDps, avgLoopDps, twoMinDps };
+  const stats: Record<string, number | null> = {};
+  for (const window of DPS_WINDOWS) {
+    const span = windowSpan(window.key, openerEndTime, loopDuration);
+    stats[window.dpsField] = span && span.length > 0 ? sumTotal(windowedHits(hits, span.start, span.end)) / framesToSeconds(span.length) : null;
+  }
+  return stats as unknown as DpsStats;
 }
 
 // Builds one window's cumulative dmg-over-time series from hits already shifted to
@@ -338,42 +352,39 @@ function buildAvgLoopDmgOverTime(hits: RotationHit[], openerEndTime: Frames, loo
   return { label: 'Avg Loop', points, bossMaxHp, killTime, windowEnd: loopDuration };
 }
 
+// What each window's chart series is called. It's a separate name from the tab's, since the
+// full-rotation window reads as the current rotation on its own chart.
+const SERIES_LABELS: Record<DpsWindowKey, string> = {
+  opener: 'Opener',
+  firstLoop: 'First Loop',
+  avgLoop: 'Avg Loop',
+  twoMin: 'Current Rotation'
+};
+
 function buildAllDmgOverTime(
   hits: RotationHit[],
   openerEndTime: Frames,
   loopDuration: Frames | null,
   bossMaxHp: number
 ): Record<DpsWindowKey, DmgOverTimeSeries> {
-  const opener = buildDmgOverTimeForWindow(
-    windowedHits(hits, -Infinity, openerEndTime).map(h => ({ t: h.gameTime, total: h.total, label: hitLabel(h) })),
-    bossMaxHp,
-    'Opener',
-    openerEndTime
-  );
-
-  const firstLoop =
-    loopDuration !== null
-      ? buildDmgOverTimeForWindow(
-          windowedHits(hits, openerEndTime, toFrames(openerEndTime + loopDuration)).map(h => ({ t: toFrames(h.gameTime - openerEndTime), total: h.total, label: hitLabel(h) })),
-          bossMaxHp,
-          'First Loop',
-          loopDuration
-        )
-      : buildDmgOverTimeForWindow([], bossMaxHp, 'First Loop', toFrames(0));
-
-  const avgLoop =
-    loopDuration !== null
-      ? buildAvgLoopDmgOverTime(hits, openerEndTime, loopDuration, bossMaxHp)
-      : buildDmgOverTimeForWindow([], bossMaxHp, 'Avg Loop', toFrames(0));
-
-  const twoMin = buildDmgOverTimeForWindow(
-    windowedHits(hits, -Infinity, TWO_MIN).map(h => ({ t: h.gameTime, total: h.total, label: hitLabel(h) })),
-    bossMaxHp,
-    'Current Rotation',
-    TWO_MIN
-  );
-
-  return { opener, firstLoop, avgLoop, twoMin };
+  const series = {} as Record<DpsWindowKey, DmgOverTimeSeries>;
+  for (const { key } of DPS_WINDOWS) {
+    const span = windowSpan(key, openerEndTime, loopDuration);
+    if (!span) {
+      series[key] = buildDmgOverTimeForWindow([], bossMaxHp, SERIES_LABELS[key], toFrames(0));
+    } else if (key === 'avgLoop') {
+      series[key] = buildAvgLoopDmgOverTime(hits, openerEndTime, loopDuration!, bossMaxHp);
+    } else {
+      // A loop's chart starts at 0 at the loop's own start; the others run on the rotation's clock.
+      const points = windowedHits(hits, span.start, span.end).map(h => ({
+        t: key === 'firstLoop' ? toFrames(h.gameTime - openerEndTime) : h.gameTime,
+        total: h.total,
+        label: hitLabel(h)
+      }));
+      series[key] = buildDmgOverTimeForWindow(points, bossMaxHp, SERIES_LABELS[key], span.length);
+    }
+  }
+  return series;
 }
 
 function buildContributionForWindow(windowHits: RotationHit[], teamNames: string[], divisor: number): ContributionForWindow {
@@ -409,17 +420,17 @@ function buildAllContribution(
   loopDuration: Frames | null,
   teamNames: string[]
 ): Record<DpsWindowKey, ContributionForWindow> {
-  const openerHits = windowedHits(hits, -Infinity, openerEndTime);
-  const firstLoopHits = loopDuration !== null ? windowedHits(hits, openerEndTime, toFrames(openerEndTime + loopDuration)) : [];
-  const avgLoopHits = loopDuration !== null ? windowedHits(hits, openerEndTime, toFrames(openerEndTime + AVG_LOOP_REPS * loopDuration)) : [];
-  const twoMinHits = windowedHits(hits, -Infinity, TWO_MIN);
-
-  return {
-    opener: buildContributionForWindow(openerHits, teamNames, 1),
-    firstLoop: buildContributionForWindow(firstLoopHits, teamNames, 1),
-    avgLoop: buildContributionForWindow(avgLoopHits, teamNames, AVG_LOOP_REPS),
-    twoMin: buildContributionForWindow(twoMinHits, teamNames, 1)
-  };
+  const contribution = {} as Record<DpsWindowKey, ContributionForWindow>;
+  for (const { key } of DPS_WINDOWS) {
+    const span = windowSpan(key, openerEndTime, loopDuration);
+    // The Avg Loop window holds AVG_LOOP_REPS loops of damage; report the average one.
+    contribution[key] = buildContributionForWindow(
+      span ? windowedHits(hits, span.start, span.end) : [],
+      teamNames,
+      key === 'avgLoop' ? AVG_LOOP_REPS : 1
+    );
+  }
+  return contribution;
 }
 
 // Basis: 2-min total damage. Each roll's worth = "team" (% of rotation total) and "personal"

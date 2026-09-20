@@ -1,6 +1,7 @@
 import type { MouseEvent } from 'react';
 import type { ImageFolder } from '../data/db';
 import { toFrames, framesToSeconds } from './Frames';
+import type { ElementName } from '../data/gameVocab';
 
 export const EXTENSION = '.webp';
 export const TRANSPARENT_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
@@ -15,7 +16,7 @@ export const DATA_REPO_BASE_URL = 'https://raw.githubusercontent.com/jjc-astra/w
 // DataLoader.loadJSON's WIP fallback both fall back to DATA_REPO_BASE_URL when a path here 404s.
 export const WIP_BASE_URL = '/wip-data';
 
-export const ELEMENT_COLORS: Record<string, string> = {
+export const ELEMENT_COLORS: Record<string, string> = ({
   Glacio: '#40c4ff',
   Fusion: '#ff6b3b',
   Electro: '#b873f9',
@@ -23,7 +24,7 @@ export const ELEMENT_COLORS: Record<string, string> = {
   Spectro: '#ffe14d',
   Havoc: '#e056fd',
   Physical: '#aaaaaa'
-};
+} satisfies Record<ElementName, string>);
 
 /** A character's brand color, falling back through element color to a neutral gray. */
 export function getCharacterThemeColor(dbChar: Record<string, any> | undefined): string {

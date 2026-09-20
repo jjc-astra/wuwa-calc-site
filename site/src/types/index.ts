@@ -1,8 +1,9 @@
 import type { Frames } from '../utils/Frames';
+import type { ElementName, EchoStatKey } from '../data/gameVocab';
 
 // --- EQUIPMENT & STAT TYPES ---
 export type WeaponType = 'Broadblade' | 'Sword' | 'Rectifier' | 'Gauntlets' | 'Pistols';
-export type ElementType = 'Glacio' | 'Fusion' | 'Electro' | 'Aero' | 'Spectro' | 'Havoc' | 'Physical';
+export type ElementType = ElementName;
 export type ScalarStat = 'ATK' | 'DEF' | 'HP';
 
 export interface BaseStats {
@@ -255,34 +256,13 @@ export interface DamageInstanceResult {
   };
 }
 
-export interface CalculatedStats {
+export interface CalculatedStats extends Record<EchoStatKey, number> {
   baseAtk: number;
   baseHP: number;
   baseDef: number;
   atk: number;
   hp: number;
   def: number;
-  critRate: number;
-  critDamage: number;
-  percentAtk: number;
-  percentHP: number;
-  percentDef: number;
-  flatAtk: number;
-  flatHP: number;
-  flatDef: number;
-  energyRegen: number;
-  healingBonus: number;
-  skillDmgBonus: number;
-  basicDmgBonus: number;
-  heavyDmgBonus: number;
-  libDmgBonus: number;
-  glacioDmgBonus: number;
-  fusionDmgBonus: number;
-  electroDmgBonus: number;
-  aeroDmgBonus: number;
-  spectroDmgBonus: number;
-  havocDmgBonus: number;
-  physicalDmgBonus: number;
   talentAtkPct?: number;
   [key: string]: number | undefined;
 }

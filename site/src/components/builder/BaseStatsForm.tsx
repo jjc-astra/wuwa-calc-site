@@ -4,6 +4,7 @@ import { DataLoader } from '../../utils/DataLoader';
 import { CommonUtils } from '../../utils/Common';
 import { forteNameKey } from '../../utils/ForteNames';
 import { maxForteKey } from '../../utils/ResourceKeys';
+import { ELEMENTS } from '../../data/gameVocab';
 import { IMAGE_FOLDERS } from '../../data/db';
 import { Dropdown } from '../common/Dropdown';
 
@@ -28,7 +29,7 @@ export const BaseStatsForm: React.FC = () => {
 
   if (!isChar && !isWep) return null;
 
-  const talentOpts = ['', 'ATK %', 'HP %', 'DEF %', 'CR Rate', 'CR DMG', 'Healing Bonus', 'Glacio DMG', 'Fusion DMG', 'Electro DMG', 'Aero DMG', 'Spectro DMG', 'Havoc DMG', 'Physical DMG'];
+  const talentOpts = ['', 'ATK %', 'HP %', 'DEF %', 'CR Rate', 'CR DMG', 'Healing Bonus', ...ELEMENTS.map(element => `${element} DMG`)];
   const forteCount = parseInt(baseStats.forteCount as any, 10) || 1;
 
   const makeInput = (key: string, label: string, defaultVal: string | number = '', placeholder = '') => (

@@ -1,6 +1,8 @@
 import type { MechanicNode } from '../types';
 import { toFrames } from '../utils/Frames';
 import { FORTE_SLOTS, deltaKey, forteKey } from '../utils/ResourceKeys';
+import { CAST_TYPES, ELEMENTS, NEGATIVE_STATUSES, elementBonusKey } from './gameVocab';
+import type { CastType } from './gameVocab';
 
 // Public/images subfolder names, single-sourced so icon path builders stay in sync.
 export const IMAGE_FOLDERS = {
@@ -100,13 +102,7 @@ export const STAT_NAME_MAP: Record<string, string> = {
   'Basic DMG': 'basicDmgBonus',
   'Heavy DMG': 'heavyDmgBonus',
   'Lib DMG': 'libDmgBonus',
-  'Glacio DMG': 'glacioDmgBonus',
-  'Fusion DMG': 'fusionDmgBonus',
-  'Electro DMG': 'electroDmgBonus',
-  'Aero DMG': 'aeroDmgBonus',
-  'Spectro DMG': 'spectroDmgBonus',
-  'Havoc DMG': 'havocDmgBonus',
-  'Physical DMG': 'physicalDmgBonus'
+  ...Object.fromEntries(ELEMENTS.map(element => [`${element} DMG`, elementBonusKey(element)]))
 };
 
 export const DEFAULT_SUBSTATS = ['CR Rate', 'CR DMG', 'ATK %', 'ER %', 'ATK'];
@@ -177,14 +173,10 @@ export const BUILDER_CATEGORIES = [
   'Forte Circuit', 'Intro', 'Outro', 'Inherent Skill', 'Tune Break', 'Resonance Chain'
 ];
 
-export const CAST_OPTIONS = [
-  'Basic', 'Heavy', 'Skill', 'Liberation',
-  'Intro', 'Outro', 'Coordinated', 'TuneBreak', 'TuneRupture', 'TuneHack',
-  'Dodge', 'Jump', 'Echo', 'Utility', 'Heal'
-];
+export const CAST_OPTIONS: string[] = [...CAST_TYPES];
 
 // Non-elemental cast-type colors, distinct from ELEMENT_COLORS (utils/Common.ts) for dmg types.
-export const CAST_TYPE_COLORS: Record<string, string> = {
+export const CAST_TYPE_COLORS: Record<string, string> = ({
   Basic: '#8fa8c9',
   Heavy: '#e0a050',
   Skill: '#5fb0e0',
@@ -200,57 +192,33 @@ export const CAST_TYPE_COLORS: Record<string, string> = {
   Echo: '#4fd0c0',
   Utility: '#9a9a9a',
   Heal: '#7fd68a'
-};
+} satisfies Record<CastType, string>);
 
-export const DMG_OPTIONS = [
-  'Basic', 'Heavy', 'Skill', 'Liberation', 'Intro', 'Outro', 'Coordinated',
-  'Spectro', 'Fusion', 'Glacio', 'Aero', 'Electro', 'Havoc', 'Physical',
-  'Spectro Frazzle', 'Aero Erosion', 'Electro Flare', 'Electro Rage',
-  'Fusion Burst', 'Glacio Chafe', 'Echo', 'TuneBreak', 'TuneRupture', 'TuneHack'
-];
+// The types a hit can be tagged with: the damage-bearing cast types, elements, statuses, then the
+// remaining ones.
+const DMG_CAST_TYPES = ['Basic', 'Heavy', 'Skill', 'Liberation', 'Intro', 'Outro', 'Coordinated'] as const satisfies readonly CastType[];
+const DMG_EXTRA_TYPES = ['Echo', 'TuneBreak', 'TuneRupture', 'TuneHack'] as const satisfies readonly CastType[];
+export const DMG_OPTIONS: string[] = [...DMG_CAST_TYPES, ...ELEMENTS, ...NEGATIVE_STATUSES, ...DMG_EXTRA_TYPES];
 
 export const STAT_OPTIONS = [
   'HP', 'HP %', 'ATK', 'ATK %', 'DEF', 'DEF %',
   'CR Rate', 'CR DMG', 'ER %', 'Healing Bonus'
 ];
 
-// Hover copy for the 'eff-stat' autocomplete mode (Stat Modifier effect target field) -- the DSL
-// pointer/event/modifier/property vocabulary's tooltips live in logic/dsl/dslRegistry.ts instead.
-// Formula (CombatCalculator.ts): baseDmg * critMult * (1+DMG Bonus) * (1+DMG Amp/Deepen) *
-// (1+DMG Taken) * (1+Multiplicative Mult) * resMult * defMult.
-// Any cast type containing "tune" (TuneBreak/TuneRupture/TuneHack/...) routes to calcTuneDmg:
-// skips DMG Bonus/crit/scalar; uses DMG Boost instead of Amp/Deepen.
-export const EFF_STAT_TOOLTIPS: {
-  statModifiers: Record<string, string>;
-  sheetStats: Record<string, string>;
-} = {
-  statModifiers: {
-    'DMG Bonus': 'Adds to the additive damage-bonus multiplier (1 + Base DMG Bonus + this), applied before crit.',
-    'DMG Amp': 'Multiplies final damage by (1 + this). Shares the same multiplier bucket as Deepen.',
-    Deepen: 'Multiplies final damage by (1 + this). Shares the same multiplier bucket as DMG Amp.',
-    'DMG Boost': 'Tune-only multiplier bucket (TuneBreak/TuneRupture/TuneHack/...): multiplies final Tune damage by (1 + this). Separate from DMG Amp/Deepen, which Tune damage does not use.',
-    'DMG Taken': "Multiplies the target's final damage taken by (1 + this), a separate layer from DMG Amp/Deepen.",
-    'Reduce RES': "Subtracted directly from the enemy's base Resistance before the resistance multiplier is computed.",
-    'RES Shred': "Subtracted directly from the enemy's base Resistance, identically to Reduce RES.",
-    'Ignore RES': "Subtracted directly from the enemy's base Resistance, identically to Reduce RES/RES Shred.",
-    'RES Pen': "Subtracted directly from the enemy's base Resistance, identically to Reduce RES/RES Shred.",
-    'Reduce DEF': "Multiplicatively lowers the enemy's effective Defense in the defense-multiplier formula.",
-    'Ignore DEF': "Multiplicatively lowers the enemy's effective Defense, identically to Reduce DEF.",
-    'Additive Mult': "Adds directly to the move's base % multiplier before it's applied to the scaling stat.",
-    'Multiplicative Mult': 'A separate multiplicative layer on final damage: (1 + this), alongside DMG Amp/Deepen and DMG Taken.'
-  },
-  sheetStats: {
-    HP: 'Flat HP stat modifier.',
-    'HP %': "Percentage increase to HP, added to the character's base HP contribution.",
-    ATK: 'Flat ATK stat modifier.',
-    'ATK %': "Percentage increase to ATK, added to the character's base ATK contribution.",
-    DEF: 'Flat DEF stat modifier.',
-    'DEF %': "Percentage increase to DEF, added to the character's base DEF contribution.",
-    'CR Rate': 'Critical Rate — chance for a hit to crit.',
-    'CR DMG': 'Critical DMG — bonus damage multiplier applied on a crit.',
-    'ER %': 'Energy Regen — increases Resonance Energy generated per hit/action.',
-    'Healing Bonus': 'Increases the amount healed by healing effects.'
-  }
+// Hover copy for the sheet stats offered by the 'eff-stat' autocomplete mode (Stat Modifier effect
+// target field). The combat-modifier tooltips are beside their labels in logic/combat/combatRegistry.ts;
+// the DSL pointer/event/modifier/property vocabulary's live in logic/dsl/dslRegistry.ts.
+export const SHEET_STAT_TOOLTIPS: Record<string, string> = {
+  HP: 'Flat HP stat modifier.',
+  'HP %': "Percentage increase to HP, added to the character's base HP contribution.",
+  ATK: 'Flat ATK stat modifier.',
+  'ATK %': "Percentage increase to ATK, added to the character's base ATK contribution.",
+  DEF: 'Flat DEF stat modifier.',
+  'DEF %': "Percentage increase to DEF, added to the character's base DEF contribution.",
+  'CR Rate': 'Critical Rate — chance for a hit to crit.',
+  'CR DMG': 'Critical DMG — bonus damage multiplier applied on a crit.',
+  'ER %': 'Energy Regen — increases Resonance Energy generated per hit/action.',
+  'Healing Bonus': 'Increases the amount healed by healing effects.'
 };
 
 // actionDuration/freezeTime are frames at 60fps; cooldown stays seconds.

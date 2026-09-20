@@ -4,6 +4,8 @@ import { DSLParser } from './dsl/dslParser';
 import { CHARACTER_DEFAULTS, SIM_CONSTANTS, ENEMY_DEFAULTS, STAT_NAME_MAP } from '../data/db';
 import { SCOPE_HIT_TAGS } from './combat/combatRegistry';
 import { modifierSet } from './engineValues';
+import { ECHO_STAT_KEYS, emptyEchoStats } from '../data/gameVocab';
+import type { NegativeStatus } from '../data/gameVocab';
 import { findScope, resolveMultiplierBucket, resolveSheetDmgBonusKey } from './combat/statParser';
 import type { Effect, HitConfig, DamageInstanceResult, BuffTotals, CalculatedStats } from '../types';
 
@@ -63,14 +65,6 @@ function classifyBuffIntoTotals(sLower: string, totalVal: number, isPct: boolean
   if (bucket) buffTotals[bucket] += totalVal;
 }
 
-const DEFAULT_ECHO_STATS = {
-  flatHP: 0, percentHP: 0, flatAtk: 0, percentAtk: 0, flatDef: 0, percentDef: 0,
-  critRate: 0, critDamage: 0, energyRegen: 0, healingBonus: 0,
-  skillDmgBonus: 0, basicDmgBonus: 0, heavyDmgBonus: 0, libDmgBonus: 0,
-  glacioDmgBonus: 0, fusionDmgBonus: 0, electroDmgBonus: 0, aeroDmgBonus: 0, spectroDmgBonus: 0, havocDmgBonus: 0,
-  physicalDmgBonus: 0
-};
-
 export const CombatCalculator = {
   // Keyed by status NAME, not element -- "Fusion Burst" the status and "Fusion" the element
   // are unrelated. Index = stack count.
@@ -81,7 +75,7 @@ export const CombatCalculator = {
     'Spectro Frazzle': [0, 3000, 5439, 7878, 10317, 12756, 15195, 17634, 20073, 22512, 24951, 33268, 41585, 49902, 58219, 66536, 74853],
     'Glacio Chafe':    [0, 2450, 4442, 6434, 8426, 10417, 12409, 14401, 16393, 18385, 20377, 27169, 33961, 40753, 47546, 54338, 61130],
     'Havoc Bane':      [0, -200, -400, -600, -800, -1000, -1200]
-  } as Record<string, number[]>,
+  } as Partial<Record<NegativeStatus, number[]>> as Record<string, number[]>,
 
   getNegativeStatusMult: (statusName: string, stacks: number): number => {
     const table = CombatCalculator.NEGATIVE_STATUS_MULTS[statusName];
@@ -186,35 +180,18 @@ export const CombatCalculator = {
     const slot = team.find(t => t.character === unitName) || {};
     const dbUnit = DataLoader.characterDB[unitName] || {};
     const dbWeapon = DataLoader.weaponDB[slot.weapon] || {};
-    const echoStats = slot.echoStats || { ...DEFAULT_ECHO_STATS };
+    const echoStats = slot.echoStats || emptyEchoStats();
 
     const baseAtk = (parseFloat(dbUnit.baseAtk as any) || 0) + (parseFloat(dbWeapon.baseAtk as any) || 0);
     const baseHP = (parseFloat(dbUnit.baseHP as any) || 0) + (parseFloat(dbWeapon.baseHP as any) || 0);
     const baseDef = (parseFloat(dbUnit.baseDef as any) || 0) + (parseFloat(dbWeapon.baseDef as any) || 0);
 
-    const stats: Record<string, number> = {
-      percentAtk: echoStats.percentAtk || 0,
-      percentHP: echoStats.percentHP || 0,
-      percentDef: echoStats.percentDef || 0,
-      flatAtk: echoStats.flatAtk || 0,
-      flatHP: echoStats.flatHP || 0,
-      flatDef: echoStats.flatDef || 0,
-      critRate: (parseFloat(dbUnit.baseCritRate as any) || CHARACTER_DEFAULTS.baseCritRate) + (echoStats.critRate || 0),
-      critDamage: (parseFloat(dbUnit.baseCritDmg as any) || CHARACTER_DEFAULTS.baseCritDmg) + (echoStats.critDamage || 0),
-      energyRegen: CHARACTER_DEFAULTS.energyRegen + (echoStats.energyRegen || 0),
-      healingBonus: echoStats.healingBonus || 0,
-      skillDmgBonus: echoStats.skillDmgBonus || 0,
-      basicDmgBonus: echoStats.basicDmgBonus || 0,
-      heavyDmgBonus: echoStats.heavyDmgBonus || 0,
-      libDmgBonus: echoStats.libDmgBonus || 0,
-      glacioDmgBonus: echoStats.glacioDmgBonus || 0,
-      fusionDmgBonus: echoStats.fusionDmgBonus || 0,
-      electroDmgBonus: echoStats.electroDmgBonus || 0,
-      aeroDmgBonus: echoStats.aeroDmgBonus || 0,
-      spectroDmgBonus: echoStats.spectroDmgBonus || 0,
-      havocDmgBonus: echoStats.havocDmgBonus || 0,
-      physicalDmgBonus: echoStats.physicalDmgBonus || 0
-    };
+    const stats: Record<string, number> = {};
+    for (const key of ECHO_STAT_KEYS) stats[key] = echoStats[key] || 0;
+    // The three stats a character has its own base for; the echoes' share is already in `stats`.
+    stats.critRate = (parseFloat(dbUnit.baseCritRate as any) || CHARACTER_DEFAULTS.baseCritRate) + stats.critRate;
+    stats.critDamage = (parseFloat(dbUnit.baseCritDmg as any) || CHARACTER_DEFAULTS.baseCritDmg) + stats.critDamage;
+    stats.energyRegen = CHARACTER_DEFAULTS.energyRegen + stats.energyRegen;
 
     let talentAtkPct = 0;
     const injectPassiveStat = (type?: string, val?: string | number) => {

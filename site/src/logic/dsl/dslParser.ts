@@ -7,10 +7,33 @@ export interface CompiledDSL {
 }
 
 // Compiles DSL_POINTERS with specific overrides ahead of generic pointer roots to prevent greedy prefix matching, ensuring all properties resolve.
+// Index of the ')' matching the '(' at `openIdx`, or -1 if it never closes.
+function findClosingParen(str: string, openIdx: number): number {
+  let depth = 0;
+  for (let i = openIdx; i < str.length; i++) {
+    if (str[i] === '(') depth++;
+    else if (str[i] === ')') {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
 function validatePointerRegistry(): void {
+  const jsNameByMethod = new Map<string, string>();
   for (const pointer of Object.values(DSL_POINTERS)) {
     for (const prop of pointer.properties) {
-      if (!prop.isMethod && !prop.fullOverride && !prop.targetKey) {
+      if (prop.isMethod) {
+        if (!prop.jsName) {
+          console.warn(`[DSLParser] "${pointer.pointer}.${prop.propName}" is a method with no jsName -- it will not evaluate.`);
+        } else if (jsNameByMethod.get(prop.propName) !== undefined && jsNameByMethod.get(prop.propName) !== prop.jsName) {
+          // Methods translate the same whichever pointer they follow, so one name can't compile two ways.
+          console.warn(`[DSLParser] "${prop.propName}" maps to both "${jsNameByMethod.get(prop.propName)}" and "${prop.jsName}".`);
+        } else {
+          jsNameByMethod.set(prop.propName, prop.jsName);
+        }
+      } else if (!prop.fullOverride && !prop.targetKey) {
         console.warn(`[DSLParser] "${pointer.pointer}.${prop.propName}" has neither targetKey nor fullOverride -- it will not evaluate.`);
       }
     }
@@ -56,6 +79,18 @@ function buildTranslationMaps(): { pointerMap: Record<string, string>; scalarMap
 }
 
 const { pointerMap: POINTER_MAP, scalarMap: SCALAR_MAP } = buildTranslationMaps();
+
+// '.BuffStacks(arg)' -> '.getBuffStacks("arg")' and its siblings, one rule per distinct method the
+// registry declares. Matched case-insensitively, like the pointer rules.
+const METHOD_RULES: Array<{ pattern: RegExp; jsName: string }> = [];
+for (const pointer of Object.values(DSL_POINTERS)) {
+  for (const prop of pointer.properties) {
+    const name = prop.propName.replace(/\(\)$/, '');
+    if (prop.isMethod && prop.jsName && !METHOD_RULES.some(rule => rule.jsName === prop.jsName)) {
+      METHOD_RULES.push({ pattern: new RegExp(`\\.${name}\\(([^)]+)\\)`, 'gi'), jsName: prop.jsName });
+    }
+  }
+}
 
 type CompiledMathFn = (ctx: unknown, equipper?: string) => number;
 
@@ -155,16 +190,8 @@ export const DSLParser = {
         const search = wrap + '(';
         const startIdx = jsStr.toUpperCase().indexOf(search);
         if (startIdx !== -1) {
-          let depth = 0;
-          let endIdx = -1;
           const openParenIdx = startIdx + wrap.length;
-          for (let i = openParenIdx; i < jsStr.length; i++) {
-            if (jsStr[i] === '(') depth++;
-            else if (jsStr[i] === ')') {
-              depth--;
-              if (depth === 0) { endIdx = i; break; }
-            }
-          }
+          const endIdx = findClosingParen(jsStr, openParenIdx);
           if (endIdx !== -1) {
             const inner = jsStr.substring(openParenIdx + 1, endIdx);
             let resolved = '';
@@ -197,16 +224,8 @@ export const DSLParser = {
     while (processing) {
       const mathIdx = jsStr.toUpperCase().indexOf('MATH(');
       if (mathIdx !== -1) {
-        let depth = 1;
-        let closingIdx = -1;
         const startSearch = mathIdx + 5;
-        for (let i = startSearch; i < jsStr.length; i++) {
-          if (jsStr[i] === '(') depth++;
-          else if (jsStr[i] === ')') {
-            depth--;
-            if (depth === 0) { closingIdx = i; break; }
-          }
-        }
+        const closingIdx = findClosingParen(jsStr, mathIdx + 4);
         if (closingIdx !== -1) {
           const inner = jsStr.substring(startSearch, closingIdx);
           jsStr = jsStr.substring(0, mathIdx) + '(' + inner + ')' + jsStr.substring(closingIdx + 1);
@@ -227,12 +246,9 @@ export const DSLParser = {
       return (arg.startsWith('"') || arg.startsWith("'")) ? arg : `"${arg}"`;
     };
 
-    jsStr = jsStr.replace(/\.BuffStacks\(([^)]+)\)/gi, (_, p1) => `.getBuffStacks(${wrapQuotes(p1)})`);
-    jsStr = jsStr.replace(/\.BuffMaxStacks\(([^)]+)\)/gi, (_, p1) => `.getBuffMaxStacks(${wrapQuotes(p1)})`);
-    jsStr = jsStr.replace(/\.HasBuff\(([^)]+)\)/gi, (_, p1) => `.hasBuff(${wrapQuotes(p1)})`);
-    jsStr = jsStr.replace(/\.Tracker\(([^)]+)\)/gi, (_, p1) => `.getTracker(${wrapQuotes(p1)})`);
-    jsStr = jsStr.replace(/\.Stat\(([^)]+)\)/gi, (_, p1) => `.getStat(${wrapQuotes(p1)})`);
-    jsStr = jsStr.replace(/\.Cooldown\(([^)]+)\)/gi, (_, p1) => `.getCooldown(${wrapQuotes(p1)})`);
+    for (const { pattern, jsName } of METHOD_RULES) {
+      jsStr = jsStr.replace(pattern, (_, p1) => `.${jsName}(${wrapQuotes(p1)})`);
+    }
     jsStr = jsStr.replace(/@StatusMult\(([^,]+),\s*([^)]+)\)/gi, (_, p1, p2) => `CombatCalculator.getNegativeStatusMult(${wrapQuotes(p1)}, ${p2})`);
 
     for (const [key, val] of Object.entries(SCALAR_MAP)) {

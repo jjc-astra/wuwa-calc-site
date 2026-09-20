@@ -8,21 +8,15 @@ import { createPortal } from 'react-dom';
 import { useComparisonStore } from '../../store/useComparisonStore';
 import { useRotationHistoryStore } from '../../store/useRotationHistoryStore';
 import type { HistoryEntry } from '../../store/useRotationHistoryStore';
-import { useRankingsStore, filterRankingEntries, RANKING_DPS_FIELD } from '../../store/useRankingsStore';
+import { useRankingsStore, filterRankingEntries } from '../../store/useRankingsStore';
+import { DPS_WINDOW_TABS } from './chartPalette';
+import { dpsFieldOf } from '../../data/dpsWindows';
 import type { RankingEntry } from '../../store/useRankingsStore';
 import { TeamPreview } from '../common/TeamPreview';
 import { StackedContributionBar } from '../rankings/StackedContributionBar';
 import { RankingFilterToolbar } from '../rankings/RankingFilterToolbar';
 import { ChromeTabs } from './ChromeTabs';
-import type { ChromeTabDef } from './ChromeTabs';
 import type { DpsWindowKey } from '../../types/results';
-
-const WINDOW_TABS: ChromeTabDef[] = [
-  { id: 'opener', label: 'Opener' },
-  { id: 'firstLoop', label: 'First Loop' },
-  { id: 'avgLoop', label: 'Avg Loop' },
-  { id: 'twoMin', label: '2-Min' }
-];
 
 interface PinComparisonPickerProps {
   source: 'history' | 'rankings';
@@ -156,7 +150,7 @@ const RankingsPickerBody: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     () => filterRankingEntries(entries, filters, search, activeWindow),
     [entries, filters, search, activeWindow]
   );
-  const maxDps = visibleEntries.length > 0 ? (visibleEntries[0].dpsStats[RANKING_DPS_FIELD[activeWindow]] ?? 0) : 0;
+  const maxDps = visibleEntries.length > 0 ? (visibleEntries[0].dpsStats[dpsFieldOf(activeWindow)] ?? 0) : 0;
 
   const pick = (entry: RankingEntry) => {
     // Async (recalculates via the worker; RankingEntry never carries dmgOverTimeSeries) but not
@@ -182,7 +176,7 @@ const RankingsPickerBody: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       <div className="rankings-main">
         <div className="panel-header-main">Rankings</div>
         <div className="rankings-tab-panel">
-          <ChromeTabs tabs={WINDOW_TABS} activeId={activeWindow} onSelect={id => setActiveWindow(id as DpsWindowKey)} />
+          <ChromeTabs tabs={DPS_WINDOW_TABS} activeId={activeWindow} onSelect={id => setActiveWindow(id as DpsWindowKey)} />
           <div className="rankings-tab-panel-body">
             <div className="ranking-list">
               {status === 'loading' && entries.length === 0 && (
@@ -193,7 +187,7 @@ const RankingsPickerBody: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 <div className="results-empty">No rotations match these filters.</div>
               )}
               {visibleEntries.map((entry, i) => {
-                const dps = entry.dpsStats[RANKING_DPS_FIELD[activeWindow]] ?? 0;
+                const dps = entry.dpsStats[dpsFieldOf(activeWindow)] ?? 0;
                 const widthPct = maxDps > 0 ? (dps / maxDps) * 100 : 0;
                 const unitNames = entry.team.filter(s => s.character).map(s => s.character);
                 const label = unitNames.join(' · ');

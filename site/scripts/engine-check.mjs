@@ -19,6 +19,9 @@
 //     time scales, every hold cursor mode...). It runs the same pipeline calc.worker.ts runs: recalculateState,
 //     per-hit damage, findLoopStart/analyzeLoop, Ending Rotation re-timing, and the Results
 //     panel's buildRotationResults.
+//   - Also snapshots the vocabulary lists (cast types, elements, DSL modifiers, tooltips, DPS
+//     windows...) and the DSL parser's translation of every DSL string in the data, so
+//     refactors of those registries can't change them unnoticed.
 //   - Canonicalizes every evaluated row (all fields, sorted keys), the DSL context each row
 //     exposes, and the results, then compares deeply -- any changed number, message, buff or
 //     ordering-sensitive array shows up with its path.
@@ -40,6 +43,7 @@ const fixtureDir = path.join(siteRoot, 'scripts/engine-fixtures/data');
 const workDir = path.join(siteRoot, '.engine-baseline');
 const frozenDir = path.join(workDir, 'data');
 const baselineFile = path.join(workDir, 'baseline.json.gz');
+const overlayListFile = path.join(workDir, 'overlay.json');
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -65,11 +69,12 @@ function walkFiles(dir, out = []) {
 
 // Lays one data directory over the frozen copy the way DataLoader layers the WIP mirror in dev:
 // combined db_*.json files shallow-merge over what's there, everything else is replaced.
-function overlayData(srcDir) {
+function overlayData(srcDir, overlayFiles) {
   if (!fs.existsSync(srcDir)) return;
   for (const file of walkFiles(srcDir)) {
     if (!file.endsWith('.json')) continue;
     const rel = path.relative(srcDir, file);
+    overlayFiles.add(rel.split(path.sep).join('/'));
     const target = path.join(frozenDir, rel);
     fs.mkdirSync(path.dirname(target), { recursive: true });
     const isCombinedDb = !rel.includes(path.sep) && /^db_.*\.json$/.test(rel);
@@ -87,8 +92,11 @@ function freezeData() {
   if (!fs.existsSync(dataRepoDir)) throw new Error(`Data repo not found at ${dataRepoDir} (set WUWA_DATA_PATH).`);
   fs.rmSync(frozenDir, { recursive: true, force: true });
   fs.cpSync(dataRepoDir, frozenDir, { recursive: true });
-  overlayData(wipDir);
-  overlayData(fixtureDir);
+  // The dev server serves these from /wip-data (ahead of the repo), which the manifest doesn't list.
+  const overlayFiles = new Set();
+  overlayData(wipDir, overlayFiles);
+  overlayData(fixtureDir, overlayFiles);
+  fs.writeFileSync(overlayListFile, JSON.stringify([...overlayFiles].sort()));
 }
 
 function fingerprintData() {
@@ -101,11 +109,15 @@ function fingerprintData() {
 }
 
 function installEnvironment() {
-  // The DataLoader asks the WIP mirror first (404 here, so it falls back) and then the real
-  // data repo URL -- both resolve into the frozen copy.
+  // Like the dev server: the WIP mirror answers only for files that came from an overlay (WIP
+  // data, fixtures); the real data repo URL answers for everything in the frozen copy.
+  const overlay = new Set(fs.existsSync(overlayListFile) ? JSON.parse(fs.readFileSync(overlayListFile, 'utf8')) : []);
   globalThis.fetch = async url => {
-    const match = String(url).split('?')[0].match(/\/main\/data\/(.*)$/);
-    const file = match ? path.join(frozenDir, match[1]) : null;
+    const clean = String(url).split('?')[0];
+    const wip = clean.match(/\/wip-data\/data\/(.*)$/);
+    const repo = clean.match(/\/main\/data\/(.*)$/);
+    const rel = wip ? (overlay.has(wip[1]) ? wip[1] : null) : repo ? repo[1] : null;
+    const file = rel ? path.join(frozenDir, rel) : null;
     if (!file || !fs.existsSync(file)) return { ok: false, status: 404, text: async () => '' };
     return { ok: true, status: 200, text: async () => fs.readFileSync(file, 'utf8') };
   };
@@ -471,6 +483,104 @@ function runScenario(scenario, ctx) {
   }
 }
 
+// ---------------------------------------------------------------------------------------------
+// Vocabulary + DSL probes: lists and translations that no simulated row exercises directly
+// ---------------------------------------------------------------------------------------------
+
+const DSL_SNIPPETS = [
+  '@Self.BuffStacks(Foo Bar)', "@Self.BuffStacks('Foo')", '@Self.BuffMaxStacks(Clarity)', '@Self.HasBuff(@Lumi(Yellow Light Form))',
+  '@Self.Tracker(hits) + 1', '@Self.Stat(CR Rate) >= 50', '@Self.Cooldown(Skill) == 0', '@Self.cooldown(Skill)', '@Self.hasbuff(x)',
+  '@Enemy.BuffStacks(Fusion Burst)', '@Enemy.BuffMaxStacks(Fusion Burst)', '@Enemy.HasBuff(Aero Erosion)',
+  '@StatusMult(Aero Erosion, @Self.Tracker(Stacks))', "@StatusMult('Aero Erosion', 3)",
+  'MATH(1 + 2) * 3', 'MATH(2 * (3 + 4)) + MATH(1)', 'MATH(MATH(1) + 2)',
+  'ANY(@Self.Energy > 1, @Self.HP < 2)', 'ALL(a, b) AND NOT(c)', 'XOR(@Self.Energy > 1, @Self.Concerto > 1)',
+  'ANY(ALL(a, b), XOR(c, d))', 'NOT(NOT(x))', 'NOT(ANY(a, b))',
+  '@Move.CastTypes.includes("Skill")', '@Prev.CastTypes.includes(Outro)', '@Next.Priority > 5', '@Default.SwapTime + 3',
+  '@Self.Sequence >= 2 && @Self.PrevAction == @Lumi(Pounce)', 'ABS(@Self.HP - 5)', '10%', '(@Self.Sequence >= 2 ? 30 : 10)%',
+  '@Self.Forte2 >= @Self.MaxForte2', '@Self.Energy == 10..20', '@Team.length > 1', '@Equipper', '@System(Dodge)'
+];
+
+const DSL_RULE_SNIPPETS = [
+  'OnCast[Skill, Self] IF (@Self.Energy > 1)', 'ANY(OnBuffAdd[a], OnBuffExpire[b]) IF (@Self.Sequence >= 6)', 'OnTick[2, 3]',
+  'ALWAYS', 'IF (true)', 'AfterHit[Self] IF (@Self.Forte1 < 100)', 'OnHit[@Lumi(Pounce), Basic]', 'OnStart', 'ANY(OnSwapIn, OnSwapOut)'
+];
+
+function collectDslStrings() {
+  const strings = new Set();
+  const rules = new Set();
+  const visit = (value, key) => {
+    if (typeof value === 'string') {
+      if (key === 'triggerRule') rules.add(value);
+      if (value.includes('@')) strings.add(value);
+    } else if (Array.isArray(value)) value.forEach(v => visit(v, key));
+    else if (value && typeof value === 'object') Object.entries(value).forEach(([k, v]) => visit(v, k));
+  };
+  for (const file of walkFiles(path.join(frozenDir, 'mechanics'))) {
+    if (file.endsWith('.json')) visit(JSON.parse(fs.readFileSync(file, 'utf8')));
+  }
+  return { strings: [...strings].sort(), rules: [...rules].sort() };
+}
+
+async function snapshotDsl(load) {
+  const [{ DSLParser }, { tokenizeDSL }] = await Promise.all([load('/src/logic/dsl/dslParser.ts'), load('/src/utils/DSLHighlight.ts')]);
+  const corpus = collectDslStrings();
+  const strings = [...new Set([...corpus.strings, ...DSL_SNIPPETS])].sort();
+  const rules = [...new Set([...corpus.rules, ...DSL_RULE_SNIPPETS])].sort();
+  const attempt = fn => { try { return fn(); } catch (e) { return `THREW: ${e.message}`; } };
+  const silenced = console.error;
+  console.error = () => {};
+  try {
+    return canon({
+      translations: Object.fromEntries(strings.map(s => [s, attempt(() => DSLParser._translatePointers(s))])),
+      compiled: Object.fromEntries(rules.map(r => [r, attempt(() => { const c = DSLParser.compile(r); return c && { triggers: c.triggers, raw: c.raw }; })])),
+      highlighted: Object.fromEntries(strings.map(s => [s, attempt(() => tokenizeDSL(s, ['FluxCore', 'MaxFluxCore']))]))
+    });
+  } finally {
+    console.error = silenced;
+  }
+}
+
+async function snapshotVocab(load) {
+  const tryLoad = async p => { try { return fs.existsSync(path.join(siteRoot, p)) ? await load('/' + p) : null; } catch { return null; } };
+  const [db, registry, combat, common, resolver, calc, dpsWindows] = await Promise.all([
+    load('/src/data/db.ts'), load('/src/logic/dsl/dslRegistry.ts'), load('/src/logic/combat/combatRegistry.ts'),
+    load('/src/utils/Common.ts'), load('/src/logic/dsl/dslResolver.ts'), load('/src/logic/CombatCalculator.ts'),
+    load('/src/data/dpsWindows.ts')
+  ]);
+  const chart = await tryLoad('src/components/results/chartPalette.ts');
+  const toolbar = await tryLoad('src/components/rankings/RankingFilterToolbar.tsx');
+
+  const modLabels = [...new Set([...combat.UNSCOPED_MOD_LABELS, ...combat.SCOPEABLE_MOD_LABELS])];
+  const optionValues = rule => (typeof rule.options === 'function' ? rule.options([]) : rule.options).map(o => [o.val, o.group, o.tooltipKey ?? null]);
+
+  return canon({
+    castOptions: db.CAST_OPTIONS,
+    dmgOptions: db.DMG_OPTIONS,
+    statOptions: db.STAT_OPTIONS,
+    castTypeColors: db.CAST_TYPE_COLORS,
+    statNameMap: db.STAT_NAME_MAP,
+    elementColors: common.ELEMENT_COLORS,
+    dslModifiers: [...registry.DSL_MODIFIERS],
+    dslModifierTooltips: registry.DSL_MODIFIER_TOOLTIPS,
+    dslMethods: Object.fromEntries(Object.entries(registry.DSL_POINTERS).map(([name, p]) => [name, p.properties.filter(x => x.isMethod).map(x => x.propName)])),
+    allScopes: [...combat.ALL_SCOPES],
+    scopeHitTags: combat.SCOPE_HIT_TAGS,
+    sheetDmgBonusKey: combat.SHEET_DMG_BONUS_KEY,
+    modLabels,
+    statModifierTooltips: Object.fromEntries(modLabels.map(l => [l, combat.MOD_LABEL_TOOLTIPS[l] ?? null])),
+    sheetStatTooltips: db.SHEET_STAT_TOOLTIPS,
+    negativeStatusTable: Object.keys(calc.CombatCalculator.NEGATIVE_STATUS_MULTS),
+    statRuleOptions: optionValues(resolver.makeStatRule([], [])),
+    appliesDuringOptions: optionValues(resolver.makeAppliesDuringRule(null, {})),
+    eventBracketOptions: optionValues(resolver.makeEventModifierBracketRule(null, {})),
+    rankingElements: toolbar ? [...toolbar.RANKING_ELEMENTS] : null,
+    rankingDmgCategories: toolbar ? [...toolbar.RANKING_DMG_CATEGORIES] : null,
+    dpsWindows: dpsWindows.DPS_WINDOWS.map(({ key, label, dpsField, dpsLabel }) => ({ key, label, dpsField, dpsLabel })),
+    dpsFieldOf: Object.fromEntries(dpsWindows.DPS_WINDOWS.map(w => [w.key, dpsWindows.dpsFieldOf(w.key)])),
+    categoricalPalette: chart ? { named: ['Basic', 'Heavy', 'Skill', 'Liberation', 'Intro', 'Outro', 'Echo', 'Coordinated', 'Aero Erosion'].map(l => [l, chart.colorForLabel(l)]), tabs: chart.DPS_WINDOW_TABS } : null
+  });
+}
+
 async function runAll() {
   installEnvironment();
   const server = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' });
@@ -501,6 +611,10 @@ async function runAll() {
       const started = Date.now();
       results[scenario.name] = runScenario(scenario, { mods, teams });
       process.stdout.write(`  ${scenario.name.padEnd(34)} ${String(Date.now() - started).padStart(5)}ms  rows=${results[scenario.name].rows.length}\n`);
+    }
+    if (!only || only.startsWith('__')) {
+      results.__vocab = await snapshotVocab(load);
+      results.__dsl = await snapshotDsl(load);
     }
     return results;
   } finally {
@@ -561,11 +675,113 @@ async function check() {
   console.log(`\nengine-check PASSED: ${Object.keys(current).length} scenarios identical to the baseline.`);
 }
 
+
+// ---------------------------------------------------------------------------------------------
+// Timing: where a live-preview recalculate's worker time goes (npm run engine:perf)
+// ---------------------------------------------------------------------------------------------
+
+// Same as calc.worker.ts's: drops function-valued properties before a result crosses back.
+function stripFunctions(value, seen = new WeakMap()) {
+  if (value === null || typeof value !== 'object') return value;
+  if (seen.has(value)) return seen.get(value);
+  const clone = Array.isArray(value) ? [] : {};
+  seen.set(value, clone);
+  for (const key of Object.keys(value)) {
+    const v = value[key];
+    if (typeof v === 'function') continue;
+    clone[key] = v && typeof v === 'object' ? stripFunctions(v, seen) : v;
+  }
+  return clone;
+}
+
+const median = list => [...list].sort((a, b) => a - b)[Math.floor(list.length / 2)];
+
+async function perf() {
+  installEnvironment();
+  const rowCount = parseInt(flag('--rows', '90'), 10);
+  const iterations = parseInt(flag('--iterations', '5'), 10);
+  const server = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' });
+  try {
+    const load = p => server.ssrLoadModule(p);
+    const [{ DataLoader }, { TimelineEngine }, ResultsCalculator, db] = await Promise.all([
+      load('/src/utils/DataLoader.ts'), load('/src/logic/TimelineEngine.ts'), load('/src/logic/ResultsCalculator.ts'), load('/src/data/db.ts')
+    ]);
+    await DataLoader.initDatabases();
+    const silenced = { ...console };
+    console.error = console.warn = console.log = console.info = () => {};
+    const teams = {};
+    for (const spec of TEAMS) {
+      teams[spec.name] = spec.slots.map((slot, i) => buildSlot(db, slot, i, DataLoader));
+      await DataLoader.loadTeamMechanics(teams[spec.name]);
+    }
+    const enemy = db.ENEMY_DEFAULTS;
+    const options = { startEnergy: true, startConcerto: false };
+    const totals = { recalculateState: 0, feedbackRecalc: 0, analyzeLoop: 0, endingPreview: 0, stripAndClone: 0 };
+    const lines = [];
+
+    for (const spec of TEAMS.filter(t => t.name.includes(only))) {
+      for (const seed of [1, 2]) {
+        const template = generateRotation(DataLoader, teams[spec.name], seed, rowCount);
+        const times = { recalculateState: [], feedbackRecalc: [], analyzeLoop: [], endingPreview: [], stripAndClone: [] };
+        for (let iteration = 0; iteration < iterations + 1; iteration++) {
+          const team = teams[spec.name].map(slot => JSON.parse(JSON.stringify(slot)));
+          const rows = template.map(row => ({ ...row }));
+          Math.random = mulberry32(seed);
+          TimelineEngine._globalBuffCache = {};
+
+          let t = performance.now();
+          const evaluated = TimelineEngine.recalculateState(rows, team, options, enemy);
+          const afterRecalc = performance.now();
+          const { index: loopStart } = TimelineEngine.findLoopStart(evaluated, team[0].character);
+          TimelineEngine.analyzeLoop(evaluated, team, options, enemy, loopStart);
+          const afterLoop = performance.now();
+
+          // Ending Rotation on: mark the last content row as the loop end and append a copy of the loop.
+          const last = evaluated.reduce((l, r, i) => (r.unit ? i : l), -1);
+          const authored = r => ({ id: r.id, unit: r.unit, action: r.action, timing: r.timing, offset: 0, ...(r.loopStartOverride ? { loopStartOverride: true } : {}) });
+          const withEnding = [...evaluated.slice(0, last + 1).map((r, i) => ({ ...authored(r), ...(i === last ? { loopEndOverride: true } : {}) })),
+            ...evaluated.slice(loopStart, last + 1).map(r => ({ ...authored(r), id: `${r.id}-e` })), { id: 'end', unit: '', action: '', timing: 'Auto', offset: 0 }];
+          const reEvaluated = TimelineEngine.recalculateState(withEnding, team, options, enemy);
+          const beforePreview = performance.now();
+          ResultsCalculator.previewEndingRotationTiming(reEvaluated, team, options, enemy, loopStart, false, false);
+          const afterPreview = performance.now();
+
+          const beforeClone = performance.now();
+          const cloned = structuredClone(stripFunctions(evaluated));
+          const afterClone = performance.now();
+
+          // What an edit actually sends: the previously evaluated rows, cloned across postMessage.
+          const beforeFeedback = performance.now();
+          TimelineEngine.recalculateState(cloned, team, options, enemy);
+          const afterFeedback = performance.now();
+
+          if (iteration === 0) continue; // warm-up
+          times.recalculateState.push(afterRecalc - t);
+          times.feedbackRecalc.push(afterFeedback - beforeFeedback);
+          times.analyzeLoop.push(afterLoop - afterRecalc);
+          times.endingPreview.push(afterPreview - beforePreview);
+          times.stripAndClone.push(afterClone - beforeClone);
+        }
+        const m = Object.fromEntries(Object.entries(times).map(([k, v]) => [k, median(v)]));
+        for (const k of Object.keys(totals)) totals[k] += m[k];
+        lines.push(`  ${`${spec.name}/seed${seed}`.padEnd(30)} recalc ${m.recalculateState.toFixed(0).padStart(5)}  fed-back ${m.feedbackRecalc.toFixed(0).padStart(5)}  loop ${m.analyzeLoop.toFixed(0).padStart(5)}  ending ${m.endingPreview.toFixed(0).padStart(5)}  clone ${m.stripAndClone.toFixed(0).padStart(5)}  (ms, median of ${iterations})`);
+      }
+    }
+    Object.assign(console, silenced);
+    console.log(lines.join('\n'));
+    const sum = Object.entries(totals).reduce((a, [k, b]) => (k === 'feedbackRecalc' ? a : a + b), 0);
+    console.log(`\nTOTAL  recalc ${totals.recalculateState.toFixed(0)}  fed-back ${totals.feedbackRecalc.toFixed(0)}  loop ${totals.analyzeLoop.toFixed(0)}  ending ${totals.endingPreview.toFixed(0)}  clone ${totals.stripAndClone.toFixed(0)}  =  ${sum.toFixed(0)} ms  (${rowCount}-row rotations)`);
+  } finally {
+    await server.close();
+  }
+}
+
 try {
   if (command === 'baseline') await baseline();
   else if (command === 'check') await check();
+  else if (command === 'perf') await perf();
   else {
-    console.error('Usage: node scripts/engine-check.mjs <baseline|check> [--only <substring>] [--max-diffs <n>]');
+    console.error('Usage: node scripts/engine-check.mjs <baseline|check|perf> [--only <substring>] [--max-diffs <n>]');
     process.exit(2);
   }
 } catch (err) {

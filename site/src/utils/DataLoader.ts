@@ -88,12 +88,17 @@ export class DataLoaderClass {
   // _fetchJSON), silently, and this falls back to the real data repo. A prod build's `path` is
   // already the real repo, so this is a same-URL no-op fetch that never runs (isWipAttempt is
   // always false).
-  async loadJSON<T>(path: string, opts: { skipHashTracking?: boolean } = {}): Promise<T | null> {
+  //
+  // `manifestKey` is the file's path in the manifest. The manifest lists every file the data repo
+  // has, so once it's loaded a file it lacks would only 404 -- the request is skipped instead.
+  async loadJSON<T>(path: string, opts: { skipHashTracking?: boolean; manifestKey?: string } = {}): Promise<T | null> {
     const isWipAttempt = import.meta.env.DEV && path.startsWith(WIP_BASE_URL);
+    const absentFromRepo = !!opts.manifestKey && Object.keys(this.manifest).length > 0 && !this.manifest[opts.manifestKey];
+    if (absentFromRepo && !isWipAttempt) return null;
     let usedPath = path;
     let data = await this._fetchJSON<T>(path, isWipAttempt);
     const servedFromWip = isWipAttempt && data !== null;
-    if (data === null && isWipAttempt) {
+    if (data === null && isWipAttempt && !absentFromRepo) {
       usedPath = path.replace(WIP_BASE_URL, DATA_REPO_BASE_URL);
       data = await this._fetchJSON<T>(usedPath);
     }
@@ -246,7 +251,8 @@ export class DataLoaderClass {
     if (this.cache.mechanics.has(cacheKey)) return;
     const cooldownUntil = this.missingUntil.get(cacheKey);
     if (cooldownUntil && Date.now() < cooldownUntil) return;
-    const data = await this.loadJSON<Record<string, MechanicNode>>(CommonUtils.getData(this.mechanicPath(folder, itemName)));
+    const relPath = this.mechanicPath(folder, itemName);
+    const data = await this.loadJSON<Record<string, MechanicNode>>(CommonUtils.getData(relPath), { manifestKey: relPath });
     if (data) {
       for (const [key, mechData] of Object.entries(data)) {
         this.registerFetchedNode(key, mechData);

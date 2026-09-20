@@ -2,7 +2,7 @@
 import React from 'react';
 import { useRotationStore } from '../../store/useRotationStore';
 import { useComparisonStore } from '../../store/useComparisonStore';
-import type { DpsStats } from '../../types/results';
+import { DPS_WINDOWS } from '../../data/dpsWindows';
 import { PinRotationControl } from './PinRotationControl';
 import { ResultsLegend } from './ResultsLegend';
 import { CATEGORICAL_PALETTE } from './chartPalette';
@@ -13,12 +13,7 @@ const formatDps = (v: number, shorten: boolean) => {
   return Math.round(v).toLocaleString();
 };
 
-const ROWS: Array<{ key: keyof DpsStats; label: string }> = [
-  { key: 'openerDps', label: 'Opener DPS' },
-  { key: 'firstLoopDps', label: 'First Loop DPS' },
-  { key: 'avgLoopDps', label: 'Avg Loop DPS' },
-  { key: 'twoMinDps', label: '2-Minute DPS' }
-];
+const ROWS = DPS_WINDOWS.map(window => ({ key: window.dpsField, label: window.dpsLabel }));
 
 // How far the split point can move from center (50%) per point of delta% -- makes modest
 // deltas visible (a raw value-share split barely moves off 50/50 even at 20%+ difference).

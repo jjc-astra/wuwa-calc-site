@@ -5,6 +5,9 @@
 // pipeline into these same shapes.
 
 import type { Frames } from '../utils/Frames';
+import type { DpsWindowKey } from '../data/dpsWindows';
+
+export type { DpsWindowKey };
 
 export interface DpsStats {
   openerDps: number | null;
@@ -65,8 +68,6 @@ export interface TeamDmgSlice {
   label: string;
   dmg: number;
 }
-
-export type DpsWindowKey = 'opener' | 'firstLoop' | 'avgLoop' | 'twoMin';
 
 export interface ContributionForWindow {
   team: TeamDmgSlice[];

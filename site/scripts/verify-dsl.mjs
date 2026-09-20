@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Guards the DSL registry (src/logic/dsl/dslRegistry.ts) against silent regressions:
-//   1. Every non-method property translates one way or another (structural check).
+//   1. Every non-method property translates one way or another, and every method has a jsName
+//      that the evaluation context (ContextManager) actually defines (structural check).
 //   2. Every '@'-bearing DSL string actually used in the data repo (triggerRule/effects
 //      values/priority/etc.) compiles/translates without throwing and without leaving an
 //      unresolved '@' behind -- which would mean some pointer/property isn't registered.
@@ -48,6 +49,21 @@ async function main() {
       for (const prop of pointer.properties) {
         if (!prop.isMethod && !prop.fullOverride && !prop.targetKey) {
           console.error(`STRUCTURAL: "${pointer.pointer}.${prop.propName}" has neither targetKey nor fullOverride.`);
+          structuralIssues++;
+        }
+      }
+    }
+    // Every method the registry declares must be defined on the context it compiles against.
+    const { ContextManager } = await server.ssrLoadModule('/src/logic/ContextManager.ts');
+    const context = ContextManager.buildContext({}, 'Verify', []);
+    for (const pointerName of ['Self', 'Enemy']) {
+      const target = context?.[pointerName.toLowerCase()];
+      for (const prop of DSL_POINTERS[pointerName].properties.filter(p => p.isMethod)) {
+        if (!prop.jsName) {
+          console.error(`STRUCTURAL: "${pointerName}.${prop.propName}" is a method with no jsName.`);
+          structuralIssues++;
+        } else if (typeof target?.[prop.jsName] !== 'function') {
+          console.error(`STRUCTURAL: "${pointerName}.${prop.propName}" compiles to .${prop.jsName}(), which the evaluation context doesn't define.`);
           structuralIssues++;
         }
       }

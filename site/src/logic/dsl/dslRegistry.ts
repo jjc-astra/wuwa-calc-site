@@ -1,4 +1,6 @@
 import type { DSLPointerDef, DSLDataType } from './dslTypes';
+import { CAST_TYPES, ELEMENTS, NEGATIVE_STATUSES } from '../../data/gameVocab';
+import type { CastType } from '../../data/gameVocab';
 
 // Single source of truth for the mechanics DSL's vocabulary: dslParser.ts derives its
 // pointer/scalar translation tables from DSL_POINTERS, and AutocompleteInput.tsx (via
@@ -46,16 +48,10 @@ export const DSL_EVENT_TOOLTIPS: Record<string, string> = {
 };
 
 export const DSL_MODIFIERS = [
-  'Self', 'Basic', 'Heavy', 'Skill', 'Liberation',
-  'Intro', 'Outro', 'Coordinated', 'TuneBreak', 'TuneRupture', 'TuneHack',
-  'Dodge', 'Jump', 'Echo', 'Utility', 'Heal',
-  'Spectro', 'Fusion', 'Glacio', 'Aero', 'Electro', 'Havoc', 'Physical',
-  'Defense', 'HP', 'ATK',
-  'Spectro Frazzle', 'Aero Erosion', 'Electro Flare', 'Electro Rage', 'Fusion Burst', 'Glacio Chafe'
+  'Self', ...CAST_TYPES, ...ELEMENTS, 'Defense', 'HP', 'ATK', ...NEGATIVE_STATUSES
 ] as const;
 
-export const DSL_MODIFIER_TOOLTIPS: Record<string, string> = {
-  Self: 'Restricts the event to actions performed by this character.',
+const CAST_TYPE_TOOLTIPS = {
   Basic: 'Matches Basic Attacks.',
   Heavy: 'Matches Heavy Attacks (held/Forte attacks).',
   Skill: 'Matches Resonance Skill casts.',
@@ -70,23 +66,17 @@ export const DSL_MODIFIER_TOOLTIPS: Record<string, string> = {
   Jump: 'Matches Jump-related actions.',
   Echo: 'Matches Echo skill casts.',
   Utility: 'Matches Utility skill casts.',
-  Heal: 'Matches healing actions.',
-  Spectro: 'Matches hits or effects of Spectro damage type.',
-  Fusion: 'Matches hits or effects of Fusion damage type.',
-  Glacio: 'Matches hits or effects of Glacio damage type.',
-  Aero: 'Matches hits or effects of Aero damage type.',
-  Electro: 'Matches hits or effects of Electro damage type.',
-  Havoc: 'Matches hits or effects of Havoc damage type.',
-  Physical: 'Matches hits or effects of Physical damage type.',
+  Heal: 'Matches healing actions.'
+} satisfies Record<CastType, string>;
+
+export const DSL_MODIFIER_TOOLTIPS: Record<string, string> = {
+  Self: 'Restricts the event to actions performed by this character.',
+  ...CAST_TYPE_TOOLTIPS,
+  ...Object.fromEntries(ELEMENTS.map(element => [element, `Matches hits or effects of ${element} damage type.`])),
   Defense: 'Matches Defense-based effects.',
   HP: 'Matches HP-based effects.',
   ATK: 'Matches ATK-based effects.',
-  'Spectro Frazzle': 'Matches the Spectro Frazzle status.',
-  'Aero Erosion': 'Matches the Aero Erosion status.',
-  'Electro Flare': 'Matches the Electro Flare status.',
-  'Electro Rage': 'Matches the Electro Rage status.',
-  'Fusion Burst': 'Matches the Fusion Burst status.',
-  'Glacio Chafe': 'Matches the Glacio Chafe status.'
+  ...Object.fromEntries(NEGATIVE_STATUSES.map(status => [status, `Matches the ${status} status.`]))
 };
 
 export const DSL_FUNCTIONS = ['StatusMult()'];
@@ -144,12 +134,12 @@ export const DSL_POINTERS: Record<string, DSLPointerDef> = {
       { propName: 'Sequence', type: 'number', targetKey: '.sequence', tooltip: "Returns Self's Resonance Chain (sequence) level, 0-6." },
       { propName: 'PrevAction', type: 'string', fullOverride: 'ctx.self.prevAction', tooltip: 'Returns the name of the last action Self performed.' },
       { propName: 'Name', type: 'string', fullOverride: 'ctx.self.name', tooltip: "Returns Self's character name." },
-      { propName: 'BuffStacks()', type: 'method', isMethod: true, argsSignature: '()', tooltip: 'Method — returns the current stack count of a buff, e.g. @Self.BuffStacks(BuffName).' },
-      { propName: 'BuffMaxStacks()', type: 'method', isMethod: true, argsSignature: '()', tooltip: 'Method — returns the configured max stack count of a buff, e.g. @Self.BuffMaxStacks(BuffName).' },
-      { propName: 'HasBuff()', type: 'method', isMethod: true, argsSignature: '()', tooltip: 'Method — returns true if Self currently has the given buff, e.g. @Self.HasBuff(BuffName).' },
-      { propName: 'Tracker()', type: 'method', isMethod: true, argsSignature: '()', tooltip: 'Method — returns the current value of a tracker/counter, e.g. @Self.Tracker(TrackerName).' },
-      { propName: 'Cooldown()', type: 'method', isMethod: true, argsSignature: '()', tooltip: 'Method — returns the remaining cooldown in seconds of a skill, e.g. @Self.Cooldown(Skill).' },
-      { propName: 'Stat()', type: 'method', isMethod: true, argsSignature: '()', tooltip: 'Method — returns the current value of a sheet stat, e.g. @Self.Stat(CR Rate).' }
+      { propName: 'BuffStacks()', type: 'method', isMethod: true, jsName: 'getBuffStacks', argsSignature: '()', tooltip: 'Method — returns the current stack count of a buff, e.g. @Self.BuffStacks(BuffName).' },
+      { propName: 'BuffMaxStacks()', type: 'method', isMethod: true, jsName: 'getBuffMaxStacks', argsSignature: '()', tooltip: 'Method — returns the configured max stack count of a buff, e.g. @Self.BuffMaxStacks(BuffName).' },
+      { propName: 'HasBuff()', type: 'method', isMethod: true, jsName: 'hasBuff', argsSignature: '()', tooltip: 'Method — returns true if Self currently has the given buff, e.g. @Self.HasBuff(BuffName).' },
+      { propName: 'Tracker()', type: 'method', isMethod: true, jsName: 'getTracker', argsSignature: '()', tooltip: 'Method — returns the current value of a tracker/counter, e.g. @Self.Tracker(TrackerName).' },
+      { propName: 'Cooldown()', type: 'method', isMethod: true, jsName: 'getCooldown', argsSignature: '()', tooltip: 'Method — returns the remaining cooldown in seconds of a skill, e.g. @Self.Cooldown(Skill).' },
+      { propName: 'Stat()', type: 'method', isMethod: true, jsName: 'getStat', argsSignature: '()', tooltip: 'Method — returns the current value of a sheet stat, e.g. @Self.Stat(CR Rate).' }
     ]
   },
   Enemy: {
@@ -160,9 +150,9 @@ export const DSL_POINTERS: Record<string, DSLPointerDef> = {
       { propName: 'HP', type: 'number', targetKey: '.hp', tooltip: "Returns the enemy's current HP." },
       { propName: 'MaxHP', type: 'number', targetKey: '.maxHp', tooltip: "Returns the enemy's maximum HP." },
       { propName: 'HPPct', type: 'number', targetKey: '.hpPct', tooltip: "Returns the enemy's current HP as a percentage of max." },
-      { propName: 'BuffStacks()', type: 'method', isMethod: true, argsSignature: '()', tooltip: 'Method — returns the current stack count of a debuff/status on the enemy.' },
-      { propName: 'BuffMaxStacks()', type: 'method', isMethod: true, argsSignature: '()', tooltip: 'Method — returns the configured max stack count of a debuff/status on the enemy.' },
-      { propName: 'HasBuff()', type: 'method', isMethod: true, argsSignature: '()', tooltip: 'Method — returns true if the enemy currently has the given debuff/status.' },
+      { propName: 'BuffStacks()', type: 'method', isMethod: true, jsName: 'getBuffStacks', argsSignature: '()', tooltip: 'Method — returns the current stack count of a debuff/status on the enemy.' },
+      { propName: 'BuffMaxStacks()', type: 'method', isMethod: true, jsName: 'getBuffMaxStacks', argsSignature: '()', tooltip: 'Method — returns the configured max stack count of a debuff/status on the enemy.' },
+      { propName: 'HasBuff()', type: 'method', isMethod: true, jsName: 'hasBuff', argsSignature: '()', tooltip: 'Method — returns true if the enemy currently has the given debuff/status.' },
       { propName: 'Tune', type: 'number', targetKey: '.tune', tooltip: "Returns the enemy's current Tune (stagger) gauge value." },
       { propName: 'MaxTune', type: 'number', targetKey: '.maxTune', tooltip: "Returns the enemy's maximum Tune (stagger) gauge value." },
       // True irregularity -- compiles to the literal string "Enemy", not a ctx field.

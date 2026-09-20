@@ -4,7 +4,8 @@ import { useComparisonStore } from '../../store/useComparisonStore';
 import type { DmgOverTimeSeries, DpsWindowKey } from '../../types/results';
 import { PinRotationControl } from './PinRotationControl';
 import { ResultsLegend } from './ResultsLegend';
-import { CATEGORICAL_PALETTE, colorForProvider, DPS_WINDOW_OPTIONS } from './chartPalette';
+import { CATEGORICAL_PALETTE, colorForProvider } from './chartPalette';
+import { DPS_WINDOWS } from '../../data/dpsWindows';
 import { Dropdown } from '../common/Dropdown';
 import { TooltipManager, tip } from '../../utils/Common';
 import { framesToSeconds } from '../../utils/Frames';
@@ -510,7 +511,7 @@ export const DmgOverTimeChart: React.FC = () => {
             className="base-select text-xs results-dps-type-select"
             value={dpsType}
             onChange={v => setDpsType(v as DpsWindowKey)}
-            options={DPS_WINDOW_OPTIONS.map(opt => ({ value: opt.key, label: opt.label }))}
+            options={DPS_WINDOWS.map(window => ({ value: window.key, label: window.label }))}
           />
         </div>
       </div>

@@ -10,6 +10,8 @@ export interface DSLPropertyDef {
   /** Regex fragment matched in place of propName, for variant spellings (e.g. 'CastTypes?', '(Unit|name)'). */
   regexPattern?: string;
   isMethod?: boolean;
+  /** For methods: the function on the evaluation context that '.PropName(arg)' compiles to, e.g. 'getBuffStacks'. */
+  jsName?: string;
   argsSignature?: string;
   tooltip?: string;
   /** Parser-only: contributes to translation but is excluded from autocomplete suggestions. */

@@ -10,13 +10,7 @@ import { useComparisonStore } from '../../store/useComparisonStore';
 import { DataLoader } from '../../utils/DataLoader';
 import type { RankingEntry } from '../../store/useRankingsStore';
 import type { DpsWindowKey } from '../../types/results';
-
-const DPS_FIELD: Record<DpsWindowKey, 'openerDps' | 'firstLoopDps' | 'avgLoopDps' | 'twoMinDps'> = {
-  opener: 'openerDps',
-  firstLoop: 'firstLoopDps',
-  avgLoop: 'avgLoopDps',
-  twoMin: 'twoMinDps'
-};
+import { dpsFieldOf } from '../../data/dpsWindows';
 
 interface RankingRowProps {
   rank: number;
@@ -27,7 +21,7 @@ interface RankingRowProps {
 
 export const RankingRow: React.FC<RankingRowProps> = ({ rank, entry, activeWindow, maxDps }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const dps = entry.dpsStats[DPS_FIELD[activeWindow]] ?? 0;
+  const dps = entry.dpsStats[dpsFieldOf(activeWindow)] ?? 0;
   const widthPct = maxDps > 0 ? (dps / maxDps) * 100 : 0;
   const unitNames = entry.team.filter(s => s.character).map(s => s.character);
   const label = unitNames.join(' · ');

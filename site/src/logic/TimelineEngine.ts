@@ -7,6 +7,7 @@ import {
 import { deltaKey, forteKey, holdSlotNumber } from '../utils/ResourceKeys';
 import { backfillPools, cloneJson, dropdownSnapshot, inheritPools, plainCopy, ROW_LINK_KEYS } from './rowState';
 import { eventModifier, isDslExpr, modifierSet, stacksAfterSpending } from './engineValues';
+import { isElement } from '../data/gameVocab';
 import { MechanicKey } from '../utils/MechanicKey';
 import { CommonUtils } from '../utils/Common';
 import { DSLParser } from './dsl/dslParser';
@@ -42,19 +43,22 @@ export class TimelineEngineClass {
   // Skips UI-only bookkeeping (dropdown snapshots, per-hit history) that throwaway analyzeLoop
   // sims never read.
   _lightweightMode = false;
+  // Skips the per-row console warnings, for passes that re-simulate rows another pass already reported.
+  _quiet = false;
   // Memoizes _getModifiedMoveData per actionId for one recalculateState call; reset each call.
   _moveDataCache: Record<string, MechanicNode | null> = {};
 
   recalculateState(
     activeRows: any[],
     team: any[] = [],
-    options: { startEnergy?: boolean; startConcerto?: boolean; lightweight?: boolean } = {},
+    options: { startEnergy?: boolean; startConcerto?: boolean; lightweight?: boolean; quiet?: boolean } = {},
     enemyConfig: { level: number; res: number; hp: number } = ENEMY_DEFAULTS
   ): any[] {
     if (activeRows.length === 0) return [];
 
     this.isRecalculating = true;
     this._lightweightMode = !!options.lightweight;
+    this._quiet = !!options.quiet;
     this._moveDataCache = {};
     this._enemyConfig = enemyConfig;
     this.damageQueue = [];
@@ -394,7 +398,7 @@ export class TimelineEngineClass {
 
       this._runValidation(currentData, prevData, team, dbMove);
 
-      if (currentData.warningMsgs.length > 0 || currentData.errorMsgs.length > 0) {
+      if (!this._lightweightMode && !this._quiet && (currentData.warningMsgs.length > 0 || currentData.errorMsgs.length > 0)) {
         console.warn(`[TimelineEngine] Row #${i + 1} (${currentData.unit} - ${currentData.action}):`, {
           errors: currentData.errorMsgs,
           warnings: currentData.warningMsgs,
@@ -1247,8 +1251,7 @@ export class TimelineEngineClass {
     // dmgTypes plus name/pointer, so OnHit[...] can target one specific move, not just a
     // shared dmg type.
     const hitModifiers = modifierSet([...(moveData.dmgTypes || []), moveData.name, origin.ref]);
-    const elements = ['Glacio', 'Aero', 'Electro', 'Fusion', 'Spectro', 'Havoc', 'Physical'];
-    const moveElements = (moveData.dmgTypes || []).filter(t => elements.includes(t));
+    const moveElements = (moveData.dmgTypes || []).filter(isElement);
     const castModifiers = modifierSet([...(moveData.castTypes || []), ...moveElements, currentData.action, moveData.name, origin.ref]);
 
     this._applyMoveCosts(currentData, moveData);

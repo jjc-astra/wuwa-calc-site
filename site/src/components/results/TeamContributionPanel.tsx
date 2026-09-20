@@ -5,7 +5,8 @@ import { useRotationStore } from '../../store/useRotationStore';
 import { DataLoader } from '../../utils/DataLoader';
 import type { DpsWindowKey } from '../../types/results';
 import { PieChart } from './PieChart';
-import { colorForLabel, OTHER_SLICE_COLOR, DPS_WINDOW_OPTIONS } from './chartPalette';
+import { colorForLabel, OTHER_SLICE_COLOR } from './chartPalette';
+import { DPS_WINDOWS } from '../../data/dpsWindows';
 import { getCharacterThemeColor } from '../../utils/Common';
 import { Dropdown } from '../common/Dropdown';
 import { UnitTabs } from '../common/UnitTabs';
@@ -47,7 +48,7 @@ export const TeamContributionPanel: React.FC = () => {
           className="base-select text-xs results-dps-type-select"
           value={dpsType}
           onChange={v => setDpsType(v as DpsWindowKey)}
-          options={DPS_WINDOW_OPTIONS.map(opt => ({ value: opt.key, label: opt.label }))}
+          options={DPS_WINDOWS.map(window => ({ value: window.key, label: window.label }))}
         />
       </div>
       {!results || units.length === 0 ? (

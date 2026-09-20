@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { EFF_STAT_TOOLTIPS } from '../../data/db';
+import { SHEET_STAT_TOOLTIPS } from '../../data/db';
+import { MOD_LABEL_TOOLTIPS } from '../../logic/combat/combatRegistry';
 import {
   resolveEventTooltip, resolveModifierTooltip, resolvePointerTooltip, resolveFunctionTooltip,
   resolvePropertyTooltip, resolveSystemMethodTooltip,
@@ -40,10 +41,10 @@ function resolveTooltip(item: SuggestionItem, group: string): string | undefined
     case 'Properties':
       return item.pointer ? resolvePropertyTooltip(item.pointer, key) : undefined;
     case 'Sheet Stats':
-      return EFF_STAT_TOOLTIPS.sheetStats[key];
+      return SHEET_STAT_TOOLTIPS[key];
     case 'Combat Modifiers':
     case 'Specific Modifiers':
-      return EFF_STAT_TOOLTIPS.statModifiers[key];
+      return (MOD_LABEL_TOOLTIPS as Record<string, string>)[key];
     case 'Continue':
       // Comma-separated entries are an AND filter (EventManager.ts's requiredModifiers check).
       return key === ',' ? 'Combines with AND — the action must match every listed modifier, not just one.' : undefined;

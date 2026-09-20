@@ -1,18 +1,12 @@
 // src/components/rankings/RotationRankingsPage.tsx
 import React, { useEffect, useMemo, useRef } from 'react';
-import { useRankingsStore, filterRankingEntries, RANKING_DPS_FIELD } from '../../store/useRankingsStore';
+import { useRankingsStore, filterRankingEntries } from '../../store/useRankingsStore';
+import { DPS_WINDOW_TABS } from '../results/chartPalette';
+import { dpsFieldOf } from '../../data/dpsWindows';
 import { ChromeTabs } from '../results/ChromeTabs';
-import type { ChromeTabDef } from '../results/ChromeTabs';
 import { RankingFilterToolbar } from './RankingFilterToolbar';
 import { RankingRow } from './RankingRow';
 import type { DpsWindowKey } from '../../types/results';
-
-const WINDOW_TABS: ChromeTabDef[] = [
-  { id: 'opener', label: 'Opener' },
-  { id: 'firstLoop', label: 'First Loop' },
-  { id: 'avgLoop', label: 'Avg Loop' },
-  { id: 'twoMin', label: '2-Min' }
-];
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
@@ -35,7 +29,7 @@ export const RotationRankingsPage: React.FC = () => {
     [entries, filters, search, activeWindow]
   );
 
-  const maxDps = visibleEntries.length > 0 ? (visibleEntries[0].dpsStats[RANKING_DPS_FIELD[activeWindow]] ?? 0) : 0;
+  const maxDps = visibleEntries.length > 0 ? (visibleEntries[0].dpsStats[dpsFieldOf(activeWindow)] ?? 0) : 0;
 
   // New search/filter/window -- reset to page 1 (avoid landing mid-list/past-the-end). Skipped
   // before rehydration (values are still pre-persistence defaults) and on the render right after
@@ -72,7 +66,7 @@ export const RotationRankingsPage: React.FC = () => {
         <div className="rankings-main">
           <div className="panel-header-main">Rankings</div>
           <div className="rankings-tab-panel">
-            <ChromeTabs tabs={WINDOW_TABS} activeId={activeWindow} onSelect={id => setActiveWindow(id as DpsWindowKey)} />
+            <ChromeTabs tabs={DPS_WINDOW_TABS} activeId={activeWindow} onSelect={id => setActiveWindow(id as DpsWindowKey)} />
             <div className="rankings-tab-panel-body">
               <div className="ranking-list">
                 {status === 'loading' && entries.length === 0 && (

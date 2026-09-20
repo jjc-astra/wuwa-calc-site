@@ -19,6 +19,7 @@ import { CombatCalculator } from '../logic/CombatCalculator';
 import { useRotationStore } from './useRotationStore';
 import { CommonUtils } from '../utils/Common';
 import { applyBuilderOverridesForTeam } from '../workers/builderOverridePayload';
+import { emptyEchoStats } from '../data/gameVocab';
 
 const defaultLayoutMainStats = (layout: string): string[] => {
   const costs = COST_DISTRIBUTION[layout] || [4, 3, 3, 1, 1];
@@ -51,13 +52,7 @@ const createEmptySlot = (index: number): TeamSlot => {
         value: ''
       }))
     })),
-    echoStats: {
-      flatHP: 0, percentHP: 0, flatAtk: 0, percentAtk: 0, flatDef: 0, percentDef: 0,
-      critRate: 0, critDamage: 0, energyRegen: 0, healingBonus: 0,
-      skillDmgBonus: 0, basicDmgBonus: 0, heavyDmgBonus: 0, libDmgBonus: 0,
-      glacioDmgBonus: 0, fusionDmgBonus: 0, electroDmgBonus: 0, aeroDmgBonus: 0, spectroDmgBonus: 0, havocDmgBonus: 0,
-      physicalDmgBonus: 0
-    }
+    echoStats: emptyEchoStats()
   };
   slot.echoStats = calculateEchoStatsForSlot(slot);
   return slot;

@@ -5,6 +5,9 @@ import { forteAlias } from '../utils/ForteNames';
 import { forteKey, maxForteKey } from '../utils/ResourceKeys';
 import { forteMax, readResource } from './resources';
 
+// A buff still in effect: it has time left or stacks.
+const isBuffLive = (buff: any): boolean => !!buff && (buff.duration > 0 || buff.stacks > 0);
+
 export const ContextManager = {
   // Seconds until `actionName` (bare move name) next has a use available for `unitName`, given
   // TimelineEngine's cooldown state (`cooldowns` for a plain single-timer move, `chargeCooldowns`
@@ -54,6 +57,9 @@ export const ContextManager = {
 
       const onFieldUnit = activeState.onFieldUnit || activeState.unit || activeUnitName;
       const isActive = (onFieldUnit === activeUnitName);
+      // A buff by its owner-prefixed key, falling back to the bare name.
+      const lookupBuff = (owner: string, buffName: string) =>
+        activeState.activeBuffs?.[`${owner}_${buffName}`] || activeState.activeBuffs?.[buffName];
       const actionId = activeState.activeProcSource || activeState.action || '';
 
       let currentSequence = 0;
@@ -82,21 +88,20 @@ export const ContextManager = {
         tune: 0,
         maxTune: 0,
         getBuffStacks: (buffName: string) => {
-          const activeBuff = activeState.activeBuffs?.[`${activeUnitName}_${buffName}`] || activeState.activeBuffs?.[buffName];
+          const activeBuff = lookupBuff(activeUnitName, buffName);
           const teamBuff = activeState.activeBuffs?.[`@Team_${buffName}`];
           const auraBuff = isActive ? activeState.activeBuffs?.[`Active_${buffName}`] : null;
           return (activeBuff ? activeBuff.stacks || 1 : 0) + (teamBuff ? teamBuff.stacks || 1 : 0) + (auraBuff ? auraBuff.stacks || 1 : 0);
         },
         getBuffMaxStacks: (buffName: string) => {
-          const buff = activeState.activeBuffs?.[`${activeUnitName}_${buffName}`] || activeState.activeBuffs?.[buffName];
+          const buff = lookupBuff(activeUnitName, buffName);
           return buff ? (buff.maxStacks || 1) : 1;
         },
         hasBuff: (buffName: string) => {
-          const activeBuff = activeState.activeBuffs?.[`${activeUnitName}_${buffName}`] || activeState.activeBuffs?.[buffName];
+          const activeBuff = lookupBuff(activeUnitName, buffName);
           const teamBuff = activeState.activeBuffs?.[`@Team_${buffName}`];
           const auraBuff = isActive ? activeState.activeBuffs?.[`Active_${buffName}`] : null;
-          const check = (b: any) => b && (b.duration > 0 || b.stacks > 0);
-          return (check(activeBuff) || check(teamBuff) || check(auraBuff)) ? 1 : 0;
+          return (isBuffLive(activeBuff) || isBuffLive(teamBuff) || isBuffLive(auraBuff)) ? 1 : 0;
         },
         getTracker: (trackerName: string) => activeState.trackers?.[trackerName] || 0,
         getCooldown: (actionName: string) => ContextManager.cooldownRemaining(activeState, activeUnitName, actionName),
@@ -148,10 +153,7 @@ export const ContextManager = {
           maxTune: activeState.enemyMaxTune ?? ENEMY_DEFAULTS.maxTune,
           getBuffStacks: (debuffName: string) => activeState.activeBuffs?.[`Enemy_${debuffName}`]?.stacks || activeState.activeBuffs?.[debuffName]?.stacks || 0,
           getBuffMaxStacks: (buffName: string) => activeState.activeBuffs?.[`Enemy_${buffName}`]?.maxStacks || activeState.activeBuffs?.[buffName]?.maxStacks || 1,
-          hasBuff: (debuffName: string) => {
-            const debuff = activeState.activeBuffs?.[`Enemy_${debuffName}`] || activeState.activeBuffs?.[debuffName];
-            return (debuff && (debuff.duration > 0 || debuff.stacks > 0)) ? 1 : 0;
-          }
+          hasBuff: (debuffName: string) => isBuffLive(lookupBuff('Enemy', debuffName)) ? 1 : 0
         },
         team: teamNames,
         teamOthers: teamNames.filter(c => c !== activeUnitName),

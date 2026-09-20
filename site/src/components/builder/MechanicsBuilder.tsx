@@ -9,6 +9,7 @@ import { BaseStatsForm } from './BaseStatsForm';
 import { MechanicNodeCard } from './MechanicNodeCard';
 import { JsonOutputPane } from './JsonOutputPane';
 import { BuilderState, IMAGE_FOLDERS } from '../../data/db';
+import { isElement } from '../../data/gameVocab';
 import type { MechanicNode } from '../../types';
 import type { ImageFolder } from '../../data/db';
 import { tip } from './mechanicNodeHelpers';
@@ -283,11 +284,10 @@ export const MechanicsBuilder: React.FC = () => {
 
     if (isCharacter && DataLoader.characterDB[activeChar]?.element) {
       const charElement = DataLoader.characterDB[activeChar].element;
-      const elements = ['Glacio', 'Aero', 'Electro', 'Fusion', 'Spectro', 'Havoc', 'Physical'];
       if ((template.dmgTypes || []).length === 0 && !template.isPassive) {
         template.dmgTypes = [charElement];
       } else if (template.dmgTypes) {
-        template.dmgTypes = template.dmgTypes.map(t => (elements.includes(t) ? charElement : t));
+        template.dmgTypes = template.dmgTypes.map(t => (isElement(t) ? charElement : t));
       }
     }
 
