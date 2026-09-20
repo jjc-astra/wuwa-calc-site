@@ -1,4 +1,5 @@
 import { DSL_POINTERS, DSL_PARSER_SCALAR_EXTRAS } from './dslRegistry';
+import { getNegativeStatusMult } from '../combat/negativeStatus';
 
 export interface CompiledDSL {
   triggers: Array<{ event: string; modifiers: string[]; args: (string | number)[] }>;
@@ -92,7 +93,7 @@ for (const pointer of Object.values(DSL_POINTERS)) {
   }
 }
 
-type CompiledMathFn = (ctx: unknown, equipper?: string) => number;
+type CompiledMathFn = (ctx: unknown, equipper: string | undefined, statusMult: typeof getNegativeStatusMult) => number;
 
 export const DSLParser = {
   _mathCache: {} as Record<string, CompiledMathFn>,
@@ -214,6 +215,25 @@ export const DSLParser = {
     return jsStr;
   },
 
+  // '@StatusMult(Aero Erosion, @Self.Tracker(Stacks))' becomes 'statusMult("Aero Erosion", (@Self.Tracker(Stacks)))'.
+  // The stack count can be any expression, so the call's closing paren is found by balancing rather
+  // than by regex, and this has to run before the generic '@Name(...)' rule, which would turn the
+  // whole call into a string. The stack expression is left as DSL for the later passes to translate.
+  _translateStatusMult: (jsStr: string): string => {
+    const call = /@StatusMult\(/i;
+    let found = call.exec(jsStr);
+    while (found) {
+      const open = found.index + found[0].length - 1;
+      const close = findClosingParen(jsStr, open);
+      if (close === -1) break;
+      const [status = '', stacks = '0'] = DSLParser._splitArgs(jsStr.substring(open + 1, close));
+      const statusName = status.trim().replace(/^["']|["']$/g, '');
+      jsStr = `${jsStr.substring(0, found.index)}statusMult(${JSON.stringify(statusName)}, (${stacks.trim() || '0'}))${jsStr.substring(close + 1)}`;
+      found = call.exec(jsStr);
+    }
+    return jsStr;
+  },
+
   // Frames vs seconds: @Move.TimeStart/Duration/GameTime/FreezeTime/DamageStart/DamageEnd/
   // SwapTime, and scalarMap's Time/GameTimeStart/SwapTime/ComboWindow/EchoSummonTime suffixes,
   // are all FRAMES. .Cooldown()/.PermanentDuration stay SECONDS -- see TimelineEngine's
@@ -233,6 +253,7 @@ export const DSLParser = {
       } else processing = false;
     }
 
+    jsStr = DSLParser._translateStatusMult(jsStr);
     jsStr = jsStr.replace(/\bABS\b/gi, 'Math.abs');
     jsStr = jsStr.replace(/%(?!\s*[\d@a-zA-Z(_])/g, ' / 100');
     jsStr = jsStr.replace(/@([A-Za-z0-9_ ]+)\(((?:[^)(]+|\([^)(]*\))*)\)/g, (_, p1, p2) => '"' + p1 + '_' + p2.trim() + '"');
@@ -249,7 +270,6 @@ export const DSLParser = {
     for (const { pattern, jsName } of METHOD_RULES) {
       jsStr = jsStr.replace(pattern, (_, p1) => `.${jsName}(${wrapQuotes(p1)})`);
     }
-    jsStr = jsStr.replace(/@StatusMult\(([^,]+),\s*([^)]+)\)/gi, (_, p1, p2) => `CombatCalculator.getNegativeStatusMult(${wrapQuotes(p1)}, ${p2})`);
 
     for (const [key, val] of Object.entries(SCALAR_MAP)) {
       jsStr = jsStr.replace(new RegExp(key, 'gi'), val);
@@ -266,10 +286,10 @@ export const DSLParser = {
     jsStr = jsStr.replace(/\bNOT\b/g, '!').replace(/\bAND\b/g, '&&').replace(/\bOR\b/g, '||');
 
     try {
-      const compiledFn = new Function('ctx', 'equipper', `return ${jsStr};`);
+      const compiledFn = new Function('ctx', 'equipper', 'statusMult', `return ${jsStr};`);
       return (ctx: unknown, equipper?: string) => {
         try {
-          return compiledFn(ctx, equipper);
+          return compiledFn(ctx, equipper, getNegativeStatusMult);
         } catch (e) {
           console.error(`[DSLParser] Runtime evaluation error: "${condStr}"`, e);
           return false;
@@ -286,14 +306,14 @@ export const DSLParser = {
     if (!DSLParser._mathCache[mathStr]) {
       const jsStr = DSLParser._translatePointers(mathStr);
       try {
-        DSLParser._mathCache[mathStr] = new Function('ctx', 'equipper', `return Number(${jsStr});`) as CompiledMathFn;
+        DSLParser._mathCache[mathStr] = new Function('ctx', 'equipper', 'statusMult', `return Number(${jsStr});`) as CompiledMathFn;
       } catch (e) {
         console.error(`[DSLParser] Error compiling math: "${mathStr}"`, e);
         return 0;
       }
     }
     try {
-      return DSLParser._mathCache[mathStr](ctx, equipper);
+      return DSLParser._mathCache[mathStr](ctx, equipper, getNegativeStatusMult);
     } catch (e) {
       console.error(`[DSLParser] Error evaluating math: "${mathStr}"`, e);
       return 0;

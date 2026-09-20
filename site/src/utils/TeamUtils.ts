@@ -53,18 +53,3 @@ export function getTeamEntityRefs(
     return true;
   });
 }
-
-// Streaming visitor over the same mapping, for callers (e.g. sequential mechanics loading) that
-// want to act on each ref in place rather than allocate an intermediate array.
-export async function forEachTeamEntity(
-  team: TeamSlot[],
-  callback: (ref: EntityRef, slotIndex: number, field: keyof TeamSlot) => void | Promise<void>
-): Promise<void> {
-  for (let slotIndex = 0; slotIndex < team.length; slotIndex++) {
-    const slot = team[slotIndex];
-    for (const { field, folder } of SLOT_ENTITY_MAPPINGS) {
-      const name = slot[field];
-      if (typeof name === 'string' && name) await callback({ folder, name }, slotIndex, field);
-    }
-  }
-}

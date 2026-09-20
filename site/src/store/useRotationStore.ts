@@ -153,13 +153,11 @@ interface RotationState {
 
   setStartEnergy: (val: boolean) => void;
   setStartConcerto: (val: boolean) => void;
-  setStale: (val: boolean) => void;
   // Dims (isStale=true) instead of silently recalculating when a Mechanics Builder edit
   // relevant to the current team happened since the last Calculate press. Call on returning to
   // the Rotation Calculator -- a no-op if nothing changed or there's nothing calculated yet.
   checkBuilderStaleness: () => void;
   setSelectedIndices: (indices: number[]) => void;
-  setClipboard: (rows: RotationRowFields[]) => void;
 
   addRow: (unit?: string, action?: string, index?: number) => void;
   deleteRows: (indices: number[]) => void;
@@ -194,7 +192,6 @@ interface RotationState {
   // No-op while there's no active Ending Rotation split.
   setEndRotationStartsEarlier: (val: boolean) => void;
 
-  executeCommand: (cmd: Command) => void;
   // markStale: false for an informational refresh that shouldn't flip isStale back on.
   // includeDamage: true only for the one-time mount refresh, so DMG column populates without
   // every live-preview recalc paying for the extra damage pass.
@@ -384,7 +381,6 @@ export const useRotationStore = create<RotationState>()(
           set({ startConcerto: val });
           get().recalculate();
         },
-        setStale: (val: boolean) => set({ isStale: val }),
         checkBuilderStaleness: () => {
           const { results, isStale, builderOverridesSnapshot } = get();
           if (!results || isStale) return;
@@ -393,7 +389,6 @@ export const useRotationStore = create<RotationState>()(
           if (currentSnapshot !== builderOverridesSnapshot) set({ isStale: true });
         },
         setSelectedIndices: (indices: number[]) => set({ selectedIndices: indices }),
-        setClipboard: (rows: RotationRowFields[]) => set({ clipboard: rows }),
 
         addRow: (unit: string = '', action: string = '', index?: number) => {
           historyManager.execute(cmd.add(makeRow({ unit, action, timing: 'Auto' }), index));
@@ -716,10 +711,6 @@ export const useRotationStore = create<RotationState>()(
           if (!get().endingRotationEnabled) return;
           set({ endRotationStartsEarlier: val });
           triggerRecalc();
-        },
-
-        executeCommand: (cmd: Command) => {
-          historyManager.execute(cmd);
         },
 
         // Recalculates timeline/gauges/timings only -- does not run combat damage.

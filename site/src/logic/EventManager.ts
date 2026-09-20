@@ -9,7 +9,10 @@ export interface RegisteredListener extends MechanicNode {
   mechanicKey?: string;
   triggerEvent: string;
   evaluate: (ctx: any, equipper?: string) => boolean;
+  // The `[...]` tags a move must carry (or 'self').
   requiredModifiers?: string[];
+  // The `(...)` parameters of the event itself, e.g. the 2 in AfterHit(2).
+  eventArgs: Array<string | number>;
 }
 
 // The trigger rule a node actually runs under: a passive with no rule of its own is always on.
@@ -46,7 +49,8 @@ export class EventManagerClass {
         mechanicKey,
         triggerEvent: t.event,
         evaluate: compiledRule.evaluate,
-        requiredModifiers: t.modifiers
+        requiredModifiers: t.modifiers,
+        eventArgs: t.args
       });
     });
   }
@@ -120,12 +124,17 @@ export class EventManagerClass {
     bucket.sort((a, b) => getPrio(b) - getPrio(a));
 
     for (const listener of bucket) {
-      if (listener.requiredModifiers && listener.requiredModifiers.includes('self')) {
+      // OnTick's interval and max ticks are its parameters -- OnTick(3, 5). The older OnTick[3]
+      // spelling is still read as parameters too, so its brackets aren't tags to match.
+      const tickParams = eventType === 'OnTick' ? (listener.eventArgs.length > 0 ? listener.eventArgs : (listener.requiredModifiers ?? [])) : [];
+      const requiredTags = eventType === 'OnTick' && listener.eventArgs.length === 0 ? [] : (listener.requiredModifiers ?? []);
+
+      if (requiredTags.includes('self')) {
         if (activeUnitName !== listener.equipper) continue;
       }
-      if (listener.requiredModifiers && listener.requiredModifiers.length > 0) {
+      if (requiredTags.length > 0) {
         let hasAll = true;
-        for (const mod of listener.requiredModifiers) {
+        for (const mod of requiredTags) {
           if (mod === 'self') continue;
           if (!actionModifiers || !actionModifiers.has(mod)) {
             hasAll = false;
@@ -154,16 +163,13 @@ export class EventManagerClass {
         const speedMult = getTimeScale ? getTimeScale(listener.name) : 1.0;
         currentTimer += (timePassed * speedMult);
 
+        // A tick every `interval` seconds (default 1), at most `maxTicks` times (default no limit).
         let interval = 1.0;
         let maxTicks = Infinity;
-        if (listener.requiredModifiers && listener.requiredModifiers.length > 0) {
-          const parsedInterval = parseFloat(listener.requiredModifiers[0]);
-          if (!isNaN(parsedInterval)) interval = parsedInterval;
-          if (listener.requiredModifiers.length > 1) {
-            const parsedMax = parseInt(listener.requiredModifiers[1], 10);
-            if (!isNaN(parsedMax)) maxTicks = parsedMax;
-          }
-        }
+        const parsedInterval = parseFloat(String(tickParams[0]));
+        if (!isNaN(parsedInterval) && parsedInterval > 0) interval = parsedInterval;
+        const parsedMax = parseInt(String(tickParams[1]), 10);
+        if (!isNaN(parsedMax)) maxTicks = parsedMax;
 
         while (currentTimer >= interval && currentCount < maxTicks) {
           currentTimer -= interval;
@@ -182,19 +188,13 @@ export class EventManagerClass {
           stateData.trackers[countKey] = currentCount;
         }
       } else if (eventType === 'AfterHit') {
-        // NOTE: db.ts's tooltip docs AfterHit(n) as a seconds delay, but this treats it as a
-        // hit-index/count filter instead -- pre-existing discrepancy, left as-is.
-        const reqHit = (listener.requiredModifiers && listener.requiredModifiers.length > 0) ? listener.requiredModifiers[0] : null;
+        // AfterHit(n) runs once the nth hit of the move has resolved: AfterHit(all) after its last
+        // hit, no number after every hit. TimelineEngine prices that hit (snapshots its buffs) before
+        // firing this, so whatever the listener applies only reaches the hits after it.
+        const which = listener.eventArgs[0];
         const { hitIndex, totalHits } = extraPayload || { hitIndex: 1, totalHits: 1 };
-        let matchesHit = true;
-        if (reqHit !== null && reqHit !== undefined && reqHit !== 'self') {
-          const reqHitStr = String(reqHit).toLowerCase();
-          if (reqHitStr === 'all') {
-            matchesHit = (hitIndex === totalHits);
-          } else {
-            matchesHit = (hitIndex === parseInt(reqHit, 10));
-          }
-        }
+        const matchesHit = which === undefined
+          || (String(which).toLowerCase() === 'all' ? hitIndex === totalHits : hitIndex === Number(which));
 
         if (matchesHit && listener.evaluate(ctx, listener.equipper)) {
           (listener.effects || []).forEach(eff => triggeredEffects.push(this.resolveEffect(eff, listener, activeUnitName)));

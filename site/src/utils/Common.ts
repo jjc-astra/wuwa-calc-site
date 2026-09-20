@@ -110,15 +110,6 @@ export const CommonUtils = {
     };
   },
 
-  createOptions: (list: string[], selectedValue: string | null, placeholderText = 'Select...'): string => {
-    let html = `<option value="" disabled hidden ${!selectedValue ? 'selected' : ''}>${placeholderText}</option>`;
-    list.forEach(item => {
-      const isSelected = item === selectedValue ? 'selected' : '';
-      html += `<option value="${item}" ${isSelected}>${item}</option>`;
-    });
-    return html;
-  },
-
   enforceLimit: (input: HTMLInputElement, min: number, max: number): void => {
     const val = parseInt(input.value, 10);
     if (isNaN(val)) return;
@@ -181,7 +172,6 @@ export const CommonUtils = {
   // lookup, and by loadMergedDB (a WIP copy of a combined DB file like db_characters.json must
   // be shallow-merged on top of the real one, never swap it wholesale, or every character/weapon
   // the WIP file omits would vanish from the dev site).
-  getRealImage: (path: string): string => `${DATA_REPO_BASE_URL}/images/${path}`,
   getRealData: (path: string): string => `${DATA_REPO_BASE_URL}/data/${path}`,
   getWipData: (path: string): string => `${WIP_BASE_URL}/data/${path}`,
 
