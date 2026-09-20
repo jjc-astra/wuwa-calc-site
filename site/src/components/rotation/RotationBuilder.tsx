@@ -3,8 +3,7 @@ import { useRotationStore } from '../../store/useRotationStore';
 import { useRosterStore } from '../../store/useRosterStore';
 import { RotationToolbar } from './RotationToolbar';
 import { RotationRow } from './RotationRow';
-import { useAccordionAnimDone } from '../../hooks/useAccordionAnimDone';
-import { useCollapseMaxHeight } from '../../hooks/useCollapseMaxHeight';
+import { CollapsibleSection } from '../common/CollapsibleSection';
 import { CommonUtils, getCharacterThemeColor } from '../../utils/Common';
 import { serializableTeam } from '../../utils/TeamUtils';
 import { DataLoader } from '../../utils/DataLoader';
@@ -68,11 +67,6 @@ function buildRotationScrollbarSegments(rows: any[], loopStartIndex: number, loo
 let hasRunLoadRefresh = false;
 
 export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onToggle }) => {
-  const isCollapsed = !isOpen;
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  const animDone = useAccordionAnimDone(isOpen, wrapperRef);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const maxHeight = useCollapseMaxHeight(isOpen, contentRef);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Actual scrollbar width (offsetWidth - clientWidth) so the minimap matches it exactly.
@@ -444,26 +438,13 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
   );
 
   return (
-    <div ref={wrapperRef} className={`section-wrapper ${isCollapsed ? 'is-collapsed' : ''} ${animDone ? 'anim-done' : ''}`} id="step2-wrapper">
-      <div
-        className="section-header"
-        id="rotation-header"
-        onClick={e => {
-          const target = e.target as HTMLElement;
-          if (target.classList.contains('toggle-icon')) {
-            onToggle();
-            return;
-          }
-          if (target.tagName !== 'BUTTON' && target.tagName !== 'INPUT') {
-            onToggle();
-          }
-        }}
-      >
-        <div className="header-left">
-          <button className={`toggle-icon ${isCollapsed ? 'collapsed' : ''}`}>▼</button>
-          <h2 className="section-title">Step 2: Build Rotation</h2>
-        </div>
-        <div className="header-right">
+    <CollapsibleSection
+      isOpen={isOpen}
+      onToggle={onToggle}
+      title="Step 2: Build Rotation"
+      ids={{ wrapper: 'step2-wrapper', header: 'rotation-header', content: 'rotation-content' }}
+      headerRight={
+        <>
           <input type="file" ref={fileInputRef} accept=".json" style={{ display: 'none' }} onChange={handleImport} />
           <button className="base-btn" onClick={() => fileInputRef.current?.click()}>
             Import Rotation
@@ -471,16 +452,41 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
           <button className="base-btn" onClick={handleExport}>
             Export Rotation
           </button>
-        </div>
-      </div>
+        </>
+      }
+      overlays={
+        <>
+      {pendingImport && (
+        <ConfirmDialog
+          title="Same team already in Step 1"
+          message="This rotation's team has the same characters and sequences already loaded. Replace the current build (weapon/echoes/stats) with the one from this file, or keep the current build and just import the rotation?"
+          confirmLabel="Replace Team"
+          cancelLabel="Keep Existing"
+          onConfirm={async () => {
+            await applyImport(pendingImport.rawData, pendingImport.rotData, true);
+            setPendingImport(null);
+          }}
+          onCancel={async () => {
+            await applyImport(pendingImport.rawData, pendingImport.rotData, false);
+            setPendingImport(null);
+          }}
+        />
+      )}
 
-      <div
-        id="rotation-content"
-        ref={contentRef}
-        className="collapsible-content"
-        style={{ maxHeight }}
-        aria-hidden={isCollapsed}
-      >
+      {exportPending && (
+        <ExportResultsDialog
+          defaultFilename={exportPending.filename}
+          onConfirm={(filename, author) => {
+            const exportObject = author ? { ...exportPending.exportObject, author } : exportPending.exportObject;
+            CommonUtils.downloadJson(exportObject, filename);
+            setExportPending(null);
+          }}
+          onCancel={() => setExportPending(null)}
+        />
+      )}
+        </>
+      }
+    >
         <RotationToolbar />
 
         <div className="rotation-header-row">
@@ -555,36 +561,6 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
             ))}
           </div>
         </div>
-      </div>
-
-      {pendingImport && (
-        <ConfirmDialog
-          title="Same team already in Step 1"
-          message="This rotation's team has the same characters and sequences already loaded. Replace the current build (weapon/echoes/stats) with the one from this file, or keep the current build and just import the rotation?"
-          confirmLabel="Replace Team"
-          cancelLabel="Keep Existing"
-          onConfirm={async () => {
-            await applyImport(pendingImport.rawData, pendingImport.rotData, true);
-            setPendingImport(null);
-          }}
-          onCancel={async () => {
-            await applyImport(pendingImport.rawData, pendingImport.rotData, false);
-            setPendingImport(null);
-          }}
-        />
-      )}
-
-      {exportPending && (
-        <ExportResultsDialog
-          defaultFilename={exportPending.filename}
-          onConfirm={(filename, author) => {
-            const exportObject = author ? { ...exportPending.exportObject, author } : exportPending.exportObject;
-            CommonUtils.downloadJson(exportObject, filename);
-            setExportPending(null);
-          }}
-          onCancel={() => setExportPending(null)}
-        />
-      )}
-    </div>
+    </CollapsibleSection>
   );
 };

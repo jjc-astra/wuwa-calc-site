@@ -2,6 +2,7 @@
 import React from 'react';
 import { RangeSlider } from '../common/RangeSlider';
 import type { RangeValue } from '../common/RangeSlider';
+import { SegmentedToggle } from '../common/SegmentedToggle';
 import { ELEMENT_COLORS } from '../../utils/Common';
 import { colorForLabel } from '../results/chartPalette';
 import { ELEMENTS } from '../../data/gameVocab';
@@ -106,36 +107,27 @@ export const RankingFilterToolbar: React.FC<RankingFilterToolbarProps> = ({ filt
       ))}
 
       <div className="panel-header-tiny">Rotation Type</div>
-      <div className="segmented-toggle" role="group" aria-label="Rotation style">
-        {(['any', 'linear', 'quickswap'] as const).map(style => (
-          <button
-            key={style}
-            type="button"
-            className={`segmented-toggle-btn ${filters.rotationStyle === style ? 'is-active' : ''}`}
-            onClick={() => onChange({ ...filters, rotationStyle: style })}
-          >
-            {style === 'any' ? 'Any' : style === 'linear' ? 'Linear' : 'Quickswap'}
-          </button>
-        ))}
-      </div>
+      <SegmentedToggle
+        ariaLabel="Rotation style"
+        value={filters.rotationStyle}
+        onChange={rotationStyle => onChange({ ...filters, rotationStyle })}
+        options={[
+          { value: 'any', label: 'Any' },
+          { value: 'linear', label: 'Linear' },
+          { value: 'quickswap', label: 'Quickswap' }
+        ]}
+      />
       {/* Grouped with Rotation Type, not DMG Type -- both describe the rotation itself, applied
           last in RotationRankingsPage's filter order regardless of position here. */}
-      <div className="segmented-toggle" role="group" aria-label="Best rotation only">
-        <button
-          type="button"
-          className={`segmented-toggle-btn ${!filters.bestOnly ? 'is-active' : ''}`}
-          onClick={() => onChange({ ...filters, bestOnly: false })}
-        >
-          All
-        </button>
-        <button
-          type="button"
-          className={`segmented-toggle-btn ${filters.bestOnly ? 'is-active' : ''}`}
-          onClick={() => onChange({ ...filters, bestOnly: true })}
-        >
-          Best Only
-        </button>
-      </div>
+      <SegmentedToggle
+        ariaLabel="Best rotation only"
+        value={filters.bestOnly ? 'best' : 'all'}
+        onChange={which => onChange({ ...filters, bestOnly: which === 'best' })}
+        options={[
+          { value: 'all', label: 'All' },
+          { value: 'best', label: 'Best Only' }
+        ]}
+      />
 
       <div className="panel-header-tiny">DMG Type</div>
       <div className="ranking-dmgtype-columns">

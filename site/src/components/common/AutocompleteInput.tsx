@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { computePopupPosition } from '../../utils/popupPosition';
+import { usePopupDismiss } from '../../hooks/usePopupDismiss';
 import { SHEET_STAT_TOOLTIPS } from '../../data/db';
 import { MOD_LABEL_TOOLTIPS } from '../../logic/combat/combatRegistry';
 import {
@@ -90,40 +92,12 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
   // Portaled to <body> (like Dropdown.tsx) to escape clipping, positioned via the real input's rect.
   const POPUP_MAX_HEIGHT = 260;
   const positionPopup = () => {
-    const input = inputRef.current;
-    if (!input) return;
-    const rect = input.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const spaceAbove = rect.top;
-    const openUpward = spaceBelow < POPUP_MAX_HEIGHT && spaceAbove > spaceBelow;
-    setPopupPos({
-      position: 'fixed',
-      left: rect.left,
-      minWidth: rect.width,
-      maxWidth: Math.max(rect.width, window.innerWidth - rect.left - 8),
-      ...(openUpward
-        ? { bottom: window.innerHeight - rect.top + 2, maxHeight: Math.min(POPUP_MAX_HEIGHT, spaceAbove - 8) }
-        : { top: rect.bottom + 2, maxHeight: Math.min(POPUP_MAX_HEIGHT, spaceBelow - 8) })
-    });
+    if (inputRef.current) setPopupPos(computePopupPosition(inputRef.current.getBoundingClientRect(), { maxHeight: POPUP_MAX_HEIGHT, gap: 2 }));
   };
 
   // Can't cheaply track every scrollable ancestor -- close instead of drifting off-anchor (same as Dropdown.tsx).
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleScroll = (e: Event) => {
-      if (popupRef.current && e.target instanceof Node && popupRef.current.contains(e.target)) return;
-      // Input's own text-scroll fires 'scroll' too (syncScroll's job) -- ignore it or popup closes while typing.
-      if (e.target === inputRef.current) return;
-      setIsOpen(false);
-    };
-    const close = () => setIsOpen(false);
-    window.addEventListener('scroll', handleScroll, true);
-    window.addEventListener('resize', close);
-    return () => {
-      window.removeEventListener('scroll', handleScroll, true);
-      window.removeEventListener('resize', close);
-    };
-  }, [isOpen]);
+  // The input's own text-scroll fires 'scroll' too (syncScroll's job) -- ignored, or the popup closes while typing.
+  usePopupDismiss(isOpen, () => setIsOpen(false), { popupRef, ignoreScrollFrom: [inputRef] });
 
   const tokens = useMemo(() => tokenizeDSL(value, forteAliases(baseStats)), [value, baseStats]);
   const syncScroll = () => {

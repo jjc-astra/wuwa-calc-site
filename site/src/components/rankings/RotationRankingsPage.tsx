@@ -5,6 +5,7 @@ import { DPS_WINDOW_TABS } from '../results/chartPalette';
 import { dpsFieldOf } from '../../data/dpsWindows';
 import { ChromeTabs } from '../results/ChromeTabs';
 import { RankingFilterToolbar } from './RankingFilterToolbar';
+import { SegmentedToggle } from '../common/SegmentedToggle';
 import { RankingRow } from './RankingRow';
 import type { DpsWindowKey } from '../../types/results';
 
@@ -89,18 +90,12 @@ export const RotationRankingsPage: React.FC = () => {
 
               {visibleEntries.length > 0 && (
                 <div className="ranking-pagination">
-                  <div className="segmented-toggle" role="group" aria-label="Rows per page">
-                    {PAGE_SIZE_OPTIONS.map(size => (
-                      <button
-                        key={size}
-                        type="button"
-                        className={`segmented-toggle-btn ${pageSize === size ? 'is-active' : ''}`}
-                        onClick={() => setPageSize(size)}
-                      >
-                        {size}
-                      </button>
-                    ))}
-                  </div>
+                  <SegmentedToggle
+                    ariaLabel="Rows per page"
+                    value={pageSize}
+                    onChange={setPageSize}
+                    options={PAGE_SIZE_OPTIONS.map(size => ({ value: size, label: size }))}
+                  />
 
                   <div className="ranking-pagination-nav">
                     <button

@@ -13,6 +13,7 @@ import { DPS_WINDOW_TABS } from './chartPalette';
 import { dpsFieldOf } from '../../data/dpsWindows';
 import type { RankingEntry } from '../../store/useRankingsStore';
 import { TeamPreview } from '../common/TeamPreview';
+import { teamCharacters } from '../../utils/TeamUtils';
 import { StackedContributionBar } from '../rankings/StackedContributionBar';
 import { RankingFilterToolbar } from '../rankings/RankingFilterToolbar';
 import { ChromeTabs } from './ChromeTabs';
@@ -90,7 +91,7 @@ const HistoryPickerBody: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       {entries.length === 0 && <div className="results-empty">No history yet -- press Calculate to build some up.</div>}
       <div className="history-list">
         {entries.map(entry => {
-          const unitNames = entry.team.filter(s => s.character).map(s => s.character);
+          const unitNames = teamCharacters(entry.team);
           const label = unitNames.join(' · ');
           const dps = entry.results.dpsStats.twoMinDps ?? 0;
           const segments = entry.results.contribution.twoMin?.team ?? [];
@@ -189,7 +190,7 @@ const RankingsPickerBody: React.FC<{ onClose: () => void }> = ({ onClose }) => {
               {visibleEntries.map((entry, i) => {
                 const dps = entry.dpsStats[dpsFieldOf(activeWindow)] ?? 0;
                 const widthPct = maxDps > 0 ? (dps / maxDps) * 100 : 0;
-                const unitNames = entry.team.filter(s => s.character).map(s => s.character);
+                const unitNames = teamCharacters(entry.team);
                 const label = unitNames.join(' · ');
                 const segments = entry.contribution[activeWindow]?.team ?? [];
                 const unitBreakdowns = entry.contribution[activeWindow]?.units ?? {};

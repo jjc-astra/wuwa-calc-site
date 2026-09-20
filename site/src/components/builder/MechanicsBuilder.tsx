@@ -3,6 +3,7 @@ import { useBuilderStore, mechFolderFor } from '../../store/useBuilderStore';
 import { checkBuilderItemFreshness } from '../../utils/dataFreshness';
 import { DataLoader, type ImplementedContentKind } from '../../utils/DataLoader';
 import { CommonUtils } from '../../utils/Common';
+import { useImageStatus } from '../../hooks/useImageStatus';
 import { BuilderUtils } from '../../utils/BuilderUtils';
 import { MechanicKey } from '../../utils/MechanicKey';
 import { BaseStatsForm } from './BaseStatsForm';
@@ -35,10 +36,7 @@ interface GridCardProps {
 
 const GridCard: React.FC<GridCardProps> = ({ itemName, imgFolder, dbRef, onClick, hasChanges }) => {
   const iconPath = CommonUtils.getIconPath(itemName, imgFolder);
-  const [imgError, setImgError] = useState(false);
-  // A cache hit (e.g. this card was already on screen before a remount) skips the fade-in --
-  // only a genuinely new image needs onLoad to reveal it.
-  const [imgLoaded, setImgLoaded] = useState(() => CommonUtils.isImageCached(iconPath));
+  const { loaded: imgLoaded, errored: imgError, onLoad: onImgLoad, onError: onImgError } = useImageStatus(iconPath);
 
   let rarity = 5;
   let rarityClass = 'rarity-none';
@@ -82,8 +80,8 @@ const GridCard: React.FC<GridCardProps> = ({ itemName, imgFolder, dbRef, onClick
             className={`char-grid-img ${imgLoaded ? 'opacity-1' : 'opacity-0'}`}
             src={iconPath}
             alt={itemName}
-            onLoad={() => setImgLoaded(true)}
-            onError={() => setImgError(true)}
+            onLoad={onImgLoad}
+            onError={onImgError}
           />
         )}
         {(!imgLoaded || imgError) && (

@@ -7,8 +7,8 @@ import { ExportResultsDialog } from '../common/ExportResultsDialog';
 import { ActionsMenuButton } from '../common/ActionsMenuButton';
 import { useRotationHistoryStore } from '../../store/useRotationHistoryStore';
 import type { HistoryEntry } from '../../store/useRotationHistoryStore';
-import { useRotationStore } from '../../store/useRotationStore';
-import { useRosterStore } from '../../store/useRosterStore';
+import { loadSavedRotation } from '../../store/loadSavedRotation';
+import { teamCharacters } from '../../utils/TeamUtils';
 import { useComparisonStore } from '../../store/useComparisonStore';
 import { tip, CommonUtils } from '../../utils/Common';
 
@@ -26,7 +26,7 @@ export const HistoryRow: React.FC<HistoryRowProps> = ({ entry }) => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [saveResultsOpen, setSaveResultsOpen] = useState(false);
 
-  const unitNames = entry.team.filter(s => s.character).map(s => s.character);
+  const unitNames = teamCharacters(entry.team);
   const label = unitNames.join(' · ');
   const dps = entry.results.dpsStats.twoMinDps ?? 0;
   const segments = entry.results.contribution.twoMin?.team ?? [];
@@ -52,8 +52,7 @@ export const HistoryRow: React.FC<HistoryRowProps> = ({ entry }) => {
   };
 
   const handleRestoreConfirm = async () => {
-    await useRosterStore.getState().importTeam(entry.team);
-    useRotationStore.getState().importRotation(entry.rotation, entry.settings);
+    await loadSavedRotation(entry);
     setConfirmOpen(false);
   };
 

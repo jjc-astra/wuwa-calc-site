@@ -4,8 +4,8 @@ import { TeamPreview } from '../common/TeamPreview';
 import { StackedContributionBar } from './StackedContributionBar';
 import { ActionsMenuButton } from '../common/ActionsMenuButton';
 import { RankingTimelinePanel } from './RankingTimelinePanel';
-import { useRosterStore } from '../../store/useRosterStore';
-import { useRotationStore } from '../../store/useRotationStore';
+import { loadSavedRotation } from '../../store/loadSavedRotation';
+import { teamCharacters } from '../../utils/TeamUtils';
 import { useComparisonStore } from '../../store/useComparisonStore';
 import { DataLoader } from '../../utils/DataLoader';
 import type { RankingEntry } from '../../store/useRankingsStore';
@@ -23,7 +23,7 @@ export const RankingRow: React.FC<RankingRowProps> = ({ rank, entry, activeWindo
   const [isExpanded, setIsExpanded] = useState(false);
   const dps = entry.dpsStats[dpsFieldOf(activeWindow)] ?? 0;
   const widthPct = maxDps > 0 ? (dps / maxDps) * 100 : 0;
-  const unitNames = entry.team.filter(s => s.character).map(s => s.character);
+  const unitNames = teamCharacters(entry.team);
   const label = unitNames.join(' · ');
   const segments = entry.contribution[activeWindow]?.team ?? [];
   const unitBreakdowns = entry.contribution[activeWindow]?.units ?? {};
@@ -33,8 +33,7 @@ export const RankingRow: React.FC<RankingRowProps> = ({ rank, entry, activeWindo
   const handleOpenInCalculator = async () => {
     const data = DataLoader.characterResults[entry.id];
     if (!data) return;
-    await useRosterStore.getState().importTeam(entry.team);
-    useRotationStore.getState().importRotation(data.rotation, data.settings);
+    await loadSavedRotation({ team: entry.team, rotation: data.rotation, settings: data.settings });
     // Mirrors useHashRoute's routeToHash('calculator', 2) -- no navigate() prop reaches this deep,
     // so this sets the hash directly; the hook's hashchange listener picks it up the same way.
     window.location.hash = '#/calculator/step-2';

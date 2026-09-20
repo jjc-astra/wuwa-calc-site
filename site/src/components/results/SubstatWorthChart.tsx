@@ -2,7 +2,8 @@
 import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useRosterStore } from '../../store/useRosterStore';
 import { useRotationStore } from '../../store/useRotationStore';
-import { TooltipManager, tip } from '../../utils/Common';
+import { TooltipManager } from '../../utils/Common';
+import { SegmentedToggle } from '../common/SegmentedToggle';
 import { UnitTabs } from '../common/UnitTabs';
 
 const formatPct = (v: number) => `${v.toFixed(1)}%`;
@@ -60,42 +61,24 @@ export const SubstatWorthChart: React.FC = () => {
       <div className="results-card-header">
         <span>Substat Worth</span>
         <div className="results-card-header-controls">
-          <div className="segmented-toggle" role="group" aria-label="Substat worth scope">
-            <button
-              type="button"
-              className={`segmented-toggle-btn ${mode === 'team' ? 'is-active' : ''}`}
-              {...tip("Show % change of the whole team's damage")}
-              onClick={() => setMode('team')}
-            >
-              Team
-            </button>
-            <button
-              type="button"
-              className={`segmented-toggle-btn ${mode === 'personal' ? 'is-active' : ''}`}
-              {...tip("Show % change of just this unit's own damage")}
-              onClick={() => setMode('personal')}
-            >
-              Personal
-            </button>
-          </div>
-          <div className="segmented-toggle" role="group" aria-label="Substat worth direction">
-            <button
-              type="button"
-              className={`segmented-toggle-btn ${direction === 'minus' ? 'is-active' : ''}`}
-              {...tip("Show what you'd lose without this roll")}
-              onClick={() => setDirection('minus')}
-            >
-              -1
-            </button>
-            <button
-              type="button"
-              className={`segmented-toggle-btn ${direction === 'plus' ? 'is-active' : ''}`}
-              {...tip('Show what an extra roll would gain')}
-              onClick={() => setDirection('plus')}
-            >
-              +1
-            </button>
-          </div>
+          <SegmentedToggle
+            ariaLabel="Substat worth scope"
+            value={mode}
+            onChange={setMode}
+            options={[
+              { value: 'team', label: 'Team', tooltip: "Show % change of the whole team's damage" },
+              { value: 'personal', label: 'Personal', tooltip: "Show % change of just this unit's own damage" }
+            ]}
+          />
+          <SegmentedToggle
+            ariaLabel="Substat worth direction"
+            value={direction}
+            onChange={setDirection}
+            options={[
+              { value: 'minus', label: '-1', tooltip: "Show what you'd lose without this roll" },
+              { value: 'plus', label: '+1', tooltip: 'Show what an extra roll would gain' }
+            ]}
+          />
         </div>
       </div>
       {units.length === 0 ? (

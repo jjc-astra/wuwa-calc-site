@@ -33,6 +33,9 @@ export function framesToSeconds(frames: Frames): number {
 }
 
 // Shared display formatter -- every UI seconds-string should go through this, not an ad hoc `.toFixed(2)+'s'`.
+/** Seconds with an explicit sign, to two places: "+1.47s", "-0.50s", "0.00s". */
+export const formatSignedSeconds = (seconds: number): string => `${seconds > 0 ? '+' : ''}${seconds.toFixed(2)}s`;
+
 export function formatFramesAsSeconds(frames: Frames, decimals = 2): string {
   return `${framesToSeconds(frames).toFixed(decimals)}s`;
 }

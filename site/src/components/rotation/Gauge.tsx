@@ -10,7 +10,7 @@ import { forteMax } from '../../logic/resources';
 
 const gaugePercent = (value: number, max: number): number => Math.min(100, Math.max(0, (value / (max || 100)) * 100));
 
-const formatGaugeValue = (val: number): number => (Number.isInteger(val) ? val : parseFloat(val.toFixed(2)));
+const formatGaugeValue = (val: number): number => CommonUtils.trimNumber(val, 2);
 
 const gaugeTooltipHandlers = (name: string, value: number) => ({
   onMouseEnter: (e: React.MouseEvent<HTMLElement>) =>

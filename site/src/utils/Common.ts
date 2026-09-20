@@ -225,6 +225,9 @@ export const CommonUtils = {
       });
   },
 
+  /** A number without float noise (1.4700000001 -> 1.47): whole numbers as they are, others rounded to `digits` places. */
+  trimNumber: (value: number, digits = 3): number => (Number.isInteger(value) ? value : parseFloat(value.toFixed(digits))),
+
   /** "Rotation_Lumi-RC_Sanhua.json"-style name for exporting a team; "Rotation_Config.json" for an empty one. */
   exportFilename: (prefix: string, team: Array<{ character?: string; weapon?: string; sequence?: number }>, suffix = ''): string => {
     const names = CommonUtils.buildTeamIds(team);

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { useImageStatus } from '../../hooks/useImageStatus';
 import { useBuilderStore } from '../../store/useBuilderStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { CommonUtils } from '../../utils/Common';
@@ -17,11 +18,7 @@ export const BaseStatsForm: React.FC = () => {
   const iconFolder = isChar ? IMAGE_FOLDERS.CHARACTERS : IMAGE_FOLDERS.WEAPONS;
   const iconPath = activeChar ? CommonUtils.getIconPath(activeChar, iconFolder) : '';
 
-  // A cache hit (e.g. this portrait was already on screen before a remount) skips the fade-in
-  // -- only a genuinely new image needs onLoad to reveal it.
-  const [imgLoaded, setImgLoaded] = useState(() => CommonUtils.isImageCached(iconPath));
-  const [imgError, setImgError] = useState(false);
-  useEffect(() => { setImgLoaded(CommonUtils.isImageCached(iconPath)); setImgError(false); }, [iconPath]);
+  const { loaded: imgLoaded, errored: imgError, onLoad: onImgLoad, onError: onImgError } = useImageStatus(iconPath);
 
   if (!activeChar) return null;
 
@@ -97,8 +94,8 @@ export const BaseStatsForm: React.FC = () => {
               className={`char-grid-img ${imgLoaded ? 'opacity-1' : 'opacity-0'}`}
               src={iconPath}
               alt={activeChar}
-              onLoad={() => setImgLoaded(true)}
-              onError={() => setImgError(true)}
+              onLoad={onImgLoad}
+              onError={onImgError}
             />
           )}
           {(!imgLoaded || imgError) && (

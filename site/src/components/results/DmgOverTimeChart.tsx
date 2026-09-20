@@ -7,7 +7,8 @@ import { ResultsLegend } from './ResultsLegend';
 import { CATEGORICAL_PALETTE, colorForProvider } from './chartPalette';
 import { DPS_WINDOWS } from '../../data/dpsWindows';
 import { Dropdown } from '../common/Dropdown';
-import { TooltipManager, tip } from '../../utils/Common';
+import { TooltipManager } from '../../utils/Common';
+import { SegmentedToggle } from '../common/SegmentedToggle';
 import { framesToSeconds } from '../../utils/Frames';
 
 // Domain is plain display-seconds, converted once at the boundary (toDisplaySeries) from Frames.
@@ -465,45 +466,27 @@ export const DmgOverTimeChart: React.FC = () => {
       )}
       <div className="dmg-time-window-row">
         <div className="dmg-time-window-col-left">
-          <div className="segmented-toggle" role="group" aria-label="Dmg over time view">
-            <button
-              type="button"
-              className={`segmented-toggle-btn ${mode === 'dmg' ? 'is-active' : ''}`}
-              {...tip('Total damage accumulated over time')}
-              onClick={() => setMode('dmg')}
-            >
-              DMG
-            </button>
-            <button
-              type="button"
-              className={`segmented-toggle-btn ${mode === 'dps' ? 'is-active' : ''}`}
-              {...tip('Rolling average DPS over the past 1 second')}
-              onClick={() => setMode('dps')}
-            >
-              DPS
-            </button>
-          </div>
+          <SegmentedToggle
+            ariaLabel="Dmg over time view"
+            value={mode}
+            onChange={setMode}
+            options={[
+              { value: 'dmg', label: 'DMG', tooltip: 'Total damage accumulated over time' },
+              { value: 'dps', label: 'DPS', tooltip: 'Rolling average DPS over the past 1 second' }
+            ]}
+          />
         </div>
         {series.length === 1 && mode === 'dmg' && (
           <div className="dmg-time-window-col-center">
-            <div className="segmented-toggle" role="group" aria-label="Chart type">
-              <button
-                type="button"
-                className={`segmented-toggle-btn ${chartType === 'line' ? 'is-active' : ''}`}
-                {...tip('Connected line')}
-                onClick={() => setChartType('line')}
-              >
-                LINE
-              </button>
-              <button
-                type="button"
-                className={`segmented-toggle-btn ${chartType === 'bar' ? 'is-active' : ''}`}
-                {...tip('One bar per hit')}
-                onClick={() => setChartType('bar')}
-              >
-                BAR
-              </button>
-            </div>
+            <SegmentedToggle
+              ariaLabel="Chart type"
+              value={chartType}
+              onChange={setChartType}
+              options={[
+                { value: 'line', label: 'LINE', tooltip: 'Connected line' },
+                { value: 'bar', label: 'BAR', tooltip: 'One bar per hit' }
+              ]}
+            />
           </div>
         )}
         <div className="dmg-time-window-col-right">

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { useImageStatus } from '../../hooks/useImageStatus';
 import { CommonUtils, TRANSPARENT_PIXEL } from '../../utils/Common';
 import type { ImageFolder } from '../../data/db';
 
@@ -14,12 +15,7 @@ export const AvatarIcon: React.FC<AvatarIconProps> = ({ name, folder, className 
   const hasVal = !!name;
   const path = hasVal ? CommonUtils.getIconPath(name, folder) : TRANSPARENT_PIXEL;
 
-  const [loaded, setLoaded] = useState(() => CommonUtils.isImageCached(path));
-  const [errored, setErrored] = useState(false);
-
-  // A cache hit (e.g. this icon was already on screen before a remount) skips the fade-in --
-  // only a genuinely new image needs onLoad to reveal it.
-  useEffect(() => { setLoaded(CommonUtils.isImageCached(path)); setErrored(false); }, [path]);
+  const { loaded, errored, onLoad, onError } = useImageStatus(path);
 
   const showImage = hasVal && !errored && loaded;
 
@@ -30,8 +26,8 @@ export const AvatarIcon: React.FC<AvatarIconProps> = ({ name, folder, className 
         className={`avatar-img ${showImage ? 'opacity-1' : 'opacity-0'}`}
         src={path}
         alt={name || 'empty'}
-        onLoad={() => { if (hasVal) setLoaded(true); }}
-        onError={() => { if (hasVal) setErrored(true); }}
+        onLoad={() => { if (hasVal) onLoad(); }}
+        onError={() => { if (hasVal) onError(); }}
       />
     </div>
   );

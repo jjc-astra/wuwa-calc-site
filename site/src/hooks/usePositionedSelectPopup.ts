@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import type React from 'react';
 import { TooltipManager } from '../utils/Common';
+import { computePopupPosition } from '../utils/popupPosition';
+import { usePopupDismiss } from './usePopupDismiss';
 
 interface UsePositionedSelectPopupOptions {
   itemCount: number;
@@ -35,55 +37,11 @@ export function usePositionedSelectPopup({
   const typeaheadRef = useRef('');
   const typeaheadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (rootRef.current?.contains(target)) return;
-      if (popupRef.current?.contains(target)) return;
-      setIsOpen(false);
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen]);
-
-  // A native select stays anchored through scroll/resize -- ours can't do that cheaply, so it
-  // just closes instead. Capture-phase listeners also see the popup's own internal scrolling
-  // (e.g. scrollIntoView below), which must be ignored or it'd close itself on open.
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleScroll = (e: Event) => {
-      if (popupRef.current && e.target instanceof Node && popupRef.current.contains(e.target)) return;
-      setIsOpen(false);
-    };
-    const close = () => setIsOpen(false);
-    window.addEventListener('scroll', handleScroll, true);
-    window.addEventListener('resize', close);
-    return () => {
-      window.removeEventListener('scroll', handleScroll, true);
-      window.removeEventListener('resize', close);
-    };
-  }, [isOpen]);
+  usePopupDismiss(isOpen, () => setIsOpen(false), { popupRef, clickInsideRefs: [rootRef, popupRef] });
 
   useLayoutEffect(() => {
     if (!isOpen || !triggerRef.current) return;
-    const rect = triggerRef.current.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const spaceAbove = rect.top;
-    const openUpward = spaceBelow < popupMaxHeight && spaceAbove > spaceBelow;
-    // Every branch sets both members of each offset pair (top/bottom, left/right), never just
-    // one -- so this fully overrides a caller's CSS default (e.g. .pin-menu's own
-    // position:absolute;top:...;right:0). Leaving one side unset lets top+bottom both apply at
-    // once, silently squashing computed height to zero -- the actual "menu won't open" bug.
-    setPopupPos({
-      position: 'fixed',
-      ...(align === 'right'
-        ? { right: window.innerWidth - rect.right, left: 'auto', maxWidth: Math.max(rect.width, rect.right - 8) }
-        : { left: rect.left, right: 'auto', minWidth: rect.width, maxWidth: Math.max(rect.width, window.innerWidth - rect.left - 8) }),
-      ...(openUpward
-        ? { bottom: window.innerHeight - rect.top + 4, top: 'auto', maxHeight: Math.min(popupMaxHeight, spaceAbove - 8) }
-        : { top: rect.bottom + 4, bottom: 'auto', maxHeight: Math.min(popupMaxHeight, spaceBelow - 8) })
-    });
+    setPopupPos(computePopupPosition(triggerRef.current.getBoundingClientRect(), { maxHeight: popupMaxHeight, align }));
   }, [isOpen, popupMaxHeight, align]);
 
   useEffect(() => {

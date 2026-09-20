@@ -94,7 +94,7 @@ export function filterRankingEntries(
     }
     if (filters.rotationStyle !== 'any' && entry.rotationType !== filters.rotationStyle) return false;
     if (searchLower) {
-      const label = entry.team.filter(s => s.character).map(s => s.character).join(' · ').toLowerCase();
+      const label = teamCharacters(entry.team).join(' · ').toLowerCase();
       if (!label.includes(searchLower)) return false;
     }
     if (elementFilterActive || categoryFilterActive) {

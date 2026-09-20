@@ -7,6 +7,7 @@ import type { NodeChangeKind } from '../../store/useBuilderStore';
 import { MechanicKey } from '../../utils/MechanicKey';
 import { TooltipManager } from '../../utils/Common';
 import { tip } from './mechanicNodeHelpers';
+import { usePopupDismiss } from '../../hooks/usePopupDismiss';
 
 interface NodeChangeBadgeProps {
   nodeId: string;
@@ -22,26 +23,7 @@ export const NodeChangeBadge: React.FC<NodeChangeBadgeProps> = ({ nodeId }) => {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const onMouseDown = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (popupRef.current?.contains(target) || buttonRef.current?.contains(target)) return;
-      setIsOpen(false);
-    };
-    const close = (e: Event) => {
-      if (e.target instanceof Node && popupRef.current?.contains(e.target)) return;
-      setIsOpen(false);
-    };
-    document.addEventListener('mousedown', onMouseDown);
-    window.addEventListener('scroll', close, true);
-    window.addEventListener('resize', close);
-    return () => {
-      document.removeEventListener('mousedown', onMouseDown);
-      window.removeEventListener('scroll', close, true);
-      window.removeEventListener('resize', close);
-    };
-  }, [isOpen]);
+  usePopupDismiss(isOpen, () => setIsOpen(false), { popupRef, clickInsideRefs: [popupRef, buttonRef] });
 
   useEffect(() => {
     if (!kind) setIsOpen(false);

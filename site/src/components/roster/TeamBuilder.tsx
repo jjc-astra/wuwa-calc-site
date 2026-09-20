@@ -4,8 +4,7 @@ import { useRosterStore } from '../../store/useRosterStore';
 import { CharacterSlot } from './CharacterSlot';
 import { IdleStats } from './IdleStats';
 import { TeamPreview } from '../common/TeamPreview';
-import { useAccordionAnimDone } from '../../hooks/useAccordionAnimDone';
-import { useCollapseMaxHeight } from '../../hooks/useCollapseMaxHeight';
+import { CollapsibleSection } from '../common/CollapsibleSection';
 import { CommonUtils } from '../../utils/Common';
 import { serializableTeam } from '../../utils/TeamUtils';
 
@@ -15,11 +14,6 @@ interface TeamBuilderProps {
 }
 
 export const TeamBuilder: React.FC<TeamBuilderProps> = ({ isOpen, onToggle }) => {
-  const isCollapsed = !isOpen;
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  const animDone = useAccordionAnimDone(isOpen, wrapperRef);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const maxHeight = useCollapseMaxHeight(isOpen, contentRef);
   const { team, importTeam } = useRosterStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -50,29 +44,18 @@ export const TeamBuilder: React.FC<TeamBuilderProps> = ({ isOpen, onToggle }) =>
   };
 
   return (
-    <div ref={wrapperRef} className={`section-wrapper ${isCollapsed ? 'is-collapsed' : ''} ${animDone ? 'anim-done' : ''}`} id="step1-wrapper">
-      <div
-        className="section-header"
-        id="team-header"
-        onClick={(e) => {
-          const target = e.target as HTMLElement;
-          if (target.classList.contains('toggle-icon')) {
-            onToggle();
-            return;
-          }
-          if (target.tagName !== 'BUTTON' && target.tagName !== 'INPUT') {
-            onToggle();
-          }
-        }}
-      >
-        <div className="header-left">
-			<button className={`toggle-icon ${isCollapsed ? 'collapsed' : ''}`}>▼</button>
-			<h2 className="section-title">Step 1: Build Team</h2>
-			<div id="header-team-preview" className={`header-preview ${isCollapsed ? 'is-visible' : ''}`}>
-            <TeamPreview team={team} />
-          </div>
+    <CollapsibleSection
+      isOpen={isOpen}
+      onToggle={onToggle}
+      title="Step 1: Build Team"
+      ids={{ wrapper: 'step1-wrapper', header: 'team-header', content: 'team-content' }}
+      headerExtra={
+        <div id="header-team-preview" className={`header-preview ${isOpen ? '' : 'is-visible'}`}>
+          <TeamPreview team={team} />
         </div>
-        <div className="header-right">
+      }
+      headerRight={
+        <>
           <input type="file" ref={fileInputRef} accept=".json" style={{ display: 'none' }} onChange={handleImport} />
           <button className="base-btn" onClick={() => fileInputRef.current?.click()}>
             Import Team
@@ -80,22 +63,15 @@ export const TeamBuilder: React.FC<TeamBuilderProps> = ({ isOpen, onToggle }) =>
           <button className="base-btn" onClick={handleExport}>
             Export Team
           </button>
-        </div>
+        </>
+      }
+    >
+      <div id="team-roster" className="team-container">
+        {[0, 1, 2].map(index => (
+          <CharacterSlot key={index} index={index} />
+        ))}
       </div>
-      <div
-        id="team-content"
-        ref={contentRef}
-        className="collapsible-content"
-        style={{ maxHeight }}
-        aria-hidden={isCollapsed}
-      >
-        <div id="team-roster" className="team-container">
-          {[0, 1, 2].map(index => (
-            <CharacterSlot key={index} index={index} />
-          ))}
-        </div>
-        <IdleStats />
-      </div>
-    </div>
+      <IdleStats />
+    </CollapsibleSection>
   );
 };
