@@ -1,125 +1,813 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>WuWa Calculator - Site Workflow</title>
     <style>
-        body {
-            background-color: #0d1117; /* GitHub Dark Dimmed */
-            color: #c9d1d9;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            /* Allow scrolling instead of shrinking */
-            overflow: auto; 
+        /* Design tokens copied from site/src/assets/css/palette.css */
+        :root {
+            --bg-dark:   #1e1e1e;
+            --bg-well:   #1a1a1a;
+            --bg-deep:   #111111;
+            --bg-panel:  #2b2b2b;
+            --bg-card:   #333333;
+            --border:    #444444;
+            --text-main: #dddddd;
+            --text-dim:  #888888;
+            --text-disabled: #555555;
+            --accent: #dca54c;
+            --accent-hover:    rgba(220, 165, 76, 0.1);
+            --accent-selected: rgba(220, 165, 76, 0.12);
+            --accent-border:   rgba(220, 165, 76, 0.3);
+            --accent-glow:     rgba(220, 165, 76, 0.4);
+            --accent-light: #f0d8a8;
+            --danger: #ff5555;
+            --success: #66ff66;
+            --warning: #ffcc00;
+            --surface-card: rgba(0, 0, 0, 0.2);
+            --space-1: 4px; --space-2: 6px; --space-3: 8px; --space-4: 12px; --space-5: 16px; --space-6: 20px;
         }
+        * { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: var(--text-disabled) var(--bg-dark); }
+        html, body { margin: 0; padding: 0; background-color: var(--bg-dark); color: var(--text-main); font-family: sans-serif; }
+        body { padding: 0 10px 40px; }
+        code { background: var(--bg-deep); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; font-size: 0.85em; color: var(--accent-light); font-family: 'JetBrains Mono', 'Roboto Mono', monospace; }
+
+        /* .global-nav-header */
+        .global-nav-header {
+            display: flex; justify-content: space-between; align-items: center; gap: var(--space-5); flex-wrap: wrap;
+            padding: 10px 20px; background: var(--bg-deep);
+            border: 1px solid var(--border); border-top: none; border-radius: 0 0 8px 8px;
+            position: sticky; top: 0; z-index: 10;
+        }
+        .nav-brand { color: var(--text-main); font-weight: bold; font-size: 1rem; }
+        .nav-brand .accent { color: var(--accent); }
+        .nav-items { display: flex; flex-wrap: wrap; gap: 4px; }
+        /* .nav-item-btn */
+        .nav-item-btn {
+            display: inline-flex; align-items: center; padding: 6px 10px;
+            background: transparent; border: 1px solid transparent; border-radius: 4px;
+            color: var(--text-dim); font-weight: bold; font-size: 0.7rem;
+            text-transform: uppercase; letter-spacing: 0.5px; text-decoration: none; transition: 0.2s;
+        }
+        .nav-item-btn:hover { background: var(--accent-selected); border-color: var(--accent); color: var(--accent); }
+
+        main { max-width: 1500px; margin: 0 auto; padding-top: var(--space-6); }
+        /* .landing-hero */
+        .hero { text-align: center; padding: 18px 0 8px; }
+        .hero h1 { margin: 0 0 8px; font-size: 2.2rem; color: var(--text-main); }
+        .hero h1 .accent { color: var(--accent); }
+        .hero p { margin: 0 auto; max-width: 760px; color: var(--text-dim); line-height: 1.55; }
+
+        /* Legend chips, like .coming-soon-badge */
+        .legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 10px; margin: 18px 0 6px; }
+        .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 10px; font-size: 0.65rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-main); border: 1px solid var(--border); }
+        .chip.ui { background: #333333; }
+        .chip.store { background: #3b3221; border-color: var(--accent); color: var(--accent-light); }
+        .chip.logic { background: #203024; border-color: var(--success); }
+        .chip.worker { background: var(--bg-panel); border-color: var(--warning); border-style: dashed; }
+        .chip.data { background: var(--bg-deep); border-color: var(--text-dim); border-style: dashed; }
+        .chip.alert { background: #3a2222; border-color: var(--danger); }
+
+        /* .section-wrapper / .section-header / .section-title */
+        .section-wrapper { display: flex; flex-direction: column; background: var(--bg-well); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-top: var(--space-6); }
+        .section-header { padding: 10px 15px; background: rgba(0, 0, 0, 0.4); border-bottom: 1px solid var(--border); display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+        .section-title { margin: 0; font-size: 1.1rem; color: var(--accent); font-weight: bold; }
+        .section-tag { color: var(--text-dim); font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08rem; }
+        .section-body { padding: var(--space-5); }
+        /* .panel-header-tiny */
+        .note { margin: 0 0 var(--space-4); color: var(--text-dim); line-height: 1.55; max-width: 1100px; font-size: 0.9rem; }
+        .note b { color: var(--text-main); }
+        .diagram { background: var(--surface-card); border: 1px solid var(--border); border-radius: 8px; padding: var(--space-4); overflow: auto; }
         /* Ensure the container doesn't force a small width */
-        .mermaid {
-            display: block;
-            margin: 0 auto;
+        .mermaid { display: block; margin: 0 auto; }
+        /* Diagrams shrink to fit the container (never upscale); "Actual size" switches to natural size with scrolling. */
+        .section-wrapper { scroll-margin-top: 72px; }
+        /* .base-btn, small */
+        .zoom-btn {
+            margin-left: auto; padding: 3px 10px; background: transparent; border: 1px solid var(--accent); color: var(--accent);
+            border-radius: 4px; font-weight: bold; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; transition: 0.2s;
         }
+        .zoom-btn:hover { background: var(--accent); color: var(--bg-dark); box-shadow: 0 0 10px var(--accent-glow); }
+        .sub-note { margin: var(--space-5) 0 var(--space-3); color: var(--text-dim); font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08rem; }
+        .mermaid .edgeLabel, .mermaid .edgeLabel span, .mermaid .edgeLabel p { color: var(--text-main) !important; }
     </style>
 </head>
 <body>
-    <pre class="mermaid">
+    <header class="global-nav-header">
+        <div class="nav-brand"><span class="accent">WuWa</span> Calculator &middot; Site Workflow</div>
+        <nav class="nav-items">
+            <a class="nav-item-btn" href="#layers">Architecture</a>
+            <a class="nav-item-btn" href="#boot">Boot + routing</a>
+            <a class="nav-item-btn" href="#step1">Team</a>
+            <a class="nav-item-btn" href="#step2">Rotation UI</a>
+            <a class="nav-item-btn" href="#recalc">Recalc + worker</a>
+            <a class="nav-item-btn" href="#engine">Engine</a>
+            <a class="nav-item-btn" href="#events">Events + effects</a>
+            <a class="nav-item-btn" href="#damage">Damage</a>
+            <a class="nav-item-btn" href="#results">Results</a>
+            <a class="nav-item-btn" href="#builder">Builder</a>
+            <a class="nav-item-btn" href="#dsl">DSL</a>
+            <a class="nav-item-btn" href="#rankings">Rankings + timeline</a>
+            <a class="nav-item-btn" href="#data">Data + ops</a>
+        </nav>
+    </header>
+
+    <main>
+        <div class="hero">
+            <h1><span class="accent">WuWa</span> Calculator</h1>
+            <p>
+                A React + Zustand app that simulates Wuthering Waves team rotations. Character, weapon and echo mechanics are data
+                (JSON with a small DSL) fetched from a separate data repo; a Web Worker runs the simulation; everything a user builds
+                persists to localStorage. Each section below is one area of the codebase.
+            </p>
+            <div class="legend">
+                <span class="chip ui">UI component / hook</span>
+                <span class="chip store">Zustand store</span>
+                <span class="chip logic">Logic (pure simulation, math)</span>
+                <span class="chip worker">Worker thread</span>
+                <span class="chip data">Data / storage / external</span>
+                <span class="chip alert">Stale / error path</span>
+            </div>
+        </div>
+
+        <section class="section-wrapper" id="layers">
+            <div class="section-header"><h2 class="section-title">Architecture layers</h2><span class="section-tag">every folder in src/</span></div>
+            <div class="section-body">
+                <p class="note">Pages call stores; stores call the worker client and the data layer; the worker runs the pure logic. A few components (the rotation row, the Builder's autocomplete) also read logic directly to build their dropdowns.</p>
+                <div class="diagram fit"><pre class="mermaid">
     graph TD
-    %% --- INITIALIZATION ---
-    Start(("App Load")) -->|DOMContentLoaded| Init["GUIController.js"]
-
-    subgraph Initialization
-        Init -->|"1. Generate HTML"| Gen["RosterUtils: Build Team/Echoes"]
-        Init -->|"2. Bind Listeners"| Bind["GUIController: Bind Events"]
-        Init -->|"3. Init Tooltips"| Tool["TooltipManager"]
-        Gen --> DOM_Main["DOM: Roster & Builder UI"]
+    subgraph Entry["Entry and shell"]
+        Index["index.html + main.tsx<br/>StrictMode, prod service worker,<br/>dev-only WIP image fallback"]:::ui
+        App["App.tsx<br/>boot gate, view switch,<br/>freshness triggers"]:::ui
+        Route["hooks/useHashRoute + config/nav.ts"]:::ui
+        Shell["Header, LandingPage, ComingSoonPage,<br/>FreshnessConflictDialog"]:::ui
     end
 
-    %% --- ROSTER SYSTEM ---
-    subgraph Roster_System
-        User_Roster["User Action"] -->|"Change Char/Wep/Set"| GUI_Roster["GUI: Change Listener"]
-        GUI_Roster -->|"Update Logic"| RosterUtils_Logic["RosterUtils: Handle Logic"]
-        RosterUtils_Logic -->|"Update Images/Options"| DOM_Main
-        
-        User_Roster -->|"Adjust Slider"| GUI_Slider["GUI: Input Listener"]
-        GUI_Slider -->|"Calc Stat Value"| RosterUtils_Stat["RosterUtils: updateStatFromSlider"]
-        RosterUtils_Stat -->|"Update Input"| DOM_Main
-        
-        DOM_Main -->|"Trigger Change"| HeaderPreview["GUI: bindHeaderPreview"]
-        HeaderPreview -->|"Update Icons"| DOM_Header["DOM: Header Preview"]
+    subgraph Pages["src/components (pages)"]
+        Calc["Calculator<br/>roster/  rotation/  results/  timeline/"]:::ui
+        Bld["Mechanics Builder<br/>builder/  builder/panels/"]:::ui
+        Rank["Rotation Rankings<br/>rankings/"]:::ui
+        Common["common/<br/>Dropdown, IconSelect, AutocompleteInput, dialogs,<br/>CollapsibleSection, SegmentedToggle, AvatarIcon, TypeTag ..."]:::ui
     end
 
-    %% --- ROTATION BUILDER ---
-    subgraph Rotation_Builder
-        User_Rot["User Action"]
-        
-        %% Selection
-        User_Rot -->|"Click Checkbox"| RotUtils_Sel["RotationUtils: Manual Toggle"]
-        RotUtils_Sel -->|"Update Class"| DOM_Rot["DOM: Rotation Rows"]
-        RotUtils_Sel -->|Callback| GUI_Sel["GUI: Update Button State"]
-
-        %% Editing
-        User_Rot -->|"Edit Value"| GUI_Edit["GUI: Change Listener"]
-        GUI_Edit -->|"Create Cmd"| CMD_Edit["CommandSystem: EditValueCommand"]
-        
-        %% Actions
-        User_Rot -->|"Click Delete"| GUI_Del["GUI: performDelete"]
-        GUI_Del -->|"Create Cmd"| CMD_Del["CommandSystem: DeleteRowsCommand"]
-        
-        User_Rot -->|"Click Copy"| GUI_Copy["GUI: performCopy"]
-        GUI_Copy -->|"Extract Data"| RotUtils_Data["RotationUtils: extractData"]
-        RotUtils_Data -->|Save| Clipboard["State: Clipboard"]
-        
-        User_Rot -->|"Click Paste"| GUI_Paste["GUI: performPaste"]
-        GUI_Paste -->|"Read Clipboard"| RotUtils_Paste["RotationUtils: generatePasteCommands"]
-        RotUtils_Paste -->|"Create Cmd"| CMD_Comp["CommandSystem: CompositeCommand"]
-        
-        %% History
-        User_Rot -->|"Undo/Redo"| GUI_Hist["GUI: History Nav"]
-        GUI_Hist -->|"Call System"| UndoMan["UndoManager"]
+    subgraph Hooks["src/hooks"]
+        Hk["useAccordionAnimDone, useCollapseMaxHeight,<br/>usePositionedSelectPopup, usePopupDismiss,<br/>useImageStatus, useHashRoute"]:::ui
     end
 
-    %% --- COMMAND SYSTEM ---
-    subgraph Command_Execution
-        CMD_Edit -->|Execute| UndoMan
-        CMD_Del -->|Execute| UndoMan
-        CMD_Comp -->|Execute| UndoMan
-        
-        UndoMan -->|"1. Lock Execution"| ExecLock{"isExecuting?"}
-        ExecLock -- Yes --> Stop["Ignore"]
-        ExecLock -- No --> Run["Run .execute / .undo"]
-        
-        Run -->|"2. Modify DOM"| DOM_Rot
-        Run -->|"3. Push Stack"| HistoryStack["History Stack"]
-        Run -->|"4. Notify UI"| GUI_Sel
+    subgraph Stores["src/store (Zustand + persist)"]
+        Sr["useRosterStore"]:::store
+        Sro["useRotationStore"]:::store
+        Sb["useBuilderStore"]:::store
+        Sh["useRotationHistoryStore"]:::store
+        Sc["useComparisonStore"]:::store
+        Sk["useRankingsStore"]:::store
+        Sl["loadSavedRotation"]:::store
     end
 
-    %% --- RECALCULATION LOOP ---
-    subgraph Reactive_Calculation
-        DOM_Rot -->|"Event: row-structure-change"| GUI_Struct["GUI: Structure Listener"]
-        GUI_Struct -->|"Update Indices"| RotUtils_Idx["RotationUtils: updateIndices"]
-        
-        DOM_Rot -->|"Event: change (Input)"| GUI_Calc["GUI: Calc Listener"]
-        GUI_Struct -->|"Event: check-rotation"| GUI_Calc
-        
-        GUI_Calc -->|"Calc Time/Stats"| RotUtils_Calc["RotationUtils: recalculate"]
-        RotUtils_Calc -->|"Update Read-Only Inputs"| DOM_Rot
+    subgraph Sys["src/systems"]
+        HM["HistoryManager<br/>commands, undo/redo stacks"]:::logic
     end
 
-    %% --- IMPORT / EXPORT ---
-    subgraph Data_Persistence
-        User_IO["User Action"] -->|"Click Export"| GUI_Exp["GUI: Generate JSON"]
-        GUI_Exp -->|Download| File["JSON File"]
-        
-        User_IO -->|"Click Import"| GUI_Imp["GUI: Parse JSON"]
-        File --> GUI_Imp
-        GUI_Imp -->|"Apply Values"| DOM_Main
-        GUI_Imp -->|"Apply Values"| DOM_Rot
+    subgraph Work["src/workers"]
+        WCl["calcWorkerClient<br/>request queue + sequence ids"]:::worker
+        Wk["calc.worker.ts"]:::worker
+        BOP["builderOverridePayload"]:::worker
+        RFC["runFullCalculation"]:::worker
     end
-    </pre>
+
+    subgraph Logic["src/logic (pure)"]
+        TE["TimelineEngine"]:::logic
+        EM["EventManager"]:::logic
+        CM["ContextManager"]:::logic
+        CC["CombatCalculator + combat/<br/>combatRegistry, statParser"]:::logic
+        RC["ResultsCalculator"]:::logic
+        MO["MechanicOwners"]:::logic
+        RB["RepeatBlocks"]:::logic
+        Small["rotationRows, resources, rowState, engineValues"]:::logic
+        DSLm["dsl/<br/>dslRegistry, dslParser, dslResolver, dslTypes"]:::logic
+    end
+
+    subgraph Util["src/utils, src/data, src/types, src/config"]
+        DL["DataLoader + dataFreshness"]:::data
+        Cmn["Common: TooltipManager, icon paths,<br/>parse helpers, download helpers"]:::data
+        Misc["TeamUtils, MechanicKey, ResourceKeys, ForteNames,<br/>Frames, nodeDiff, BuilderUtils, DSLHighlight,<br/>safeLocalStorage, popupPosition"]:::data
+        Dt["data/db.ts, gameVocab.ts, dpsWindows.ts<br/>types/, config/nav.ts"]:::data
+    end
+
+    Ext[("wuwa-calc-data repo (GitHub raw)<br/>localStorage  /  /wip-data (dev)")]:::data
+
+    Index ~~~ App ~~~ Route ~~~ Shell
+    Calc ~~~ Bld ~~~ Rank ~~~ Common
+    Sr ~~~ Sro ~~~ Sb ~~~ Sh ~~~ Sc ~~~ Sk ~~~ Sl
+    WCl ~~~ Wk ~~~ BOP ~~~ RFC
+    TE ~~~ EM ~~~ CM ~~~ CC ~~~ RC ~~~ MO ~~~ RB ~~~ Small ~~~ DSLm
+    DL ~~~ Cmn ~~~ Misc ~~~ Dt
+
+    Entry --> Pages
+    Pages --> Hooks
+    Pages --> Stores
+    Pages -.->|"reads directly for dropdowns"| Logic
+    Stores --> Sys
+    Stores --> Work
+    Work --> Logic
+    Logic --> Util
+    Stores --> Util
+    Pages --> Util
+    Util --> Ext
+    Stores -.->|"persist"| Ext
+    </pre></div>
+            </div>
+        </section>
+
+        <section class="section-wrapper" id="boot">
+            <div class="section-header"><h2 class="section-title">Boot, routing and shell</h2><span class="section-tag">App.tsx, Header, LandingPage, useHashRoute</span></div>
+            <div class="section-body">
+                <p class="note">Nothing renders until the databases are loaded. Views are hash routes (<code>#/calculator/step-2</code>); the calculator remembers its last step. Freshness checks run when the tab regains focus, and the Builder also polls.</p>
+                <div class="diagram fit"><pre class="mermaid">
+    graph TD
+    Start(("Page load")) --> Main["main.tsx: render App in StrictMode"]:::ui
+    Main --> SWq{"production build?"}
+    SWq -- yes --> SW["register /sw.js<br/>cache-first assets and images,<br/>network-first index.html"]:::data
+    SWq -- no --> Dev["dev only: img error listener swaps a<br/>failed WIP image to the real data repo"]:::data
+    Main --> Boot["App: DataLoader.initDatabases<br/>manifest, db_characters, db_weapons, db_builds, db_echoes"]:::ui
+    Boot --> Replay["refreshActiveBuilderItem force:<br/>replay the Builder's open entity"]:::ui
+    Replay --> Ready{"loaded?"}
+    Ready -- no --> Loading["Loading databases..."]:::ui
+    Ready -- yes --> Layout["Header + current view"]:::ui
+
+    Layout --> HeaderC["Header<br/>brand (home), NAV_ITEMS with Soon badge,<br/>Back to Library when a Builder entity is open,<br/>Discord / Patreon buttons behind SITE_FEATURES flags"]:::ui
+    Layout --> Route{"useHashRoute<br/>view + calculator step"}:::ui
+    Route -->|landing| Landing["LandingPage: one card per NAV_ITEM"]:::ui
+    Route -->|calculator| Calc["ResultsPanel + TeamBuilder + RotationBuilder<br/>results collapse to a rail on step 1"]:::ui
+    Route -->|builder| Bld["MechanicsBuilder"]:::ui
+    Route -->|rankings| Rank["RotationRankingsPage"]:::ui
+    Route -->|guide| Soon["ComingSoonPage"]:::ui
+    Route -.->|"last step kept in localStorage"| LS[("wuwa_calc_last_step")]:::data
+
+    Vis["tab regains focus"] --> Which{"current view"}
+    Which -->|calculator| F1["checkTeamFreshness(team)"]:::logic
+    Which -->|rankings| F2["useRankingsStore.load"]:::store
+    Which -->|builder| F3["refreshActiveBuilderItem"]:::ui
+    Poll["Builder open: every 3 seconds"] --> F3
+    Layout --> Dlg["FreshnessConflictDialog<br/>always mounted"]:::ui
+    </pre></div>
+            </div>
+        </section>
+
+        <section class="section-wrapper" id="step1">
+            <div class="section-header"><h2 class="section-title">Step 1: Build Team</h2><span class="section-tag">roster/, useRosterStore</span></div>
+            <div class="section-body">
+                <p class="note">Every roster change ends in <code>commitTeam</code>: replay the Builder's edits for the new team, publish it, and re-run the rotation against it. Content with no mechanics file yet is shown disabled ("Not yet implemented") unless the Builder has edits for it.</p>
+                <div class="diagram fit"><pre class="mermaid">
+    graph TD
+    subgraph UI["TeamBuilder"]
+        Slot["CharacterSlot x3<br/>IconSelect: character (searchable), weapon, main set,<br/>sub sets, main echo, layout Dropdown, dual-mode Dropdown<br/>SEQ 0-6, RANK 1-5"]:::ui
+        Echo["EchoCard x5 per slot<br/>main stat + 5 substats, values from STAT_DB"]:::ui
+        Btns["Load Recommended Build (star), Remove from Roster (x)"]:::ui
+        Idle["IdleStats<br/>per-unit sheet stats + enemy level / res / hp inputs"]:::ui
+        IO["Import Team / Export Team"]:::ui
+    end
+
+    Slot --> SetField["useRosterStore.setSlotField"]:::store
+    Echo -->|"setSlotField mainStat / setSubstat"| Stats
+    Btns -->|"applyRecommendedBuild / clearSlot"| Commit
+    IO -->|"importTeam"| Imp["merge into slots, loadTeamMechanics"]:::store
+
+    SetField -->|"character"| CL["load character mechanics,<br/>reset weapon and mode"]:::store
+    CL --> Rec["applyRecommendedBuild<br/>db_builds: weapon, sets, layout, main stats, substats"]:::store
+    SetField -->|"weapon / set / echo"| IL["DataLoader.loadMechanic(folder, name)"]:::data
+    SetField -->|"layout / main set"| Fix["remap echo main stats to the layout,<br/>drop a main echo the sets no longer allow"]:::store
+
+    Rec --> Stats["calculateEchoStatsForSlot<br/>secondary stat + main stat + substat totals"]:::logic
+    IL --> Stats
+    Fix --> Stats
+    Imp --> Stats
+    Stats --> Commit["commitTeam<br/>applyBuilderOverridesForTeam, set team"]:::store
+    Commit --> RC["useRotationStore.recalculate"]:::store
+    Imp -->|"awaited before the rotation import"| RC
+
+    Commit --> Idle
+    Idle -->|"getIdleStats"| IdleCalc["always-on buffs from every slot and System,<br/>then CombatCalculator.calculateFinalStats"]:::logic
+    Idle -->|"setEnemyField"| RC
+    Commit --> Prev["collapsed header: TeamPreview icons"]:::ui
+    </pre></div>
+            </div>
+        </section>
+
+        <section class="section-wrapper" id="step2">
+            <div class="section-header"><h2 class="section-title">Step 2: Build Rotation (the UI)</h2><span class="section-tag">rotation/, useRotationStore, HistoryManager</span></div>
+            <div class="section-body">
+                <p class="note">A rotation is a list of rows (unit, action, timing, offset) with an empty trailing row. Every edit is a command, so undo and redo work, and the history survives a reload. The action dropdown only offers moves whose DSL trigger rule currently passes.</p>
+                <div class="diagram fit"><pre class="mermaid">
+    graph TD
+    subgraph Row["RotationRow"]
+        U["Unit dropdown<br/>loads the character + main echo mechanics,<br/>applies Builder overrides, setRowUnit"]:::ui
+        A["Action dropdown: getActionGroups"]:::ui
+        T["Timing dropdown<br/>row.availableTimings: Auto, Full, Swap, Cancel ...,<br/>Simultaneous and Manual make Offset editable"]:::ui
+        Cells["Clickable cells open a SubPanel:<br/>Time, Offset, DMG, forte gauges, Concerto, Energy, Tune"]:::ui
+        Msg["row errors and warnings, loop issue strips"]:::alert
+        Mk["Loop Start / Loop End / Ending Rotation markers,<br/>Hold Repeat block markers (draggable)"]:::ui
+    end
+
+    subgraph Actions["how the action list is built"]
+        Ctx["ContextManager.buildContext(row, unit, team)"]:::logic
+        Own["MechanicOwners: the unit, main echo, weapon,<br/>sets, System, sorted character > echo > System"]:::logic
+        Cast["getCastableMechanics per owner"]:::logic
+        Valid["keep moves whose DSL trigger rule passes<br/>(DSLParser.compile), plus the current selection"]:::logic
+        Collapse["one move per input + input type:<br/>highest priority wins (DSLParser.evaluateMath)"]:::logic
+        Group["group by category / skill group name,<br/>System, Echo Skill, or owner name"]:::logic
+        Ctx --> Own --> Cast --> Valid --> Collapse --> Group
+    end
+    A --> Ctx
+    Group --> A
+
+    subgraph Bar["RotationToolbar + RotationBuilder"]
+        Tb["Copy, Paste, Delete, Insert Above / Below,<br/>Wrap as repeat block, Undo, Redo,<br/>Full Energy, Full Concerto, Ending Rotation, Calculate"]:::ui
+        Kb["keyboard: Delete, Ctrl+C / V / Z / Y,<br/>Ctrl+Up / Down (ignored while typing in a field)"]:::ui
+        Dnd["drag rows to reorder, drag markers to move them,<br/>shift-click range select"]:::ui
+        Mini["scrollbar minimap of unit segments and markers"]:::ui
+    end
+
+    U --> Store
+    A -->|"updateRowField(action)"| Store
+    T --> Store
+    Tb --> Store
+    Kb --> Store
+    Dnd --> Store
+    Mk --> Store
+    Store["useRotationStore actions<br/>addRow, updateRowField(s), setRowUnit, deleteRows, moveRows,<br/>copy / paste / insert, loop start + end, repeat blocks,<br/>Ending Rotation on/off + starts earlier"]:::store
+    Store --> Cmd["command factory<br/>AddRow, DeleteRows, EditValue, EditFields, MoveRows,<br/>SetLoopStart / End, SetRepeatBlockStart / End, EndingRotationFlags,<br/>Composite for multi-step edits"]:::logic
+    Cmd --> HM["HistoryManager.execute<br/>undo + redo stacks, capped at 50"]:::logic
+    HM --> Rows["rows updated, then triggerRecalc<br/>(one microtask for a burst of edits)"]:::store
+    HM -.->|"serialized into persisted state, revived on reload"| LS[("wuwa_calc_rotation_cache")]:::data
+    Rows --> Rc["recalculate (see next section)"]:::store
+    Cells -->|"open panel"| SP["SubPanel by PANEL_CONFIG<br/>damage breakdown, time, offset sources, gauge breakdowns"]:::ui
+    U ~~~ A ~~~ T ~~~ Cells ~~~ Msg ~~~ Mk
+    Tb ~~~ Kb ~~~ Dnd ~~~ Mini
+    </pre></div>
+            </div>
+        </section>
+
+        <section class="section-wrapper" id="recalc">
+            <div class="section-header"><h2 class="section-title">Live recalculation and the worker</h2><span class="section-tag">useRotationStore.runWorkerCalc, calcWorkerClient, calc.worker</span></div>
+            <div class="section-body">
+                <p class="note">Editing rows never runs damage. It sends a cheap <code>recalculate</code>: times, gauges, loop info, errors. The worker has its own DataLoader, and requests run one at a time.</p>
+                <div class="diagram fit"><pre class="mermaid">
+    graph TD
+    Rc["recalculate / calculateDamage"]:::store --> Snap["snapshot rows, team, enemy, options,<br/>Ending Rotation flags"]:::store
+    Snap --> Fresh["checkTeamFreshness<br/>compare manifest hashes, evict changed mechanics"]:::data
+    Fresh --> Exp["expandRepeatBlocks<br/>clone each Hold Repeat range, build collapseMap"]:::logic
+    Exp --> Post["postToWorker(type, request)<br/>attaches Builder overrides for the team"]:::worker
+    Post --> Q["calcWorkerClient queue<br/>one request at a time, sequence id per request"]:::worker
+    Q --> W["calc.worker onmessage"]:::worker
+
+    subgraph WorkerThread["calc.worker.ts"]
+        W --> Init["getReady: DataLoader.initDatabases (worker's own instance)"]:::worker
+        Init --> Ev["drop evicted mechanics (staleRefs)<br/>calculateDamage + overrides: clear and re-fetch"]:::worker
+        Ev --> Load["DataLoader.loadTeamMechanics(team)"]:::worker
+        Load --> Ov["applyBuilderOverridesToDataLoader"]:::worker
+        Ov --> Type{"request type"}
+        Type -->|recalculate| R1["recalculateState"]:::logic
+        R1 --> R2{"includeDamage?<br/>(one-time load refresh)"}
+        R2 -- yes --> R3["populateDamageInstances"]:::logic
+        R2 -- no --> R4
+        R3 --> R4["findLoopStart, analyzeLoop"]:::logic
+        R4 --> R5{"Ending Rotation on?"}
+        R5 -- yes --> R6["previewEndingRotationTiming"]:::logic
+        R5 -- no --> Out
+        R6 --> Out["stripFunctions, postMessage"]:::worker
+        Type -->|calculateDamage| D1["recalculateState + populateDamageInstances<br/>+ Ending Rotation preview<br/>+ buildRotationResults"]:::logic
+        D1 --> Out
+    end
+
+    Out --> Seq{"a newer request of this type<br/>already landed?"}
+    Seq -- yes --> Drop["drop the stale result"]:::alert
+    Seq -- no --> Col["collapseRepeatResults<br/>fold back onto the authored rows, keep ids"]:::logic
+    Col --> Which{"type"}
+    Which -->|recalculate| S1["set rows, loop start + errors + warnings,<br/>isStale = true, isCalculating = false<br/>keep earlier damage breakdowns"]:::store
+    Which -->|calculateDamage| S2["set rows + results, isStale = false,<br/>remember Builder overrides,<br/>add a History entry"]:::store
+    </pre></div>
+            </div>
+        </section>
+
+        <section class="section-wrapper" id="engine">
+            <div class="section-header"><h2 class="section-title">Inside recalculateState</h2><span class="section-tag">logic/TimelineEngine.ts</span></div>
+            <div class="section-body">
+                <p class="note">One pass over the rows in order. Each row inherits the previous row's state (resource pools, buffs, trackers, cooldowns), works out how long to wait and how long the move takes, validates it, then runs the mechanics that its events trigger.</p>
+                <div class="diagram fit"><pre class="mermaid">
+    graph TD
+    In["recalculateState(rows, team, options, enemy)"]:::logic --> Setup["_setupEventBoard<br/>getMechanicOwners, EventManager.reset,<br/>register each owner's passive listeners<br/>(set piece counts, weapon rank scaling)"]:::logic
+    Setup --> Link["link @Prev / @Next row pointers"]:::logic
+    Link --> RowLoop["for each row with a unit"]:::logic
+
+    subgraph PerRow["per row"]
+        S1["1  _applyInheritance from the previous row<br/>(first row: default state)"]:::logic
+        S2["2  first row: _primeCombatStart<br/>start Energy / Concerto, ALWAYS listeners"]:::logic
+        S3["3  resolve the move: _getModifiedMoveData<br/>(dual-mode / Builder-modified variants)"]:::logic
+        S4["4  waits before the move starts:<br/>cooldown or charges (cooldownRemaining), still busy,<br/>resource wait (_computeResourceWait),<br/>Hold Release auto-wait lookahead"]:::logic
+        S5["5  _applyDecay for the waited time<br/>(buffs, trackers, cooldowns tick down)"]:::logic
+        S6["6  _resolveTimings<br/>available timings, action duration, swap timing,<br/>freeze time, offset and offset reasons"]:::logic
+        S7["7  hold cursor tracking<br/>Cursor_Pos, window center / size, clamp mode keeps forte in step"]:::logic
+        S8["8  pre-cast dropdown snapshot for the row's panels"]:::logic
+        S9["9  _runValidation<br/>errors and warnings: resources, stance, cooldown,<br/>unreachable hold, ..."]:::alert
+        S10["10 _evaluateMechanics<br/>fire events and run effects (next section)"]:::logic
+        S11["11 _resolveComboWindows, _resolvePriority"]:::logic
+        S12["_scheduleHits / _processQueuedHits<br/>hits land as game time advances<br/>_processGameTimeDecay ticks buffs and cooldowns"]:::logic
+        S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7 --> S8 --> S9 --> S10 --> S11 --> S12
+    end
+
+    RowLoop --> S1
+    S12 --> RowLoop
+    RowLoop -->|"after the last row"| Tail["trailing empty row inherits the last state,<br/>flush hits still queued"]:::logic
+    Tail --> Rows["evaluated rows<br/>times, gauges, active buffs, trackers,<br/>_pendingHits, errorMsgs, warningMsgs, availableTimings"]:::logic
+
+    Rows --> Loop["findLoopStart<br/>Loop Start override, else the main DPS's first true Outro<br/>(collapseMap keeps Hold Repeat blocks whole)"]:::logic
+    Loop --> An["analyzeLoop<br/>runs the loop again from its end state,<br/>reports errors and warnings from the second rep"]:::logic
+    </pre></div>
+            </div>
+        </section>
+
+        <section class="section-wrapper" id="events">
+            <div class="section-header"><h2 class="section-title">Events, effects and the DSL at run time</h2><span class="section-tag">EventManager, ContextManager, dslParser, TimelineEngine._process*</span></div>
+            <div class="section-body">
+                <p class="note">A mechanic node's <code>triggerRule</code> is a tiny language: <code>OnCast(...) IF condition</code> (or <code>ALWAYS</code>). It is compiled once into a function, registered under its event, and evaluated against a context built from the current row.</p>
+                <div class="diagram fit"><pre class="mermaid">
+    graph TD
+    Node["MechanicNode.triggerRule<br/>(a passive with no rule counts as ALWAYS)"]:::data --> Comp["DSLParser.compile<br/>split on IF, parse event + args + modifiers,<br/>translate the condition with the dslRegistry tables,<br/>new Function('ctx', 'equipper')"]:::logic
+    Comp --> Reg["EventManager.registerMechanic<br/>one listener per trigger event"]:::logic
+    Reg --> Buckets["listener buckets<br/>OnStart, OnCast, OnHit, AfterHit, OnSwapIn / Out, OnUnitChange, OnTick,<br/>tracker events, buff events, ALWAYS"]:::logic
+
+    Ev["TimelineEngine._fire(event, castModifiers ...)"]:::logic --> Emit["EventManager.emit"]:::logic
+    Buckets --> Emit
+    Ctx["ContextManager.buildContext(row, unit, team)<br/>@Self, @Move, @Prev, @Next, @Enemy, @Default,<br/>methods: BuffStacks, HasBuff, Tracker, Cooldown, Stat"]:::logic --> Emit
+    Emit --> Match["required modifiers match?<br/>evaluate(ctx, equipper) passes?"]:::logic
+    Match -- no --> Skip["skip"]
+    Match -- yes --> Trig["resolve each effect:<br/>@Equipper, provider, source, MATH hit mults;<br/>cooldown effect; proc'd mechanic with its own hits"]:::logic
+    Trig --> Stream["_executeEffectsStream"]:::logic
+
+    Stream --> PE["_processEffect by type"]:::logic
+    PE -->|buff| B["_updateActiveBuffs<br/>stacks, duration, max stacks (MATH),<br/>stack behavior, expire behavior, remove on swap, applies during"]:::logic
+    PE -->|buffAction| BA["_handleBuffActionEffect<br/>remove, consume, pause, resume, extend"]:::logic
+    PE -->|tracker| TR["_handleTracker<br/>add, set, copy, consume, detonate, delete, max cap"]:::logic
+    PE -->|resource| RS["_handleResourceEffect<br/>energy, concerto, forte 1-6, tune, with caps"]:::logic
+    PE -->|time_scale| TS["time scales slow or speed timers"]:::logic
+    PE -->|cooldown| CD["extend or reset a move's cooldown"]:::logic
+    PE -->|procced_mechanic| PR["_queueProccedMechanic: delayed hit"]:::logic
+    Tgt["_resolveTargets<br/>@Self, @Team, @TeamOthers, @Enemy, @Equipper ..."]:::logic --> PE
+    TR -->|"fires tracker events"| Ev
+    B -->|"fires buff events"| Ev
+    </pre></div>
+            </div>
+        </section>
+
+        <section class="section-wrapper" id="damage">
+            <div class="section-header"><h2 class="section-title">Pricing one hit</h2><span class="section-tag">logic/CombatCalculator.ts, combat/</span></div>
+            <div class="section-body">
+                <p class="note">Each queued hit carries its config and the state it happened in. <code>calculateDamageInstance</code> turns that into a damage number plus a readable breakdown.</p>
+                <div class="diagram fit"><pre class="mermaid">
+    graph TD
+    Hit["queued hit: hitConfig + stateData<br/>(active buffs, stats, enemy HP)"]:::logic --> Mult["parse hit multiplier<br/>'150%' scales a stat, a plain number is flat"]:::logic
+    Mult --> Kind{"which formula?"}
+    Kind -->|"Tune Break / Rupture"| Tune["Tune formula<br/>never scales off ATK / HP / DEF"]:::logic
+    Kind -->|"dmgTypes is just one known status"| Neg["Negative status formula<br/>stack multiplier from NEGATIVE_STATUS_MULTS"]:::logic
+    Kind -->|"otherwise"| Std["Standard formula"]:::logic
+
+    Hit --> Sheet["calculateFinalStats<br/>character base + weapon + echo stats"]:::logic
+    Hit --> Agg["aggregateBuffTotals(hitModifiers)<br/>each live buff: rank-scaled value, DSL expression,<br/>percent or flat"]:::logic
+    Agg --> Cls["statParser.resolveMultiplierBucket + findScope<br/>combatRegistry rules put each buff in a bucket,<br/>scoped by cast type or element"]:::logic
+    Cls --> Tot["BuffTotals<br/>percent / flat ATK, HP, DEF, dmgBonus, dmgAmp, dmgTaken,<br/>crit, ignore + reduce DEF and RES, multiplicative"]:::logic
+    Sheet --> Base["base damage = scalar stat x multiplier"]:::logic
+    Tot --> Base
+    Tot --> DefRes["calcDefense(level, enemy level, ignore, reduce)<br/>calcResistance(base res, ignore, reduce)"]:::logic
+
+    Neg --> NAgg["aggregateNegativeStatusBuffTotals<br/>from the enemy's debuffs"]:::logic
+    Base --> Std
+    DefRes --> Std
+    Std --> Out["total (average), non-crit, crit<br/>calcStandardDmg with crit multiplier"]:::logic
+    Tune --> Out
+    NAgg --> Out
+    Out --> Fmt["formatDamageBreakdown<br/>display multiplier + calculation string"]:::logic
+    Fmt --> Res["DamageInstanceResult<br/>total, avg, nonCrit, crit, title, gameTime, data"]:::logic
+    </pre></div>
+            </div>
+        </section>
+
+        <section class="section-wrapper" id="results">
+            <div class="section-header"><h2 class="section-title">Calculate, Results, History and Comparison</h2><span class="section-tag">ResultsCalculator, results/, useRotationHistoryStore, useComparisonStore</span></div>
+            <div class="section-body">
+                <p class="note">Only the Calculate button runs full damage. Results dim as soon as rows change or a relevant Builder edit happens, until the next Calculate.</p>
+                <div class="diagram fit"><pre class="mermaid">
+    graph TD
+    Btn["Calculate button"]:::ui --> CD["useRotationStore.calculateDamage<br/>uses the current loop start"]:::store
+    CD --> WC["worker: calculateDamage"]:::worker
+
+    subgraph Build["ResultsCalculator.buildRotationResults"]
+        Ext["buildExtendedTimeline<br/>split into opener, loop, ending;<br/>simulate opener + repeated loops until 120s + ending"]:::logic
+        Hits["buildHitList: price every hit against running enemy HP<br/>sorted by game time"]:::logic
+        Win["DPS windows (dpsWindows.ts)<br/>Opener, First Loop, Avg Loop (3 reps), 2 Minute"]:::logic
+        Dps["dpsStats per window"]:::logic
+        Dot["damage over time per window (boss HP)"]:::logic
+        Con["contribution per window<br/>team slices and per-unit cast-type slices"]:::logic
+        Sub["substat worth on the 2-minute hits<br/>re-price cached hits with a patched team"]:::logic
+        Ext --> Hits --> Win
+        Win --> Dps
+        Win --> Dot
+        Win --> Con
+        Hits --> Sub
+    end
+    WC --> Ext
+    Dps --> Res["RotationResults"]:::logic
+    Dot --> Res
+    Con --> Res
+    Sub --> Res
+    Res --> Apply["store: rows + results, isStale = false"]:::store
+    Apply --> HistAdd["useRotationHistoryStore.addEntry<br/>team, rotation, settings, results"]:::store
+
+    subgraph Panel["ResultsPanel (collapses to a rail on step 1)"]
+        TabR["Results tab"]:::ui
+        TabT["Timeline tab (coming soon)"]:::ui
+        TabH["History tab"]:::ui
+    end
+    TabR --> DpsP["DpsPanel: bars per window, delta vs the pinned rotation"]:::ui
+    TabR --> DotC["DmgOverTimeChart: DMG or DPS, line or bar, window picker"]:::ui
+    TabR --> Team["TeamContributionPanel: PieChart + legend"]:::ui
+    TabR --> SubC["SubstatWorthChart: Team or Personal, -1 or +1, range bars"]:::ui
+    Apply --> TabR
+    HistAdd --> TabH
+
+    Stale["a row edit, or a Builder edit for this team"]:::alert -.->|"isStale"| Dim["Results dimmed until the next Calculate"]:::alert
+    Dim -.-> TabR
+
+    TabH --> HR["HistoryRow"]:::ui
+    HR -->|"Restore Rotation"| Load["loadSavedRotation: importTeam, then importRotation"]:::store
+    HR -->|"Save Results"| Save["JSON download with results<br/>(goes into the data repo for Rankings)"]:::data
+    HR -->|"Pin to Comparison"| PinH["useComparisonStore.pinFromHistoryEntry<br/>instant, series already stored"]:::store
+    HR -->|"Favorite / Remove"| HOps["update history entries"]:::store
+    PinC["PinRotationControl<br/>pin a rotation file, or pick from History / Rankings<br/>(PinComparisonPicker)"]:::ui -->|"pinFromFile / pinFromRankingEntry"| RFC["runFullCalculation<br/>recalculate, then calculateDamage in the worker"]:::worker
+    RFC --> Pinned["pinned dpsStats + damage-over-time series"]:::store
+    PinH --> Pinned
+    Pinned --> DpsP
+    Pinned --> DotC
+
+    ExportRot["Export Rotation"]:::ui --> Dlg["ExportResultsDialog: filename + author"]:::ui --> Json["rotation + team + settings, plus results if not stale"]:::data
+    ImportRot["Import Rotation"]:::ui --> Same{"same team already in Step 1?"}
+    Same -- yes --> Ask["ConfirmDialog: replace the build, or keep it"]:::ui
+    Same -- no --> Apply2["importTeam + importRotation"]:::store
+    Ask --> Apply2
+    </pre></div>
+            </div>
+        </section>
+
+        <section class="section-wrapper" id="builder">
+            <div class="section-header"><h2 class="section-title">Mechanics Builder</h2><span class="section-tag">builder/, useBuilderStore</span></div>
+            <div class="section-body">
+                <p class="note">Edits are kept as a log on top of the fetched (pristine) data. They apply to the live DataLoader immediately and travel to the worker with every calculation, so the calculator always simulates the edited data.</p>
+                <div class="diagram fit"><pre class="mermaid">
+    graph TD
+    Grid["MechanicsBuilder grid<br/>Characters, Weapons, Main Echoes, Echo Sets, System<br/>cards with rarity color; unimplemented items disabled"]:::ui -->|"click"| Open["checkBuilderItemFreshness, then setActiveChar"]:::store
+    Open --> Pristine["DataLoader.loadMechanic<br/>pristine copy (repo or WIP)"]:::data
+    Pristine --> ReplayE["replay the edit log:<br/>editedBaseStats, editedMechanics, deletedMechanicIds"]:::store
+    ReplayE --> Work["working copy: baseStats + mechanics"]:::store
+
+    subgraph Editors["editor UI"]
+        Base["BaseStatsForm<br/>rarity, element, weapon type, forte gauges,<br/>dual-mode names, ..."]:::ui
+        Add["add a mechanic from BUILDER_TEMPLATES<br/>Basic Attack, Resonance Skill, Liberation, Forte Circuit,<br/>Forte Hold Press / Release, Intro, Outro, Inherent, Tune Break, Chain"]:::ui
+        Card["MechanicNodeCard: SummaryRow + one open sub-panel<br/>Hold / Repeat / Release siblings grouped by holdGroupId"]:::ui
+        Panels["Identity + Trigger Rule and Effects, Inputs and Physics,<br/>Timing Modifiers, Hit Breakdown, Cooldown,<br/>Add Cast Type / Damage Type / Cast Resource"]:::ui
+        Auto["AutocompleteInput<br/>DSL suggestions and highlighting"]:::ui
+        Json["JsonOutputPane<br/>live highlighted JSON, hover-linked to fields,<br/>click to edit inline (debounced parse),<br/>import / export character + mechanics JSON, Reset Cache"]:::ui
+        Badge["NodeChangeBadge<br/>modified / renamed / new, revert or discard one node"]:::ui
+    end
+    Work --> Base
+    Work --> Card
+    Add --> Card
+    Card --> Panels
+    Auto --> Panels
+    Work --> Json
+
+    Base -->|"setBaseStat, setAllBaseStats"| Log
+    Panels -->|"setMechanicNode, renameMechanicNode, removeMechanicNode"| Log
+    Json -->|"imports replace nodes"| Log
+    Badge -->|"revertMechanicNode"| Log
+    Log["useBuilderStore edit log (persisted)<br/>an edit equal to pristine is dropped"]:::store --> Reg["DataLoader.register / unregisterMechanicNode<br/>base stats written onto the live entry"]:::data
+
+    Log -->|"getTeamOverrides(team)"| Pay["buildBuilderPayload"]:::worker
+    Pay --> WSide["attached to every worker request,<br/>replayed onto the worker's DataLoader"]:::worker
+    Log -.->|"differs from the last Calculate"| Stale["checkBuilderStaleness dims Results"]:::alert
+
+    Disk["edit a data file on disk (WIP mirror)"]:::data -->|"3s poll, tab focus"| Fresh["freshness check"]:::data
+    Fresh -->|"no local edits"| Reload["evict, reload, replay"]:::store
+    Fresh -->|"local edits exist"| Conf["FreshnessConflictDialog: keep my edits or discard"]:::alert
+    </pre></div>
+            </div>
+        </section>
+
+        <section class="section-wrapper" id="dsl">
+            <div class="section-header"><h2 class="section-title">DSL tooling</h2><span class="section-tag">logic/dsl/, combat/, utils/DSLHighlight</span></div>
+            <div class="section-body">
+                <p class="note"><code>dslRegistry.ts</code> is the single source of the language's vocabulary. The parser, the autocomplete and the tooltips are all derived from it, so a new property is added in one place.</p>
+                <div class="diagram fit"><pre class="mermaid">
+    graph TD
+    Vocab["data/gameVocab.ts<br/>elements, cast types, negative statuses, stat keys"]:::data --> Reg
+    Reg["dslRegistry.ts<br/>DSL_EVENTS, DSL_MODIFIERS, DSL_POINTERS (@Self, @Move, @Prev, @Next, @Enemy, @Default ...),<br/>properties with targetKey / fullOverride / jsName for methods,<br/>type methods, MATH functions, StatusMult"]:::logic
+    Types["dslTypes.ts<br/>DSLPropertyDef, DSLPointerDef, MatchRule, SuggestionItem"]:::logic --> Reg
+
+    Reg --> Parser["dslParser<br/>builds pointer + scalar translation maps and method rules,<br/>validates the registry at load"]:::logic
+    Parser --> Compile["compile(rule) and evaluateMath(expr)<br/>cached compiled functions"]:::logic
+    Compile --> Engine["EventManager + TimelineEngine + RotationRow<br/>(trigger rules, hit mults, priority)"]:::logic
+
+    Reg --> Resolver["dslResolver<br/>MatchRule factories: pointer roots, properties, method chains,<br/>MATH, @Namespace(Move) brackets, cooldown references"]:::logic
+    Bmech["Builder mechanics + base stats<br/>(names, effect ids, forte aliases)"]:::store --> Resolver
+    Resolver --> AC["AutocompleteInput modes<br/>general, dsl-value, eff-name, eff-target,<br/>eff-applies-during, eff-stat, eff-cd-name"]:::ui
+    Reg --> Tips["tooltips for events, modifiers, pointers, properties"]:::ui
+    Tips --> AC
+    Hl["utils/DSLHighlight.tokenizeDSL"]:::ui --> AC
+
+    CReg["combat/combatRegistry<br/>scopes, multiplier bucket rules, mod labels"]:::logic --> SP["combat/statParser"]:::logic
+    SP --> Calc["CombatCalculator.aggregateBuffTotals"]:::logic
+    CReg --> Resolver
+    Vocab --> CReg
+    </pre></div>
+            </div>
+        </section>
+
+        <section class="section-wrapper" id="rankings">
+            <div class="section-header"><h2 class="section-title">Rotation Rankings and the Timeline</h2><span class="section-tag">rankings/, timeline/, useRankingsStore</span></div>
+            <div class="section-body">
+                <p class="note">The leaderboard only trusts saved results (from History's Save Results). Nothing is simulated to build the list; the timeline drill-down recalculates one entry on demand.</p>
+                <div class="diagram fit"><pre class="mermaid">
+    graph TD
+    Mount["RotationRankingsPage mounts, or tab regains focus"]:::ui --> Load["useRankingsStore.load"]:::store
+    Load --> Fresh["checkResultsFreshness<br/>character_results/index.json + each file's hash"]:::data
+    Fresh --> Files["DataLoader.loadCharacterResults<br/>index, then each results JSON"]:::data
+    Files --> Entries["RankingEntry list<br/>team, sequences, rotation type, author, dpsStats, contribution<br/>(files without saved results are skipped)"]:::store
+
+    subgraph Filter["filter and sort"]
+        Tabs["DPS window tabs (ChromeTabs)"]:::ui
+        Tool["RankingFilterToolbar<br/>sequence ranges, rotation type, DMG type<br/>element + category, Best Only"]:::ui
+        Search["search box"]:::ui
+    end
+    Entries --> Fn["filterRankingEntries"]:::store
+    Tabs --> Fn
+    Tool --> Fn
+    Search --> Fn
+    Fn --> Sort["sort by DPS in the active window,<br/>paginate (page size toggle), filters + page persisted"]:::store
+    Sort --> Row["RankingRow<br/>TeamPreview + StackedContributionBar"]:::ui
+
+    Row -->|"expand"| Panel["RankingTimelinePanel"]:::ui
+    Panel --> Hook["useRotationTimelineData<br/>expandRepeatBlocks, worker recalculate with Builder overrides"]:::worker
+    Hook --> TL["RotationTimeline"]:::ui
+
+    subgraph Timeline["timeline/ (presentational)"]
+        Lay["timelineLayout.ts: pure layout math<br/>50 px per second, row + lane heights, segments per unit,<br/>flag lanes so close input flags never overlap"]:::logic
+        RowT["TimelineRow + TimelineClip<br/>one lane per unit, clips for moves"]:::ui
+        Flags["TimelineFlagTrack<br/>press / hold / release / swap flags, poles down the rows"]:::ui
+        Rul["TimelineRuler + loop start, loop end, ending rotation markers<br/>(the ending rotation's gap is squeezed to a fixed width)"]:::ui
+        Lay --> RowT
+        Lay --> Flags
+        Lay --> Rul
+    end
+    TL --> Lay
+
+    Row -->|"menu: Open in Rotation Calculator"| Open["loadSavedRotation, go to calculator step 2"]:::store
+    Row -->|"menu: Pin to Comparison"| PinR["pinFromRankingEntry, go to calculator"]:::store
+    Row -->|"menu: Open Guide"| GuideR["Character Guide (coming soon page)"]:::ui
+    </pre></div>
+            </div>
+        </section>
+
+        <section class="section-wrapper" id="data">
+            <div class="section-header"><h2 class="section-title">Data, freshness, persistence and deployment</h2><span class="section-tag">DataLoader, dataFreshness, sw.js, GitHub Actions</span></div>
+            <div class="section-body">
+                <p class="note">Game data lives in its own repo and is fetched straight from GitHub. A manifest of content hashes tells the app when something it already loaded has changed, so a data update never needs a site redeploy.</p>
+                <div class="diagram fit"><pre class="mermaid">
+    graph TD
+    subgraph DataRepo["wuwa-calc-data repo"]
+        DB["data/ db_characters, db_weapons, db_builds, db_echoes"]:::data
+        Mech["data/mechanics/ characters, weapons, sets, echoes, system"]:::data
+        CR["data/character_results/ index.json + saved rotation results"]:::data
+        Img["images/"]:::data
+        Man["data/manifest.json: path to content hash"]:::data
+        Gen["GitHub Action regenerates the manifest<br/>on every push that touches data JSON"]:::data
+        Gen --> Man
+    end
+
+    subgraph Load["DataLoader.loadJSON"]
+        Req["request for a data file"]:::data --> InMan{"path in the manifest?"}
+        InMan -- "no, and the manifest is known" --> Skip["skip the repo fetch (no 404)"]:::data
+        InMan -- yes --> DevQ{"dev build?"}
+        DevQ -- yes --> Wip["local /wip-data mirror first<br/>(combined db files are merged over the real ones)"]:::data
+        Wip -->|"missing"| Repo
+        DevQ -- no --> Repo["raw.githubusercontent.com"]:::data
+        Wip --> Cache
+        Repo --> Cache["caches: mechanics, mechanicsIndex, mechanicsDB,<br/>pristine copies, loaded hashes"]:::data
+    end
+    DataRepo --> Load
+    Impl["isContentImplemented: a mechanics file exists in the manifest<br/>(DISABLE_UNIMPLEMENTED_CONTENT flag)"]:::logic --> Man
+
+    subgraph Fresh["dataFreshness"]
+        M2["refreshManifest (throttled to once per 5 seconds)"]:::data --> Cmp{"loaded hash differs<br/>from the manifest?"}
+        Cmp -- no --> Ok["nothing to do"]
+        Cmp -- yes --> Edited{"unsaved Builder edits for it?"}
+        Edited -- no --> Evict["evict and reload, report as staleRefs"]:::data
+        Edited -- yes --> Conf["FreshnessConflictDialog"]:::alert
+    end
+    T1["before every recalculate / Calculate"] --> M2
+    T2["tab regains focus (calculator, rankings, builder)"] --> M2
+    T3["Builder open: 3 second poll"] --> M2
+    Evict -->|"staleRefs in the worker request"| WDL["worker DataLoader drops the same entries"]:::worker
+    </pre></div>
+                <div class="sub-note">Persistence and deployment</div>
+                <div class="diagram fit"><pre class="mermaid">
+    graph TD
+    subgraph Persist["localStorage via safeLocalStorage (quota errors are swallowed)"]
+        K1["wuwa_calc_team_cache: team + enemy"]:::data
+        K2["wuwa_calc_rotation_cache: rows, undo + redo, settings, last results"]:::data
+        K3["wuwa_builder_cache: Builder edit log"]:::data
+        K4["wuwa_calc_rotation_history: Calculate history"]:::data
+        K5["wuwa_calc_pinned_comparison: pinned rotation"]:::data
+        K6["wuwa_rankings_ui_cache: filters, page, window"]:::data
+        K7["wuwa_calc_last_step: calculator step"]:::data
+    end
+
+    subgraph Ship["build and deploy (site repo)"]
+        Push["push to main"]:::data --> CI["GitHub Actions: npm ci, npm run build<br/>(tsc -b + vite build)"]:::data
+        CI --> Pages["GitHub Pages"]:::data
+        Pages --> SWn["service worker: cache-first for assets and repo images,<br/>network-first for index.html<br/>(bump CACHE_VERSION to evict)"]:::data
+    end
+    K1 ~~~ K2 ~~~ K3 ~~~ K4 ~~~ K5 ~~~ K6 ~~~ K7
+    </pre></div>
+
+            </div>
+        </section>
+    </main>
+
     <script type="module">
         import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-        mermaid.initialize({ 
-            startOnLoad: true, 
-            theme: 'dark',
-            // THIS LINE FIXES THE SIZE ISSUE:
-            flowchart: { useMaxWidth: false } 
+
+        // Node styles that match the legend, using the site's palette.
+        const CLASS_DEFS = [
+            'classDef ui fill:#333333,stroke:#444444,color:#dddddd;',
+            'classDef store fill:#3b3221,stroke:#dca54c,color:#f0d8a8;',
+            'classDef logic fill:#203024,stroke:#66ff66,color:#dddddd;',
+            'classDef worker fill:#2b2b2b,stroke:#ffcc00,color:#dddddd,stroke-dasharray:4 3;',
+            'classDef data fill:#111111,stroke:#888888,color:#dddddd,stroke-dasharray:2 3;',
+            'classDef alert fill:#3a2222,stroke:#ff5555,color:#ffdddd;'
+        ].join('\n');
+        document.querySelectorAll('pre.mermaid').forEach(el => { el.innerHTML = el.innerHTML + '\n' + CLASS_DEFS; });
+
+        // Fit-to-width by default; the button per section flips its diagrams to natural size.
+        document.querySelectorAll('.section-wrapper').forEach(section => {
+            const button = document.createElement('button');
+            button.className = 'zoom-btn';
+            button.textContent = 'Actual size';
+            button.addEventListener('click', () => {
+                const diagrams = section.querySelectorAll('.diagram');
+                const fit = !diagrams[0].classList.contains('fit');
+                diagrams.forEach(d => {
+                    d.classList.toggle('fit', fit);
+                    const svg = d.querySelector('svg');
+                    if (!svg) return;
+                    if (fit) {
+                        // Back to what mermaid set: fill the container, capped at the natural width.
+                        svg.style.width = svg.dataset.fitWidth || '';
+                        svg.style.maxWidth = svg.dataset.fitMaxWidth || '';
+                    } else {
+                        svg.dataset.fitWidth = svg.style.width;
+                        svg.dataset.fitMaxWidth = svg.style.maxWidth;
+                        svg.style.setProperty('width', svg.viewBox.baseVal.width + 'px', 'important');
+                        svg.style.setProperty('max-width', 'none', 'important');
+                    }
+                });
+                button.textContent = fit ? 'Actual size' : 'Fit to width';
+            });
+            section.querySelector('.section-header').appendChild(button);
+        });
+
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'base',
+            themeVariables: {
+                fontFamily: 'sans-serif',
+                fontSize: '14px',
+                background: '#1a1a1a',
+                primaryColor: '#333333',
+                primaryTextColor: '#dddddd',
+                primaryBorderColor: '#444444',
+                secondaryColor: '#2b2b2b',
+                tertiaryColor: '#1a1a1a',
+                lineColor: '#888888',
+                textColor: '#dddddd',
+                mainBkg: '#333333',
+                nodeBorder: '#444444',
+                clusterBkg: '#1a1a1a',
+                clusterBorder: '#444444',
+                titleColor: '#dca54c',
+                edgeLabelBackground: '#1e1e1e'
+            },
+            // Shrink to the container width, never past the diagram's natural size:
+            flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis' }
         });
     </script>
 </body>
