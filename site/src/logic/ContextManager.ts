@@ -78,6 +78,7 @@ export const ContextManager = {
       const selfContext: Record<string, any> = {
         name: activeUnitName,
         prevAction: selfPrevAction,
+        nextAction: activeState.nextUnitActions?.[activeUnitName] ?? null,
         sequence: currentSequence,
         energy: readResource(activeState, 'energy', activeUnitName),
         maxEnergy: dbChar.maxEnergy ? parseFloat(dbChar.maxEnergy as any) : CHARACTER_DEFAULTS.maxEnergy,

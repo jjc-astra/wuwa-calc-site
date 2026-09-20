@@ -99,6 +99,13 @@ export class TimelineEngineClass {
       row.prevRow = i > 0 ? activeRows[i - 1] : null;
       row.nextRow = i < activeRows.length - 1 ? activeRows[i + 1] : null;
     });
+    // @Self.NextAction: each unit's next action after a row, which isn't necessarily the next row's.
+    const upcomingActions: Record<string, string> = {};
+    for (let i = activeRows.length - 1; i >= 0; i--) {
+      const row = activeRows[i];
+      row.nextUnitActions = { ...upcomingActions };
+      if (row.unit && row.action) upcomingActions[row.unit] = row.action;
+    }
 
     for (let i = 0; i < activeRows.length; i++) {
       const currentData = activeRows[i];

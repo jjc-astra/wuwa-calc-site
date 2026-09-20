@@ -133,6 +133,7 @@ export const DSL_POINTERS: Record<string, DSLPointerDef> = {
       { propName: 'Concerto', type: 'number', targetKey: '.concerto', tooltip: "Returns Self's current Concerto Energy." },
       { propName: 'Sequence', type: 'number', targetKey: '.sequence', tooltip: "Returns Self's Resonance Chain (sequence) level, 0-6." },
       { propName: 'PrevAction', type: 'string', fullOverride: 'ctx.self.prevAction', tooltip: 'Returns the name of the last action Self performed.' },
+      { propName: 'NextAction', type: 'string', fullOverride: 'ctx.self.nextAction', tooltip: "Returns the name of the next action Self performs after this row, even if other characters act in between. Empty if Self doesn't act again." },
       { propName: 'Name', type: 'string', fullOverride: 'ctx.self.name', tooltip: "Returns Self's character name." },
       { propName: 'BuffStacks()', type: 'method', isMethod: true, jsName: 'getBuffStacks', argsSignature: '()', tooltip: 'Method — returns the current stack count of a buff, e.g. @Self.BuffStacks(BuffName).' },
       { propName: 'BuffMaxStacks()', type: 'method', isMethod: true, jsName: 'getBuffMaxStacks', argsSignature: '()', tooltip: 'Method — returns the configured max stack count of a buff, e.g. @Self.BuffMaxStacks(BuffName).' },
