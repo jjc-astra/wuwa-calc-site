@@ -1,0 +1,52 @@
+{
+  "HarnessEcho_Skill": {
+    "name": "Echo Skill",
+    "category": "Echo Skill",
+    "castTypes": [
+      "Echo"
+    ],
+    "dmgTypes": [
+      "Fusion",
+      "Echo"
+    ],
+    "hitResources": {
+      "energy": [
+        2
+      ]
+    },
+    "hitMults": [
+      "120%"
+    ],
+    "input": "Echo",
+    "priority": "@Default.EchoPriority",
+    "actionDuration": 40,
+    "cooldown": 12,
+    "swapTiming": "@Default.SwapTime",
+    "effects": [
+      {
+        "type": "buff",
+        "name": "HarnessEcho Skill Buff",
+        "target": "@Equipper",
+        "stat": "Echo DMG Bonus",
+        "value": "10%",
+        "duration": 6
+      }
+    ]
+  },
+  "HarnessEcho_Main Slot": {
+    "name": "HarnessEcho_Main Slot",
+    "isPassive": true,
+    "triggerRule": "OnCast[Echo]",
+    "effects": [
+      {
+        "type": "buff",
+        "name": "HarnessEcho Main",
+        "target": "@Equipper",
+        "stat": "DMG Bonus",
+        "value": "6%",
+        "duration": 8,
+        "maxStacks": 2
+      }
+    ]
+  }
+}

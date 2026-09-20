@@ -6,6 +6,7 @@ import { ELEMENT_COLORS } from '../../utils/Common';
 import { DSLParser } from '../../logic/dsl/dslParser';
 import { parseTimeInput } from '../../utils/Frames';
 import { forteLabel } from '../../utils/ForteNames';
+import { forteSlotOf } from '../../utils/ResourceKeys';
 
 export { tip } from '../../utils/Common';
 
@@ -25,16 +26,16 @@ export const castTagColor = (tag: string): string => CAST_TYPE_COLORS[tag] || '#
 
 // Short labels for resource-key chips/summaries (On Cast / Resources columns).
 export function resAbbr(key: string): string {
-  const forte = key.match(/^forte(\d+)$/i);
-  if (forte) return `F${forte[1]}`;
+  const slot = forteSlotOf(key);
+  if (slot !== null) return `F${slot}`;
   const map: Record<string, string> = { energy: 'ER', concerto: 'Con', tune: 'TB' };
   return map[key] || key.slice(0, 2).toUpperCase();
 }
 
 // Full name for tooltips -- resAbbr's "ER" etc. is for compact chip labels only.
 export function resFullName(key: string, stats?: Record<string, any>): string {
-  const forte = key.match(/^forte(\d+)$/i);
-  if (forte) return forteLabel(stats, parseInt(forte[1], 10));
+  const slot = forteSlotOf(key);
+  if (slot !== null) return forteLabel(stats, slot);
   const map: Record<string, string> = { energy: 'Energy', concerto: 'Concerto', tune: 'Tune' };
   return map[key] || key.charAt(0).toUpperCase() + key.slice(1);
 }

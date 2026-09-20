@@ -3,6 +3,7 @@ import { useBuilderStore } from '../../store/useBuilderStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { CommonUtils } from '../../utils/Common';
 import { forteNameKey } from '../../utils/ForteNames';
+import { maxForteKey } from '../../utils/ResourceKeys';
 import { IMAGE_FOLDERS } from '../../data/db';
 import { Dropdown } from '../common/Dropdown';
 
@@ -82,7 +83,7 @@ export const BaseStatsForm: React.FC = () => {
   for (let i = 1; i <= forteCount; i++) {
     extraForteInputs.push(
       makeInput(forteNameKey(i), `Forte ${i} Name`, '', `Forte ${i}`),
-      makeInput(`maxForte${i}`, `Forte ${i} Max`, 100)
+      makeInput(maxForteKey(i), `Forte ${i} Max`, 100)
     );
   }
 

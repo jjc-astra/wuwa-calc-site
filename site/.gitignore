@@ -16,6 +16,9 @@ dist-ssr
 # and DataLoader.ts's loadJSON/loadMergedDB). Never committed; test data stays local.
 public/wip-data
 
+# Frozen data + recorded output for scripts/engine-check.mjs.
+.engine-baseline
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

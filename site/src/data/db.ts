@@ -1,5 +1,6 @@
 import type { MechanicNode } from '../types';
 import { toFrames } from '../utils/Frames';
+import { FORTE_SLOTS, deltaKey, forteKey } from '../utils/ResourceKeys';
 
 // Public/images subfolder names, single-sourced so icon path builders stay in sync.
 export const IMAGE_FOLDERS = {
@@ -28,7 +29,7 @@ export const MECHANICS_NOTATION = {
     CURSOR_SPEED: 100,
     CURSOR_MODE: 'pingpong' as const,
     RETAIN_CURSOR: false,
-    FORTE_SLOT: 'forte1',
+    FORTE_SLOT: forteKey(1),
     MAX_CURSOR_VAL: 100,
     WINDOW_CENTER: '65',
     WINDOW_SIZE: '10'
@@ -154,6 +155,7 @@ export const CHARACTER_DEFAULTS = {
   energyRegen: 100,
   maxEnergy: 100,
   maxConcerto: 100,
+  maxForte: 100,
   maxTune: 100,
   rarity: 5,
   sequence: 0,
@@ -404,6 +406,20 @@ export type PanelConfig =
   | { title: string; type: 'complex_time'; groups: PanelFieldGroup[] }
   | { title: string; type: 'gauge'; fields: PanelField[] };
 
+// A gauge panel: what the last move generated of a resource, and where it stands now.
+const gaugePanel = (
+  title: string,
+  key: string,
+  defaults: { generated: string; current: string; currentLabel?: string; suffix?: string }
+): PanelConfig => ({
+  title,
+  type: 'gauge',
+  fields: [
+    { label: 'Generated', key: deltaKey(key), default: defaults.generated, suffix: defaults.suffix },
+    { label: defaults.currentLabel ?? 'Current', key, default: defaults.current, suffix: defaults.suffix }
+  ]
+});
+
 export const PANEL_CONFIG: Record<string, PanelConfig> = {
   dmg: {
     title: 'Detailed Damage Breakdown',
@@ -428,30 +444,9 @@ export const PANEL_CONFIG: Record<string, PanelConfig> = {
       { label: 'DEF Ignore', key: 'ignoreDef', suffix: '%' }
     ]
   },
-  concerto: {
-    title: 'Concerto Energy Breakdown',
-    type: 'gauge',
-    fields: [
-      { label: 'Generated', key: 'concerto_Delta', default: '+0' },
-      { label: 'Current', key: 'concerto', default: '0' }
-    ]
-  },
-  energy: {
-    title: 'Resonance Energy Breakdown',
-    type: 'gauge',
-    fields: [
-      { label: 'Generated', key: 'energy_Delta', default: '+0.0' },
-      { label: 'Current', key: 'energy', default: '0.0' }
-    ]
-  },
-  tune: {
-    title: 'Tune Break Build Breakdown',
-    type: 'gauge',
-    fields: [
-      { label: 'Generated', key: 'tune_Delta', default: '+0', suffix: '%' },
-      { label: 'Tune Progress', key: 'tune', default: '0', suffix: '%' }
-    ]
-  },
+  concerto: gaugePanel('Concerto Energy Breakdown', 'concerto', { generated: '+0', current: '0' }),
+  energy: gaugePanel('Resonance Energy Breakdown', 'energy', { generated: '+0.0', current: '0.0' }),
+  tune: gaugePanel('Tune Break Build Breakdown', 'tune', { generated: '+0', current: '0', currentLabel: 'Tune Progress', suffix: '%' }),
   time: {
     title: 'Advanced Timeline Breakdown',
     type: 'complex_time',
@@ -491,15 +486,6 @@ export const PANEL_CONFIG: Record<string, PanelConfig> = {
   }
 };
 
-for (let i = 1; i <= 6; i++) {
-  const deltaKey = i === 1 ? 'forte_Delta' : `forte${i}_Delta`;
-  const staticKey = i === 1 ? 'forte' : `forte${i}`;
-  PANEL_CONFIG[`forte${i}`] = {
-    title: `Forte ${i} Breakdown`,
-    type: 'gauge',
-    fields: [
-      { label: 'Generated', key: deltaKey, default: '+0' },
-      { label: 'Current', key: staticKey, default: '0' }
-    ]
-  };
+for (const slot of FORTE_SLOTS) {
+  PANEL_CONFIG[forteKey(slot)] = gaugePanel(`Forte ${slot} Breakdown`, forteKey(slot), { generated: '+0', current: '0' });
 }

@@ -1,10 +1,15 @@
 import { DataLoader } from '../utils/DataLoader';
-import { forteLabel } from '../utils/ForteNames';
 import { getMechanicOwners } from './MechanicOwners';
+import {
+  RESOURCE_KEYS, WAITABLE_RESOURCE_KEYS, addResource, spendResource, readResource, resourceCap,
+  energyRegenMult, energyRegenPct, resourceLabel, resourceRequirement, capHitIndex
+} from './resources';
+import { deltaKey, forteKey, holdSlotNumber } from '../utils/ResourceKeys';
+import { backfillPools, cloneJson, dropdownSnapshot, inheritPools, plainCopy, ROW_LINK_KEYS } from './rowState';
+import { eventModifier, isDslExpr, modifierSet, stacksAfterSpending } from './engineValues';
 import { MechanicKey } from '../utils/MechanicKey';
 import { CommonUtils } from '../utils/Common';
 import { DSLParser } from './dsl/dslParser';
-import { CombatCalculator } from './CombatCalculator';
 import { ContextManager } from './ContextManager';
 import { EventManager } from './EventManager';
 import { calculateEchoStatsForSlot } from '../store/useRosterStore';
@@ -90,10 +95,7 @@ export class TimelineEngineClass {
         this._applyInheritance(currentData, prevData, accumulatedGameTime, team);
         currentData.timeStart = accumulatedTime;
         currentData.gameTimeStart = accumulatedGameTime;
-        if (!this._lightweightMode) {
-          const { dropdownState, prevRow, nextRow, ...cleanEmpty } = currentData;
-          currentData.dropdownState = JSON.parse(JSON.stringify(cleanEmpty));
-        }
+        if (!this._lightweightMode) currentData.dropdownState = plainCopy(currentData, ROW_LINK_KEYS);
         continue;
       }
 
@@ -128,8 +130,8 @@ export class TimelineEngineClass {
           if (charName) {
             if (!currentData.energy) currentData.energy = {};
             if (!currentData.concerto) currentData.concerto = {};
-            if (options.startEnergy) currentData.energy[charName] = this._getMaxCap(charName, 'energy');
-            if (options.startConcerto) currentData.concerto[charName] = this._getMaxCap(charName, 'concerto');
+            if (options.startEnergy) currentData.energy[charName] = resourceCap(charName, 'energy');
+            if (options.startConcerto) currentData.concerto[charName] = resourceCap(charName, 'concerto');
           }
         });
         this._primeCombatStart(currentData, team);
@@ -171,30 +173,17 @@ export class TimelineEngineClass {
       // Safe to backfill here: currentData already cloned prevData's dicts via
       // _applyInheritance, and nothing later re-reads prevData's resource pools.
       if (i > 0) {
-        prevData.energy = { ...currentData.energy };
-        prevData.concerto = { ...currentData.concerto };
-        for (let k = 1; k <= 6; k++) prevData[`forte${k}`] = { ...currentData[`forte${k}`] };
+        backfillPools(prevData, currentData);
         prevData.enemyTune = currentData.enemyTune;
         prevData.enemyMaxTune = currentData.enemyMaxTune;
       }
 
       if (dbMove.inputType === 'Release' && dbMove.holdConfig && currentData.trackers && currentData.trackers.Hold_Start !== undefined && currentData.trackers.Hold_Unit === currentData.unit) {
         const holdStart = currentData.trackers.Hold_Start;
-        const config = dbMove.holdConfig || {};
-        const speed = config.cursorSpeed ?? MECHANICS_NOTATION.HOLD_DEFAULTS.CURSOR_SPEED;
-        const maxVal = this._getHoldMaxCap(currentData.unit, config);
-        const mode = config.cursorMode || MECHANICS_NOTATION.HOLD_DEFAULTS.CURSOR_MODE;
-        // Clamp has no window -- don't bother resolving it (both here and in the live-tracking
-        // block below, via the cache this populates) when 'done' never reads it.
-        let center = 0;
-        let halfWidth = 0;
-        if (mode !== 'clamp') {
-          const centerExpr = config.windowCenter ?? MECHANICS_NOTATION.HOLD_DEFAULTS.WINDOW_CENTER;
-          const sizeExpr = config.windowSize ?? MECHANICS_NOTATION.HOLD_DEFAULTS.WINDOW_SIZE;
-          center = parseFloat(String(this._resolveDynamicMath(centerExpr, currentData, currentData.unit, team)));
-          halfWidth = parseFloat(String(this._resolveDynamicMath(sizeExpr, currentData, currentData.unit, team))) / 2;
-        }
-        holdConfigCache = { config, mode, speed, maxVal, center, size: halfWidth * 2 };
+        // Cached for the live-tracking block below, so the same row doesn't resolve it twice.
+        holdConfigCache = this._resolveHoldCursor(dbMove.holdConfig || {}, currentData, team);
+        const { mode, speed, maxVal, center } = holdConfigCache;
+        const halfWidth = holdConfigCache.size / 2;
 
         let currentBaseStart = accumulatedGameTime + finalWaitTime;
         if (currentData.timing === 'Simultaneous' && i > 0) {
@@ -352,24 +341,12 @@ export class TimelineEngineClass {
         currentData.trackers.Hold_Start !== undefined &&
         currentData.trackers.Hold_Unit === currentData.unit;
       if (isRelease || isHolding) {
-        let config: HoldConfig, mode: string, speed: number, maxVal: number, center: number, size: number;
-        if (holdConfigCache) {
-          ({ config, mode, speed, maxVal, center, size } = holdConfigCache);
-        } else {
-          config = dbMove.holdConfig || DataLoader.findHoldReleaseConfig(currentData.unit, currentData.trackers?.Hold_Input) || {};
-          mode = config.cursorMode || MECHANICS_NOTATION.HOLD_DEFAULTS.CURSOR_MODE;
-          speed = config.cursorSpeed ?? MECHANICS_NOTATION.HOLD_DEFAULTS.CURSOR_SPEED;
-          maxVal = this._getHoldMaxCap(currentData.unit, config);
-          if (mode === 'clamp') {
-            center = 0;
-            size = 0;
-          } else {
-            const centerExpr = config.windowCenter ?? MECHANICS_NOTATION.HOLD_DEFAULTS.WINDOW_CENTER;
-            const sizeExpr = config.windowSize ?? MECHANICS_NOTATION.HOLD_DEFAULTS.WINDOW_SIZE;
-            center = parseFloat(String(this._resolveDynamicMath(centerExpr, currentData, currentData.unit, team)));
-            size = parseFloat(String(this._resolveDynamicMath(sizeExpr, currentData, currentData.unit, team)));
-          }
-        }
+        const { config, mode, speed, maxVal, center, size } = holdConfigCache
+          ?? this._resolveHoldCursor(
+            dbMove.holdConfig || DataLoader.findHoldReleaseConfig(currentData.unit, currentData.trackers?.Hold_Input) || {},
+            currentData,
+            team
+          );
         // A Repeat-style hold (no holdConfig anywhere for this character's hold pair) has no
         // cursor system at all -- skip writing any cursor/window state so it doesn't inherit
         // meaningless all-default values (e.g. a bogus pingpong Cursor_Pos) it never asked for.
@@ -411,28 +388,7 @@ export class TimelineEngineClass {
 
       // Pre-cast dropdown snapshot, skipped in lightweight mode (nothing renders it there).
       if (!this._lightweightMode) {
-        currentData.dropdownState = {
-          ...currentData,
-          hp: JSON.parse(JSON.stringify(currentData.hp || {})),
-          energy: JSON.parse(JSON.stringify(currentData.energy || {})),
-          forte1: JSON.parse(JSON.stringify(currentData.forte1 || {})),
-          forte2: JSON.parse(JSON.stringify(currentData.forte2 || {})),
-          forte3: JSON.parse(JSON.stringify(currentData.forte3 || {})),
-          forte4: JSON.parse(JSON.stringify(currentData.forte4 || {})),
-          forte5: JSON.parse(JSON.stringify(currentData.forte5 || {})),
-          forte6: JSON.parse(JSON.stringify(currentData.forte6 || {})),
-          concerto: JSON.parse(JSON.stringify(currentData.concerto || {})),
-          trackers: JSON.parse(JSON.stringify(currentData.trackers || {})),
-          activeBuffs: JSON.parse(JSON.stringify(currentData.activeBuffs || {})),
-          cooldowns: JSON.parse(JSON.stringify(currentData.cooldowns || {})),
-          chargeCooldowns: JSON.parse(JSON.stringify(currentData.chargeCooldowns || {})),
-          enemyTune: currentData.enemyTune,
-          enemyMaxTune: currentData.enemyMaxTune,
-          gameTimeStart: currentData.gameTimeStart,
-          prevRow: currentData.prevRow,
-          nextRow: currentData.nextRow,
-          unitCombos: currentData.unitCombos ? JSON.parse(JSON.stringify(currentData.unitCombos)) : {}
-        };
+        currentData.dropdownState = dropdownSnapshot(currentData);
       }
 
       this._runValidation(currentData, prevData, team, dbMove);
@@ -461,13 +417,9 @@ export class TimelineEngineClass {
       emptyRow.gameTimeStart = accumulatedGameTime;
       emptyRow.timeStart = accumulatedTime;
 
-      if (!this._lightweightMode) {
-        const { dropdownState, prevRow, nextRow, ...cleanEmpty } = emptyRow;
-        emptyRow.dropdownState = JSON.parse(JSON.stringify(cleanEmpty));
-      }
+      if (!this._lightweightMode) emptyRow.dropdownState = plainCopy(emptyRow, ROW_LINK_KEYS);
     } else if (emptyRow && !this._lightweightMode) {
-      const { dropdownState, prevRow, nextRow, ...cleanEmpty } = emptyRow;
-      emptyRow.dropdownState = JSON.parse(JSON.stringify(cleanEmpty));
+      emptyRow.dropdownState = plainCopy(emptyRow, ROW_LINK_KEYS);
     }
 
     // A hit can still be queued here (e.g. cancelled into an Outro via swapTiming) with no
@@ -598,7 +550,7 @@ export class TimelineEngineClass {
     }
 
     const { _compiledRule, ...safeData } = rawMove as any;
-    const patchedMove = JSON.parse(JSON.stringify(safeData));
+    const patchedMove = cloneJson(safeData);
     if (_compiledRule && typeof _compiledRule.evaluate === 'function') {
       patchedMove._compiledRule = _compiledRule;
     }
@@ -646,14 +598,7 @@ export class TimelineEngineClass {
     currentData.enemyHp = prevData.enemyHp ?? currentData.enemyMaxHp;
     currentData.enemyMaxTune = prevData.enemyMaxTune ?? ENEMY_DEFAULTS.maxTune;
     currentData.enemyTune = prevData.enemyTune ?? 0;
-    currentData.hp = { ...(prevData.hp || {}) };
-    currentData.energy = { ...(prevData.energy || {}) };
-    currentData.concerto = { ...(prevData.concerto || {}) };
-
-    for (let i = 1; i <= 6; i++) {
-      const fKey = `forte${i}`;
-      currentData[fKey] = { ...(prevData[fKey] || {}) };
-    }
+    inheritPools(currentData, prevData);
 
     currentData.trackers = structuredClone(prevData.trackers || {});
     for (const key in currentData.trackers) {
@@ -712,7 +657,7 @@ export class TimelineEngineClass {
   _resolveComboWindows(currentData: any, dbMove: MechanicNode, team: any[]): void {
     const resolveTime = (val: any): Frames | null => {
       if (val === undefined) return null;
-      return (typeof val === 'string' && (val.includes('@') || /[+\-*/]/.test(val)))
+      return isDslExpr(val)
         ? roundFrames(Number(this._resolveDynamicMath(val, currentData, currentData.unit, team)))
         : roundFrames(parseFloat(val));
     };
@@ -731,7 +676,7 @@ export class TimelineEngineClass {
 
   _resolvePriority(move: MechanicNode, currentData: any, unit: string, team: any[]): number {
     if (move.priority === undefined) return 0;
-    const value = (typeof move.priority === 'string' && (move.priority.includes('@') || /[+\-*/]/.test(move.priority)))
+    const value = isDslExpr(move.priority)
       ? Number(this._resolveDynamicMath(move.priority, currentData, unit, team))
       : parseFloat(String(move.priority));
     return isNaN(value) ? 0 : value;
@@ -743,7 +688,7 @@ export class TimelineEngineClass {
 
     const resolveMath = (val: any, fallback: Frames): Frames => {
       if (val === undefined) return fallback;
-      return (typeof val === 'string' && (val.includes('@') || /[+\-*/]/.test(val)))
+      return isDslExpr(val)
         ? roundFrames(parseFloat(String(this._resolveDynamicMath(val, currentData, currentData.unit, team))))
         : roundFrames(parseFloat(val));
     };
@@ -766,17 +711,9 @@ export class TimelineEngineClass {
     const validCancels: Array<{ index: number; time: Frames; hits: number }> = [];
     if (moveData.cancelTimings && moveData.cancelTimings.length > 0) {
       moveData.cancelTimings.forEach((ct, idx) => {
-        let isValid = false;
-        if (!ct.triggerRule || ct.triggerRule.trim() === '') isValid = nextMoveCancels;
-        else {
-          if (!ct._compiledRule || typeof ct._compiledRule.evaluate !== 'function') {
-            ct._compiledRule = DSLParser.compile(ct.triggerRule);
-          }
-          if (ct._compiledRule && typeof ct._compiledRule.evaluate === 'function') {
-            const ctx = ContextManager.buildContext(currentData, currentData.unit, team);
-            isValid = ct._compiledRule.evaluate(ctx, currentData.unit);
-          }
-        }
+        const isValid = !ct.triggerRule || ct.triggerRule.trim() === ''
+          ? nextMoveCancels
+          : this._evaluateRule(ct, ct.triggerRule, currentData, currentData.unit, team) ?? false;
         if (isValid) validCancels.push({ index: idx, time: ct.time, hits: ct.hits !== undefined ? ct.hits : Infinity });
       });
     }
@@ -796,46 +733,9 @@ export class TimelineEngineClass {
     let capEnergyHitIdx = -1;
     let capConcertoHitIdx = -1;
     if (moveData.hitResources && unitName) {
-      let erMult = 1.0;
-      const validBuffs = Object.values(currentData.activeBuffs || {}).filter((b: any) =>
-        b.target === unitName || b.target === '@Team' || (b.target === 'Active' && unitName === currentData.unit)
-      );
-      const stats = CombatCalculator.calculateFinalStats(unitName, validBuffs as Effect[], team);
-      erMult = (stats.energyRegen || 100) / 100;
-
-      if (moveData.hitResources.energy && currentData.energy?.[unitName] !== undefined) {
-        let cur = currentData.energy[unitName];
-        const maxCap = this._getMaxCap(unitName, 'energy');
-        if (moveData.castResources?.energy) {
-          const castAmt = parseFloat(String(moveData.castResources.energy)) || 0;
-          cur += castAmt > 0 ? castAmt * erMult : castAmt;
-        }
-        const resArray = moveData.hitResources.energy;
-        if (Array.isArray(resArray)) {
-          for (let i = 0; i < hitCount; i++) {
-            if (cur >= maxCap) break;
-            const hitAmt = parseFloat(String(resArray[i])) || 0;
-            cur += hitAmt > 0 ? hitAmt * erMult : hitAmt;
-            if (cur >= maxCap) { capEnergyHitIdx = i; break; }
-          }
-        }
-      }
-
-      if (moveData.hitResources.concerto && currentData.concerto?.[unitName] !== undefined) {
-        let cur = currentData.concerto[unitName];
-        const maxCap = this._getMaxCap(unitName, 'concerto');
-        if (moveData.castResources?.concerto) {
-          cur += parseFloat(String(moveData.castResources.concerto)) || 0;
-        }
-        const resArray = moveData.hitResources.concerto;
-        if (Array.isArray(resArray)) {
-          for (let i = 0; i < hitCount; i++) {
-            if (cur >= maxCap) break;
-            cur += parseFloat(String(resArray[i])) || 0;
-            if (cur >= maxCap) { capConcertoHitIdx = i; break; }
-          }
-        }
-      }
+      const erMult = energyRegenMult(currentData, unitName, team);
+      capEnergyHitIdx = capHitIndex(currentData, unitName, 'energy', moveData, hitCount, amount => (amount > 0 ? amount * erMult : amount));
+      capConcertoHitIdx = capHitIndex(currentData, unitName, 'concerto', moveData, hitCount, amount => amount);
     }
 
     const availableTimings: any[] = [
@@ -960,14 +860,10 @@ export class TimelineEngineClass {
     }
   }
 
+  // The first row has nothing before it to run down, so it never decays.
   _applyDecay(currentData: any, realTimePassed: Frames, gameTimePassed: Frames, isSubsequentRow: boolean, activeTeam: string[], activeRows: any[], team: any[]): void {
-    if (!isSubsequentRow || realTimePassed < 0) return;
-    this._processQueuedHits(currentData, realTimePassed, activeTeam, activeRows, team);
-    this.currentGlobalRealTime += realTimePassed;
-    if (gameTimePassed > 0) {
-      this._processGameTimeDecay(currentData, gameTimePassed, activeTeam, activeRows, team);
-      this.currentGlobalGameTime += gameTimePassed;
-    }
+    if (!isSubsequentRow) return;
+    this._decayState(currentData, realTimePassed, gameTimePassed, activeTeam, activeRows, team);
   }
 
   // A row can be short on a resource purely because its own generation is still undrained
@@ -979,17 +875,11 @@ export class TimelineEngineClass {
     const unit = currentData.unit;
     if (!unit) return { waitFrames: 0, label: null };
 
-    const costs: Record<string, any> = (dbMove as any).cost || {};
-    const castRes: Record<string, any> = dbMove.castResources || (dbMove as any).resources || {};
-    const reqFor = (key: string): number => (costs[key] || 0) + (castRes[key] < 0 ? Math.abs(castRes[key]) : 0);
-    const currentValue = (key: string): number => key === 'tune' ? (currentData.enemyTune || 0) : (currentData[key]?.[unit] || 0);
+    const reqFor = (key: string): number => resourceRequirement(dbMove, key);
+    const currentValue = (key: string): number => readResource(currentData, key, unit);
 
     const unitStats = DataLoader.characterDB[unit];
-    const trackedKeys: Array<{ key: string; label: string }> = [
-      { key: 'concerto', label: 'Concerto' },
-      { key: 'tune', label: 'Tune' },
-      ...[1, 2, 3, 4, 5, 6].map(i => ({ key: `forte${i}`, label: forteLabel(unitStats, i) }))
-    ];
+    const trackedKeys = WAITABLE_RESOURCE_KEYS.map(key => ({ key, label: resourceLabel(key, unitStats) }));
 
     let shortKeys = trackedKeys.filter(k => reqFor(k.key) > 0 && currentValue(k.key) < reqFor(k.key));
     if (shortKeys.length === 0) return { waitFrames: 0, label: null };
@@ -1049,14 +939,12 @@ export class TimelineEngineClass {
       }
 
       currentData.activeProcSource = nextHit.originActionId;
-      const onHitEffects = EventManager.emit('OnHit', nextHit.hitModifiers, currentData, nextHit.origin.caster, team);
-      this._executeEffectsStream(onHitEffects, currentData, activeTeam, activeRows, nextHit.executeAt, nextHit.origin.caster, team);
+      this._fire('OnHit', nextHit.hitModifiers, currentData, nextHit.origin.caster, activeTeam, activeRows, team, nextHit.executeAt);
       delete currentData.activeProcSource;
 
       // Builds this hit's UI-facing history entry (DMG-cell breakdown); skipped in lightweight mode.
       if (!this._lightweightMode) {
         const hitName = nextHit.originMoveData.name + (nextHit.totalHits > 1 ? ` (Hit ${nextHit.hitIndex + 1})` : '');
-        const { prevRow, nextRow, dropdownState, _pendingHits, ...cleanData } = currentData;
         if (!nextHit.originRow._pendingHits) nextHit.originRow._pendingHits = [];
 
         // executeAt is real-time; convert to game time. Only freezeTime splits the two domains
@@ -1078,12 +966,11 @@ export class TimelineEngineClass {
             gameTime: hitGameTime,
             hitIndex: nextHit.hitIndex
           },
-          context: JSON.parse(JSON.stringify(cleanData))
+          context: plainCopy(currentData, [...ROW_LINK_KEYS, '_pendingHits'])
         });
       }
 
-      const afterHitEffects = EventManager.emit('AfterHit', nextHit.hitModifiers, currentData, nextHit.origin.caster, team, { hitIndex: nextHit.hitIndex + 1, totalHits: nextHit.totalHits });
-      this._executeEffectsStream(afterHitEffects, currentData, activeTeam, activeRows, nextHit.executeAt, nextHit.origin.caster, team);
+      this._fire('AfterHit', nextHit.hitModifiers, currentData, nextHit.origin.caster, activeTeam, activeRows, team, nextHit.executeAt, { hitIndex: nextHit.hitIndex + 1, totalHits: nextHit.totalHits });
     }
   }
 
@@ -1124,12 +1011,7 @@ export class TimelineEngineClass {
 
     if (expiringBuffs.length > 0) {
       expiringBuffs.forEach(buff => {
-        const provider = buff.provider || currentData.unit;
-        // Modifier brackets are lowercased at DSL-parse time (dslParser.ts), so match that case.
-        const payloads = EventManager.emit('OnBuffExpire', new Set([(buff.name || '').toLowerCase()]), currentData, provider, team);
-        if (payloads.length > 0) {
-          this._executeEffectsStream(payloads, currentData, activeTeam, activeRows, this.currentGlobalRealTime, provider, team);
-        }
+        this._fire('OnBuffExpire', eventModifier(buff.name), currentData, buff.provider || currentData.unit, activeTeam, activeRows, team);
       });
     }
 
@@ -1178,12 +1060,11 @@ export class TimelineEngineClass {
     }
 
     // OnTick intervals are authored as raw seconds literals in the DSL, so this stays seconds.
-    const tickEffects = EventManager.emit('OnTick', new Set(), currentData, currentData.unit, team, { gameTimePassed: decaySeconds, getTimeScale });
-    this._executeEffectsStream(tickEffects, currentData, activeTeam, activeRows, this.currentGlobalRealTime, currentData.unit, team);
+    this._fire('OnTick', new Set(), currentData, currentData.unit, activeTeam, activeRows, team, this.currentGlobalRealTime, { gameTimePassed: decaySeconds, getTimeScale });
   }
 
   _scheduleHits(currentData: any, moveData: MechanicNode, origin: MoveOrigin, rawMults: any[], executeStartTime: number, executeEndTime: number, isProc: boolean, hitModifiers: Set<string>, team: any[]): void {
-    const snapshotMath = (hm: any, pUnit: string) => (typeof hm === 'string' && (hm.includes('@') || /[+\-*/]/.test(hm))) ? this._resolveDynamicMath(hm, currentData, pUnit, team) : hm;
+    const snapshotMath = (hm: any, pUnit: string) => isDslExpr(hm) ? this._resolveDynamicMath(hm, currentData, pUnit, team) : hm;
     const snapshottedMults = rawMults.map(hm => snapshotMath(hm, origin.caster));
     const hitCount = snapshottedMults.length;
     for (let i = 0; i < hitCount; i++) {
@@ -1211,16 +1092,11 @@ export class TimelineEngineClass {
     const rawProcMults = Array.isArray(mData.hitMults) ? mData.hitMults : [];
     const origin = MechanicKey.origin(mData.mechanicKey, proc.provider, mData.name);
     // Adds name/pointer so an OnHit[...] rule can target this specific proc'd mechanic by name.
-    const procModifiers = new Set([
-      ...(mData.dmgTypes || []),
-      ...(mData.castTypes || []),
-      mData.name,
-      origin.ref
-    ].map((m: any) => String(m).toLowerCase()));
+    const procModifiers = modifierSet([...(mData.dmgTypes || []), ...(mData.castTypes || []), mData.name, origin.ref]);
     if (rawProcMults.length > 0) {
       // A proc'd mechanic can carry its own damageTimeframe, offsetting from executeAt; left
       // unset, both default to executeAt (instant-fire).
-      const resolveOffset = (val: any): Frames => (typeof val === 'string' && (val.includes('@') || /[+\-*/]/.test(val)))
+      const resolveOffset = (val: any): Frames => isDslExpr(val)
         ? roundFrames(parseFloat(String(this._resolveDynamicMath(val, currentData, proc.provider, team))))
         : roundFrames(parseFloat(val));
       const tfStart = mData.damageTimeframe?.start !== undefined ? resolveOffset(mData.damageTimeframe.start) : toFrames(0);
@@ -1228,6 +1104,50 @@ export class TimelineEngineClass {
       this._scheduleHits(currentData, mData, origin, rawProcMults, executeAt + tfStart, executeAt + tfEnd, true, procModifiers, team);
     }
     this.damageQueue.sort((a, b) => a.executeAt - b.executeAt);
+  }
+
+  // Emits an event and runs whatever its listeners produce. `modifiers` is what `Event[...]`
+  // brackets on those listeners are matched against.
+  _fire(
+    eventType: string, modifiers: Set<string>, currentData: any, provider: string, activeTeam: string[], activeRows: any[], team: any[],
+    executeAt: number = this.currentGlobalRealTime, extraPayload: any = null
+  ): void {
+    const effects = EventManager.emit(eventType, modifiers, currentData, provider, team, extraPayload);
+    this._executeEffectsStream(effects, currentData, activeTeam, activeRows, executeAt, provider, team);
+  }
+
+  // Emits several events for one tracker, gathering every listener's effects before running any of them.
+  _fireTrackerEvents(events: string[], trackerName: string, currentData: any, unitName: string, activeTeam: string[], activeRows: any[], team: any[]): void {
+    const effects = events.flatMap(event => EventManager.emit(event, new Set([trackerName]), currentData, unitName, team));
+    this._executeEffectsStream(effects, currentData, activeTeam, activeRows, this.currentGlobalRealTime, unitName, team);
+  }
+
+  // Evaluates a trigger rule (a mechanic's, or a cancel timing's) against the row, compiling and
+  // caching it on `holder` the first time. null when there's no usable rule to evaluate.
+  _evaluateRule(holder: { _compiledRule?: any }, rule: string, currentData: any, unit: string, team: any[]): any {
+    if (!holder._compiledRule || typeof holder._compiledRule.evaluate !== 'function') {
+      holder._compiledRule = DSLParser.compile(rule);
+    }
+    if (!holder._compiledRule || typeof holder._compiledRule.evaluate !== 'function') return null;
+    return holder._compiledRule.evaluate(ContextManager.buildContext(currentData, unit, team), unit);
+  }
+
+  // A hold's cursor physics: its mode, speed and cap, plus the target window's center and size
+  // (a clamp has no window, so both are 0).
+  _resolveHoldCursor(config: HoldConfig, currentData: any, team: any[]): { config: HoldConfig; mode: string; speed: number; maxVal: number; center: number; size: number } {
+    const defaults = MECHANICS_NOTATION.HOLD_DEFAULTS;
+    const mode: string = config.cursorMode || defaults.CURSOR_MODE;
+    const speed = config.cursorSpeed ?? defaults.CURSOR_SPEED;
+    const maxVal = this._getHoldMaxCap(currentData.unit, config);
+    let center = 0;
+    let size = 0;
+    if (mode !== 'clamp') {
+      const centerExpr = config.windowCenter ?? defaults.WINDOW_CENTER;
+      const sizeExpr = config.windowSize ?? defaults.WINDOW_SIZE;
+      center = parseFloat(String(this._resolveDynamicMath(centerExpr, currentData, currentData.unit, team)));
+      size = parseFloat(String(this._resolveDynamicMath(sizeExpr, currentData, currentData.unit, team)));
+    }
+    return { config, mode, speed, maxVal, center, size };
   }
 
   _executeEffectsStream(effectsArray: Effect[], currentData: any, activeTeam: string[], activeRows: any[], executeAt: number, defaultProvider: string, team: any[]): void {
@@ -1238,62 +1158,26 @@ export class TimelineEngineClass {
 
   _applyMoveCosts(currentData: any, moveData: MechanicNode): void {
     if (!moveData.cost) return;
-    const unitName = currentData.unit;
     const cost = moveData.cost as Record<string, number>;
-    if (cost.energy) currentData.energy[unitName] = Math.max(0, (currentData.energy[unitName] || 0) - cost.energy);
-    if (cost.concerto) currentData.concerto[unitName] = Math.max(0, (currentData.concerto[unitName] || 0) - cost.concerto);
-    if (cost.tune) currentData.enemyTune = Math.max(0, (currentData.enemyTune || 0) - cost.tune);
-    for (let i = 1; i <= 6; i++) {
-      const fKey = `forte${i}`;
-      if (cost[fKey]) {
-        if (!currentData[fKey]) currentData[fKey] = {};
-        currentData[fKey][unitName] = Math.max(0, (currentData[fKey][unitName] || 0) - cost[fKey]);
-      }
+    for (const key of RESOURCE_KEYS) {
+      if (cost[key]) spendResource(currentData, key, currentData.unit, cost[key]);
     }
-  }
-
-  // A timed 'Enemy_TuneImmune' buff (e.g. applied by Tune Break) blocks tune gain entirely.
-  _isTuneImmune(currentData: any): boolean {
-    return !!currentData.activeBuffs?.['Enemy_TuneImmune'];
   }
 
   _applyCastResources(currentData: any, moveData: MechanicNode, activeTeam: string[], team: any[]): void {
     if (!moveData.castResources) return;
     const unitName = currentData.unit;
-    const getERMult = (charName: string) => {
-      const validBuffs = Object.values(currentData.activeBuffs || {}).filter((b: any) =>
-        b.target === charName || b.target === '@Team' || (b.target === 'Active' && charName === currentData.unit)
-      );
-      const stats = CombatCalculator.calculateFinalStats(charName, validBuffs as Effect[], team);
-      return (stats.energyRegen || 100) / 100;
-    };
 
     for (const key in moveData.castResources) {
       const val = moveData.castResources[key];
       if (val === undefined || val === 0) continue;
-      const maxCap = this._getMaxCap(unitName, key);
-      if (key === 'tune') {
-        const numVal = parseFloat(String(val));
-        if (numVal > 0 && this._isTuneImmune(currentData)) continue;
-        currentData.enemyTune = Math.min(maxCap, Math.max(0, (currentData.enemyTune || 0) + numVal));
-        continue;
-      }
-      if (!currentData[key]) currentData[key] = {};
-      if (key === 'energy') {
-        const numVal = parseFloat(String(val));
-        if (numVal < 0) {
-          const oldEnergy = currentData.energy[unitName] || 0;
-          currentData.energy[unitName] = Math.min(Math.max(0, oldEnergy + numVal), this._getMaxCap(unitName, 'energy'));
-        } else {
-          activeTeam.forEach(tName => {
-            const erMult = getERMult(tName);
-            const gained = numVal * erMult;
-            const oldEnergy = currentData.energy[tName] || 0;
-            currentData.energy[tName] = Math.min(Math.max(0, oldEnergy + gained), this._getMaxCap(tName, 'energy'));
-          });
-        }
+      const amount = parseFloat(String(val));
+      if (key === 'energy' && !(amount < 0)) {
+        // Energy a move grants goes to the whole team, each scaled by their own Energy Regen;
+        // spending it is the caster's alone.
+        activeTeam.forEach(name => addResource(currentData, key, name, amount * energyRegenMult(currentData, name, team), resourceCap(name, key)));
       } else {
-        currentData[key][unitName] = Math.min(Math.max(0, (currentData[key][unitName] || 0) + parseFloat(String(val))), maxCap);
+        addResource(currentData, key, unitName, amount, resourceCap(unitName, key));
       }
     }
   }
@@ -1341,14 +1225,7 @@ export class TimelineEngineClass {
     const moveData = dbMove;
     const prevData = currentIndex > 0 ? activeRows[currentIndex - 1] : this._getDefaultData(team[0]?.character);
 
-    const startEnergy = currentData.energy?.[unitName] || 0;
-    const startConcerto = currentData.concerto?.[unitName] || 0;
-    const startTune = currentData.enemyTune || 0;
-    const startFortes: Record<string, number> = {};
-    for (let i = 1; i <= 6; i++) {
-      const fKey = `forte${i}`;
-      startFortes[fKey] = currentData[fKey]?.[unitName] || 0;
-    }
+    const startValues = RESOURCE_KEYS.map(key => readResource(currentData, key, unitName));
 
     const currentFreezeTime = currentData.freezeTime || 0;
     if (currentFreezeTime > 0 && this.damageQueue.length > 0) {
@@ -1368,20 +1245,10 @@ export class TimelineEngineClass {
 
     // dmgTypes plus name/pointer, so OnHit[...] can target one specific move, not just a
     // shared dmg type.
-    const hitModifiers = new Set([
-      ...(moveData.dmgTypes || []),
-      moveData.name,
-      origin.ref
-    ].map(m => String(m).toLowerCase()));
+    const hitModifiers = modifierSet([...(moveData.dmgTypes || []), moveData.name, origin.ref]);
     const elements = ['Glacio', 'Aero', 'Electro', 'Fusion', 'Spectro', 'Havoc', 'Physical'];
     const moveElements = (moveData.dmgTypes || []).filter(t => elements.includes(t));
-    const castModifiers = new Set([
-      ...(moveData.castTypes || []),
-      ...moveElements,
-      currentData.action,
-      moveData.name,
-      origin.ref
-    ].map(m => String(m).toLowerCase()));
+    const castModifiers = modifierSet([...(moveData.castTypes || []), ...moveElements, currentData.action, moveData.name, origin.ref]);
 
     this._applyMoveCosts(currentData, moveData);
     this._applyCastResources(currentData, moveData, activeTeam, team);
@@ -1417,15 +1284,9 @@ export class TimelineEngineClass {
     );
 
     if (!currentData.trackers) currentData.trackers = {};
-    currentData.trackers.energy_Delta = (currentData.energy?.[unitName] || 0) - startEnergy;
-    currentData.trackers.concerto_Delta = (currentData.concerto?.[unitName] || 0) - startConcerto;
-    currentData.trackers.tune_Delta = (currentData.enemyTune || 0) - startTune;
-    for (let i = 1; i <= 6; i++) {
-      const fKey = `forte${i}`;
-      const finalForte = currentData[fKey]?.[unitName] || 0;
-      const deltaKey = i === 1 ? 'forte_Delta' : `forte${i}_Delta`;
-      currentData.trackers[deltaKey] = finalForte - startFortes[fKey];
-    }
+    RESOURCE_KEYS.forEach((key, i) => {
+      currentData.trackers[deltaKey(key)] = readResource(currentData, key, unitName) - startValues[i];
+    });
   }
 
   _runValidation(currentData: any, prevData: any, team: any[], dbMove: MechanicNode): void {
@@ -1435,8 +1296,6 @@ export class TimelineEngineClass {
     currentData.warningMsgs = warnings;
     const moveData = dbMove;
     const moveName = moveData.name || currentData.action;
-    const castRes: Record<string, any> = moveData.castResources || (moveData as any).resources || {};
-    const costs: Record<string, any> = (moveData as any).cost || {};
 
     // Energy is the only resource whose shortfall stays a warning (rotation can limp forward
     // on low energy); Concerto/Tune/Forte shortfalls are errors -- see validateRes.
@@ -1444,28 +1303,21 @@ export class TimelineEngineClass {
       const base = `${currentData.unit} has ${myVal.toFixed(1)} out of the required ${req} Resonance Energy`;
       if (myVal <= 0) return `${base}.`;
       // Backs out the ER% that would have closed the gap by now, as an "aim for this much ER" hint.
-      const validBuffs = Object.values(currentData.activeBuffs || {}).filter((b: any) =>
-        b.target === currentData.unit || b.target === '@Team' || b.target === 'Active'
-      );
-      const stats = CombatCalculator.calculateFinalStats(currentData.unit, validBuffs as Effect[], team);
-      const erTotal = stats.energyRegen || 100;
+      const erTotal = energyRegenPct(currentData, currentData.unit, team);
       const extraErNeeded = erTotal * ((req - myVal) / myVal);
       return `${base} (Needs ${extraErNeeded.toFixed(0)}% ER on top of the current ${erTotal.toFixed(0)}% ER).`;
     };
 
     const validateRes = (key: string, myVal: number, label: string) => {
-      const req = (costs[key] || 0) + (castRes[key] < 0 ? Math.abs(castRes[key]) : 0);
+      const req = resourceRequirement(moveData, key);
       if (req > 0 && myVal < req) {
         if (key === 'energy') warnings.push(buildEnergyShortfallMsg(myVal, req));
         else errors.push(`Not enough ${label} (Needs ${req}).`);
       }
     };
 
-    validateRes('energy', currentData.energy?.[currentData.unit] || 0, 'Resonance Energy');
-    validateRes('concerto', currentData.concerto?.[currentData.unit] || 0, 'Concerto');
-    validateRes('tune', currentData.enemyTune || 0, 'Tune');
-    for (let i = 1; i <= 6; i++) {
-      validateRes(`forte${i}`, currentData[`forte${i}`]?.[currentData.unit] || 0, forteLabel(DataLoader.characterDB[currentData.unit], i));
+    for (const key of RESOURCE_KEYS) {
+      validateRes(key, readResource(currentData, key, currentData.unit), resourceLabel(key, DataLoader.characterDB[currentData.unit]));
     }
 
     // Surfaces a cooldown wait directly, even with no trigger rule -- independent of any
@@ -1482,16 +1334,11 @@ export class TimelineEngineClass {
     }
 
     if (moveData.triggerRule && !moveData.isPassive) {
-      if (!moveData._compiledRule || typeof moveData._compiledRule.evaluate !== 'function') {
-        moveData._compiledRule = DSLParser.compile(moveData.triggerRule);
-      }
-      if (moveData._compiledRule && typeof moveData._compiledRule.evaluate === 'function') {
-        const ctx = ContextManager.buildContext(currentData, currentData.unit, team);
-        // Only surfaced when nothing more specific (a shortfall/cooldown wait above) already
-        // explains the failure.
-        if (!moveData._compiledRule.evaluate(ctx, currentData.unit) && errors.length === 0 && warnings.length === 0) {
-          warnings.push(`Combo requirement not met for ${moveName}.`);
-        }
+      const passed = this._evaluateRule(moveData, moveData.triggerRule, currentData, currentData.unit, team);
+      // Only surfaced when nothing more specific (a shortfall/cooldown wait above) already
+      // explains the failure.
+      if (passed !== null && !passed && errors.length === 0 && warnings.length === 0) {
+        warnings.push(`Combo requirement not met for ${moveName}.`);
       }
     }
 
@@ -1523,11 +1370,9 @@ export class TimelineEngineClass {
           const expectedSwapIns: string[] = [];
           const ownMechanics = (DataLoader.mechanicsIndex[currentData.unit] || []).map(key => DataLoader.mechanicsDB[key]);
           ownMechanics.filter(m => m && m.isSwapInDefault).forEach(m => {
-            let isValid = true;
-            if (m.triggerRule && !m.isPassive) {
-              if (!m._compiledRule) m._compiledRule = DSLParser.compile(m.triggerRule);
-              if (m._compiledRule) isValid = m._compiledRule.evaluate(ContextManager.buildContext(currentData, currentData.unit, team), currentData.unit);
-            }
+            const isValid = m.triggerRule && !m.isPassive
+              ? this._evaluateRule(m, m.triggerRule, currentData, currentData.unit, team) ?? true
+              : true;
             if (isValid) expectedSwapIns.push(m.name);
           });
           if (expectedSwapIns.length > 0 && !moveData.isSwapInDefault) {
@@ -1548,7 +1393,7 @@ export class TimelineEngineClass {
 
   _processEffect(effect: Effect, currentData: any, unitName: string, activeTeam: string[], activeRows: any[], currentIndex: number, team: any[]): void {
     const resolvedEffect = { ...effect };
-    const resolve = (val: any) => (typeof val === 'string' && (val.includes('@') || /[+\-*/%]/.test(val))) ? this._resolveDynamicMath(val, currentData, unitName, team) : val;
+    const resolve = (val: any) => isDslExpr(val, true) ? this._resolveDynamicMath(val, currentData, unitName, team) : val;
     const isBuff = resolvedEffect.type === 'buff' || !resolvedEffect.type;
     if (!isBuff) resolvedEffect.value = resolve(resolvedEffect.value);
     resolvedEffect.duration = resolve(resolvedEffect.duration) as number;
@@ -1578,24 +1423,14 @@ export class TimelineEngineClass {
     const resKey = resolvedEffect.name;
     if (!resKey) return;
     if (resKey === 'tune') {
-      if (amt > 0 && this._isTuneImmune(currentData)) return;
-      const maxCap = this._getMaxCap(currentData.unit, 'tune');
-      currentData.enemyTune = Math.min(maxCap, Math.max(0, (currentData.enemyTune || 0) + amt));
+      addResource(currentData, resKey, currentData.unit, amt, resourceCap(currentData.unit, resKey));
       return;
     }
     if (!currentData[resKey]) currentData[resKey] = {};
     targetUnits.forEach(tName => {
-      let finalAmt = amt;
-      if (resKey === 'energy') {
-        const validBuffs = Object.values(currentData.activeBuffs || {}).filter((b: any) =>
-          b.target === tName || b.target === '@Team' || (b.target === 'Active' && tName === currentData.unit)
-        );
-        const stats = CombatCalculator.calculateFinalStats(tName, validBuffs as Effect[], team);
-        finalAmt = amt > 0 ? amt * ((stats.energyRegen || 100) / 100) : amt;
-      }
-      const oldVal = currentData[resKey][tName] || 0;
-      const maxCap = this._getMaxCap(tName, resKey);
-      currentData[resKey][tName] = Math.min(Math.max(0, oldVal + finalAmt), maxCap);
+      // Only Energy a unit gains is scaled by its Energy Regen.
+      const finalAmt = resKey === 'energy' && amt > 0 ? amt * energyRegenMult(currentData, tName, team) : amt;
+      addResource(currentData, resKey, tName, finalAmt, resourceCap(tName, resKey));
     });
   }
 
@@ -1611,21 +1446,12 @@ export class TimelineEngineClass {
           // Remove and Consume share the same ALL/HALF/N stack math -- they only diverge on
           // which event fires below, so listeners can tell "spent by the wearer" (Consume) apart
           // from "stripped by something else" (Remove).
-          let removed = false;
-          const val = effect.value !== undefined ? effect.value : 'ALL';
-          if (val === 'HALF') { buff.stacks = Math.floor((buff.stacks || 1) / 2); removed = true; }
-          else if (val === 'ALL') { buff.stacks = 0; removed = true; }
-          else { buff.stacks = (buff.stacks || 1) - (parseInt(String(val), 10) || 1); removed = true; }
+          buff.stacks = stacksAfterSpending(buff.stacks || 1, effect.value !== undefined ? effect.value : 'ALL', true);
           if ((buff.stacks || 0) <= 0) {
             if (buff.linkedTracker && currentData.trackers) currentData.trackers[buff.linkedTracker] = 0;
             delete currentData.activeBuffs[buffKey];
           }
-          if (removed) {
-            const provider = effect.provider || currentData.unit;
-            const eventName = effect.action === 'consume' ? 'OnBuffConsume' : 'OnBuffRemove';
-            const payloads = EventManager.emit(eventName, new Set([(effect.name || '').toLowerCase()]), currentData, provider, team);
-            if (payloads.length > 0) this._executeEffectsStream(payloads, currentData, activeTeam, activeRows, this.currentGlobalRealTime, provider, team);
-          }
+          this._fire(effect.action === 'consume' ? 'OnBuffConsume' : 'OnBuffRemove', eventModifier(effect.name), currentData, effect.provider || currentData.unit, activeTeam, activeRows, team);
         }
       }
     });
@@ -1676,9 +1502,7 @@ export class TimelineEngineClass {
           currentData.trackers.Cursor_Pos = 0;
         }
       }
-      const payloads = EventManager.emit('OnTrackerChanged', new Set([name]), currentData, unitName, team);
-      payloads.push(...EventManager.emit('OnTrackerRemove', new Set([name]), currentData, unitName, team));
-      this._executeEffectsStream(payloads, currentData, activeTeam, activeRows, this.currentGlobalRealTime, unitName, team);
+      this._fireTrackerEvents(['OnTrackerChanged', 'OnTrackerRemove'], name, currentData, unitName, activeTeam, activeRows, team);
       return;
     }
 
@@ -1698,18 +1522,16 @@ export class TimelineEngineClass {
     } else if (action === 'consume') {
       // Same ALL/HALF/N math as a buffAction consume/remove (_handleBuffActionEffect) -- an
       // unset value defaults to ALL, matching "Consume" wiping the whole tracker by default.
-      const val = effect.value !== undefined ? effect.value : 'ALL';
-      if (val === 'HALF') newVal = Math.floor(currentVal / 2);
-      else if (val === 'ALL') newVal = 0;
-      else newVal = Math.max(0, currentVal - (parseFloat(String(val)) || 1));
+      const spec = effect.value !== undefined ? effect.value : 'ALL';
+      const remaining = stacksAfterSpending(currentVal, spec, false);
+      newVal = spec === 'HALF' ? remaining : Math.max(0, remaining);
       eventToEmit = 'OnTrackerConsume';
     } else if (action === 'set' || action === 'copy') {
       newVal = parseFloat(String(effect.value)) || 0;
       if (newVal > currentVal) eventToEmit = 'OnTrackerAdd';
       else if (newVal < currentVal) eventToEmit = 'OnTrackerRemove';
     } else if (action === 'detonate' && currentVal > 0) {
-      const payloads = EventManager.emit('OnTrackerDetonate', new Set([effect.name || '']), currentData, unitName, team);
-      this._executeEffectsStream(payloads, currentData, activeTeam, activeRows, this.currentGlobalRealTime, unitName, team);
+      this._fireTrackerEvents(['OnTrackerDetonate'], effect.name || '', currentData, unitName, activeTeam, activeRows, team);
       newVal = Math.max(0, currentVal - (effect.value !== undefined ? parseFloat(String(effect.value)) : 1));
     }
 
@@ -1738,17 +1560,14 @@ export class TimelineEngineClass {
     }
 
     if (action !== 'detonate') {
-      const payloads: Effect[] = [];
-      payloads.push(...EventManager.emit('OnTrackerChanged', new Set([effect.name || '']), currentData, unitName, team));
-      if (eventToEmit) payloads.push(...EventManager.emit(eventToEmit, new Set([effect.name || '']), currentData, unitName, team));
-      this._executeEffectsStream(payloads, currentData, activeTeam, activeRows, this.currentGlobalRealTime, unitName, team);
+      this._fireTrackerEvents(eventToEmit ? ['OnTrackerChanged', eventToEmit] : ['OnTrackerChanged'], effect.name || '', currentData, unitName, activeTeam, activeRows, team);
     }
   }
 
   _updateActiveBuffs(buffDef: Effect, currentData: any, targetUnits: string[], activeTeam: string[], activeRows: any[], team: any[]): void {
     const buffName = buffDef.name || '';
     if (buffDef.stat || buffDef.label) {
-      this._localBuffCache[buffName] = JSON.parse(JSON.stringify(buffDef));
+      this._localBuffCache[buffName] = cloneJson(buffDef);
     } else {
       let cachedTemplate: Effect | null | undefined = this._localBuffCache[buffName];
       if (!cachedTemplate) {
@@ -1756,7 +1575,7 @@ export class TimelineEngineClass {
           const template = Object.values(DataLoader.mechanicsDB)
             .flatMap(m => m.effects || [])
             .find(e => (e.type === 'buff' || !e.type) && e.name === buffDef.name && (e.stat || e.label));
-          this._globalBuffCache[buffName] = template ? JSON.parse(JSON.stringify(template)) : null;
+          this._globalBuffCache[buffName] = template ? cloneJson(template) : null;
         }
         cachedTemplate = this._globalBuffCache[buffName];
         if (cachedTemplate) this._localBuffCache[buffName] = cachedTemplate;
@@ -1765,7 +1584,7 @@ export class TimelineEngineClass {
         for (const key in cachedTemplate) {
           if ((buffDef as any)[key] === undefined) {
             (buffDef as any)[key] = typeof (cachedTemplate as any)[key] === 'object' && (cachedTemplate as any)[key] !== null
-                ? JSON.parse(JSON.stringify((cachedTemplate as any)[key]))
+                ? cloneJson((cachedTemplate as any)[key])
                 : (cachedTemplate as any)[key];
           }
         }
@@ -1785,7 +1604,7 @@ export class TimelineEngineClass {
 
       let effDuration = GAME_DEFAULTS.permanentDuration;
       if (buffDef.duration !== undefined) {
-        if (typeof buffDef.duration === 'string' && (buffDef.duration.includes('@') || /[+\-*/%]/.test(buffDef.duration))) {
+        if (isDslExpr(buffDef.duration, true)) {
           const res = this._resolveDynamicMath(buffDef.duration, currentData, currentData.unit, team);
           effDuration = typeof res === 'number' ? res : (parseFloat(String(res)) || GAME_DEFAULTS.permanentDuration);
         } else {
@@ -1828,38 +1647,22 @@ export class TimelineEngineClass {
       }
 
       if (actuallyAddedStacks > 0) {
-        const provider = buffDef.provider || currentData.unit;
-        const payloads = EventManager.emit('OnBuffAdd', new Set([(buffDef.name || '').toLowerCase()]), currentData, provider, team);
-        if (payloads.length > 0) {
-          this._executeEffectsStream(payloads, currentData, activeTeam, activeRows, this.currentGlobalRealTime, provider, team);
-        }
+        this._fire('OnBuffAdd', eventModifier(buffDef.name), currentData, buffDef.provider || currentData.unit, activeTeam, activeRows, team);
       }
     });
-  }
-
-  _getMaxCap(charName: string, resKey: string): number {
-    if (resKey === 'concerto' || resKey === 'maxConcerto') return CHARACTER_DEFAULTS.maxConcerto;
-    if (resKey === 'tune' || resKey === 'maxTune') return ENEMY_DEFAULTS.maxTune;
-    const dbChar = DataLoader.characterDB[charName] || {};
-    if (resKey === 'energy' || resKey === 'maxEnergy') return parseFloat(String(dbChar.maxEnergy)) || CHARACTER_DEFAULTS.maxEnergy;
-    if (resKey.startsWith('forte') || resKey.startsWith('maxForte')) {
-      const fNum = resKey.replace('maxForte', '').replace('forte', '');
-      return parseFloat(String((dbChar as any)[`maxForte${fNum}`])) || CHARACTER_DEFAULTS.maxConcerto;
-    }
-    return Infinity;
   }
 
   // A hold cursor's max is the forte slot it's tied to (forteSlot, defaulting to Forte 1) --
   // maxCursorVal is only a fallback for a slot the active character doesn't actually have.
   _getHoldMaxCap(charName: string, config: HoldConfig): number {
     const slot = config.forteSlot || MECHANICS_NOTATION.HOLD_DEFAULTS.FORTE_SLOT;
-    const slotNum = parseInt(slot.replace('forte', ''), 10) || 1;
+    const slotNum = holdSlotNumber(slot);
     const forteCount = parseInt(String(DataLoader.characterDB[charName]?.forteCount), 10) || 1;
     if (slotNum > forteCount) {
       console.warn(`[TimelineEngine] ${charName}'s hold config targets ${slot}, but the character only has ${forteCount} forte slot(s) -- falling back to forte1.`);
-      return this._getMaxCap(charName, 'forte1');
+      return resourceCap(charName, forteKey(1));
     }
-    const fromForte = this._getMaxCap(charName, slot);
+    const fromForte = resourceCap(charName, slot);
     if (fromForte > 0) return fromForte;
     return config.maxCursorVal ?? MECHANICS_NOTATION.HOLD_DEFAULTS.MAX_CURSOR_VAL;
   }

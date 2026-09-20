@@ -8,7 +8,9 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "verify:dsl": "node scripts/verify-dsl.mjs"
+    "verify:dsl": "node scripts/verify-dsl.mjs",
+    "engine:baseline": "node scripts/engine-check.mjs baseline",
+    "engine:check": "node scripts/engine-check.mjs check"
   },
   "dependencies": {
     "react": "^19.2.8",

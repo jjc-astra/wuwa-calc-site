@@ -1,0 +1,743 @@
+{
+  "HarnessA_Strike A": {
+    "name": "Strike A",
+    "category": "Basic Attack",
+    "isSwapInDefault": true,
+    "castTypes": [
+      "Basic"
+    ],
+    "dmgTypes": [
+      "Fusion",
+      "Basic"
+    ],
+    "hitResources": {
+      "energy": [
+        1,
+        2
+      ],
+      "concerto": [
+        3,
+        4
+      ],
+      "tune": [
+        0.5,
+        0.5
+      ],
+      "forte1": [
+        10,
+        15
+      ],
+      "forte2": [
+        5,
+        5
+      ],
+      "forte3": [
+        20,
+        20
+      ]
+    },
+    "hitMults": [
+      "40%",
+      "60%"
+    ],
+    "scalar": "ATK",
+    "input": "Basic",
+    "stanceReq": "Grounded",
+    "priority": "@Default.BasicPriority",
+    "comboWindow": "@Default.ComboWindow",
+    "actionDuration": 30,
+    "swapTiming": "@Default.SwapTime",
+    "cancelTimings": [
+      {
+        "time": 20,
+        "hits": 1
+      },
+      {
+        "time": 26,
+        "triggerRule": "IF (@Self.FluxCore >= 10)"
+      }
+    ],
+    "damageTimeframe": {
+      "start": 2,
+      "end": "@Default.SwapTime + 10"
+    }
+  },
+  "HarnessA_Strike B": {
+    "name": "Strike B",
+    "category": "Basic Attack",
+    "triggerRule": "IF (@Self.PrevAction == @HarnessA(Strike A))",
+    "castTypes": [
+      "Basic"
+    ],
+    "dmgTypes": [
+      "Fusion",
+      "Basic"
+    ],
+    "castResources": {
+      "forte1": 15,
+      "forte3": 10,
+      "energy": 2,
+      "concerto": 5
+    },
+    "hitResources": {
+      "energy": [
+        1
+      ],
+      "tune": [
+        1
+      ]
+    },
+    "hitMults": [
+      "80%"
+    ],
+    "scalar": "ATK",
+    "input": "Basic",
+    "stanceReq": "Grounded",
+    "priority": "@Default.BasicPriority + 1",
+    "comboWindow": "@Default.ComboWindow",
+    "actionDuration": 24,
+    "swapTiming": "@Default.SwapTime"
+  },
+  "HarnessA_Strike Air": {
+    "name": "Strike Air",
+    "category": "Basic Attack",
+    "castTypes": [
+      "Basic"
+    ],
+    "dmgTypes": [
+      "Fusion",
+      "Basic"
+    ],
+    "hitResources": {
+      "forte3": [
+        12
+      ]
+    },
+    "hitMults": [
+      "90%"
+    ],
+    "input": "Basic",
+    "stanceReq": "Midair",
+    "stanceResult": "Grounded",
+    "stanceTime": 10,
+    "priority": "@Default.BasicPriority",
+    "actionDuration": 28
+  },
+  "HarnessA_Spender": {
+    "name": "Spender",
+    "category": "Resonance Skill",
+    "triggerRule": "IF (@Self.FluxCore >= 30)",
+    "castTypes": [
+      "Skill"
+    ],
+    "dmgTypes": [
+      "Fusion",
+      "Skill"
+    ],
+    "cost": {
+      "energy": 10,
+      "concerto": 10,
+      "tune": 5,
+      "forte1": 30,
+      "forte2": 20,
+      "forte3": 50
+    },
+    "cooldown": 6,
+    "maxCharges": 2,
+    "hitMults": [
+      "150%"
+    ],
+    "hitResources": {
+      "energy": [
+        3
+      ]
+    },
+    "scalar": "HP",
+    "input": "Skill",
+    "stanceReq": "Any",
+    "priority": "@Default.SkillPriority",
+    "actionDuration": 40,
+    "swapTiming": "@Default.SwapTime",
+    "comboWindow": "@Default.ComboWindow + 6",
+    "effects": [
+      {
+        "type": "buff",
+        "name": "HarnessA_Overdrive",
+        "stat": "Skill DMG Bonus",
+        "value": "20%",
+        "duration": 5,
+        "stacks": 1,
+        "maxStacks": 3,
+        "stackBehavior": "separate",
+        "expireBehavior": "drop_one"
+      }
+    ]
+  },
+  "HarnessA_Recharge": {
+    "name": "Recharge",
+    "category": "Resonance Skill",
+    "castTypes": [
+      "Skill"
+    ],
+    "dmgTypes": [
+      "Fusion",
+      "Skill"
+    ],
+    "castResources": {
+      "forte1": -40,
+      "forte2": 10,
+      "energy": -30,
+      "tune": 10,
+      "concerto": -15
+    },
+    "cooldown": 5,
+    "shareCooldownWith": "Spender",
+    "hitMults": [
+      "100%"
+    ],
+    "scalar": "DEF",
+    "input": "Skill",
+    "priority": "@Default.SkillPriority",
+    "actionDuration": 36,
+    "freezeTime": 6,
+    "effects": [
+      {
+        "type": "resource",
+        "name": "energy",
+        "value": 10,
+        "target": "@Team"
+      },
+      {
+        "type": "resource",
+        "name": "concerto",
+        "value": -3,
+        "target": "@Self"
+      },
+      {
+        "type": "resource",
+        "name": "tune",
+        "value": 4
+      },
+      {
+        "type": "resource",
+        "name": "forte3",
+        "value": 15
+      },
+      {
+        "type": "resource",
+        "name": "forte2",
+        "value": "@Self.Forte1 / 10"
+      },
+      {
+        "type": "cooldown",
+        "name": "Spender",
+        "value": 0
+      },
+      {
+        "type": "time_scale",
+        "name": "ALL",
+        "value": "-25%",
+        "duration": 3,
+        "target": "@Self"
+      }
+    ]
+  },
+  "HarnessA_Lib": {
+    "name": "Lib",
+    "category": "Resonance Liberation",
+    "triggerRule": "IF (@Self.Energy >= 60)",
+    "castTypes": [
+      "Liberation"
+    ],
+    "dmgTypes": [
+      "Fusion",
+      "Liberation"
+    ],
+    "castResources": {
+      "energy": -60,
+      "concerto": 20
+    },
+    "hitResources": {
+      "tune": [
+        5,
+        5
+      ]
+    },
+    "hitMults": [
+      "300%",
+      "200%"
+    ],
+    "input": "Liberation",
+    "priority": "@Default.LibPriority",
+    "comboWindow": "@Default.ComboWindow",
+    "actionDuration": 90,
+    "freezeTime": 30,
+    "cooldown": 12,
+    "damageTimeframe": {
+      "start": 60,
+      "end": 80
+    },
+    "effects": [
+      {
+        "type": "buff",
+        "name": "HarnessA_TeamAtk",
+        "target": "@Team",
+        "stat": "ATK %",
+        "value": "10%",
+        "duration": "3 + @Self.Sequence",
+        "maxStacks": "2 + @Self.HasBuff(HarnessA_Overdrive)",
+        "stacks": 1
+      },
+      {
+        "type": "buff",
+        "name": "HarnessA_Field",
+        "target": "@Active",
+        "stat": "Basic DMG Bonus",
+        "value": "8%",
+        "duration": 5
+      },
+      {
+        "type": "buff",
+        "name": "HarnessA_OthersDef",
+        "target": "@TeamOthers",
+        "stat": "Ignore DEF",
+        "value": "5%",
+        "duration": 6
+      },
+      {
+        "type": "buff",
+        "name": "HarnessA_NextBuff",
+        "target": "@Next",
+        "stat": "Basic DMG Bonus",
+        "value": "15%",
+        "duration": 8,
+        "removeOnSwap": true
+      },
+      {
+        "type": "buff",
+        "name": "Aero Erosion",
+        "target": "@Enemy",
+        "duration": 10,
+        "maxStacks": 10,
+        "stacks": 3
+      },
+      {
+        "type": "buff",
+        "name": "HarnessA_Scoped",
+        "stat": "DMG Amp",
+        "value": "25%",
+        "duration": 6,
+        "applyTo": [
+          "Skill",
+          "@HarnessA(Spender)"
+        ]
+      }
+    ]
+  },
+  "HarnessA_Status Hit": {
+    "name": "Status Hit",
+    "category": "Resonance Skill",
+    "castTypes": [
+      "Skill"
+    ],
+    "dmgTypes": [
+      "Aero Erosion"
+    ],
+    "hitMults": [
+      "100%"
+    ],
+    "input": "Utility",
+    "actionDuration": 20
+  },
+  "HarnessA_Tune Hit": {
+    "name": "Tune Hit",
+    "category": "Resonance Skill",
+    "castTypes": [
+      "Utility"
+    ],
+    "dmgTypes": [
+      "Fusion",
+      "Skill"
+    ],
+    "castResources": {
+      "tune": 25
+    },
+    "hitMults": [
+      "30%"
+    ],
+    "input": "Utility",
+    "actionDuration": 16
+  },
+  "HarnessA_Tracker Combo": {
+    "name": "Tracker Combo",
+    "category": "Resonance Skill",
+    "castTypes": [
+      "Utility"
+    ],
+    "input": "Utility",
+    "actionDuration": 12,
+    "effects": [
+      {
+        "type": "tracker",
+        "name": "hits",
+        "action": "add",
+        "value": 3,
+        "max": 5
+      },
+      {
+        "type": "tracker",
+        "name": "hits",
+        "action": "add",
+        "value": 4,
+        "max": 5
+      },
+      {
+        "type": "tracker",
+        "name": "hits",
+        "action": "remove",
+        "value": 1
+      },
+      {
+        "type": "tracker",
+        "name": "hits",
+        "action": "consume",
+        "value": "HALF"
+      },
+      {
+        "type": "tracker",
+        "name": "hits",
+        "action": "consume",
+        "value": 1
+      },
+      {
+        "type": "tracker",
+        "name": "hits",
+        "action": "set",
+        "value": 4
+      },
+      {
+        "type": "tracker",
+        "name": "hits",
+        "action": "copy",
+        "value": "@Self.Tracker(hits) + 1"
+      },
+      {
+        "type": "tracker",
+        "name": "hits",
+        "action": "detonate",
+        "value": 1
+      },
+      {
+        "type": "tracker",
+        "name": "hits",
+        "action": "consume"
+      },
+      {
+        "type": "tracker",
+        "name": "Mark",
+        "action": "add",
+        "value": 2
+      },
+      {
+        "type": "tracker",
+        "name": "Mark",
+        "action": "delete"
+      }
+    ]
+  },
+  "HarnessA_Buff Control": {
+    "name": "Buff Control",
+    "category": "Resonance Skill",
+    "castTypes": [
+      "Utility"
+    ],
+    "input": "Utility",
+    "actionDuration": 12,
+    "effects": [
+      {
+        "type": "buff",
+        "name": "HarnessA_Timer",
+        "duration": 8,
+        "stacks": 4,
+        "maxStacks": 6,
+        "stackBehavior": "separate",
+        "expireBehavior": "drop_half",
+        "linkedTracker": "timer_link"
+      },
+      {
+        "type": "tracker",
+        "name": "timer_link",
+        "action": "set",
+        "value": 3
+      },
+      {
+        "type": "buffAction",
+        "name": "HarnessA_Timer",
+        "action": "pause"
+      },
+      {
+        "type": "buffAction",
+        "name": "HarnessA_Timer",
+        "action": "resume"
+      },
+      {
+        "type": "buffAction",
+        "name": "HarnessA_Timer",
+        "action": "extend",
+        "value": 2
+      },
+      {
+        "type": "buffAction",
+        "name": "HarnessA_Timer",
+        "action": "consume",
+        "value": "HALF"
+      },
+      {
+        "type": "buff",
+        "name": "HarnessA_Drop",
+        "duration": 3,
+        "stacks": 3,
+        "maxStacks": 3,
+        "expireBehavior": "drop_one"
+      },
+      {
+        "type": "buffAction",
+        "name": "HarnessA_Timer",
+        "action": "remove",
+        "value": 1
+      },
+      {
+        "type": "buffAction",
+        "name": "HarnessA_Drop",
+        "action": "remove",
+        "value": "ALL"
+      },
+      {
+        "type": "cooldown",
+        "name": "Spender",
+        "value": "@Self.Cooldown(Spender) - 2"
+      }
+    ]
+  },
+  "HarnessA_Intro": {
+    "name": "Intro",
+    "category": "Intro",
+    "isSwapInDefault": true,
+    "triggerRule": "IF (@Prev.CastTypes.includes('Outro'))",
+    "castTypes": [
+      "Intro"
+    ],
+    "dmgTypes": [
+      "Fusion",
+      "Intro"
+    ],
+    "castResources": {
+      "concerto": 10,
+      "forte2": 20
+    },
+    "hitResources": {
+      "energy": [
+        3
+      ]
+    },
+    "hitMults": [
+      "50%"
+    ],
+    "priority": "@Default.IntroPriority",
+    "comboWindow": "@Default.ComboWindow",
+    "actionDuration": 40,
+    "stanceResult": "Grounded"
+  },
+  "HarnessA_Outro": {
+    "name": "Outro",
+    "category": "Outro",
+    "triggerRule": "OnCast[Outro, Self] IF (@Self.Concerto >= 100)",
+    "castTypes": [
+      "Outro"
+    ],
+    "castResources": {
+      "concerto": -100
+    },
+    "effects": [
+      {
+        "type": "buff",
+        "name": "HarnessA_Outro Buff",
+        "target": "@Next",
+        "stat": "Skill DMG Amp",
+        "value": "30%",
+        "duration": 10,
+        "removeOnSwap": true
+      }
+    ],
+    "priority": "@Default.OutroPriority",
+    "actionDuration": 0
+  },
+  "HarnessA_Flux Threshold": {
+    "name": "Flux Threshold",
+    "category": "Inherent Skill",
+    "isPassive": true,
+    "triggerRule": "IF (@Self.FluxCore >= 50)",
+    "effects": [
+      {
+        "type": "buff",
+        "name": "HarnessA_Flux Aura",
+        "stat": "DMG Bonus",
+        "value": "12%",
+        "duration": "@Default.PermanentDuration"
+      }
+    ]
+  },
+  "HarnessA_Seq2": {
+    "name": "Seq2",
+    "category": "Resonance Chain",
+    "isPassive": true,
+    "triggerRule": "IF (@Self.Sequence >= 2)",
+    "effects": [
+      {
+        "type": "buff",
+        "name": "HarnessA_Seq2",
+        "stat": "Crit Rate",
+        "value": "8%",
+        "duration": "@Default.PermanentDuration"
+      }
+    ]
+  },
+  "HarnessA_Start": {
+    "name": "Start",
+    "category": "Inherent Skill",
+    "isPassive": true,
+    "triggerRule": "OnStart",
+    "effects": [
+      {
+        "type": "resource",
+        "name": "forte1",
+        "value": 20
+      },
+      {
+        "type": "buff",
+        "name": "HarnessA_Start",
+        "stat": "ATK %",
+        "value": "3%",
+        "duration": "@Default.PermanentDuration"
+      }
+    ]
+  },
+  "HarnessA_Swap Watch": {
+    "name": "Swap Watch",
+    "category": "Inherent Skill",
+    "isPassive": true,
+    "triggerRule": "ANY(OnSwapIn, OnSwapOut)",
+    "effects": [
+      {
+        "type": "resource",
+        "name": "energy",
+        "value": 1,
+        "target": "@Self"
+      }
+    ]
+  },
+  "HarnessA_Unit Change": {
+    "name": "Unit Change",
+    "category": "Inherent Skill",
+    "isPassive": true,
+    "triggerRule": "OnUnitChange",
+    "effects": [
+      {
+        "type": "buff",
+        "name": "HarnessA_Change",
+        "target": "@Active",
+        "stat": "Heavy DMG Bonus",
+        "value": "4%",
+        "duration": 4
+      }
+    ]
+  },
+  "HarnessA_Tracker Watch": {
+    "name": "Tracker Watch",
+    "category": "Inherent Skill",
+    "isPassive": true,
+    "triggerRule": "ANY(OnTrackerAdd[hits], OnTrackerRemove[hits], OnTrackerConsume[hits], OnTrackerChanged[hits], OnTrackerDetonate[hits])",
+    "effects": [
+      {
+        "type": "buff",
+        "name": "HarnessA_Tracker Seen",
+        "duration": 6,
+        "maxStacks": 9
+      }
+    ]
+  },
+  "HarnessA_Buff Watch": {
+    "name": "Buff Watch",
+    "category": "Inherent Skill",
+    "isPassive": true,
+    "triggerRule": "ANY(OnBuffAdd[HarnessA_Timer], OnBuffRemove[HarnessA_Timer], OnBuffConsume[HarnessA_Timer], OnBuffExpire[HarnessA_Timer], OnBuffExpire[HarnessA_Drop])",
+    "effects": [
+      {
+        "type": "resource",
+        "name": "concerto",
+        "value": 1
+      }
+    ]
+  },
+  "HarnessA_Hit Proc": {
+    "name": "Hit Proc",
+    "category": "Inherent Skill",
+    "isPassive": true,
+    "triggerRule": "OnHit[Basic] IF (@Self.Cooldown(Hit Proc) == 0)",
+    "dmgTypes": [
+      "Fusion"
+    ],
+    "hitMults": [
+      "20%",
+      "MATH(10 + @Self.Sequence * 5)",
+      "(@Self.Sequence >= 2 ? 30 : 10)%"
+    ],
+    "damageTimeframe": {
+      "start": 5,
+      "end": 15
+    },
+    "cooldown": 3,
+    "effects": [
+      {
+        "type": "resource",
+        "name": "forte3",
+        "value": 5
+      }
+    ]
+  },
+  "HarnessA_Tick Proc": {
+    "name": "Tick Proc",
+    "category": "Inherent Skill",
+    "isPassive": true,
+    "triggerRule": "OnTick[2, 3]",
+    "dmgTypes": [
+      "Fusion"
+    ],
+    "hitMults": [
+      "15%"
+    ],
+    "effects": [
+      {
+        "type": "buff",
+        "name": "HarnessA_Tick Buff",
+        "duration": 2,
+        "stat": "ATK %",
+        "value": "3%"
+      }
+    ]
+  },
+  "HarnessA_After Proc": {
+    "name": "After Proc",
+    "category": "Inherent Skill",
+    "isPassive": true,
+    "triggerRule": "AfterHit[Self] IF (@Self.FluxCore < 100)",
+    "cooldown": 2,
+    "effects": [
+      {
+        "type": "resource",
+        "name": "forte1",
+        "value": 2
+      }
+    ]
+  }
+}

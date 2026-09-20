@@ -1,0 +1,34 @@
+{
+  "HarnessSet_2pc": {
+    "name": "2-pc Effect",
+    "category": "2-pc Set Effect",
+    "isPassive": true,
+    "triggerRule": "ALWAYS",
+    "effects": [
+      {
+        "type": "buff",
+        "name": "HarnessSet 2-pc",
+        "stat": "Fusion DMG Bonus",
+        "value": "10%",
+        "duration": "@Default.PermanentDuration"
+      }
+    ]
+  },
+  "HarnessSet_5pc": {
+    "name": "5-pc Effect",
+    "category": "5-pc Set Effect",
+    "isPassive": true,
+    "triggerRule": "OnCast[Skill, Self]",
+    "effects": [
+      {
+        "type": "buff",
+        "name": "HarnessSet 5-pc",
+        "stat": "ATK %",
+        "value": "7.5%",
+        "duration": 10,
+        "maxStacks": 3,
+        "stacks": 1
+      }
+    ]
+  }
+}

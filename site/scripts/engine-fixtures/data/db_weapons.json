@@ -1,0 +1,9 @@
+{
+  "HarnessBlade": {
+    "weaponType": "Sword",
+    "rarity": 5,
+    "baseAtk": 300,
+    "subStatType": "CR Rate",
+    "subStatValue": "10%"
+  }
+}

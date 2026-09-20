@@ -4,6 +4,7 @@ import { PANEL_CONFIG } from '../../data/db';
 import { useRosterStore } from '../../store/useRosterStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { forteLabel } from '../../utils/ForteNames';
+import { forteSlotOf } from '../../utils/ResourceKeys';
 import { PanelInfoItem } from '../common/PanelInfoItem';
 import { FormulaRow } from '../common/FormulaRow';
 import { BuffCard } from '../common/BuffCard';
@@ -382,8 +383,8 @@ export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row }) => {
 
   // --- 4. STANDARD GAUGE & RESOURCE PANELS ---
   const u = row.unit;
-  const forteSlot = trigger.match(/^forte(\d+)$/);
-  const title = forteSlot ? `${forteLabel(DataLoader.characterDB[u], parseInt(forteSlot[1], 10))} Breakdown` : config.title;
+  const forteSlot = forteSlotOf(trigger);
+  const title = forteSlot !== null ? `${forteLabel(DataLoader.characterDB[u], forteSlot)} Breakdown` : config.title;
   return (
     <div className="sub-panel is-open">
       <div className="panel-header-main">{title}</div>

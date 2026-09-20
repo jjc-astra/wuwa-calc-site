@@ -2,6 +2,8 @@ import { DataLoader } from '../utils/DataLoader';
 import { CombatCalculator } from './CombatCalculator';
 import { CHARACTER_DEFAULTS, ENEMY_DEFAULTS, GAME_DEFAULTS } from '../data/db';
 import { forteAlias } from '../utils/ForteNames';
+import { forteKey, maxForteKey } from '../utils/ResourceKeys';
+import { readResource } from './resources';
 
 export const ContextManager = {
   // Seconds until `actionName` (bare move name) next has a use available for `unitName`, given
@@ -70,9 +72,9 @@ export const ContextManager = {
         name: activeUnitName,
         prevAction: selfPrevAction,
         sequence: currentSequence,
-        energy: activeState.energy ? (activeState.energy[activeUnitName] || 0) : 0,
+        energy: readResource(activeState, 'energy', activeUnitName),
         maxEnergy: dbChar.maxEnergy ? parseFloat(dbChar.maxEnergy as any) : CHARACTER_DEFAULTS.maxEnergy,
-        concerto: activeState.concerto ? (activeState.concerto[activeUnitName] || 0) : 0,
+        concerto: readResource(activeState, 'concerto', activeUnitName),
         maxConcerto: CHARACTER_DEFAULTS.maxConcerto,
         hp: hpPct * maxHp,
         maxHp: maxHp,
@@ -102,13 +104,14 @@ export const ContextManager = {
       };
 
       for (let i = 1; i <= fCount; i++) {
-        const fKey = `forte${i}`;
-        selfContext[fKey] = activeState[fKey] ? (activeState[fKey][activeUnitName] || 0) : 0;
-        selfContext[`maxForte${i}`] = dbChar[`maxForte${i}`] !== undefined ? parseFloat(dbChar[`maxForte${i}`] as any) : 100;
+        const fKey = forteKey(i);
+        const maxKey = maxForteKey(i);
+        selfContext[fKey] = readResource(activeState, fKey, activeUnitName);
+        selfContext[maxKey] = dbChar[maxKey] !== undefined ? parseFloat(dbChar[maxKey] as any) : CHARACTER_DEFAULTS.maxForte;
         const alias = forteAlias(dbChar, i);
         if (alias) {
           selfContext[alias] = selfContext[fKey];
-          selfContext[`Max${alias}`] = selfContext[`maxForte${i}`];
+          selfContext[`Max${alias}`] = selfContext[maxKey];
         }
       }
 

@@ -2,9 +2,12 @@
 
 import React from 'react';
 import { DataLoader } from '../../utils/DataLoader';
-import { MECHANICS_NOTATION } from '../../data/db';
+import { CHARACTER_DEFAULTS, MECHANICS_NOTATION } from '../../data/db';
 import { TooltipManager, CommonUtils } from '../../utils/Common';
 import { forteLabel } from '../../utils/ForteNames';
+import { forteKey, maxForteKey, holdSlotNumber } from '../../utils/ResourceKeys';
+
+const gaugePercent = (value: number, max: number): number => Math.min(100, Math.max(0, (value / (max || 100)) * 100));
 
 const formatGaugeValue = (val: number): number => (Number.isInteger(val) ? val : parseFloat(val.toFixed(2)));
 
@@ -21,7 +24,7 @@ interface DialGaugeProps {
 }
 
 export const DialGauge: React.FC<DialGaugeProps> = ({ name, value = 0, max = 100 }) => {
-  const pct = Math.min(100, Math.max(0, (value / (max || 100)) * 100));
+  const pct = gaugePercent(value, max);
   const isFull = pct >= 99.9;
 
   return (
@@ -43,7 +46,7 @@ interface VerticalGaugeProps {
 }
 
 export const VerticalGauge: React.FC<VerticalGaugeProps> = ({ name, value = 0, max = 100 }) => {
-  const pct = Math.min(100, Math.max(0, (value / (max || 100)) * 100));
+  const pct = gaugePercent(value, max);
   const isFull = pct >= 99.9;
 
   return (
@@ -81,18 +84,17 @@ export const MultiForteGauge: React.FC<MultiForteGaugeProps> = ({ unit, stateDat
     const holdInput = stateData?.trackers?.Hold_Input;
     holdConfig = DataLoader.findHoldReleaseConfig(unit, holdInput) || {};
   }
-  const holdForteNum = parseInt((holdConfig?.forteSlot || d.FORTE_SLOT).replace('forte', ''), 10) || 1;
+  const holdForteNum = holdSlotNumber(holdConfig?.forteSlot || d.FORTE_SLOT);
 
   return (
     <div className="gauge-cell" style={{ width: '100%' }}>
       <div className="multi-gauge-wrap" data-count={forteCount}>
         {Array.from({ length: forteCount }).map((_, idx) => {
           const num = idx + 1;
-          const trigger = `forte${num}`;
-          const fKey = `forte${num}`;
-          const maxKey = `maxForte${num}`;
+          const fKey = forteKey(num);
+          const maxKey = maxForteKey(num);
           let val = stateData?.[fKey]?.[unit] || 0;
-          let max = dbChar[maxKey] !== undefined ? parseFloat(dbChar[maxKey]) : 100;
+          let max = dbChar[maxKey] !== undefined ? parseFloat(dbChar[maxKey]) : CHARACTER_DEFAULTS.maxForte;
           let isGlowing = false;
 
           if (holdConfig && num === holdForteNum) {
@@ -118,14 +120,14 @@ export const MultiForteGauge: React.FC<MultiForteGaugeProps> = ({ unit, stateDat
             }
           }
 
-          const pct = Math.min(100, Math.max(0, (val / (max || 100)) * 100));
+          const pct = gaugePercent(val, max);
           const isFull = pct >= 99.9 || isGlowing;
 
           return (
             <div
               key={num}
-              className={`sub-panel-trigger ${activeTrigger === trigger ? 'is-active' : ''}`}
-              onClick={() => onGaugeClick?.(trigger)}
+              className={`sub-panel-trigger ${activeTrigger === fKey ? 'is-active' : ''}`}
+              onClick={() => onGaugeClick?.(fKey)}
             >
               <div
                 className={`gauge-dial ${isFull ? 'is-full' : ''}`}

@@ -6,6 +6,7 @@ import { useBuilderStore } from '../../store/useBuilderStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { BuilderState } from '../../data/db';
 import { forteLabel } from '../../utils/ForteNames';
+import { forteKey } from '../../utils/ResourceKeys';
 import { SummaryRow } from './SummaryRow';
 import { IdentityPanel } from './panels/IdentityPanel';
 import { InputsPhysicsPanel } from './panels/InputsPhysicsPanel';
@@ -105,7 +106,7 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
   const forteCount = parseInt((baseStats.forteCount as any) || dbC.forteCount || 1, 10);
   const forteOptions: DropdownOption[] = [];
   for (let i = 1; i <= forteCount; i++) {
-    forteOptions.push({ value: `forte${i}`, label: forteLabel(baseStats, i) });
+    forteOptions.push({ value: forteKey(i), label: forteLabel(baseStats, i) });
   }
 
   // Only called from the `activeTrigger &&` branch below, where it's already non-null.
