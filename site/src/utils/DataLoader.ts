@@ -1,4 +1,5 @@
-import { CommonUtils, DATA_REPO_BASE_URL, WIP_BASE_URL } from './Common';
+import { CommonUtils } from './Common';
+import { WIP_ENABLED, isWipUrl, wipToRealUrl, dataRelPath, realDataUrl, wipDataUrl } from './dataSource';
 import { MechanicKey, SYSTEM_NAMESPACE } from './MechanicKey';
 import { getTeamEntityRefs } from './TeamUtils';
 import type { CharacterData, WeaponData, MechanicNode, TeamSlot, HoldConfig } from '../types/index';
@@ -83,31 +84,29 @@ export class DataLoaderClass {
     }
   }
 
-  // A dev build's `path` (from getData/getImage) points at the local WIP mirror first -- a
-  // path this specific entity doesn't have a WIP override for doesn't resolve there (see
-  // _fetchJSON), silently, and this falls back to the real data repo. A prod build's `path` is
-  // already the real repo, so this is a same-URL no-op fetch that never runs (isWipAttempt is
-  // always false).
+  // In a dev build `path` (from getData) may point at the local WIP mirror; one this entity has
+  // no override for doesn't resolve there (see _fetchJSON), silently, and falls back to the real
+  // data repo. In a prod build `path` is already the real repo and no WIP branch ever runs.
   //
   // `manifestKey` is the file's path in the manifest. The manifest lists every file the data repo
   // has, so once it's loaded a file it lacks would only 404 -- the request is skipped instead.
   async loadJSON<T>(path: string, opts: { skipHashTracking?: boolean; manifestKey?: string } = {}): Promise<T | null> {
-    const isWipAttempt = import.meta.env.DEV && path.startsWith(WIP_BASE_URL);
+    const isWipAttempt = isWipUrl(path);
     const absentFromRepo = !!opts.manifestKey && Object.keys(this.manifest).length > 0 && !this.manifest[opts.manifestKey];
     if (absentFromRepo && !isWipAttempt) return null;
     let usedPath = path;
     let data = await this._fetchJSON<T>(path, isWipAttempt);
     const servedFromWip = isWipAttempt && data !== null;
     if (data === null && isWipAttempt && !absentFromRepo) {
-      usedPath = path.replace(WIP_BASE_URL, DATA_REPO_BASE_URL);
+      usedPath = wipToRealUrl(path);
       data = await this._fetchJSON<T>(usedPath);
     }
     // Records the manifest hash as loaded content, or flags dev WIP paths lacking a manifest baseline.
     if (data !== null && !opts.skipHashTracking) {
+      const relPath = dataRelPath(usedPath);
       if (servedFromWip) {
-        this.wipSourced.add(path.replace(`${WIP_BASE_URL}/data/`, ''));
+        this.wipSourced.add(relPath);
       } else {
-        const relPath = usedPath.replace(`${DATA_REPO_BASE_URL}/data/`, '');
         this.wipSourced.delete(relPath);
         if (this.manifest[relPath]) this.loadedHashes[relPath] = this.manifest[relPath];
       }
@@ -120,9 +119,9 @@ export class DataLoaderClass {
   // the WIP file only needs to hold the unit(s) under test, not a full duplicate of every
   // shipped character/weapon. Prod builds skip the WIP fetch entirely.
   async loadMergedDB<T extends Record<string, any>>(relPath: string): Promise<T> {
-    const real = (await this.loadJSON<T>(CommonUtils.getRealData(relPath))) || ({} as T);
-    if (!import.meta.env.DEV) return real;
-    const wip = await this._fetchJSON<T>(CommonUtils.getWipData(relPath), true);
+    const real = (await this.loadJSON<T>(realDataUrl(relPath))) || ({} as T);
+    if (!WIP_ENABLED) return real;
+    const wip = await this._fetchJSON<T>(wipDataUrl(relPath), true);
     return wip ? ({ ...real, ...wip } as T) : real;
   }
 

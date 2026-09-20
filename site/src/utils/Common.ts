@@ -1,20 +1,11 @@
 import type { MouseEvent } from 'react';
 import type { ImageFolder } from '../data/db';
 import { toFrames, framesToSeconds } from './Frames';
+import { imageUrl, dataUrl } from './dataSource';
 import type { ElementName } from '../data/gameVocab';
 
 export const EXTENSION = '.webp';
 export const TRANSPARENT_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
-
-// Just a public GitHub owner/repo/branch -- not a secret, safe to hardcode. See getImage/getData.
-export const DATA_REPO_BASE_URL = 'https://raw.githubusercontent.com/jjc-astra/wuwa-calc-data/main';
-
-// Local dev-only mirror of the data repo's data/ and images/ folders (site/public/wip-data/),
-// gitignored -- lets a unit's data/mechanics/images be tested against the live site before
-// they're pushed to the real data repo. Dev builds check here first (see getData/getImage);
-// never referenced in a prod build. main.tsx's WIP image-fallback listener and
-// DataLoader.loadJSON's WIP fallback both fall back to DATA_REPO_BASE_URL when a path here 404s.
-export const WIP_BASE_URL = '/wip-data';
 
 export const ELEMENT_COLORS: Record<string, string> = ({
   Glacio: '#40c4ff',
@@ -161,19 +152,9 @@ export const CommonUtils = {
     return CommonUtils.resolveHoldCursor(progress, mode, maxVal);
   },
 
-  // Data/images live in the separate wuwa-calc-data repo (public, no auth) instead of this
-  // repo's public/ folder -- new character data ships without rebuilding/redeploying the site.
-  // raw.githubusercontent.com: CORS-enabled GETs, no api.github.com rate limit.
-  // Dev builds resolve to the local WIP mirror first (see WIP_BASE_URL) -- a WIP-covered path
-  // that 404s falls back to the real repo via DataLoader.loadJSON / main.tsx's img listener.
-  getImage: (path: string): string => `${import.meta.env.DEV ? WIP_BASE_URL : DATA_REPO_BASE_URL}/images/${path}`,
-  getData: (path: string): string => `${import.meta.env.DEV ? WIP_BASE_URL : DATA_REPO_BASE_URL}/data/${path}`,
-  // Always the real data repo, bypassing WIP -- used for the fallback half of the WIP-first
-  // lookup, and by loadMergedDB (a WIP copy of a combined DB file like db_characters.json must
-  // be shallow-merged on top of the real one, never swap it wholesale, or every character/weapon
-  // the WIP file omits would vanish from the dev site).
-  getRealData: (path: string): string => `${DATA_REPO_BASE_URL}/data/${path}`,
-  getWipData: (path: string): string => `${WIP_BASE_URL}/data/${path}`,
+  // Where data/images come from (data repo, or the dev WIP mirror first) is dataSource.ts's concern.
+  getImage: imageUrl,
+  getData: dataUrl,
 
   parseMixed: (val: any): number | string | undefined => {
     if (val === undefined || val === null || val === '') return undefined;
