@@ -82,8 +82,20 @@ export class EventManagerClass {
     } as any;
   }
 
-  private cooldownEffect(listener: RegisteredListener): Effect {
-    return { type: 'cooldown', name: listener.name, target: listener.equipper, value: listener.cooldown };
+  private cooldownOwner(listener: RegisteredListener, activeUnitName: string): string {
+    return listener.equipper || activeUnitName;
+  }
+
+  // A triggered listener's cooldown, in seconds, starting when it fires.
+  private cooldownEffect(listener: RegisteredListener, activeUnitName: string): Effect {
+    return { type: 'cooldown', name: listener.name, target: this.cooldownOwner(listener, activeUnitName), value: parseFloat(String(listener.cooldown)) || 0 };
+  }
+
+  // A listener still on its own cooldown can't trigger again. ALWAYS listeners are continuous
+  // state, not triggers, so a cooldown doesn't apply to them.
+  private isOnCooldown(listener: RegisteredListener, stateData: any, activeUnitName: string): boolean {
+    if (!listener.cooldown || listener.triggerEvent === 'ALWAYS') return false;
+    return ContextManager.cooldownRemaining(stateData, this.cooldownOwner(listener, activeUnitName), listener.name) > 0.001;
   }
 
   emit(
@@ -174,11 +186,12 @@ export class EventManagerClass {
         while (currentTimer >= interval && currentCount < maxTicks) {
           currentTimer -= interval;
           currentCount++;
-          if (listener.evaluate(ctx, listener.equipper)) {
+          if (!this.isOnCooldown(listener, stateData, activeUnitName) && listener.evaluate(ctx, listener.equipper)) {
             if (listener.hitMults && listener.hitMults.length > 0) {
               triggeredEffects.push(this.resolveProc(listener, activeUnitName, ctx));
             }
             (listener.effects || []).forEach(eff => triggeredEffects.push(this.resolveEffect(eff, listener, activeUnitName)));
+            if (listener.cooldown) triggeredEffects.push(this.cooldownEffect(listener, activeUnitName));
           }
         }
 
@@ -196,12 +209,12 @@ export class EventManagerClass {
         const matchesHit = which === undefined
           || (String(which).toLowerCase() === 'all' ? hitIndex === totalHits : hitIndex === Number(which));
 
-        if (matchesHit && listener.evaluate(ctx, listener.equipper)) {
+        if (matchesHit && !this.isOnCooldown(listener, stateData, activeUnitName) && listener.evaluate(ctx, listener.equipper)) {
           (listener.effects || []).forEach(eff => triggeredEffects.push(this.resolveEffect(eff, listener, activeUnitName)));
-          if (listener.cooldown) triggeredEffects.push(this.cooldownEffect(listener));
+          if (listener.cooldown) triggeredEffects.push(this.cooldownEffect(listener, activeUnitName));
         }
       } else {
-        if (listener.evaluate(ctx, listener.equipper)) {
+        if (!this.isOnCooldown(listener, stateData, activeUnitName) && listener.evaluate(ctx, listener.equipper)) {
           if ((listener.hitMults && listener.hitMults.length > 0) && (!isAlways || eventType === 'ALWAYS')) {
             triggeredEffects.push(this.resolveProc(listener, activeUnitName, ctx));
           }
@@ -209,7 +222,7 @@ export class EventManagerClass {
             if (isAlways && eventType !== 'ALWAYS' && eff.type && eff.type !== 'buff') return;
             triggeredEffects.push(this.resolveEffect(eff, listener, activeUnitName));
           });
-          if (listener.cooldown && (!isAlways || eventType === 'ALWAYS')) triggeredEffects.push(this.cooldownEffect(listener));
+          if (listener.cooldown && (!isAlways || eventType === 'ALWAYS')) triggeredEffects.push(this.cooldownEffect(listener, activeUnitName));
         } else if (isAlways) {
           (listener.effects || []).forEach(eff => {
             if (eff.type === 'buff' || !eff.type) {

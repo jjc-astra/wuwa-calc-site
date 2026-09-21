@@ -448,9 +448,14 @@ export class TimelineEngineClass {
 
     // A hit can still be queued here (e.g. cancelled into an Outro via swapTiming) with no
     // later row to advance the clock far enough to reach it -- flush what's left now.
-    if (this.damageQueue.length > 0) {
-      const flushContext = activeRows[activeRows.length - 1];
-      this._processQueuedHits(flushContext, toFrames(Number.MAX_SAFE_INTEGER), activeTeam, activeRows, team);
+    // Runs through _decayState like any other window (freeze is long over, so real time is game
+    // time), ending at the last queued hit, so buffs and cooldowns run down between these hits too.
+    // A hit can queue a proc that lands later, so it repeats until the queue is empty.
+    const flushContext = activeRows[activeRows.length - 1];
+    for (let guard = 0; this.damageQueue.length > 0 && guard < 1000; guard++) {
+      const lastHitAt = Math.max(...this.damageQueue.map(hit => hit.executeAt));
+      const window = toFrames(Math.max(0, lastHitAt - this.currentGlobalRealTime));
+      this._decayState(flushContext, window, window, activeTeam, activeRows, team);
     }
 
     this.isRecalculating = false;
@@ -882,12 +887,23 @@ export class TimelineEngineClass {
     team: any[]
   ): void {
     if (realTimePassed < 0) return;
-    this._processQueuedHits(currentData, realTimePassed, activeTeam, activeRows, team);
+
+    // Game time runs down in segments up to each hit, so a buff or cooldown can expire before a later
+    // hit in the window lands. Freeze (the window's real time that isn't game time) is on cast, so a
+    // hit during it sits at game time 0: nothing runs down until the freeze is over.
+    const freezeFrames = Math.max(0, realTimePassed - gameTimePassed);
+    let gameTimeElapsed = 0;
+    const advanceGameTimeTo = (target: number) => {
+      const segment = Math.min(target, gameTimePassed) - gameTimeElapsed;
+      if (segment <= 0) return;
+      this._processGameTimeDecay(currentData, toFrames(segment), activeTeam, activeRows, team);
+      this.currentGlobalGameTime += segment;
+      gameTimeElapsed += segment;
+    };
+
+    this._processQueuedHits(currentData, realTimePassed, activeTeam, activeRows, team, elapsedReal => advanceGameTimeTo(Math.max(0, elapsedReal - freezeFrames)));
     this.currentGlobalRealTime += realTimePassed;
-    if (gameTimePassed > 0) {
-      this._processGameTimeDecay(currentData, gameTimePassed, activeTeam, activeRows, team);
-      this.currentGlobalGameTime += gameTimePassed;
-    }
+    advanceGameTimeTo(gameTimePassed);
   }
 
   // The first row has nothing before it to run down, so it never decays.
@@ -946,13 +962,15 @@ export class TimelineEngineClass {
     return { waitFrames, label: resolvedLabels.length > 0 ? `Waiting for ${resolvedLabels.join(' / ')}` : null };
   }
 
-  _processQueuedHits(currentData: any, realTimePassed: Frames, activeTeam: string[], activeRows: any[], team: any[]): void {
+  // `beforeHit` gets each hit's real time into the window, so the caller can run game time down to it first.
+  _processQueuedHits(currentData: any, realTimePassed: Frames, activeTeam: string[], activeRows: any[], team: any[], beforeHit?: (elapsedReal: number) => void): void {
     const realWindowEnd = this.currentGlobalRealTime + realTimePassed;
     while (this.damageQueue.length > 0) {
       const nextHit = this.damageQueue[0];
       if (nextHit.executeAt > realWindowEnd) break;
 
       this.damageQueue.shift();
+      beforeHit?.(Math.max(0, nextHit.executeAt - this.currentGlobalRealTime));
       const limit = nextHit.isProc ? (nextHit.originMoveData.allowedHits !== undefined ? nextHit.originMoveData.allowedHits : Infinity) : nextHit.originRow.allowedHits;
       if (nextHit.hitIndex >= limit) continue;
 
@@ -1004,10 +1022,9 @@ export class TimelineEngineClass {
     }
   }
 
-  _processGameTimeDecay(currentData: any, gameTimePassed: Frames, activeTeam: string[], activeRows: any[], team: any[]): void {
-    // Cooldowns and buff/effect lifetimes deliberately stay in seconds, unlike frame-domain gameTimePassed.
-    const decaySeconds = framesToSeconds(gameTimePassed);
-    const getTimeScale = (timerId: string) => {
+  // Time-scale multiplier for a timer id (a buff or cooldown name) under the row's active timeScales.
+  _timeScaleFor(currentData: any): (timerId: string) => number {
+    return (timerId: string) => {
       let mult = 1.0;
       for (const key in currentData.timeScales) {
         const ts = currentData.timeScales[key];
@@ -1020,6 +1037,12 @@ export class TimelineEngineClass {
       }
       return Math.max(0, mult);
     };
+  }
+
+  _processGameTimeDecay(currentData: any, gameTimePassed: Frames, activeTeam: string[], activeRows: any[], team: any[]): void {
+    // Cooldowns and buff/effect lifetimes deliberately stay in seconds, unlike frame-domain gameTimePassed.
+    const decaySeconds = framesToSeconds(gameTimePassed);
+    const getTimeScale = this._timeScaleFor(currentData);
 
     const expiringBuffs: Effect[] = [];
     for (const key in currentData.activeBuffs) {
