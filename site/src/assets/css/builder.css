@@ -746,6 +746,13 @@
     height: 30px;
 }
 .builder-view .mech-row:hover { background: var(--surface-lighten); }
+.builder-view .mech-row.is-draggable { cursor: grab; }
+.builder-view .mech-row.is-draggable:active { cursor: grabbing; }
+.builder-view .mech-row.is-dragging { opacity: 0.4; }
+/* box-shadow on the cells, not the <tr> itself -- table rows don't reliably paint their own
+   box-shadow across browsers. Matches .rotation-row's drag-over-top/bottom indicator. */
+.builder-view .mech-row.drag-over-top td { box-shadow: inset 0 2px 0 var(--accent); }
+.builder-view .mech-row.drag-over-bottom td { box-shadow: inset 0 -2px 0 var(--accent); }
 .builder-view .mech-row td {
     padding: 3px 6px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);

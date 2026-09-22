@@ -41,12 +41,21 @@ interface SummaryRowProps {
   setCastResAmt: (v: string) => void;
   groupSiblings?: { repeat?: [string, MechanicNode]; release?: [string, MechanicNode] };
   childOfHold?: 'Repeat' | 'Release';
+  draggable: boolean;
+  isDragging: boolean;
+  dragOverPosition: 'before' | 'after' | null;
+  onDragStart?: (e: React.DragEvent) => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDragLeave?: (e: React.DragEvent) => void;
+  onDrop?: (e: React.DragEvent) => void;
+  onDragEnd?: (e: React.DragEvent) => void;
 }
 
 export const SummaryRow: React.FC<SummaryRowProps> = ({
   nodeId, data, updateNode, activeTrigger, toggleTrigger, setActiveTrigger, removeMechanicNode,
   onMouseEnter, onMouseLeave, onFieldMouseEnter, onFieldMouseLeave,
-  setCastSelect, setDmgSelect, setCastResType, setCastResAmt, groupSiblings, childOfHold
+  setCastSelect, setDmgSelect, setCastResType, setCastResAmt, groupSiblings, childOfHold,
+  draggable, isDragging, dragOverPosition, onDragStart, onDragOver, onDragLeave, onDrop, onDragEnd
 }) => {
   const hitMultsArr = Array.isArray(data.hitMults) ? data.hitMults : [];
   // '%' in the string form is what CombatCalculator checks to route percent- vs flat-scaling --
@@ -110,8 +119,20 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
     ...(data.shareCooldownWith ? [{ label: '⇄', tooltip: `Also starts ${data.shareCooldownWith}'s own cooldown when this is cast` }] : [])
   ];
 
+  const dragClass = dragOverPosition === 'before' ? 'drag-over-top' : dragOverPosition === 'after' ? 'drag-over-bottom' : '';
+
   return (
-    <tr className="mech-row" onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
+    <tr
+      className={`mech-row ${draggable ? 'is-draggable' : ''} ${isDragging ? 'is-dragging' : ''} ${dragClass}`}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
+    >
       <td
         className={`mech-col-expand mech-trigger-cell ${activeTrigger === 'identity' ? 'is-active' : ''}`}
         onClick={toggleTrigger('identity')}

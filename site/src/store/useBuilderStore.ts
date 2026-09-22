@@ -57,6 +57,10 @@ interface BuilderState {
   setMechanicNode: (nodeId: string, node: MechanicNode, insertAfter?: string) => void;
   renameMechanicNode: (oldId: string, newId: string, node: MechanicNode) => void;
   removeMechanicNode: (nodeId: string) => void;
+  // Moves an existing node's key next to targetId (drag-and-drop reorder in the Builder's
+  // summary table) -- content is untouched, only its position in `mechanics` (and so the
+  // exported JSON's key order) changes. No-op for an unknown id or dropping onto itself.
+  reorderMechanicNode: (nodeId: string, targetId: string, position: 'before' | 'after') => void;
   // Restores one node to its pristine copy (or drops it if it never existed there). Returns false
   // if a renamed node's original id is now taken by another row.
   revertMechanicNode: (nodeId: string) => boolean;
@@ -259,6 +263,26 @@ export const useBuilderStore = create<BuilderState>()(
             renamedFrom: updatedRenamed,
             // Record oldId as deleted so a future re-fetch doesn't resurrect it from pristine data.
             deletedMechanicIds: [...state.deletedMechanicIds.filter(id => id !== oldId && id !== newId), oldId]
+          };
+        });
+      },
+
+      reorderMechanicNode: (nodeId, targetId, position) => {
+        set(state => {
+          if (nodeId === targetId || !(nodeId in state.mechanics) || !(targetId in state.mechanics)) return {};
+          const node = state.mechanics[nodeId];
+          const updated: Record<string, MechanicNode> = {};
+          Object.entries(state.mechanics).forEach(([key, val]) => {
+            if (key === nodeId) return; // re-inserted at its new spot below, not its old one
+            if (key === targetId && position === 'before') updated[nodeId] = node;
+            updated[key] = val;
+            if (key === targetId && position === 'after') updated[nodeId] = node;
+          });
+          return {
+            mechanics: updated,
+            // Content is unchanged, but the saved JSON's key order is -- flag it like any other
+            // edit so Export/the dirty badge pick it up.
+            editedMechanics: { ...state.editedMechanics, [nodeId]: node }
           };
         });
       },

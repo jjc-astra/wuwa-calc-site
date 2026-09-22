@@ -24,6 +24,16 @@ interface MechanicNodeCardProps {
   data: MechanicNode;
   groupSiblings?: { repeat?: [string, MechanicNode]; release?: [string, MechanicNode] };
   childOfHold?: 'Repeat' | 'Release';
+  // Drag-to-reorder (summary row only) -- owned by MechanicsBuilder since it spans every
+  // category table, not just this node's own.
+  dragDisabled?: boolean;
+  isDragging?: boolean;
+  dragOverPosition?: 'before' | 'after' | null;
+  onRowDragStart?: (e: React.DragEvent, nodeId: string) => void;
+  onRowDragOver?: (e: React.DragEvent, nodeId: string) => void;
+  onRowDragLeave?: (e: React.DragEvent) => void;
+  onRowDrop?: (e: React.DragEvent, nodeId: string) => void;
+  onRowDragEnd?: (e: React.DragEvent) => void;
 }
 
 export type PanelKey = 'identity' | 'inputs' | 'timeMods' | 'hits' | 'castTags' | 'dmgTags' | 'castRes' | 'cooldown';
@@ -42,7 +52,10 @@ const PANEL_FIELDS: Record<PanelKey, string[]> = {
   cooldown: ['cooldown', 'maxCharges', 'shareCooldownWith']
 };
 
-export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data, groupSiblings, childOfHold }) => {
+export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({
+  nodeId, data, groupSiblings, childOfHold,
+  dragDisabled, isDragging, dragOverPosition, onRowDragStart, onRowDragOver, onRowDragLeave, onRowDrop, onRowDragEnd
+}) => {
   const { setMechanicNode, removeMechanicNode, activeChar, baseStats, setHighlightedNodeId, setHoveredFieldHighlight, setOpenPanel } = useBuilderStore();
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Single ref shared by every field-hover source, so a fast leave-then-enter across
@@ -166,6 +179,14 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({ nodeId, data
         setCastResAmt={setCastResAmt}
         groupSiblings={groupSiblings}
         childOfHold={childOfHold}
+        draggable={!dragDisabled && activeTrigger === null}
+        isDragging={!!isDragging}
+        dragOverPosition={dragOverPosition ?? null}
+        onDragStart={onRowDragStart ? (e: React.DragEvent) => onRowDragStart(e, nodeId) : undefined}
+        onDragOver={onRowDragOver ? (e: React.DragEvent) => onRowDragOver(e, nodeId) : undefined}
+        onDragLeave={onRowDragLeave}
+        onDrop={onRowDrop ? (e: React.DragEvent) => onRowDrop(e, nodeId) : undefined}
+        onDragEnd={onRowDragEnd}
       />
 
       {activeTrigger && (

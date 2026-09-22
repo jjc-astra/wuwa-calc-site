@@ -142,10 +142,41 @@ function resolveHoldGroups(allMechs: Record<string, MechanicNode>) {
 }
 
 export const MechanicsBuilder: React.FC = () => {
-  const { activeChar, setActiveChar, mechanics, setMechanicNode, baseStats, setBaseStat, hasChanges } = useBuilderStore();
+  const { activeChar, setActiveChar, mechanics, setMechanicNode, reorderMechanicNode, baseStats, setBaseStat, hasChanges } = useBuilderStore();
   const { skipIds: holdGroupSkipIds, groupSiblings: holdGroupSiblings } = resolveHoldGroups(mechanics);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTemplates, setSelectedTemplates] = useState<Record<string, string>>({});
+
+  // Drag-to-reorder for the summary table rows -- one dragged id + drop target shared across
+  // every category table, since only one drag gesture can be in flight at a time.
+  const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
+  const [dragOverInfo, setDragOverInfo] = useState<{ nodeId: string; position: 'before' | 'after' } | null>(null);
+
+  const handleRowDragStart = (e: React.DragEvent, nodeId: string) => {
+    setDraggedNodeId(nodeId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+  const handleRowDragOver = (e: React.DragEvent, nodeId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (!draggedNodeId || draggedNodeId === nodeId) return;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const isBelow = e.clientY > rect.top + rect.height / 2;
+    setDragOverInfo({ nodeId, position: isBelow ? 'after' : 'before' });
+  };
+  const handleRowDragLeave = () => setDragOverInfo(null);
+  const handleRowDrop = (e: React.DragEvent, nodeId: string) => {
+    e.preventDefault();
+    if (draggedNodeId && draggedNodeId !== nodeId) {
+      reorderMechanicNode(draggedNodeId, nodeId, dragOverInfo?.position === 'after' ? 'after' : 'before');
+    }
+    setDraggedNodeId(null);
+    setDragOverInfo(null);
+  };
+  const handleRowDragEnd = () => {
+    setDraggedNodeId(null);
+    setDragOverInfo(null);
+  };
 
   if (!activeChar) {
     const buildSection = (
@@ -413,7 +444,21 @@ export const MechanicsBuilder: React.FC = () => {
                           if (sib?.release) ordered.push({ id: sib.release[0], node: sib.release[1], groupSiblings: sib, childRole: 'Release' });
                         });
                         return ordered.map(({ id, node, groupSiblings, childRole }) => (
-                          <MechanicNodeCard key={id} nodeId={id} data={node} groupSiblings={groupSiblings} childOfHold={childRole} />
+                          <MechanicNodeCard
+                            key={id}
+                            nodeId={id}
+                            data={node}
+                            groupSiblings={groupSiblings}
+                            childOfHold={childRole}
+                            dragDisabled={!!childRole}
+                            isDragging={draggedNodeId === id}
+                            dragOverPosition={dragOverInfo?.nodeId === id ? dragOverInfo.position : null}
+                            onRowDragStart={handleRowDragStart}
+                            onRowDragOver={handleRowDragOver}
+                            onRowDragLeave={handleRowDragLeave}
+                            onRowDrop={handleRowDrop}
+                            onRowDragEnd={handleRowDragEnd}
+                          />
                         ));
                       })()}
                     </table>
