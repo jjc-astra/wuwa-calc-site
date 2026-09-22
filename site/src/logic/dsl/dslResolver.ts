@@ -3,7 +3,8 @@
 // AutocompleteInput.tsx, which is otherwise just the UI.
 import {
   DSL_POINTERS, DSL_EVENTS, DSL_EVENT_TOOLTIPS, DSL_MODIFIERS, DSL_MODIFIER_TOOLTIPS,
-  DSL_FUNCTIONS, DSL_FUNCTION_TOOLTIPS, DSL_TYPE_METHODS, DSL_MATH_METHODS, DSL_MATH_METHOD_TOOLTIPS
+  DSL_FUNCTIONS, DSL_FUNCTION_TOOLTIPS, DSL_TYPE_METHODS, DSL_MATH_METHODS, DSL_MATH_METHOD_TOOLTIPS,
+  DSL_LOGIC_TOOLTIPS
 } from './dslRegistry';
 import type { MatchRule, SuggestionItem } from './dslTypes';
 import { BuilderState, CAST_TYPE_COLORS } from '../../data/db';
@@ -87,6 +88,7 @@ export function resolvePropertyTooltip(pointer: string, key: string): string | u
 export function resolveSystemMethodTooltip(key: string): string | undefined {
   return DSL_MATH_METHOD_TOOLTIPS[key] ?? Object.values(DSL_TYPE_METHODS).flat().find(m => m.name === key)?.tooltip;
 }
+export function resolveLogicTooltip(key: string): string | undefined { return DSL_LOGIC_TOOLTIPS[key]; }
 
 export function makePointerRootRule(): MatchRule {
   return {
@@ -168,8 +170,8 @@ export function makeMathRule(): MatchRule {
 export function makeEventModifierBracketRule(activeChar: string | null, mechanics: Record<string, MechanicNode>): MatchRule {
   const currentNamespace = MechanicKey.toNamespace(activeChar);
   return {
-    // OnCast[Self, ...] etc.: modifiers + move refs, scoped to System + current unit.
-    trigger: /\b(?:On|After)[a-zA-Z]*\[([^\]]*)$/i,
+    // Matches bracketed modifiers/moves (scoped to System + unit), optionally following event args like AfterHit(3)[...].
+    trigger: /\b(?:On|After)[a-zA-Z]*(?:\([^)]*\))?\[([^\]]*)$/i,
     options: () => [
       ...DSL_MODIFIERS.map(v => ({ val: v, group: 'Modifiers' })),
       ...collectMechanicReferences(mechanics, currentNamespace)
@@ -180,14 +182,58 @@ export function makeEventModifierBracketRule(activeChar: string | null, mechanic
   };
 }
 
+// Checks if `beforeCursor` is within an IF condition, where ALL/XOR/NOT are valid (ANY works in both).
+const isInConditionClause = (beforeCursor: string): boolean => / IF |^IF /.test(beforeCursor);
+
 export function makeEventListRule(trigger: RegExp): MatchRule {
   const parenEvents: string[] = ['AfterHit', 'OnTick'];
   const bracketEvents: string[] = DSL_EVENTS.filter(
     e => !['ALWAYS', 'OnStart', 'OnSwapIn', 'OnSwapOut', 'OnUnitChange', ...parenEvents].includes(e)
   );
+  const logicWrappers = ['ANY', 'ALL', 'XOR', 'NOT'];
   return {
     trigger,
-    options: DSL_EVENTS.map(v => ({ val: v, group: 'Events' })),
+    options: (match) => {
+      const beforeCursor = (match.input ?? '').slice(0, match.index ?? 0);
+      const items: SuggestionItem[] = [
+        ...DSL_EVENTS.map(v => ({ val: v, group: 'Events' })),
+        { val: 'ANY', group: 'Logic' }
+      ];
+      if (isInConditionClause(beforeCursor)) {
+        items.push({ val: 'ALL', group: 'Logic' }, { val: 'XOR', group: 'Logic' }, { val: 'NOT', group: 'Logic' });
+      }
+      return items;
+    },
+    prefix: '',
+    dynamicAppend: (val) => (logicWrappers.includes(val) || parenEvents.includes(val)) ? '(' : (bracketEvents.includes(val) ? '[' : ' ')
+  };
+}
+
+// Autocompletes top-level events immediately inside ANY(...) after the opening paren or commas.
+export function makeAnyTriggerListRule(): MatchRule {
+  const parenEvents: string[] = ['AfterHit', 'OnTick'];
+  const bracketEvents: string[] = DSL_EVENTS.filter(
+    e => !['ALWAYS', 'OnStart', 'OnSwapIn', 'OnSwapOut', 'OnUnitChange', ...parenEvents].includes(e)
+  );
+  return {
+    // Captures preceding ANY(...) content in group 1, isolating the active trailing token in group 2 for replacement.
+    trigger: /\bANY\(([\s\S]*?)([A-Za-z]*)$/i,
+    matchGroup: 2,
+    options: (match) => {
+      const inner = match[1] ?? '';
+      let depth = 0;
+      for (const ch of inner) {
+        if (ch === '(' || ch === '[') depth++;
+        else if (ch === ')' || ch === ']') {
+          depth--;
+          // Unmatched closing paren terminates ANY(...); remaining text belongs to subsequent clauses (e.g., ' IF (...)').
+          if (depth < 0) return [];
+        }
+      }
+      // Nested brackets/parens (`depth > 0`) delegate completion to inner arg/modifier rules.
+      if (depth !== 0) return [];
+      return DSL_EVENTS.map(v => ({ val: v, group: 'Events' }));
+    },
     prefix: '',
     dynamicAppend: (val) => parenEvents.includes(val) ? '(' : (bracketEvents.includes(val) ? '[' : ' ')
   };

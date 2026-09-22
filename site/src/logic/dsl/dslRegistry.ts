@@ -79,6 +79,14 @@ export const DSL_MODIFIER_TOOLTIPS: Record<string, string> = {
   ...Object.fromEntries(NEGATIVE_STATUSES.map(status => [status, `Matches the ${status} status.`]))
 };
 
+// Logic wrappers: ANY(...) works for events and conditions; ALL/XOR/NOT are condition-only (offered after ' IF ').
+export const DSL_LOGIC_TOOLTIPS: Record<string, string> = {
+  ANY: 'Before IF: fires on any of several events. Inside a condition: true if any comma-separated argument is true (an OR).',
+  ALL: 'Condition wrapper — true only if every comma-separated argument is true (an AND).',
+  XOR: 'Condition wrapper — true if exactly one of its two arguments is true, not both and not neither.',
+  NOT: 'Condition wrapper — true if its argument is false.'
+};
+
 export const DSL_FUNCTIONS = ['StatusMult()'];
 export const DSL_FUNCTION_TOOLTIPS: Record<string, string> = {
   'StatusMult()': 'Function — returns the negative-status damage multiplier for a given status and stack count, e.g. @StatusMult(Aero Erosion, @Self.Tracker(Stacks)).'

@@ -6,9 +6,9 @@ import { SHEET_STAT_TOOLTIPS } from '../../data/db';
 import { MOD_LABEL_TOOLTIPS } from '../../logic/combat/combatRegistry';
 import {
   resolveEventTooltip, resolveModifierTooltip, resolvePointerTooltip, resolveFunctionTooltip,
-  resolvePropertyTooltip, resolveSystemMethodTooltip,
+  resolvePropertyTooltip, resolveSystemMethodTooltip, resolveLogicTooltip,
   makePointerRootRule, makePropertyRule, makeMethodChainRule, makeMathRule,
-  makeEventModifierBracketRule, makeEventListRule, makeNamespaceRefRule,
+  makeEventModifierBracketRule, makeEventListRule, makeAnyTriggerListRule, makeNamespaceRefRule,
   makeEffectNameRules, makeCooldownNameRule, makeStatRule, makeTargetRule, makeAppliesDuringRule
 } from '../../logic/dsl/dslResolver';
 import { useBuilderStore } from '../../store/useBuilderStore';
@@ -40,6 +40,8 @@ function resolveTooltip(item: SuggestionItem, group: string): string | undefined
     case 'String Methods':
     case 'Math Functions':
       return resolveSystemMethodTooltip(key);
+    case 'Logic':
+      return resolveLogicTooltip(key);
     case 'Properties':
       return item.pointer ? resolvePropertyTooltip(item.pointer, key) : undefined;
     case 'Sheet Stats':
@@ -141,9 +143,10 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
     // General DSL Input Rules
     return [
       makeEventModifierBracketRule(activeChar, mechanics),
+      makeAnyTriggerListRule(),
       makePointerRootRule(),
       makeNamespaceRefRule(mechanics),
-      makeEventListRule(/\b((?:On|After|Det|AL)[a-zA-Z]*)$/i),
+      makeEventListRule(/\b((?:On|After|Det|AL|AN|XO|NO)[a-zA-Z]*)$/i),
       makePropertyRule(baseStats),
       makeMethodChainRule(),
       makeMathRule(),
