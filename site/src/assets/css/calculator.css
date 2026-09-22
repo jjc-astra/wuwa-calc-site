@@ -324,8 +324,9 @@
     background: transparent;
     position: relative;
     z-index: 1;
-    scrollbar-color: color-mix(in srgb, white 22%, transparent) transparent;
+    scrollbar-color: rgba(121, 121, 121, 0.4) transparent;
 }
+
 .rotation-scrollbar-map {
     position: absolute;
     right: 0;
