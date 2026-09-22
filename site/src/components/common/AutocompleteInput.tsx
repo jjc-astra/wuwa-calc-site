@@ -8,7 +8,7 @@ import {
   resolveEventTooltip, resolveModifierTooltip, resolvePointerTooltip, resolveFunctionTooltip,
   resolvePropertyTooltip, resolveSystemMethodTooltip, resolveLogicTooltip,
   makePointerRootRule, makePropertyRule, makeMethodChainRule, makeMathRule,
-  makeEventModifierBracketRule, makeEventListRule, makeAnyTriggerListRule, makeNamespaceRefRule,
+  makeEventModifierBracketRule, makeEventListRule, makeEventArgsCloseRule, makeAnyTriggerListRule, makeNamespaceRefRule,
   makeEffectNameRules, makeCooldownNameRule, makeStatRule, makeTargetRule, makeAppliesDuringRule
 } from '../../logic/dsl/dslResolver';
 import { useBuilderStore } from '../../store/useBuilderStore';
@@ -143,6 +143,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
     // General DSL Input Rules
     return [
       makeEventModifierBracketRule(activeChar, mechanics),
+      makeEventArgsCloseRule(),
       makeAnyTriggerListRule(),
       makePointerRootRule(),
       makeNamespaceRefRule(mechanics),

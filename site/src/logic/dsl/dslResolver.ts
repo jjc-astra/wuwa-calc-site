@@ -209,6 +209,17 @@ export function makeEventListRule(trigger: RegExp): MatchRule {
   };
 }
 
+// Auto-inserts "[" immediately after AfterHit/OnTick close their parens to trigger modifier completion.
+export function makeEventArgsCloseRule(): MatchRule {
+  return {
+    trigger: /\b(?:AfterHit|OnTick)\([^()]*\)()$/i,
+    matchGroup: 1,
+    // Uses standard insertion for non-'Continue' groups to reopen suggestions, bypassing the no-op '[' handling.
+    options: [{ val: '[', group: 'Syntax', label: '[  (add modifiers)' }],
+    prefix: ''
+  };
+}
+
 // Autocompletes top-level events immediately inside ANY(...) after the opening paren or commas.
 export function makeAnyTriggerListRule(): MatchRule {
   const parenEvents: string[] = ['AfterHit', 'OnTick'];
@@ -222,16 +233,20 @@ export function makeAnyTriggerListRule(): MatchRule {
     options: (match) => {
       const inner = match[1] ?? '';
       let depth = 0;
-      for (const ch of inner) {
+      let lastTopLevelComma = 0;
+      for (let i = 0; i < inner.length; i++) {
+        const ch = inner[i];
         if (ch === '(' || ch === '[') depth++;
         else if (ch === ')' || ch === ']') {
           depth--;
           // Unmatched closing paren terminates ANY(...); remaining text belongs to subsequent clauses (e.g., ' IF (...)').
           if (depth < 0) return [];
+        } else if (ch === ',' && depth === 0) {
+          lastTopLevelComma = i + 1;
         }
       }
-      // Nested brackets/parens (`depth > 0`) delegate completion to inner arg/modifier rules.
-      if (depth !== 0) return [];
+      // Skips completion if nested (`depth > 0`) or mid-entry; inner arg, bracket, or boundary rules handle those positions.
+      if (depth !== 0 || inner.slice(lastTopLevelComma).trim() !== '') return [];
       return DSL_EVENTS.map(v => ({ val: v, group: 'Events' }));
     },
     prefix: '',
