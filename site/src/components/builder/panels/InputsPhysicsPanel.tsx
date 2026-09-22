@@ -5,14 +5,14 @@ import { AutocompleteInput } from '../../common/AutocompleteInput';
 import { Dropdown, type DropdownOption } from '../../common/Dropdown';
 import { MECHANICS_NOTATION } from '../../../data/db';
 import { displayTimeVal, tip } from '../mechanicNodeHelpers';
-import { parseTimeInput } from '../../../utils/Frames';
+import { parseTimeInput, toFrames } from '../../../utils/Frames';
 import { getStanceChanges, stanceChangeFrames } from '../../../utils/Stance';
 
 // Grounded (green) / Midair (red) across the move's length; a stance the move accepts either of
 // (an "Any" start, before its first change) is hatched with both.
 const StanceBar: React.FC<{ data: MechanicNode; changes: StanceChange[] }> = ({ data, changes }) => {
   const duration = typeof data.actionDuration === 'number' ? data.actionDuration : 0;
-  const cancelFrames = (data.cancelTimings || []).map(ct => ct.time).filter((t): t is number => typeof t === 'number');
+  const cancelFrames = (data.cancelTimings || []).map(ct => ct.time);
   const ordered = changes
     .map(c => ({ stance: c.stance, frame: stanceChangeFrames(c) }))
     .sort((a, b) => a.frame - b.frame);
@@ -153,7 +153,9 @@ export const InputsPhysicsPanel: React.FC<InputsPhysicsPanelProps> = ({ data, up
                   onBlur={() => {
                     if (typeof c.time !== 'string' || c.time.trim() === '') return;
                     const parsed = parseTimeInput(c.time, 'frames');
-                    if (parsed !== c.time) setChanges(changes.map((x, j) => (j === i ? { ...x, time: parsed } : x)));
+                    if (parsed === c.time) return;
+                    const framesOrDsl = typeof parsed === 'number' ? toFrames(parsed) : parsed;
+                    setChanges(changes.map((x, j) => (j === i ? { ...x, time: framesOrDsl } : x)));
                   }}
                   placeholder="0f"
                 />

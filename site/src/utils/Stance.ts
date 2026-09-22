@@ -1,11 +1,12 @@
 import type { MechanicNode, StanceChange } from '../types';
+import { toFrames } from './Frames';
 
 // A move's mid-move stance changes, in authored order. Nodes saved before `stanceChanges` existed
 // carried one change as stanceResult/stanceTime (a missing time meant 0); those read as one entry.
 export function getStanceChanges(node: MechanicNode): StanceChange[] {
   if (node.stanceChanges) return node.stanceChanges;
   if (node.stanceResult && node.stanceResult !== 'Retain') {
-    return [{ stance: node.stanceResult, time: node.stanceTime ?? 0 }];
+    return [{ stance: node.stanceResult, time: node.stanceTime ?? toFrames(0) }];
   }
   return [];
 }
