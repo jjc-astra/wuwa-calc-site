@@ -6,6 +6,8 @@
 }
 .scrollable { overflow-y: auto; padding-right: 10px; }
 
+.builder-view .category-group-name { width: 280px; }
+
 /* --- Grid View --- */
 .char-grid {
     display: grid;
@@ -139,6 +141,13 @@
     min-height: 0;
     padding: 10px;
 }
+/* Import/Export JSON on the left, the "MECHANICS CHANGED" badge + Reset Cache on the right --
+   neither side wraps or shrinks on its own, so once the badge appears in a narrower
+   .output-pane-wrapper (the stacked mobile layout, but this can bite anywhere the pane is
+   narrow), Reset Cache gets pushed straight off the edge of the panel instead of onto its own
+   line. */
+.outputs-actions-row { flex-wrap: wrap; row-gap: 8px; }
+
 .output-pane {
     flex: 1;
     display: flex;
@@ -1097,3 +1106,30 @@
     padding: 0 2px;
 }
 .builder-view .mech-list-remove:hover { color: var(--accent); }
+
+/* =========================================
+   MOBILE LAYOUT (must stay last -- overriding rules earlier in this file at equal specificity)
+   ========================================= */
+
+/* Stacks setup/output panes vertically below 1150px (including phone desktop-mode viewports ~980-1024px) while preserving internal scrolling. */
+@media (max-width: 1150px) {
+    #view-editor.builder-view { flex-direction: column; }
+
+    /* Splits stacked panes evenly (1:1) so outputs have sufficient vertical space for JSON inspection. */
+    .editor-pane { flex: 1; }
+    .output-pane-wrapper { flex: 1; }
+
+    /* Reduces the fixed character JSON block height so the mechanics JSON block claims most of the output space via flex:1. */
+    .code-block-char { max-height: 70px; }
+}
+
+/* Allows category header controls to wrap, preventing the row from forcing card width on narrow viewports. */
+@media (max-width: 640px) {
+    .builder-view .mechanic-header {
+        flex-wrap: wrap;
+        row-gap: 8px;
+        align-items: flex-start;
+    }
+    .builder-view .category-group-name { width: 100%; }
+    .builder-view .w-150px { width: 130px; }
+}

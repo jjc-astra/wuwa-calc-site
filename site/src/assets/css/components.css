@@ -7,8 +7,13 @@
    ========================================= */
 html, body {
     height: 100vh;
+    /* dvh tracks the real visible viewport as a mobile browser's address bar shows/hides --
+       plain vh is pinned to the tallest (bar-hidden) state, so on mobile the page is taller than
+       what's actually visible and the extra gets cut off instead of laid out. Cascades over the
+       vh line above on browsers that support it; ignored (falls back to vh) on ones that don't. */
+    height: 100dvh;
     margin: 0;
-    padding: 0 10px 10px 10px;
+    padding: 0 10px max(10px, env(safe-area-inset-bottom)) 10px;
     background-color: var(--bg-dark);
     color: var(--text-main);
     font-family: sans-serif;
@@ -120,6 +125,22 @@ html, body {
     padding: 1px 5px;
     border-radius: 3px;
     letter-spacing: 0.3px;
+}
+
+/* Enables nav row wrapping on narrow viewports to prevent trailing links from clipping off-screen. */
+@media (max-width: 720px) {
+    .global-nav-header {
+        flex-wrap: wrap;
+        row-gap: 8px;
+        padding: 8px 12px;
+    }
+    .global-nav-header .header-left {
+        flex-wrap: wrap;
+        row-gap: 8px;
+    }
+    .nav-items { flex-wrap: wrap; row-gap: 6px; }
+    .nav-item-btn { padding: 6px 10px; font-size: 0.72rem; }
+    .header-right { flex-wrap: wrap; row-gap: 6px; justify-content: flex-end; }
 }
 
 /* =========================================

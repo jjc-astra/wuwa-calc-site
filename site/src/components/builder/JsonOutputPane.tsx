@@ -533,7 +533,7 @@ export const JsonOutputPane: React.FC = () => {
     <div className="output-pane-wrapper">
       <div className="panel-header-main">Outputs</div>
       <div className="output-pane">
-      <div className="flex-row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+      <div className="flex-row outputs-actions-row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
         <div className="flex-row gap-sm" style={{ width: 'auto' }}>
           <input ref={importInputRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleImportFileChange} />
           <ActionsMenuButton

@@ -373,3 +373,18 @@
 .ranking-tooltip-swatch { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
 .ranking-tooltip-label { flex: 1; color: var(--text-main); }
 .ranking-tooltip-value { color: var(--text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* =========================================
+   MOBILE LAYOUT (must stay last -- overriding rules earlier in this file at equal specificity)
+   ========================================= */
+/* Stacks sidebar above the main content on narrow viewports to prevent child elements from crushing the rankings table. */
+@media (max-width: 860px) {
+    .rankings-page-body {
+        flex-direction: column;
+        align-items: stretch;
+        padding: var(--space-4);
+    }
+    .rankings-sidebar { width: 100%; }
+    /* Uses flex:1 instead of width:100% so the slider consumes remaining row space without overflowing past the label. */
+    .range-slider { flex: 1; width: auto; }
+}

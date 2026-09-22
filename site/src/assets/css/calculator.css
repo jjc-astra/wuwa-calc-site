@@ -173,6 +173,30 @@
     }
 }
 
+/* Mobile layout: stacks char/weapon/set into a single column; keeps echoes in a horizontal scroll row. */
+@media (max-width: 760px) {
+    .char-row {
+        grid-template-columns: 1fr;
+        grid-template-areas: "char" "weapon" "set" "echo";
+        min-width: 0;
+        overflow-x: visible;
+        margin: 10px 0;
+    }
+    .panel-col {
+        border-right: none;
+        border-bottom: 1px dashed var(--border);
+        padding-bottom: 10px;
+        margin-bottom: 10px;
+    }
+    .panel-col:nth-child(3) { border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
+    /* Raises min-width on mobile to keep card stats legible, delegating overflow to horizontal scroll. */
+    .echo-container {
+        grid-template-columns: repeat(5, minmax(210px, 1fr));
+        overflow-x: auto;
+        min-width: 0;
+    }
+}
+
 /* --- Echo Cards --- */
 .echo-card-wrap {
     margin: 0 4px;
@@ -312,6 +336,11 @@
     flex: 1;
     min-height: 0;
     display: flex;
+    /* .rotation-scrollbar-segment-marker bleeds 2px past .rotation-scrollbar-map on purpose (to
+       cover the scrollbar's rounded edges) -- without a clip here, that permanent 2px reads as
+       real overflow and forces #rotation-content into horizontal scroll at every width, even
+       though nothing actually needs it. */
+    overflow: hidden;
 }
 #rotation-builder {
     flex: 1;
@@ -1094,4 +1123,34 @@
 
 @keyframes spin {
     to { transform: rotate(360deg); }
+}
+
+/* =========================================
+   MOBILE LAYOUT (must stay last -- overriding rules earlier in this file at equal specificity)
+   ========================================= */
+@media (max-width: 760px) {
+    .idle-stats-wrapper { flex-direction: column; }
+    .idle-stat-card { min-width: 0; }
+}
+
+/* Tightens grid column floors and allows the toolbar to wrap, lowering the horizontal scroll breakpoint well below 900px. */
+@media (max-width: 900px) {
+    :root {
+        --rot-grid: 15px 90px minmax(90px, 1fr) 55px 60px 50px 95px 65px 55px 45px 32px;
+    }
+    .rotation-toolbar {
+        padding: 10px;
+        min-width: 0;
+    }
+    /* Wraps the button cluster internally rather than .rotation-toolbar to keep toggles together and prevent clipping. */
+    .rotation-toolbar > .flex-row.gap-sm {
+        flex-wrap: wrap;
+        row-gap: 8px;
+    }
+    .rotation-header-row,
+    .row-grid-layer {
+        gap: 6px;
+        padding: 5px 10px;
+        min-width: 0;
+    }
 }

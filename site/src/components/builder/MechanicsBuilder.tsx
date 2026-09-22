@@ -304,7 +304,7 @@ export const MechanicsBuilder: React.FC = () => {
 
   return (
     <div id="view-editor" className="builder-view" style={{ flex: 1, minHeight: 0, height: '100%' }}>
-      <div className="editor-pane scrollable" style={{ flex: 3, overflowY: 'auto', minHeight: 0 }}>
+      <div className="editor-pane scrollable" style={{ overflowY: 'auto', minHeight: 0 }}>
         <div className="panel-header-main" id="editor-char-name">
           {activeChar.toUpperCase()} SETUP
         </div>
@@ -343,7 +343,7 @@ export const MechanicsBuilder: React.FC = () => {
                           const updated = { ...skillGroupNames, [cat]: e.target.value };
                           setBaseStat('skillGroupNames', updated);
                         }}
-                        style={{ height: '24px', fontSize: '0.8rem', width: '280px', borderColor: 'var(--border)', background: 'rgba(0,0,0,0.2)' }}
+                        style={{ height: '24px', fontSize: '0.8rem', borderColor: 'var(--border)', background: 'rgba(0,0,0,0.2)' }}
                       />
                     )}
                   </div>
