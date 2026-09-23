@@ -70,7 +70,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
           type="button"
           className="base-btn icon-btn quick-build-btn"
           {...tip('Load Recommended Build')}
-          style={{ position: 'absolute', top: '0px', left: '5px', zIndex: 10 }}
+          style={{ position: 'absolute', top: '0px', left: '0.3125rem', zIndex: 10 }}
           onClick={(e) => {
             e.preventDefault();
             if (slot.character) applyRecommendedBuild(index, slot.character);
@@ -85,7 +85,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
           type="button"
           className="base-btn icon-btn clear-slot-btn"
           {...tip('Remove from Roster')}
-          style={{ position: 'absolute', top: '0px', right: '5px', zIndex: 10 }}
+          style={{ position: 'absolute', top: '0px', right: '0.3125rem', zIndex: 10 }}
           onClick={(e) => {
             e.preventDefault();
             if (slot.character) clearSlot(index);

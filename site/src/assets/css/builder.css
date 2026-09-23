@@ -4,14 +4,14 @@
 .builder-view {
     flex: 1; display: flex; overflow: hidden; height: 100%;
 }
-.scrollable { overflow-y: auto; padding-right: 10px; }
+.scrollable { overflow-y: auto; padding-right: 0.625rem; }
 
-.builder-view .category-group-name { width: 280px; }
+.builder-view .category-group-name { width: 17.5rem; }
 
 /* --- Grid View --- */
 .char-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(5.625rem, 1fr));
     gap: var(--space-6) var(--space-4);
     width: 100%;
     align-content: start;
@@ -22,17 +22,17 @@
     display: flex;
     flex-direction: column;
     background: var(--bg-well);
-    border-radius: 6px;
+    border-radius: 0.375rem;
     cursor: pointer;
     transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), filter 0.2s;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0.25rem 0.375rem rgba(0, 0, 0, 0.3);
     position: relative;
 }
 
 .char-grid-card:hover {
-    transform: translateY(-4px);
+    transform: translateY(-0.25rem);
     filter: brightness(1.15);
-    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 0.5rem 0.75rem rgba(0, 0, 0, 0.5);
 }
 
 .char-grid-card.is-unimplemented {
@@ -45,7 +45,7 @@
 .char-icon {
     width: 100%;
     aspect-ratio: 1 / 1.15;
-    border-radius: 6px 6px 0 0;
+    border-radius: 0.375rem 0.375rem 0 0;
     background: var(--bg-panel);
     position: relative;
     overflow: hidden;
@@ -55,7 +55,7 @@
     font-size: 2.5rem;
     font-weight: bold;
     color: var(--text-dim);
-    border-bottom: 3px solid var(--accent);
+    border-bottom: 0.1875rem solid var(--accent);
 }
 
 .char-grid-img {
@@ -75,15 +75,15 @@
 
 .char-grid-dirty-badge {
     position: absolute;
-    top: -6px;
-    right: -6px;
+    top: -0.375rem;
+    right: -0.375rem;
     z-index: 3;
-    width: 20px;
-    height: 20px;
+    width: 1.25rem;
+    height: 1.25rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.7));
+    filter: drop-shadow(0 1px 0.1875rem rgba(0, 0, 0, 0.7));
     animation: flash 1s infinite ease-in-out;
 }
 .char-grid-dirty-badge svg {
@@ -115,7 +115,7 @@
 }
 
 .echo-set-icon {
-    border-radius: 6px 6px 0 0 !important;
+    border-radius: 0.375rem 0.375rem 0 0 !important;
     background: transparent !important;
     aspect-ratio: 1 / 1 !important;
     padding: var(--space-2);
@@ -125,28 +125,28 @@
 }
 
 /* --- Rarity Colors --- */
-.rarity-5 { border-bottom: 5px solid var(--warning); }
-.rarity-4 { border-bottom: 5px solid #b873f9; }
+.rarity-5 { border-bottom: 0.3125rem solid var(--warning); }
+.rarity-4 { border-bottom: 0.3125rem solid #b873f9; }
 .rarity-none {
     border-bottom: none !important;
-    border-radius: 6px !important;
+    border-radius: 0.375rem !important;
 }
 
 /* --- Editor Split Pane --- */
-.editor-pane { flex: 3; padding: 10px; }
+.editor-pane { flex: 3; padding: 0.625rem; }
 .output-pane-wrapper {
     flex: 2;
     display: flex;
     flex-direction: column;
     min-height: 0;
-    padding: 10px;
+    padding: 0.625rem;
 }
 /* Import/Export JSON on the left, the "MECHANICS CHANGED" badge + Reset Cache on the right --
    neither side wraps or shrinks on its own, so once the badge appears in a narrower
    .output-pane-wrapper (the stacked mobile layout, but this can bite anywhere the pane is
    narrow), Reset Cache gets pushed straight off the edge of the panel instead of onto its own
    line. */
-.outputs-actions-row { flex-wrap: wrap; row-gap: 8px; }
+.outputs-actions-row { flex-wrap: wrap; row-gap: 0.5rem; }
 
 .output-pane {
     flex: 1;
@@ -155,7 +155,7 @@
     min-height: 0;
     padding: var(--space-6);
     background: var(--surface-card);
-    border-radius: 8px;
+    border-radius: 0.5rem;
     border: 1px solid var(--border);
 }
 
@@ -165,12 +165,12 @@
     width: 100%;
     background: var(--bg-dark);
     border: 1px solid var(--border);
-    border-radius: 6px;
-    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.6);
+    border-radius: 0.375rem;
+    box-shadow: inset 0 2px 0.5rem rgba(0, 0, 0, 0.6);
     color: #d4d4d4;
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.85rem;
-    padding: 15px;
+    padding: 0.9375rem;
     margin: 0;
     line-height: 1.5;
     overflow-y: auto;
@@ -207,7 +207,7 @@
 }
 
 .code-highlighted { background-color: rgba(220, 165, 76, 0.25); transition: background-color 0.1s ease; }
-.code-field-highlighted { box-shadow: inset 0 0 0 9999px rgba(220, 165, 76, 0.25); }
+.code-field-highlighted { box-shadow: inset 0 0 0 624.9375rem rgba(220, 165, 76, 0.25); }
 
 /* --- Editable output (click a block to edit its raw JSON; live-applies to the Builder's
    nodes/base stats as you type). Editing keeps syntax coloring via the classic transparent-
@@ -217,7 +217,7 @@
    selection are visible, and font/padding/line-height are identical on both (line-height/
    font inherited from the wrapper's own .code-editor rules) so characters line up exactly. */
 .code-blocks { flex: 1; display: flex; flex-direction: column; gap: var(--space-3); min-height: 0; }
-.code-block-char { flex: 0 0 auto; display: flex; flex-direction: column; max-height: 220px; }
+.code-block-char { flex: 0 0 auto; display: flex; flex-direction: column; max-height: 13.75rem; }
 .code-block-mech { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .code-block-section .code-editor { cursor: text; }
 .code-editor-editing {
@@ -232,7 +232,7 @@
     position: absolute;
     inset: 0;
     margin: 0;
-    padding: 15px;
+    padding: 0.9375rem;
     border: none;
     background: transparent;
     font: inherit;
@@ -257,7 +257,7 @@
 .code-wrap-arrow {
     position: absolute;
     left: 0;
-    width: 15px;
+    width: 0.9375rem;
     height: 1.5em;
     background-image: var(--wrap-arrow);
     background-size: 1.8ch 1.5em;
@@ -275,7 +275,7 @@
 }
 .code-editor-editing.has-error .code-edit-input { caret-color: #e05252; }
 .code-edit-input::selection { background: rgba(220, 165, 76, 0.35); color: transparent; }
-.code-error-msg { color: #e05252; font-size: 0.75rem; padding: 4px 2px 0; }
+.code-error-msg { color: #e05252; font-size: 0.75rem; padding: 0.25rem 2px 0; }
 
 .syntax-key { color: #9cdcfe; }
 .syntax-string { color: #ce9178; }
@@ -287,8 +287,8 @@
 .builder-view .mechanic-category {
     background: var(--surface-card);
     border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 15px;
+    border-radius: 0.375rem;
+    padding: 0.9375rem;
 }
 
 .builder-view .mechanic-header {
@@ -298,14 +298,14 @@
 }
 
 .builder-view .nodes-container {
-    margin-top: 10px;
+    margin-top: 0.625rem;
     overflow-x: auto;
 }
 
 /* --- Form Fields --- */
 .builder-view .form-row {
     display: flex;
-    gap: 10px;
+    gap: 0.625rem;
     margin-bottom: var(--space-4);
     flex-wrap: nowrap;
     align-items: flex-end;
@@ -334,10 +334,10 @@
     background: transparent;
     border: 1px solid var(--border);
     color: var(--text-main);
-    border-radius: 4px;
+    border-radius: 0.25rem;
     font-family: monospace;
-    padding: 0 8px;
-    height: 28px;
+    padding: 0 0.5rem;
+    height: 1.75rem;
     box-sizing: border-box;
     width: 100%;
 }
@@ -358,7 +358,7 @@
 }
 
 .builder-view .dsl-input {
-    font-size: 13px;
+    font-size: 0.8125rem;
 }
 
 .builder-view .dsl-highlight-content {
@@ -385,9 +385,9 @@
     background: transparent;
     border: 1px solid var(--border);
     color: var(--text-main);
-    border-radius: 4px;
-    padding: 0 4px;
-    height: 28px;
+    border-radius: 0.25rem;
+    padding: 0 0.25rem;
+    height: 1.75rem;
     box-sizing: border-box;
 }
 
@@ -396,10 +396,10 @@
     z-index: 9999;
     background: var(--bg-panel);
     border: 1px solid var(--border);
-    border-radius: 4px;
+    border-radius: 0.25rem;
     overflow-y: auto;
     width: max-content;
-    box-shadow: 0 4px 6px var(--overlay-b4);
+    box-shadow: 0 0.25rem 0.375rem var(--overlay-b4);
 }
 
 .autocomplete-item {
@@ -420,11 +420,11 @@
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-2);
-    min-height: 28px;
+    min-height: 1.75rem;
     padding: var(--space-1);
     background: transparent;
     border: 1px solid var(--border);
-    border-radius: 4px;
+    border-radius: 0.25rem;
     align-items: center;
     box-sizing: border-box;
 }
@@ -436,8 +436,8 @@
     background: var(--accent-focus);
     border: 1px solid var(--accent);
     color: var(--accent);
-    padding: 2px 8px;
-    border-radius: 12px;
+    padding: 2px 0.5rem;
+    border-radius: 0.75rem;
     font-size: 0.7rem;
     font-weight: bold;
     text-transform: uppercase;
@@ -464,12 +464,12 @@
 .builder-view .align-center { align-items: center; }
 .builder-view .w-100 { width: 100%; }
 .builder-view .w-auto { width: auto; }
-.builder-view .w-150px { width: 150px; }
+.builder-view .w-150px { width: 9.375rem; }
 .builder-view .m-0 { margin: 0; }
 .builder-view .p-0 { padding: 0; }
 .builder-view .mt-4px { margin-top: var(--space-1); }
 .builder-view .mb-4px { margin-bottom: var(--space-1); }
-.builder-view .w-105px { width: 105px !important; flex-shrink: 0; }
+.builder-view .w-105px { width: 6.5625rem !important; flex-shrink: 0; }
 .builder-view .relative { position: relative; }
 .builder-view .dim { color: var(--text-disabled); }
 
@@ -484,7 +484,7 @@
     margin-top: var(--space-3);
     margin-bottom: var(--space-4);
     padding-left: 2px;
-    height: 28px;
+    height: 1.75rem;
 }
 
 .builder-view .checkbox-label {
@@ -502,10 +502,10 @@
 .builder-view .checkbox-label input[type="checkbox"] {
     appearance: none;
     -webkit-appearance: none;
-    width: 18px;
-    height: 18px;
+    width: 1.125rem;
+    height: 1.125rem;
     border: 2px solid var(--text-disabled);
-    border-radius: 4px;
+    border-radius: 0.25rem;
     background: var(--bg-well);
     margin: 0;
     display: grid;
@@ -519,8 +519,8 @@
 }
 .builder-view .checkbox-label input[type="checkbox"]::before {
     content: "";
-    width: 10px;
-    height: 10px;
+    width: 0.625rem;
+    height: 0.625rem;
     transform: scale(0);
     transition: 120ms transform ease-in-out;
     background-color: var(--accent);
@@ -532,8 +532,8 @@
 
 .builder-view .icon-btn-sm {
     padding: 0;
-    width: 28px;
-    height: 28px;
+    width: 1.75rem;
+    height: 1.75rem;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -573,7 +573,7 @@
     opacity: 0.4;
     cursor: pointer;
     transition: opacity 0.2s ease-in-out;
-    margin-right: -8px;
+    margin-right: -0.5rem;
     margin-left: var(--space-3);
 }
 .builder-view .form-input[type="number"]:hover::-webkit-inner-spin-button,
@@ -586,7 +586,7 @@
     flex-direction: row;
     gap: var(--space-4);
     align-items: flex-start;
-    padding: 10px 12px;
+    padding: 0.625rem 0.75rem;
     background: var(--surface-card);
 }
 .builder-view .base-stats-icon-col {
@@ -594,10 +594,10 @@
     flex-direction: column;
     gap: var(--space-3);
     flex-shrink: 0;
-    width: 130px;
+    width: 8.125rem;
 }
 .builder-view .base-stats-icon {
-    width: 130px;
+    width: 8.125rem;
     height: auto;
     flex-shrink: 0;
     margin: 0;
@@ -613,13 +613,13 @@
 }
 .builder-view .base-stats-strip {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(11.875rem, 1fr));
     column-gap: var(--space-5);
     row-gap: var(--space-4);
     align-items: start;
     background: rgba(0, 0, 0, 0.15);
     border: 1px solid var(--border);
-    border-radius: 4px;
+    border-radius: 0.25rem;
     padding: var(--space-2) var(--space-5);
     margin-top: var(--space-2);
 }
@@ -634,20 +634,20 @@
     letter-spacing: 0.4px;
     text-transform: uppercase;
     color: var(--accent);
-    padding-bottom: 3px;
+    padding-bottom: 0.1875rem;
     border-bottom: 2px solid var(--accent-underline);
 }
 .builder-view .base-stats-group-fields {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 0.3125rem;
     padding-top: 1px;
 }
 .builder-view .base-stat-field {
     display: flex;
     flex-direction: row;
     align-items: baseline;
-    gap: 10px;
+    gap: 0.625rem;
 }
 .builder-view .base-stat-label {
     flex: 0 0 auto;
@@ -682,13 +682,13 @@
 }
 .builder-view .base-stat-value::placeholder { color: var(--text-disabled); font-style: italic; }
 .builder-view select.base-stat-value {
-    min-width: 90px;
+    min-width: 5.625rem;
 }
 
 /* --- Move Table (frame-data style move list) --- */
 .builder-view .mech-table {
     width: 100%;
-    min-width: 1057px;
+    min-width: 66.0625rem;
     border-collapse: collapse;
     table-layout: fixed;
 }
@@ -699,7 +699,7 @@
     letter-spacing: 0.4px;
     text-align: left;
     font-weight: bold;
-    padding: 3px 6px;
+    padding: 0.1875rem 0.375rem;
     border-bottom: 1px solid var(--border);
     white-space: nowrap;
     overflow: hidden;
@@ -711,7 +711,7 @@
     font-weight: bold;
     letter-spacing: 0.4px;
     color: var(--accent);
-    padding: 3px 6px 4px;
+    padding: 0.1875rem 0.375rem 0.25rem;
     border-bottom: none;
 }
 .builder-view .mech-table thead tr.mech-group-row th:not(:empty) {
@@ -746,7 +746,7 @@
 }
 .builder-view .mech-row {
     transition: background 0.1s;
-    height: 30px;
+    height: 1.875rem;
 }
 .builder-view .mech-row:hover { background: var(--surface-lighten); }
 .builder-view .mech-row.is-draggable { cursor: grab; }
@@ -757,7 +757,7 @@
 .builder-view .mech-row.drag-over-top td { box-shadow: inset 0 2px 0 var(--accent); }
 .builder-view .mech-row.drag-over-bottom td { box-shadow: inset 0 -2px 0 var(--accent); }
 .builder-view .mech-row td {
-    padding: 3px 6px;
+    padding: 0.1875rem 0.375rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     vertical-align: middle;
     overflow: hidden;
@@ -766,7 +766,7 @@
 .builder-view .mech-col-num { text-align: right; white-space: nowrap; }
 
 .builder-view .sub-panel-trigger {
-    padding: 3px 5px;
+    padding: 0.1875rem 0.3125rem;
     box-sizing: border-box;
 }
 
@@ -779,7 +779,7 @@
 }
 .builder-view .mech-trigger-cell.is-active {
     background-color: var(--accent-selected);
-    box-shadow: inset 0 0 0 1px var(--accent), inset 0 0 8px var(--accent-focus);
+    box-shadow: inset 0 0 0 1px var(--accent), inset 0 0 0.5rem var(--accent-focus);
 }
 
 .builder-view .mech-col-expand {
@@ -812,8 +812,8 @@
     text-align: center;
     padding: 0 !important;
 }
-.builder-view .mech-col-remove .icon-btn-sm { width: 18px; height: 18px; }
-.builder-view .mech-col-remove .icon-btn-sm svg { width: 10px; height: 10px; }
+.builder-view .mech-col-remove .icon-btn-sm { width: 1.125rem; height: 1.125rem; }
+.builder-view .mech-col-remove .icon-btn-sm svg { width: 0.625rem; height: 0.625rem; }
 
 .builder-view .mech-name-display {
     display: block;
@@ -828,17 +828,17 @@
 .builder-view .mech-tag-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 3px;
+    gap: 0.1875rem;
     align-items: center;
     width: 100%;
 }
 .builder-view .mech-name-flags { margin-top: 2px; }
-.builder-view .mech-name-line { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.builder-view .mech-name-line { display: flex; align-items: center; gap: 0.25rem; min-width: 0; }
 .builder-view .mech-name-line .mech-name-display { min-width: 0; }
 .builder-view .mech-changed-badge {
     flex-shrink: 0;
-    width: 16px;
-    height: 16px;
+    width: 1rem;
+    height: 1rem;
     padding: 0;
     border: 0;
     background: transparent;
@@ -862,11 +862,11 @@
 }
 .builder-view .tag-add-btn {
     flex-shrink: 0;
-    width: 16px;
-    height: 16px;
-    line-height: 14px;
+    width: 1rem;
+    height: 1rem;
+    line-height: 0.875rem;
     padding: 0;
-    border-radius: 3px;
+    border-radius: 0.1875rem;
     border: 1px dashed var(--input-underline);
     background: transparent;
     color: var(--text-dim);
@@ -877,10 +877,10 @@
 .builder-view .tag-add-btn.is-open { border-color: var(--accent); border-style: solid; color: var(--accent); background: var(--accent-focus); }
 
 .builder-view .mech-table .type-tag {
-    padding: 1px 5px;
+    padding: 1px 0.3125rem;
     font-size: 0.62rem;
-    gap: 3px;
-    border-radius: 8px;
+    gap: 0.1875rem;
+    border-radius: 0.5rem;
 }
 .builder-view .mech-table .type-tag-remove {
     font-size: 0.85rem;
@@ -898,8 +898,8 @@
 /* Square "+" variant of .base-btn for the sub-panels' add rows. */
 .builder-view .mech-add-icon-btn {
     flex-shrink: 0;
-    width: 22px;
-    height: 22px;
+    width: 1.375rem;
+    height: 1.375rem;
     padding: 0;
     display: inline-flex;
     align-items: center;
@@ -914,24 +914,24 @@
     align-items: center;
 }
 .builder-view .mech-mini-select {
-    height: 24px;
+    height: 1.5rem;
     font-size: 0.7rem;
-    padding: 0 4px;
+    padding: 0 0.25rem;
     width: auto;
-    max-width: 110px;
+    max-width: 6.875rem;
 }
 .builder-view .mech-mini-input {
-    height: 24px;
+    height: 1.5rem;
     font-size: 0.7rem;
-    padding: 0 4px;
-    width: 60px;
+    padding: 0 0.25rem;
+    width: 3.75rem;
 }
 .builder-view .mech-mini-input-wide {
-    height: 24px;
+    height: 1.5rem;
     font-size: 0.7rem;
-    padding: 0 4px;
+    padding: 0 0.25rem;
     flex: 1;
-    min-width: 120px;
+    min-width: 7.5rem;
 }
 
 .builder-view .cell-value {
@@ -941,11 +941,11 @@
     color: var(--text-main);
     font-family: monospace;
     font-size: 0.72rem;
-    padding: 2px 3px;
+    padding: 2px 0.1875rem;
     text-align: right;
     cursor: text;
     border-radius: 2px;
-    width: 44px;
+    width: 2.75rem;
 }
 .builder-view .cell-value:hover { background: var(--accent-hover); border-bottom-color: var(--accent); }
 .builder-view .cell-value:focus {
@@ -955,7 +955,7 @@
     outline: none;
 }
 .builder-view .cell-value::placeholder { color: var(--text-disabled); font-style: italic; }
-.builder-view .mech-hit-table .cell-value { width: 38px; font-size: 0.68rem; }
+.builder-view .mech-hit-table .cell-value { width: 2.375rem; font-size: 0.68rem; }
 
 .builder-view .mech-detail-cell {
     padding: 0 !important;
@@ -964,7 +964,7 @@
 
 /* Indented child row prefixed with a wrap-arrow matching .code-line::before to visually link to the parent Hold row. */
 .builder-view .mech-name-display.mech-child-name {
-    padding-left: 16px;
+    padding-left: 1rem;
     position: relative;
 }
 .builder-view .mech-name-display.mech-child-name::before {
@@ -973,20 +973,20 @@
     left: 0;
     top: 0;
     bottom: 0;
-    width: 14px;
+    width: 0.875rem;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='14 12 19 17 14 22'/%3E%3Cpath d='M5 2v11a4 4 0 0 0 4 4h10'/%3E%3C/svg%3E");
-    background-size: 14px 14px;
+    background-size: 0.875rem 0.875rem;
     background-repeat: no-repeat;
     background-position: center;
 }
 
 .builder-view .mech-timeline-bar {
     position: relative;
-    height: 22px;
+    height: 1.375rem;
     background: var(--bg-well);
     border: 1px solid var(--border);
-    border-radius: 3px;
-    margin: 6px 0 10px;
+    border-radius: 0.1875rem;
+    margin: 0.375rem 0 0.625rem;
 }
 .builder-view .mech-timeline-tick {
     position: absolute;
@@ -998,7 +998,7 @@
 .builder-view .mech-timeline-tick.is-cancel { background: var(--text-dim); }
 .builder-view .mech-timeline-label {
     position: absolute;
-    top: 3px;
+    top: 0.1875rem;
     font-size: 0.62rem;
     color: var(--text-dim);
 }
@@ -1006,8 +1006,8 @@
 /* Segments: tinted fill + 1px border; "Any" uses the timeline's fast-forward stripes. */
 .builder-view .mech-stance-bar {
     display: flex;
-    gap: 3px;
-    height: 24px;
+    gap: 0.1875rem;
+    height: 1.5rem;
     background: none;
     border: none;
 }
@@ -1015,14 +1015,14 @@
     flex: 1 1 0;
     min-width: 0;
     border: 1px solid transparent;
-    border-radius: 4px;
+    border-radius: 0.25rem;
 }
 .builder-view .mech-stance-seg.is-grounded { background-color: rgba(50, 220, 50, 0.15); border-color: var(--success); }
 .builder-view .mech-stance-seg.is-midair { background-color: rgba(220, 50, 50, 0.15); border-color: var(--danger-text); }
 /* Stripes reuse the two segments' fills; the border is alternating green/red dashes. */
 .builder-view .mech-stance-seg.is-any {
-    --dash-x: repeating-linear-gradient(90deg, var(--success) 0 6px, transparent 6px 9px, var(--danger-text) 9px 15px, transparent 15px 18px);
-    --dash-y: repeating-linear-gradient(180deg, var(--success) 0 6px, transparent 6px 9px, var(--danger-text) 9px 15px, transparent 15px 18px);
+    --dash-x: repeating-linear-gradient(90deg, var(--success) 0 0.375rem, transparent 0.375rem 0.5625rem, var(--danger-text) 0.5625rem 0.9375rem, transparent 0.9375rem 1.125rem);
+    --dash-y: repeating-linear-gradient(180deg, var(--success) 0 0.375rem, transparent 0.375rem 0.5625rem, var(--danger-text) 0.5625rem 0.9375rem, transparent 0.9375rem 1.125rem);
     border-color: transparent;
     background-origin: border-box;
     background-repeat: no-repeat;
@@ -1031,20 +1031,20 @@
         repeating-linear-gradient(
             -45deg,
             rgba(50, 220, 50, 0.15) 0px,
-            rgba(50, 220, 50, 0.15) 4px,
-            transparent 4px,
-            transparent 9px,
-            rgba(220, 50, 50, 0.15) 9px,
-            rgba(220, 50, 50, 0.15) 13px,
-            transparent 13px,
-            transparent 18px
+            rgba(50, 220, 50, 0.15) 0.25rem,
+            transparent 0.25rem,
+            transparent 0.5625rem,
+            rgba(220, 50, 50, 0.15) 0.5625rem,
+            rgba(220, 50, 50, 0.15) 0.8125rem,
+            transparent 0.8125rem,
+            transparent 1.125rem
         );
     background-size: 100% 1px, 100% 1px, 1px 100%, 1px 100%, 100% 100%;
     background-position: top left, bottom left, top left, top right, 0 0;
 }
-.builder-view .mech-stance-bar .mech-timeline-label { top: 5px; color: var(--text-main); z-index: 1; }
-.builder-view .mech-stance-bar .mech-timeline-label:first-of-type { left: 8px !important; }
-.builder-view .mech-stance-bar .mech-timeline-label:last-of-type { right: 8px !important; }
+.builder-view .mech-stance-bar .mech-timeline-label { top: 0.3125rem; color: var(--text-main); z-index: 1; }
+.builder-view .mech-stance-bar .mech-timeline-label:first-of-type { left: 0.5rem !important; }
+.builder-view .mech-stance-bar .mech-timeline-label:last-of-type { right: 0.5rem !important; }
 
 /* Add-row and stance dropdowns take the roster's underlined look instead of the Builder's boxed selects. */
 .builder-view .mech-stance-table .base-select,
@@ -1074,14 +1074,14 @@
     text-transform: uppercase;
     font-size: 0.62rem;
     font-weight: normal;
-    padding: 3px 8px;
+    padding: 0.1875rem 0.5rem;
     border-bottom: 1px solid var(--border);
 }
 .builder-view .mech-hit-table th:first-child,
 .builder-view .mech-hit-table td:first-child { text-align: left; }
 .builder-view .mech-hit-table td {
     text-align: right;
-    padding: 3px 8px;
+    padding: 0.1875rem 0.5rem;
     color: var(--text-main);
 }
 .builder-view .mech-hit-table .accent { color: var(--accent); font-weight: bold; }
@@ -1097,10 +1097,10 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--space-3);
-    padding: 6px 10px;
+    padding: 0.375rem 0.625rem;
     background: var(--surface-lighten);
     border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 4px;
+    border-radius: 0.25rem;
     font-family: monospace;
     font-size: 0.75rem;
     cursor: pointer;
@@ -1130,16 +1130,16 @@
     .output-pane-wrapper { flex: 1; }
 
     /* Reduces the fixed character JSON block height so the mechanics JSON block claims most of the output space via flex:1. */
-    .code-block-char { max-height: 70px; }
+    .code-block-char { max-height: 4.375rem; }
 }
 
 /* Allows category header controls to wrap, preventing the row from forcing card width on narrow viewports. */
 @media (max-width: 640px) {
     .builder-view .mechanic-header {
         flex-wrap: wrap;
-        row-gap: 8px;
+        row-gap: 0.5rem;
         align-items: flex-start;
     }
     .builder-view .category-group-name { width: 100%; }
-    .builder-view .w-150px { width: 130px; }
+    .builder-view .w-150px { width: 8.125rem; }
 }

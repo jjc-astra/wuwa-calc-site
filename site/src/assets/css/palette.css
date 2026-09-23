@@ -81,10 +81,10 @@
     --neutral-border: rgba(255, 255, 255, 0.14);
 
     /* --- Spacing scale -- snap padding/margin/gap values onto these instead of one-off px. --- */
-    --space-1: 4px;
-    --space-2: 6px;
-    --space-3: 8px;
-    --space-4: 12px;
-    --space-5: 16px;
-    --space-6: 20px;
+    --space-1: 0.25rem;
+    --space-2: 0.375rem;
+    --space-3: 0.5rem;
+    --space-4: 0.75rem;
+    --space-5: 1rem;
+    --space-6: 1.25rem;
 }

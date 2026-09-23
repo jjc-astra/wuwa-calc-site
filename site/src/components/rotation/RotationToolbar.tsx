@@ -100,7 +100,7 @@ export const RotationToolbar: React.FC = () => {
         
         <div className="separator-v"></div>
         
-        <div className="flex-row gap-sm" style={{ marginLeft: '8px' }}>
+        <div className="flex-row gap-sm" style={{ marginLeft: '0.5rem' }}>
           <label className="toolbar-toggle-label" {...tip('Start combat with max Resonance Energy')}>
             <input type="checkbox" checked={startEnergy} onChange={e => setStartEnergy(e.target.checked)} /> Full Energy
           </label>

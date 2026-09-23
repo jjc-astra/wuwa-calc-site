@@ -4,6 +4,11 @@ import { toFrames, framesToSeconds } from './Frames';
 import { imageUrl, dataUrl } from './dataSource';
 import type { ElementName } from '../data/gameVocab';
 
+/** Current UI scale (root font-size / 16) set by the fluid `html` rule in components.css --
+ * turns a measured px size back into the 16px-rem "design units" the layout is written in. */
+export const uiScale = (): number =>
+  parseFloat(getComputedStyle(document.documentElement).fontSize) / 16 || 1;
+
 export const EXTENSION = '.webp';
 export const TRANSPARENT_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
 

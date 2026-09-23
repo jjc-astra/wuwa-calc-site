@@ -173,7 +173,7 @@ export const InputsPhysicsPanel: React.FC<InputsPhysicsPanelProps> = ({ data, up
       </div>
 
       {data.inputType === 'Release' && !groupSiblings?.repeat && (
-        <div className="form-row hold-config-row mt-sm" style={{ display: 'flex', background: 'rgba(220,165,76,0.05)', padding: 'var(--space-3)', border: '1px solid rgba(220,165,76,0.2)', borderRadius: '4px', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        <div className="form-row hold-config-row mt-sm" style={{ display: 'flex', background: 'rgba(220,165,76,0.05)', padding: 'var(--space-3)', border: '1px solid rgba(220,165,76,0.2)', borderRadius: '0.25rem', flexDirection: 'column', gap: 'var(--space-3)' }}>
           <div className="w-100 text-gold text-bold" style={{ fontSize: '0.8rem' }}>Hold Input Configuration</div>
           <div className="flex-row gap-sm w-100 flex-wrap">
             <div className="form-group flex-1">
@@ -202,7 +202,7 @@ export const InputsPhysicsPanel: React.FC<InputsPhysicsPanelProps> = ({ data, up
                 options={forteOptions}
               />
             </div>
-            <label className="checkbox-label align-self-end" style={{ height: '32px', display: 'flex', alignItems: 'center' }}>
+            <label className="checkbox-label align-self-end" style={{ height: '2rem', display: 'flex', alignItems: 'center' }}>
               <input type="checkbox" checked={!!holdCfg.retainCursor} onChange={e => updateNode({ holdConfig: { ...holdCfg, retainCursor: e.target.checked } })} />
               <span>Retain Cursor</span>
             </label>

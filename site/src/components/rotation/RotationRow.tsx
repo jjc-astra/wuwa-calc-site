@@ -554,7 +554,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
           className={`col-time center-content sub-panel-trigger ${activeTrigger === 'time' ? 'is-active' : ''}`}
           onClick={() => onTriggerClick(index, 'time')}
         >
-          <div className="base-num-box" style={{ width: '100%', padding: '2px 5px' }}>
+          <div className="base-num-box" style={{ width: '100%', padding: '2px 0.3125rem' }}>
             <input type="text" className="num-input text-xs" value={timeStart} readOnly />
           </div>
         </div>
@@ -573,7 +573,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
           className={`sub-panel-trigger ${activeTrigger === 'offset' ? 'is-active' : ''}`}
           onClick={() => { if (!isOffsetEditable) onTriggerClick(index, 'offset'); }}
         >
-          <div className={`base-num-box ${offsetVal > 0 ? 'offset-pos' : offsetVal < 0 ? 'offset-neg' : ''}`} style={{ width: '100%', padding: '2px 5px' }}>
+          <div className={`base-num-box ${offsetVal > 0 ? 'offset-pos' : offsetVal < 0 ? 'offset-neg' : ''}`} style={{ width: '100%', padding: '2px 0.3125rem' }}>
             <input
               type="text"
               className="num-input text-xs offset-input"
@@ -592,7 +592,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
           className={`sub-panel-trigger ${activeTrigger === 'dmg' ? 'is-active' : ''}`}
           onClick={() => { if ((row.damageInstances || []).length > 0) onTriggerClick(index, 'dmg'); }}
         >
-          <div className="base-num-box" style={{ width: '100%', padding: '2px 5px' }}>
+          <div className="base-num-box" style={{ width: '100%', padding: '2px 0.3125rem' }}>
             <input
               type="text"
               className={`num-input text-xs ${totalDmg === 0 ? 'text-dim' : ''} ${isStale && totalDmg > 0 ? 'dmg-dimmed' : ''}`}

@@ -62,9 +62,9 @@ export const TimingModsPanel: React.FC<TimingModsPanelProps> = ({ data, updateNo
         </div>
       </div>
 
-      <div className="panel-header-tiny" style={{ marginTop: '14px' }}>Cancel Timings</div>
+      <div className="panel-header-tiny" style={{ marginTop: '0.875rem' }}>Cancel Timings</div>
       <div className="mech-list">
-        {cancelTimings.length === 0 && <div className="dim" style={{ padding: '4px 0' }}>No cancel timings yet.</div>}
+        {cancelTimings.length === 0 && <div className="dim" style={{ padding: '0.25rem 0' }}>No cancel timings yet.</div>}
         {cancelTimings.map((ct, idx) => (
           <div key={idx} className="mech-list-row" onClick={() => loadCancelForEdit(idx)}>
             <span>{ct.time}f{ct.hits ? ` · ${ct.hits} hits` : ''}{ct.triggerRule ? ` · ${ct.triggerRule}` : ''}</span>

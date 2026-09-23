@@ -28,10 +28,10 @@ export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row }) => {
         <div className="panel-header-main">{config.title}</div>
         <div className="complex-time-container">
           {config.groups.map((group, idx: number) => (
-            <div key={idx} className="time-panel-group" style={{ marginBottom: '12px' }}>
+            <div key={idx} className="time-panel-group" style={{ marginBottom: '0.75rem' }}>
               <div
                 className="panel-header-tiny"
-                style={{ marginBottom: '6px', paddingBottom: '4px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}
+                style={{ marginBottom: '0.375rem', paddingBottom: '0.25rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}
               >
                 {group.title}
               </div>
@@ -65,28 +65,28 @@ export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row }) => {
     return (
       <div className="sub-panel is-open">
         <div className="panel-header-main">Offset Breakdown</div>
-        <div className="panel-content-grid" style={{ gridTemplateColumns: '1fr', marginBottom: '16px' }}>
-          <div className="panel-info-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px' }}>
+        <div className="panel-content-grid" style={{ gridTemplateColumns: '1fr', marginBottom: '1rem' }}>
+          <div className="panel-info-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.625rem 0.875rem' }}>
             <span className="panel-info-label" style={{ marginBottom: 0 }}>Total Offset</span>
             <span className={`panel-info-value ${offsetClass} text-bold`} style={{ fontSize: '1rem' }}>{offsetStr}</span>
           </div>
         </div>
-        <div className="panel-header-tiny" style={{ marginBottom: '8px' }}>Offset Sources</div>
-        <div className="buff-card" style={{ padding: '12px' }}>
+        <div className="panel-header-tiny" style={{ marginBottom: '0.5rem' }}>Offset Sources</div>
+        <div className="buff-card" style={{ padding: '0.75rem' }}>
           {reasons.length > 0 ? (
             reasons.map((r: any, idx: number) => {
               const secs = framesToSeconds(toFrames(r.valueFrames));
               const str = formatSignedSeconds(secs);
               const isZero = r.valueFrames === 0;
               return (
-                <div key={idx} className="buff-effect-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', width: '100%' }}>
+                <div key={idx} className="buff-effect-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', width: '100%' }}>
                   <span className="buff-effect-label">{r.label}:</span>
                   <span className={`buff-val-box text-bold ${r.isNegative ? 'text-main' : isZero ? 'text-dim' : 'text-gold'}`}>{str}</span>
                 </div>
               );
             })
           ) : (
-            <div className="empty-buff-state" style={{ padding: '12px' }}>Standard Execution (No Offset)</div>
+            <div className="empty-buff-state" style={{ padding: '0.75rem' }}>Standard Execution (No Offset)</div>
           )}
         </div>
       </div>

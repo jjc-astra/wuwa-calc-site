@@ -19,14 +19,14 @@
     gap: var(--space-4);
 }
 /* No shrinking: overflow-clipped cards like the timeline would collapse. */
-.guide-page-body > * { flex-shrink: 0; width: 100%; max-width: 1400px; margin-left: auto; margin-right: auto; box-sizing: border-box; }
+.guide-page-body > * { flex-shrink: 0; width: 100%; max-width: 87.5rem; margin-left: auto; margin-right: auto; box-sizing: border-box; }
 
 /* --- Library (search and grid: common/LibraryGrid) --- */
 .guide-library-scroll {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    padding: 0 20px 20px 20px;
+    padding: 0 1.25rem 1.25rem 1.25rem;
 }
 
 /* --- Hero --- */
@@ -36,21 +36,21 @@
     align-items: center;
     gap: var(--space-4);
     padding: var(--space-3) var(--space-4);
-    border-radius: 8px;
+    border-radius: 0.5rem;
     border: 1px solid var(--border);
-    border-left: 3px solid var(--char-theme-raw, var(--accent));
+    border-left: 0.1875rem solid var(--char-theme-raw, var(--accent));
     background: color-mix(in srgb, var(--char-theme-raw, var(--accent)) 8%, var(--surface-card-flat));
 }
-.guide-hero .avatar-lg { width: 48px; height: 48px; border: 2px solid var(--char-theme-raw, var(--accent)); }
+.guide-hero .avatar-lg { width: 3rem; height: 3rem; border: 2px solid var(--char-theme-raw, var(--accent)); }
 .guide-hero-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .guide-hero-text h2 { margin: 0; font-size: 1.2rem; color: var(--text-main); }
 .guide-hero-text .text-dim { font-size: 0.75rem; }
 .guide-progress {
     font-size: 0.75rem;
     color: var(--accent);
-    padding: 4px 10px;
+    padding: 0.25rem 0.625rem;
     border: 1px solid var(--accent-border);
-    border-radius: 10px;
+    border-radius: 0.625rem;
     animation: guidePulse 1.2s ease-in-out infinite alternate;
 }
 @keyframes guidePulse { from { opacity: 0.55; } to { opacity: 1; } }
@@ -62,7 +62,7 @@
 .guide-team-select { flex: 1; min-width: 0; }
 .guide-default-badge {
     font-size: 0.65rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.4px;
-    color: var(--accent); padding: 3px 8px; border-radius: 10px; background: var(--accent-selected);
+    color: var(--accent); padding: 0.1875rem 0.5rem; border-radius: 0.625rem; background: var(--accent-selected);
 }
 .guide-reset-btn { padding: 2px var(--space-3); }
 
@@ -77,26 +77,26 @@
     align-items: center;
     gap: var(--space-2);
     padding: var(--space-1) var(--space-2);
-    border-radius: 6px;
+    border-radius: 0.375rem;
     background: var(--surface-lighten);
-    border-left: 3px solid var(--char-theme-raw, var(--accent));
+    border-left: 0.1875rem solid var(--char-theme-raw, var(--accent));
 }
 .guide-config-slot-name {
-    width: 72px; flex-shrink: 0;
+    width: 4.5rem; flex-shrink: 0;
     font-size: 0.8rem; font-weight: bold; color: var(--text-main);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .guide-config-slot-weapon { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-2); }
 .guide-config-slot-weapon .avatar { flex-shrink: 0; }
 /* .dropdown is display: contents, so the trigger itself is the flex item to size. */
-.guide-mini-select { width: 52px; flex: none; }
+.guide-mini-select { width: 3.25rem; flex: none; }
 
 /* --- Results + timeline --- */
 /* Left: config + its results. Right: comparisons. Wraps to one column when the view is too
    narrow for two ~560px columns. */
 .guide-columns {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 560px), 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 35rem), 1fr));
     gap: var(--space-4) var(--space-6);
     /* Stretch so the divider spans the taller column; panels inside keep their own height. */
     align-items: stretch;
@@ -104,11 +104,11 @@
 }
 .guide-column { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; position: relative; }
 /* Section header atop each column; min-height lines both up whether or not it holds toggles. */
-.guide-column-header { display: flex; align-items: center; gap: var(--space-4); min-height: 28px; }
+.guide-column-header { display: flex; align-items: center; gap: var(--space-4); min-height: 1.75rem; }
 .guide-column-header .panel-header-main { flex: 1; margin-bottom: 0; }
 /* Divider centered in the column gap, shown while the columns sit side by side
    (2 x 560px + the 20px --space-6 gap). */
-@container (min-width: 1140px) {
+@container (min-width: 71.25rem) {
     .guide-column + .guide-column::before {
         content: "";
         position: absolute;
@@ -121,17 +121,17 @@
 }
 /* Stacked (one column): dissolve the two column wrappers so their panels share one list, with
    the selectors (Team & Investment, then Echo Stats) first instead of the Results column's top. */
-@container (max-width: 1139.98px) {
+@container (max-width: 71.2488rem) {
     .guide-column { display: contents; }
     .guide-config { order: -2; }
     .guide-echo-stats { order: -1; }
 }
 .guide-pair-weighted { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: flex-start; }
-.guide-pair-weighted > :first-child { flex: 1 1 250px; min-width: 0; }
-.guide-pair-weighted > :last-child { flex: 2 1 340px; min-width: 0; }
+.guide-pair-weighted > :first-child { flex: 1 1 15.625rem; min-width: 0; }
+.guide-pair-weighted > :last-child { flex: 2 1 21.25rem; min-width: 0; }
 .guide-pair {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 17.5rem), 1fr));
     gap: var(--space-4);
     align-items: start;
 }
@@ -147,7 +147,7 @@
 /* One line per row: a label column, then chips (label over value, or a single value). */
 .guide-echo-stats { display: flex; flex-direction: column; gap: var(--space-2); }
 .guide-echo-stats .results-card-header { margin-bottom: 0; }
-.guide-echo-row { display: grid; grid-template-columns: 84px minmax(0, 1fr); align-items: center; gap: var(--space-3); }
+.guide-echo-row { display: grid; grid-template-columns: 5.25rem minmax(0, 1fr); align-items: center; gap: var(--space-3); }
 .guide-echo-row-label {
     display: flex; flex-direction: column;
     font-size: 0.65rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.4px;
@@ -157,9 +157,9 @@
 .guide-echo-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .guide-echo-chip {
     display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
-    min-width: 56px; min-height: 34px; box-sizing: border-box;
+    min-width: 3.5rem; min-height: 2.125rem; box-sizing: border-box;
     padding: 2px var(--space-3);
-    border-radius: 6px;
+    border-radius: 0.375rem;
     background: var(--surface-lighten);
 }
 .guide-echo-chip-label { font-size: 0.6rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.3px; color: var(--text-dim); white-space: nowrap; }
@@ -174,15 +174,15 @@
     color: var(--text-dim);
 }
 .guide-cmp-rank-range { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-2); font-size: 0.7rem; color: var(--text-dim); }
-.guide-cmp-rank-range > :last-child { flex: 1; max-width: 200px; }
+.guide-cmp-rank-range > :last-child { flex: 1; max-width: 12.5rem; }
 
 .guide-cmp-table {
     display: grid;
-    grid-template-columns: minmax(60px, 1fr) repeat(var(--guide-cmp-cols), auto);
+    grid-template-columns: minmax(3.75rem, 1fr) repeat(var(--guide-cmp-cols), auto);
     font-size: 0.8rem;
 }
 .guide-cmp-table.is-multi { grid-template-columns: minmax(0, 1fr) repeat(var(--guide-cmp-cols), auto); }
-.guide-cmp-table.is-multi .guide-cmp-row > span { padding: 3px var(--space-2); }
+.guide-cmp-table.is-multi .guide-cmp-row > span { padding: 0.1875rem var(--space-2); }
 .guide-cmp-table.is-multi .guide-cmp-value { flex-direction: column; align-items: flex-end; justify-content: center; gap: 0; }
 .guide-cmp-table.is-multi .guide-cmp-pct { width: auto; }
 .guide-cmp-head, .guide-cmp-row { display: contents; }
@@ -195,40 +195,40 @@
 .guide-cmp-col-label { text-align: right; }
 
 .guide-cmp-row > span {
-    padding: 3px var(--space-3);
+    padding: 0.1875rem var(--space-3);
     border-bottom: 1px solid var(--divider);
     display: flex;
     align-items: center;
-    min-height: 26px;
+    min-height: 1.625rem;
 }
 .guide-cmp-row.is-clickable > span { cursor: pointer; }
 .guide-cmp-row.is-clickable:hover > span { background: var(--accent-hover); }
 .guide-cmp-row.is-selected > span { background: var(--accent-selected); }
-.guide-cmp-row.is-selected > .guide-cmp-label { box-shadow: inset 3px 0 0 var(--accent); }
+.guide-cmp-row.is-selected > .guide-cmp-label { box-shadow: inset 0.1875rem 0 0 var(--accent); }
 
 .guide-cmp-label { gap: var(--space-3); min-width: 0; }
 .guide-cmp-label-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-main); font-weight: bold; }
 .guide-cmp-tag {
     flex-shrink: 0;
     font-size: 0.6rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.3px;
-    padding: 2px 6px; border-radius: 8px;
+    padding: 2px 0.375rem; border-radius: 0.5rem;
     color: var(--accent); background: var(--accent-selected);
 }
 
 .guide-cmp-value { gap: var(--space-3); justify-content: space-between; }
 /* Same type treatment as the rankings bar's DPS label (.ranking-bar-dps-value / -unit). */
-.guide-cmp-raw { display: flex; align-items: baseline; gap: 4px; color: #ffffff; }
+.guide-cmp-raw { display: flex; align-items: baseline; gap: 0.25rem; color: #ffffff; }
 .guide-cmp-raw-value { font-weight: bold; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
 .guide-cmp-raw-unit { font-size: 0.65rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.3px; opacity: 0.85; }
-.guide-cmp-pct { width: 64px; flex-shrink: 0; text-align: right; font-weight: bold; font-size: 0.75rem; font-variant-numeric: tabular-nums; color: var(--text-main); }
+.guide-cmp-pct { width: 4rem; flex-shrink: 0; text-align: right; font-weight: bold; font-size: 0.75rem; font-variant-numeric: tabular-nums; color: var(--text-main); }
 .guide-cmp-pct.is-up { color: var(--success); }
 .guide-cmp-pct.is-down { color: var(--danger-text); }
 .guide-cmp-error { color: var(--danger-text); font-size: 0.72rem; }
 .guide-cmp-pending {
     flex: 1;
-    min-width: 60px;
-    height: 10px;
-    border-radius: 3px;
+    min-width: 3.75rem;
+    height: 0.625rem;
+    border-radius: 0.1875rem;
     background: linear-gradient(90deg, var(--overlay-w1), var(--overlay-w3), var(--overlay-w1));
     background-size: 200% 100%;
     animation: guideShimmer 1.2s linear infinite;
@@ -244,11 +244,11 @@
     align-items: center;
     gap: var(--space-3) var(--space-6);
 }
-.guide-rankings-filters .ranking-seq-row { min-width: 240px; }
+.guide-rankings-filters .ranking-seq-row { min-width: 15rem; }
 
 @media (max-width: 900px) {
     .guide-page-body { padding: var(--space-4); }
-    .guide-cmp-table { grid-template-columns: minmax(110px, 1fr) repeat(var(--guide-cmp-cols), minmax(110px, auto)); }
-    .guide-cmp-pct { width: 56px; }
+    .guide-cmp-table { grid-template-columns: minmax(6.875rem, 1fr) repeat(var(--guide-cmp-cols), minmax(6.875rem, auto)); }
+    .guide-cmp-pct { width: 3.5rem; }
     .guide-hero { flex-wrap: wrap; }
 }

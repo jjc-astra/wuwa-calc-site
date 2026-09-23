@@ -14,7 +14,7 @@ import { MechanicKey } from '../../../utils/MechanicKey';
 // Mirrors old site's makeInput/makeSelect wrapper: each field gets its own labeled,
 // min-width flex slot so fields share row space instead of one 100%-width input swallowing others.
 const EffField: React.FC<{ label: string; minWidth: number; children: React.ReactNode }> = ({ label, minWidth, children }) => (
-  <div className="form-group flex-1" style={{ minWidth: `${minWidth}px`, margin: 0 }}>
+  <div className="form-group flex-1" style={{ minWidth: `${minWidth / 16}rem`, margin: 0 }}>
     <label className="form-label text-dim">{label}</label>
     {children}
   </div>
@@ -268,7 +268,7 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
         )}
       </div>
 
-      <div className="panel-header-tiny" style={{ marginTop: '14px' }}>Effects Array</div>
+      <div className="panel-header-tiny" style={{ marginTop: '0.875rem' }}>Effects Array</div>
       <div className="type-tag-container mech-effects-container mb-4px">
         {(data.effects || []).map((eff, idx) => (
           <TypeTag
@@ -335,9 +335,9 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
                       { value: 'drop_half', label: 'Drop Half' }
                     ]}
                   />
-                  <div className="form-group flex-1" style={{ minWidth: '130px', margin: 0 }}>
-                    <label className="form-label text-dim" style={{ opacity: 0, marginBottom: '2px', height: '14px' }}>_</label>
-                    <label className="toolbar-toggle-label w-100" style={{ margin: 0, height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
+                  <div className="form-group flex-1" style={{ minWidth: '8.125rem', margin: 0 }}>
+                    <label className="form-label text-dim" style={{ opacity: 0, marginBottom: '2px', height: '0.875rem' }}>_</label>
+                    <label className="toolbar-toggle-label w-100" style={{ margin: 0, height: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
                       <input type="checkbox" checked={draft.remSwap} onChange={(e: React.ChangeEvent<HTMLInputElement>) => set({ remSwap: e.target.checked })} />
                       <span>Clear on Swap</span>
                     </label>

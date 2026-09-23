@@ -24,11 +24,11 @@ export const BuffCard: React.FC<BuffCardProps> = ({ source, effects }) => {
           <div
             key={idx}
             className="buff-effect-row"
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', width: '100%' }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', width: '100%' }}
           >
             <div
               className="buff-label-wrap"
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: '1 1 auto', overflow: 'hidden' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', minWidth: 0, flex: '1 1 auto', overflow: 'hidden' }}
             >
               <svg
                 className="buff-arrow"
@@ -36,7 +36,7 @@ export const BuffCard: React.FC<BuffCardProps> = ({ source, effects }) => {
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2"
-                style={{ flexShrink: 0, width: '14px', height: '14px' }}
+                style={{ flexShrink: 0, width: '0.875rem', height: '0.875rem' }}
               >
                 <polyline points="15 10 20 15 15 20"></polyline>
                 <path d="M4 4v7a4 4 0 0 0 4 4h12"></path>
@@ -49,7 +49,7 @@ export const BuffCard: React.FC<BuffCardProps> = ({ source, effects }) => {
                 {e.label}:
               </span>
             </div>
-            <div className="buff-value-wrap" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+            <div className="buff-value-wrap" style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', flexShrink: 0 }}>
               <span className="buff-val-box">{e.value}</span>
               <span className="buff-stacks">x{e.stacks || 1}</span>
             </div>

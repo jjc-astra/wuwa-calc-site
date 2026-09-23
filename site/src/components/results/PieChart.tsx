@@ -61,7 +61,7 @@ export const PieChart: React.FC<PieChartProps> = ({ data, size = 170, totalLabel
 
   return (
     <div className="pie-chart">
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <svg style={{ width: `${size / 16}rem`, height: `${size / 16}rem` }} viewBox={`0 0 ${size} ${size}`}>
         {arcs.map((arc, i) => (
           <path
             key={arc.label}

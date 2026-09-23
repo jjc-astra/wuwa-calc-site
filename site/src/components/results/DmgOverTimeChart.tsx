@@ -6,7 +6,7 @@ import { ResultsLegend } from './ResultsLegend';
 import { CATEGORICAL_PALETTE, colorForProvider } from './chartPalette';
 import { DPS_WINDOWS } from '../../data/dpsWindows';
 import { Dropdown } from '../common/Dropdown';
-import { TooltipManager } from '../../utils/Common';
+import { TooltipManager, uiScale } from '../../utils/Common';
 import { SegmentedToggle } from '../common/SegmentedToggle';
 import { framesToSeconds } from '../../utils/Frames';
 
@@ -127,13 +127,14 @@ export const DmgOverTimeChart: React.FC = () => {
   const hasChart = domainMaxT > 0;
 
   // Tracks the svg's rendered width so a wider panel reveals more plot area instead of stretching.
+  // Stored in design units (px / uiScale) so the viewBox -- and its px-sized text -- scales with the UI.
   // Re-runs on svg mount/unmount (the placeholder renders no svg).
   useEffect(() => {
     const el = svgRef.current;
     if (!el) return;
     const observer = new ResizeObserver(entries => {
       const w = entries[0]?.contentRect.width;
-      if (w) setWidth(w);
+      if (w) setWidth(w / uiScale());
     });
     observer.observe(el);
     return () => observer.disconnect();

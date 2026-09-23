@@ -13,7 +13,7 @@ interface LibrarySearchInputProps {
 }
 
 export const LibrarySearchInput: React.FC<LibrarySearchInputProps> = ({ value, onChange, placeholder }) => (
-  <div style={{ padding: '20px 20px 16px 20px', flexShrink: 0 }}>
+  <div style={{ padding: '1.25rem 1.25rem 1rem 1.25rem', flexShrink: 0 }}>
     <input
       type="text"
       className="form-input library-search-input"
@@ -22,11 +22,11 @@ export const LibrarySearchInput: React.FC<LibrarySearchInputProps> = ({ value, o
       onChange={e => onChange(e.target.value)}
       style={{
         width: '100%',
-        maxWidth: '400px',
-        padding: '10px 15px',
+        maxWidth: '25rem',
+        padding: '0.625rem 0.9375rem',
         fontSize: '0.9rem',
         background: 'var(--bg-well)',
-        borderRadius: '6px'
+        borderRadius: '0.375rem'
       }}
     />
   </div>
@@ -45,7 +45,7 @@ export const LibrarySection: React.FC<LibrarySectionProps> = ({ title, children 
   <div className="grid-section" style={{ width: '100%' }}>
     <div
       className="text-gold mb-4px"
-      style={{ fontSize: '1.1em', fontWeight: 'bold', borderBottom: '1px solid #444', paddingBottom: '4px' }}
+      style={{ fontSize: '1.1em', fontWeight: 'bold', borderBottom: '1px solid #444', paddingBottom: '0.25rem' }}
     >
       {title}
     </div>
@@ -53,9 +53,9 @@ export const LibrarySection: React.FC<LibrarySectionProps> = ({ title, children 
       className="item-grid"
       style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(85px, 1fr))',
-        gap: '12px',
-        marginTop: '12px',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(5.3125rem, 1fr))',
+        gap: '0.75rem',
+        marginTop: '0.75rem',
         width: '100%'
       }}
     >

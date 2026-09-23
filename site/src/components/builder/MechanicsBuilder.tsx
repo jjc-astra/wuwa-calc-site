@@ -178,9 +178,9 @@ export const MechanicsBuilder: React.FC = () => {
             minHeight: 0,
             display: 'flex',
             flexDirection: 'column',
-            gap: '24px',
+            gap: '1.5rem',
             overflowY: 'auto',
-            padding: '0 20px 20px 20px',
+            padding: '0 1.25rem 1.25rem 1.25rem',
             width: '100%',
             boxSizing: 'border-box'
           }}
@@ -262,7 +262,7 @@ export const MechanicsBuilder: React.FC = () => {
           {activeChar.toUpperCase()} SETUP
         </div>
         <BaseStatsForm />
-        <div id="mechanics-accordion" className="flex-col gap-md" style={{ marginTop: '20px' }}>
+        <div id="mechanics-accordion" className="flex-col gap-md" style={{ marginTop: '1.25rem' }}>
           {targetCategories.map((cat: string) => {
             const catMechs = (Object.entries(mechanics) as [string, MechanicNode][]).filter(([id, m]) => {
               if (holdGroupSkipIds.has(id)) return false;
@@ -284,7 +284,7 @@ export const MechanicsBuilder: React.FC = () => {
             return (
               <div key={cat} className="mechanic-category" data-category={cat}>
                 <div className="mechanic-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
                     <span className="text-bold text-gold">{cat}</span>
                     {isCharacter && (
                       <input
@@ -296,7 +296,7 @@ export const MechanicsBuilder: React.FC = () => {
                           const updated = { ...skillGroupNames, [cat]: e.target.value };
                           setBaseStat('skillGroupNames', updated);
                         }}
-                        style={{ height: '24px', fontSize: '0.8rem', borderColor: 'var(--border)', background: 'rgba(0,0,0,0.2)' }}
+                        style={{ height: '1.5rem', fontSize: '0.8rem', borderColor: 'var(--border)', background: 'rgba(0,0,0,0.2)' }}
                       />
                     )}
                   </div>

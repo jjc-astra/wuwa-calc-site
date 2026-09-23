@@ -25,7 +25,7 @@ export const DamageBreakdownPanel: React.FC<DamageBreakdownPanelProps> = ({ conf
     return (
       <div className="sub-panel is-open">
         <div className="panel-header-main">{config.title}</div>
-        <div className="empty-buff-state" style={{ padding: '20px', textAlign: 'center' }}>
+        <div className="empty-buff-state" style={{ padding: '1.25rem', textAlign: 'center' }}>
           No damage instances dealt by this action.
         </div>
       </div>
@@ -68,17 +68,17 @@ export const DamageBreakdownPanel: React.FC<DamageBreakdownPanelProps> = ({ conf
                 </div>
                 <div
                   className="dmg-accordion-breakdown-values flex-row align-center"
-                  style={{ gap: '12px', marginLeft: 'auto', width: 'auto', flexShrink: 0 }}
+                  style={{ gap: '0.75rem', marginLeft: 'auto', width: 'auto', flexShrink: 0 }}
                 >
-                  <div className="flex-row align-center" style={{ paddingRight: '12px', borderRight: '1px solid rgba(255,255,255,0.15)', gap: '6px' }}>
+                  <div className="flex-row align-center" style={{ paddingRight: '0.75rem', borderRight: '1px solid rgba(255,255,255,0.15)', gap: '0.375rem' }}>
                     <span className="text-dim" style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.5px' }}>NON-CRIT</span>
                     <span style={{ color: 'var(--text-main)', fontSize: '0.85rem', fontWeight: 700 }}>{Math.floor(nonCritVal).toLocaleString()}</span>
                   </div>
-                  <div className="flex-row align-center" style={{ paddingRight: '12px', borderRight: '1px solid rgba(255,255,255,0.15)', gap: '6px' }}>
+                  <div className="flex-row align-center" style={{ paddingRight: '0.75rem', borderRight: '1px solid rgba(255,255,255,0.15)', gap: '0.375rem' }}>
                     <span className="text-dim" style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.5px' }}>CRIT</span>
                     <span style={{ color: 'var(--accent)', fontSize: '0.85rem', fontWeight: 700 }}>{Math.floor(critVal).toLocaleString()}</span>
                   </div>
-                  <div className="flex-row align-center" style={{ gap: '6px' }}>
+                  <div className="flex-row align-center" style={{ gap: '0.375rem' }}>
                     <span className="text-dim" style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.5px' }}>AVG</span>
                     <span style={{ color: '#ffaa00', fontSize: '0.85rem', fontWeight: 700 }}>{Math.floor(avgVal).toLocaleString()}</span>
                   </div>
