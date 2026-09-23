@@ -236,8 +236,8 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
                 value={scope}
                 onChange={setScope}
                 options={[
-                  { value: 'personal', label: 'Personal', tooltip: "This unit's own damage" },
-                  { value: 'team', label: 'Team', tooltip: "The whole team's damage" }
+                  { value: 'personal', label: 'Personal' },
+                  { value: 'team', label: 'Team' }
                 ]}
               />
               <SegmentedToggle
@@ -245,8 +245,8 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
                 value={metric}
                 onChange={setMetric}
                 options={[
-                  { value: 'dps', label: 'DPS', tooltip: 'Damage per second over the 2-minute window' },
-                  { value: 'dpr', label: 'DPR', tooltip: 'Damage per rotation (the average loop)' }
+                  { value: 'dps', label: 'DPS' },
+                  { value: 'dpr', label: 'DPR' }
                 ]}
               />
             </div>
@@ -339,7 +339,7 @@ const GuideConfigPanel: React.FC<GuideConfigPanelProps> = ({
         <span>Team & Investment</span>
         <div className="results-card-header-controls">
           {isDefault
-            ? <span className="guide-default-badge" {...tip('The best Linear team, every 5-star unit and weapon at S0R1')}>Default</span>
+            ? <span className="guide-default-badge">Default</span>
             : <button type="button" className="base-btn text-xs guide-reset-btn" onClick={onReset}>Reset</button>}
         </div>
       </div>
