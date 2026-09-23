@@ -189,9 +189,6 @@ const GuideBody: React.FC<GuideBodyProps> = ({ character, entries }) => {
       <ResultsSourceContext.Provider value={{ results: full.results, team: full.team, isStale, pinned: null, allowPin: false, scope, dmgChartDefaults: GUIDE_DMG_CHART_DEFAULTS }}>
         <div className={`guide-columns ${isStale ? 'is-stale' : ''}`}>
           <div className="guide-column">
-            <div className="guide-column-header">
-              <div className="panel-header-main">Results</div>
-            </div>
             <GuideConfigPanel
               groups={groups}
               group={group}
@@ -201,6 +198,9 @@ const GuideBody: React.FC<GuideBodyProps> = ({ character, entries }) => {
               onSlotChange={updateSlot}
               onReset={() => setPicked(null)}
             />
+            <div className="guide-column-header">
+              <div className="panel-header-main">Results</div>
+            </div>
             {full.results && (
               <>
                 <div className="guide-pair">
