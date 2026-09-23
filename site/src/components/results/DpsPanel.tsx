@@ -3,33 +3,32 @@ import React from 'react';
 import { useResultsSource } from './ResultsSource';
 import { DPS_WINDOWS } from '../../data/dpsWindows';
 import { PinRotationControl } from './PinRotationControl';
-import { ResultsLegend } from './ResultsLegend';
-import { CATEGORICAL_PALETTE } from './chartPalette';
+import { tip } from '../../utils/Common';
 
-const formatDps = (v: number, shorten: boolean) => {
-  if (shorten)
-    return `${(v / 1000).toFixed(1)}K`;
-  return Math.round(v).toLocaleString();
-};
+const formatDps = (v: number) => Math.round(v).toLocaleString();
+const formatDelta = (d: number) => `${d >= 0 ? '+' : '−'}${Math.abs(d).toFixed(1)}%`;
 
-const ROWS = DPS_WINDOWS.map(window => ({ key: window.dpsField, label: window.dpsLabel }));
+const ROWS = DPS_WINDOWS.map(window => ({ key: window.dpsField, label: window.label }));
 
-// How far the split point can move from center (50%) per point of delta% -- makes modest
-// deltas visible (a raw value-share split barely moves off 50/50 even at 20%+ difference).
-const DELTA_SCALE = 40 / 50;
-const MIN_SPLIT = 10;
-const MAX_SPLIT = 90;
+// Smallest |delta| that fills half the track, so near-identical rotations don't show full bars.
+const MIN_DELTA_SCALE = 1;
 
-// Floor for solo bars so the lowest-DPS metric stays readable next to the group's highest value.
-const MIN_SOLO_WIDTH = 20;
-
+// Solo: one slim bar per window, scaled to the highest. Pinned: each bar grows left (worse) or
+// right (better) from a 0% center line, scaled to the largest change.
 export const DpsPanel: React.FC = () => {
   const { results, pinned, allowPin } = useResultsSource();
 
   if (!results) return null;
   const current = results.dpsStats;
-  const knownVals = ROWS.map(row => current[row.key]).filter((v): v is number => v !== null);
-  const maxCurrentDps = knownVals.length > 0 ? Math.max(...knownVals) : 1;
+
+  const rows = ROWS.map(row => {
+    const value = current[row.key];
+    const pinnedValue = pinned?.dpsStats[row.key];
+    const delta = value !== null && pinnedValue ? ((value - pinnedValue) / pinnedValue) * 100 : null;
+    return { ...row, value, pinnedValue, delta };
+  });
+  const maxValue = Math.max(1, ...rows.map(r => r.value ?? 0));
+  const deltaScale = Math.max(MIN_DELTA_SCALE, ...rows.map(r => Math.abs(r.delta ?? 0)));
 
   return (
     <div className="results-card">
@@ -38,83 +37,40 @@ export const DpsPanel: React.FC = () => {
         {allowPin && <PinRotationControl />}
       </div>
 
-      {pinned && (
-        <ResultsLegend
-          items={[
-            { label: 'Current', color: CATEGORICAL_PALETTE[0] },
-            { label: pinned.label, color: CATEGORICAL_PALETTE[1] }
-          ]}
-        />
-      )}
+      {pinned && <div className="dps-vs-label">vs {pinned.label}</div>}
 
-      <div className="dps-compare-list">
-        {ROWS.map(row => {
-          const currentVal = current[row.key];
-          const pinnedVal = pinned?.dpsStats[row.key];
-
-          if (currentVal === null) {
-            return (
-              <div key={row.key} className="dps-compare-row">
-                <div className="dps-compare-row-head">
-                  <span className="dps-table-label">{row.label}</span>
-                </div>
-                <div className="dps-compare-bar">
-                  <div className="dps-compare-segment dps-compare-segment-solo results-empty" style={{ width: `${MIN_SOLO_WIDTH}%` }}>
-                    <span>N/A</span>
-                  </div>
-                </div>
-              </div>
-            );
-          }
-
-          if (pinnedVal === undefined || pinnedVal === null) {
-            const soloWidth = Math.max(MIN_SOLO_WIDTH, (currentVal / maxCurrentDps) * 100);
-            return (
-              <div key={row.key} className="dps-compare-row">
-                <div className="dps-compare-row-head">
-                  <span className="dps-table-label">{row.label}</span>
-                </div>
-                <div className="dps-compare-bar">
-                  <div className="dps-compare-segment dps-compare-segment-solo" style={{ width: `${soloWidth}%` }}>
-                    <span>{formatDps(currentVal,false)}</span>
-                  </div>
-                </div>
-              </div>
-            );
-          }
-
-          // DPS: higher is better, so a positive delta (current > pinned) is "good".
-          const delta = ((currentVal - pinnedVal) / pinnedVal) * 100;
-          const currentWins = delta >= 0;
-          const splitPct = Math.min(MAX_SPLIT, Math.max(MIN_SPLIT, 50 + delta * DELTA_SCALE));
-
-          return (
-            <div key={row.key} className="dps-compare-row">
-              <div className="dps-compare-row-head">
-                <span className="dps-table-label">{row.label}</span>
-                <span className={currentWins ? 'dps-delta-good' : 'dps-delta-bad'}>
-                  {currentWins ? '▲' : '▼'} {Math.abs(delta).toFixed(1)}%
-                </span>
-              </div>
-              <div className="dps-compare-bar">
-                <div
-                  className={`dps-compare-segment dps-compare-segment-left ${currentWins ? 'is-winner' : 'is-loser'}`}
-                  style={{ width: `${splitPct}%` }}
-                >
-                  <span className="dps-compare-segment-swatch" style={{ background: CATEGORICAL_PALETTE[0] }} />
-                  <span>{formatDps(currentVal,true)}</span>
-                </div>
-                <div
-                  className={`dps-compare-segment dps-compare-segment-right ${currentWins ? 'is-loser' : 'is-winner'}`}
-                  style={{ width: `${100 - splitPct}%` }}
-                >
-                  <span className="dps-compare-segment-swatch" style={{ background: CATEGORICAL_PALETTE[1] }} />
-                  <span>{formatDps(pinnedVal,true)}</span>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+      <div className={`dps-list ${pinned ? 'is-compare' : ''}`}>
+        {rows.map(row => (
+          <div
+            key={row.key}
+            className="dps-row"
+            {...(pinned && row.value !== null && row.pinnedValue
+              ? tip(`Current ${formatDps(row.value)} · Pinned ${formatDps(row.pinnedValue)}`)
+              : {})}
+          >
+            <span className="dps-row-label">{row.label}</span>
+            <span className="bar-track">
+              {!pinned && row.value !== null && (
+                <span className="bar-fill" style={{ width: `${(row.value / maxValue) * 100}%` }} />
+              )}
+              {pinned && row.delta !== null && (
+                <>
+                  <span className="dps-zero-line" />
+                  <span
+                    className={`dps-delta-bar ${row.delta >= 0 ? 'is-up' : 'is-down'}`}
+                    style={{ width: `${(Math.abs(row.delta) / deltaScale) * 50}%` }}
+                  />
+                </>
+              )}
+            </span>
+            <span className="dps-row-value">{row.value === null ? 'N/A' : formatDps(row.value)}</span>
+            {pinned && (
+              <span className={`dps-row-delta ${row.delta === null ? '' : row.delta >= 0 ? 'is-up' : 'is-down'}`}>
+                {row.delta === null ? '—' : formatDelta(row.delta)}
+              </span>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );

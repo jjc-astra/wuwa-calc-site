@@ -122,9 +122,9 @@ export const SubstatWorthChart: React.FC = () => {
                   <span className="substat-roll-col">{formatRoll(row.substat, row.roll)}</span>
                   <span className="substat-label-col">{rollLabel(row.substat)}</span>
                   <span className="substat-track-col">
-                    <span className="substat-track" ref={idx === 0 ? trackRef : undefined}>
+                    <span className="bar-track" ref={idx === 0 ? trackRef : undefined}>
                       <span
-                        className="substat-range"
+                        className="bar-fill"
                         style={
                           rangeLeft !== null
                             ? { left: `${rangeLeft}px`, width: `${rangeRight! - rangeLeft}px` }

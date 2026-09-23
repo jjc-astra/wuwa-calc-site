@@ -185,17 +185,13 @@
 
 .results-tab-grid.is-stale { opacity: 0.45; pointer-events: none; transition: opacity 0.15s; }
 
+/* Slim bar shared by the DPS panel and Substat Worth. */
+.bar-track { position: relative; display: block; width: 100%; height: 6px; background: var(--surface-lighten-strong); border-radius: 3px; }
+.bar-fill { position: absolute; top: 0; left: 0; height: 100%; background: var(--accent); border-radius: 3px; }
+
 /* =========================================
    4. DPS PANEL
    ========================================= */
-.dps-table-label {
-    color: var(--text-main);
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
 .results-legend {
     display: flex; justify-content: space-between; align-items: center;
     font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.3px;
@@ -207,41 +203,28 @@
 .results-legend-item { display: inline-flex; align-items: center; gap: 5px; }
 .results-legend-swatch { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
 
-.dps-compare-list { display: flex; flex-direction: column; gap: var(--space-4); }
-.dps-compare-row-head {
-    display: flex; justify-content: space-between; align-items: baseline;
-    margin-bottom: var(--space-1); font-size: 0.8rem; white-space: nowrap; gap: var(--space-3);
+.dps-vs-label { font-size: 0.7rem; color: var(--text-dim); margin-bottom: var(--space-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dps-list { display: flex; flex-direction: column; gap: var(--space-3); }
+.dps-row {
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr) 56px;
+    align-items: center;
+    gap: var(--space-3);
 }
-.dps-delta-good, .dps-delta-bad { font-weight: bold; white-space: nowrap; }
-.dps-delta-good { color: var(--success); }
-.dps-delta-bad { color: var(--danger-text); }
-
-/* --- Tug-of-War Comparison Bar (two segments, split offset from center by delta%) --- */
-.dps-compare-bar {
-    display: flex;
-    align-items: stretch;
-    height: 28px;
-    gap: 3px;
+.dps-list.is-compare .dps-row { grid-template-columns: 76px minmax(0, 1fr) 56px 50px; }
+.dps-row-label {
+    font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+    color: var(--text-main); white-space: nowrap;
 }
-.dps-compare-segment {
-    display: flex; align-items: center; gap: 5px;
-    border: 1px solid transparent;
-    border-radius: 4px;
-    transition: width 0.2s ease-in-out;
-}
-.dps-compare-segment-swatch { width: 6px; height: 6px; border-radius: 1px; flex-shrink: 0; }
-.dps-compare-segment.is-winner { background-color: rgba(50, 220, 50, 0.15); border-color: var(--success); }
-.dps-compare-segment.is-loser { background-color: rgba(220, 50, 50, 0.15); border-color: var(--danger-text); }
-.dps-compare-segment-left { justify-content: flex-end; padding-right: var(--space-3); }
-.dps-compare-segment-right { justify-content: flex-start; padding-left: var(--space-3); padding-right: 10px; }
-.dps-compare-segment-solo {
-    justify-content: flex-start; padding-left: 10px;
-    background-color: var(--accent-selected); border-color: var(--accent);
-}
-.dps-compare-segment-solo span { color: var(--accent); }
-.dps-compare-segment span { font-weight: bold; font-size: 0.75rem; font-variant-numeric: tabular-nums; }
-.dps-compare-segment.is-winner span { color: var(--success); }
-.dps-compare-segment.is-loser span { color: var(--danger-text); }
+.dps-row-value, .dps-row-delta { text-align: right; font-size: 0.78rem; font-weight: bold; font-variant-numeric: tabular-nums; color: var(--text-main); }
+.dps-row-delta.is-up { color: var(--success); }
+.dps-row-delta.is-down { color: var(--danger-text); }
+/* Difference bars grow from the center line: right for better, left for worse. */
+.dps-list.is-compare .bar-track { background: transparent; }
+.dps-zero-line { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--text-dim); }
+.dps-delta-bar { position: absolute; top: 0; height: 100%; }
+.dps-delta-bar.is-up { left: 50%; background: var(--success); border-radius: 0 3px 3px 0; }
+.dps-delta-bar.is-down { right: 50%; background: var(--danger-text); border-radius: 3px 0 0 3px; }
 
 /* =========================================
    5. PIN COMPARISON CONTROL
@@ -390,8 +373,6 @@
     color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .substat-track-col { position: relative; }
-.substat-track { position: relative; display: block; width: 100%; height: 6px; background: var(--surface-lighten-strong); border-radius: 3px; }
-.substat-range { position: absolute; top: 0; height: 100%; background: var(--accent); border-radius: 3px; }
 .substat-default-marker {
     position: absolute; top: 50%; width: 3px; height: 14px; margin-left: -1.5px; margin-top: -7px;
     background: #f0d8a8; border-radius: 2px; cursor: pointer;

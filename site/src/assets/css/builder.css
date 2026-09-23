@@ -1003,7 +1003,7 @@
     color: var(--text-dim);
 }
 
-/* Segments follow .dps-compare-segment (tinted fill + 1px border); "Any" uses the timeline's fast-forward stripes. */
+/* Segments: tinted fill + 1px border; "Any" uses the timeline's fast-forward stripes. */
 .builder-view .mech-stance-bar {
     display: flex;
     gap: 3px;

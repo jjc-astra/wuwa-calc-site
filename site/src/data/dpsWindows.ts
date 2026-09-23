@@ -5,18 +5,17 @@ import type { DpsStats } from '../types/results';
 
 interface DpsWindowDef {
   key: string;
-  // Short name, for tabs and dropdowns.
+  // Short name, for tabs, dropdowns and the DPS panel.
   label: string;
-  // Which DpsStats field holds this window's DPS, and how the DPS panel labels it.
+  // Which DpsStats field holds this window's DPS.
   dpsField: keyof DpsStats;
-  dpsLabel: string;
 }
 
 export const DPS_WINDOWS = [
-  { key: 'opener', label: 'Opener', dpsField: 'openerDps', dpsLabel: 'Opener DPS' },
-  { key: 'firstLoop', label: 'First Loop', dpsField: 'firstLoopDps', dpsLabel: 'First Loop DPS' },
-  { key: 'avgLoop', label: 'Avg Loop', dpsField: 'avgLoopDps', dpsLabel: 'Avg Loop DPS' },
-  { key: 'twoMin', label: '2-Min', dpsField: 'twoMinDps', dpsLabel: '2-Minute DPS' }
+  { key: 'opener', label: 'Opener', dpsField: 'openerDps' },
+  { key: 'firstLoop', label: 'First Loop', dpsField: 'firstLoopDps' },
+  { key: 'avgLoop', label: 'Avg Loop', dpsField: 'avgLoopDps' },
+  { key: 'twoMin', label: '2-Min', dpsField: 'twoMinDps' }
 ] as const satisfies readonly DpsWindowDef[];
 
 export type DpsWindowKey = typeof DPS_WINDOWS[number]['key'];
