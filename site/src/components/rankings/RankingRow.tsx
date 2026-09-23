@@ -8,18 +8,28 @@ import { loadSavedRotation } from '../../store/loadSavedRotation';
 import { teamCharacters } from '../../utils/TeamUtils';
 import { useComparisonStore } from '../../store/useComparisonStore';
 import { DataLoader } from '../../utils/DataLoader';
+import { rotationTypeLabel } from '../../store/useRankingsStore';
 import type { RankingEntry } from '../../store/useRankingsStore';
 import type { DpsWindowKey } from '../../types/results';
 import { dpsFieldOf } from '../../data/dpsWindows';
+import { guideHash } from '../../hooks/useHashRoute';
+import type { ActionsMenuItem } from '../common/ActionsMenuButton';
+
+export const RotationTypeBadge: React.FC<{ type: RankingEntry['rotationType'] }> = ({ type }) => (
+  <span className={`ranking-row-type-badge ranking-row-type-${type ?? 'unclassified'}`}>{rotationTypeLabel(type)}</span>
+);
 
 interface RankingRowProps {
   rank: number;
   entry: RankingEntry;
   activeWindow: DpsWindowKey;
   maxDps: number;
+  // When set, the bar's % label reads against this instead of the top entry.
+  baselineDps?: number;
+  extraMenuItems?: ActionsMenuItem[];
 }
 
-export const RankingRow: React.FC<RankingRowProps> = ({ rank, entry, activeWindow, maxDps }) => {
+export const RankingRow: React.FC<RankingRowProps> = ({ rank, entry, activeWindow, maxDps, baselineDps, extraMenuItems = [] }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const dps = entry.dpsStats[dpsFieldOf(activeWindow)] ?? 0;
   const widthPct = maxDps > 0 ? (dps / maxDps) * 100 : 0;
@@ -46,11 +56,6 @@ export const RankingRow: React.FC<RankingRowProps> = ({ rank, entry, activeWindo
     window.location.hash = '#/calculator/step-2';
   };
 
-  const handleOpenGuide = () => {
-    // Character Guide has no per-character route yet (still "Soon" in nav.ts) -- lands on the
-    // coming-soon page for now instead of a dead link.
-    window.location.hash = '#/guide';
-  };
 
   return (
     <>
@@ -64,9 +69,7 @@ export const RankingRow: React.FC<RankingRowProps> = ({ rank, entry, activeWindo
           <div className="ranking-row-label-line">
             <span className="ranking-row-label">{label || 'Empty Team'}</span>
             <div className="ranking-row-badges">
-              <span className={`ranking-row-type-badge ranking-row-type-${entry.rotationType ?? 'unclassified'}`}>
-                {entry.rotationType === 'linear' ? 'Linear' : entry.rotationType === 'quickswap' ? 'Quickswap' : 'Unclassified'}
-              </span>
+              <RotationTypeBadge type={entry.rotationType} />
               {entry.author && (
                 <span className="ranking-row-author-badge">By: {entry.author}</span>
               )}
@@ -78,6 +81,7 @@ export const RankingRow: React.FC<RankingRowProps> = ({ rank, entry, activeWindo
             unitBreakdowns={unitBreakdowns}
             widthPct={widthPct}
             dpsValue={dps}
+            percentLabel={baselineDps ? (dps / baselineDps) * 100 : undefined}
           />
         </div>
         <div className="ranking-row-menu-wrap" onClick={e => e.stopPropagation()}>
@@ -87,7 +91,8 @@ export const RankingRow: React.FC<RankingRowProps> = ({ rank, entry, activeWindo
             items={[
               { key: 'open-in-calculator', label: 'Open in Rotation Calculator', onClick: handleOpenInCalculator },
               { key: 'pin-to-comparison', label: 'Pin to Comparison', onClick: handlePinToComparison },
-              ...unitNames.map(name => ({ key: `guide-${name}`, label: `Open ${name} Guide`, onClick: handleOpenGuide }))
+              ...unitNames.map(name => ({ key: `guide-${name}`, label: `Open ${name} Guide`, onClick: () => { window.location.hash = guideHash(name); } })),
+              ...extraMenuItems
             ]}
           />
         </div>

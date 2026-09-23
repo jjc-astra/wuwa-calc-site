@@ -114,20 +114,20 @@
     text-overflow: ellipsis;
 }
 
-.builder-view .echo-set-icon {
+.echo-set-icon {
     border-radius: 6px 6px 0 0 !important;
     background: transparent !important;
     aspect-ratio: 1 / 1 !important;
     padding: var(--space-2);
 }
-.builder-view .echo-set-icon .char-grid-img {
+.echo-set-icon .char-grid-img {
     object-fit: contain !important;
 }
 
 /* --- Rarity Colors --- */
 .rarity-5 { border-bottom: 5px solid var(--warning); }
 .rarity-4 { border-bottom: 5px solid #b873f9; }
-.builder-view .rarity-none {
+.rarity-none {
     border-bottom: none !important;
     border-radius: 6px !important;
 }
@@ -328,7 +328,9 @@
     margin-bottom: var(--space-2);
 }
 
-.builder-view .form-input {
+/* .library-search-input: common/LibraryGrid's search box, which also appears outside the Builder. */
+.builder-view .form-input,
+.library-search-input {
     background: transparent;
     border: 1px solid var(--border);
     color: var(--text-main);
@@ -340,6 +342,7 @@
     width: 100%;
 }
 .builder-view .form-input:focus,
+.library-search-input:focus,
 .builder-view .base-select:focus {
     border-color: var(--accent);
     outline: none;

@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 import { useBuilderStore, mechFolderFor } from '../../store/useBuilderStore';
 import { checkBuilderItemFreshness } from '../../utils/dataFreshness';
 import { DataLoader, type ImplementedContentKind } from '../../utils/DataLoader';
-import { CommonUtils } from '../../utils/Common';
-import { useImageStatus } from '../../hooks/useImageStatus';
 import { BuilderUtils } from '../../utils/BuilderUtils';
 import { MechanicKey } from '../../utils/MechanicKey';
 import { BaseStatsForm } from './BaseStatsForm';
@@ -14,8 +12,8 @@ import { isElement } from '../../data/gameVocab';
 import type { MechanicNode } from '../../types';
 import type { ImageFolder } from '../../data/db';
 import { tip } from './mechanicNodeHelpers';
-import { TooltipManager } from '../../utils/Common';
 import { Dropdown } from '../common/Dropdown';
+import { LibraryCard, LibrarySection, LibrarySearchInput, matchesLibrarySearch } from '../common/LibraryGrid';
 
 // Maps a grid section's image folder to the isContentImplemented() kind to check.
 // 'System' has no implemented-content notion, so it's always treated as implemented.
@@ -34,36 +32,23 @@ interface GridCardProps {
   hasChanges: boolean;
 }
 
+// A library card plus the Builder's own state: rarity, "not yet implemented" dimming and the
+// unsaved-changes badge.
 const GridCard: React.FC<GridCardProps> = ({ itemName, imgFolder, dbRef, onClick, hasChanges }) => {
-  const iconPath = CommonUtils.getIconPath(itemName, imgFolder);
-  const { loaded: imgLoaded, errored: imgError, onLoad: onImgLoad, onError: onImgError } = useImageStatus(iconPath);
-
-  let rarity = 5;
-  let rarityClass = 'rarity-none';
-  let iconClass = 'char-icon';
-
-  if (imgFolder === IMAGE_FOLDERS.CHARACTERS || imgFolder === IMAGE_FOLDERS.WEAPONS) {
-    rarity = dbRef?.[itemName]?.rarity || 5;
-    rarityClass = `rarity-${rarity}`;
-  } else if (imgFolder === IMAGE_FOLDERS.ECHO_SETS || imgFolder === IMAGE_FOLDERS.SYSTEM) {
-    iconClass += ' echo-set-icon';
-  }
-
-  const fontSize = imgFolder === IMAGE_FOLDERS.CHARACTERS ? '0.8em' : '0.65em';
+  const hasRarity = imgFolder === IMAGE_FOLDERS.CHARACTERS || imgFolder === IMAGE_FOLDERS.WEAPONS;
+  const rarity = hasRarity ? dbRef?.[itemName]?.rarity || 5 : 5;
   const implementedKind = IMPLEMENTED_KIND_BY_FOLDER[imgFolder];
   const isImplemented = !implementedKind || DataLoader.isContentImplemented(implementedKind, itemName) || hasChanges;
 
   return (
-    <div
-      className={`char-grid-card ${isImplemented ? '' : 'is-unimplemented'}`}
-      onClick={() => {
-        // Grid unmounts on selection -- no natural mouseleave fires, so hide tooltip explicitly.
-        TooltipManager.hide();
-        onClick(rarity);
-      }}
-      {...(!isImplemented ? tip('Not yet implemented -- click to start authoring its mechanics') : {})}
-    >
-      {hasChanges && (
+    <LibraryCard
+      itemName={itemName}
+      imgFolder={imgFolder}
+      rarity={rarity}
+      dimmed={!isImplemented}
+      dimmedTooltip="Not yet implemented -- click to start authoring its mechanics"
+      onClick={() => onClick(rarity)}
+      badge={hasChanges && (
         // Sibling of .char-icon (not a child) -- .char-icon clips via overflow:hidden for its
         // rounded corners, so this lets the badge hang half outside like a real notification badge.
         <span className="char-grid-dirty-badge" {...tip('Has locally cached changes')}>
@@ -74,34 +59,7 @@ const GridCard: React.FC<GridCardProps> = ({ itemName, imgFolder, dbRef, onClick
           </svg>
         </span>
       )}
-      <div className={`${iconClass} ${rarityClass}`}>
-        {!imgError && (
-          <img
-            className={`char-grid-img ${imgLoaded ? 'opacity-1' : 'opacity-0'}`}
-            src={iconPath}
-            alt={itemName}
-            onLoad={onImgLoad}
-            onError={onImgError}
-          />
-        )}
-        {(!imgLoaded || imgError) && (
-          <span className="char-fallback">{itemName.charAt(0)}</span>
-        )}
-      </div>
-      <div
-        className="char-name-label"
-        style={{
-          fontSize,
-          lineHeight: 1.2,
-          whiteSpace: 'normal',
-          display: '-webkit-box',
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: 'vertical'
-        }}
-      >
-        {itemName}
-      </div>
-    </div>
+    />
   );
 };
 
@@ -185,69 +143,33 @@ export const MechanicsBuilder: React.FC = () => {
       dbRef: Record<string, any> | undefined,
       imgFolder: ImageFolder
     ) => {
-      const filtered = items.filter(item =>
-        item.toLowerCase().includes(searchTerm.toLowerCase().trim())
-      );
-      if (!filtered || filtered.length === 0) return null;
+      const filtered = items.filter(item => matchesLibrarySearch(item, searchTerm));
+      if (filtered.length === 0) return null;
 
       return (
-        <div key={title} className="grid-section" style={{ width: '100%' }}>
-          <div
-            className="text-gold mb-4px"
-            style={{ fontSize: '1.1em', fontWeight: 'bold', borderBottom: '1px solid #444', paddingBottom: '4px' }}
-          >
-            {title}
-          </div>
-          <div
-            className="item-grid"
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(85px, 1fr))',
-              gap: '12px',
-              marginTop: '12px',
-              width: '100%'
-            }}
-          >
-            {filtered.map(itemName => (
-              <GridCard
-                key={itemName}
-                itemName={itemName}
-                imgFolder={imgFolder}
-                dbRef={dbRef}
-                onClick={async rarity => {
-                  // Check cached mechanic JSON isn't stale before opening -- silently evicted and
-                  // refetched (by setActiveChar below), unless unsaved edits raise a conflict dialog.
-                  await checkBuilderItemFreshness(mechFolderFor(imgFolder), itemName);
-                  setActiveChar(itemName, imgFolder, rarity);
-                }}
-                hasChanges={hasChanges(itemName)}
-              />
-            ))}
-          </div>
-        </div>
+        <LibrarySection key={title} title={title}>
+          {filtered.map(itemName => (
+            <GridCard
+              key={itemName}
+              itemName={itemName}
+              imgFolder={imgFolder}
+              dbRef={dbRef}
+              onClick={async rarity => {
+                // Check cached mechanic JSON isn't stale before opening -- silently evicted and
+                // refetched (by setActiveChar below), unless unsaved edits raise a conflict dialog.
+                await checkBuilderItemFreshness(mechFolderFor(imgFolder), itemName);
+                setActiveChar(itemName, imgFolder, rarity);
+              }}
+              hasChanges={hasChanges(itemName)}
+            />
+          ))}
+        </LibrarySection>
       );
     };
 
     return (
       <div id="view-grid" className="builder-view" style={{ flexDirection: 'column', flex: 1, minHeight: 0, height: '100%' }}>
-        <div style={{ padding: '20px 20px 16px 20px', flexShrink: 0 }}>
-          <input
-            type="text"
-            id="grid-search-input"
-            className="form-input"
-            placeholder="Search Characters, Weapons, Echoes..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            style={{
-              width: '100%',
-              maxWidth: '400px',
-              padding: '10px 15px',
-              fontSize: '0.9rem',
-              background: 'var(--bg-well)',
-              borderRadius: '6px'
-            }}
-          />
-        </div>
+        <LibrarySearchInput value={searchTerm} onChange={setSearchTerm} placeholder="Search Characters, Weapons, Echoes..." />
 
         <div
           id="character-grid"

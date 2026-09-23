@@ -1,14 +1,13 @@
 // src/components/results/ResultsTab.tsx
 import React from 'react';
-import { useRotationStore } from '../../store/useRotationStore';
+import { useResultsSource } from './ResultsSource';
 import { DpsPanel } from './DpsPanel';
 import { DmgOverTimeChart } from './DmgOverTimeChart';
 import { TeamContributionPanel } from './TeamContributionPanel';
 import { SubstatWorthChart } from './SubstatWorthChart';
 
 export const ResultsTab: React.FC = () => {
-  const results = useRotationStore(s => s.results);
-  const isStale = useRotationStore(s => s.isStale);
+  const { results } = useResultsSource();
 
   if (!results) {
     return (
@@ -19,6 +18,13 @@ export const ResultsTab: React.FC = () => {
     );
   }
 
+  return <ResultsGrid />;
+};
+
+// The four result panels.
+export const ResultsGrid: React.FC = () => {
+  const { results, isStale } = useResultsSource();
+  if (!results) return null;
   return (
     <div className={`results-tab-grid ${isStale ? 'is-stale' : ''}`}>
       <DpsPanel />

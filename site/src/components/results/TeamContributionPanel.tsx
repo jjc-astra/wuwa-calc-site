@@ -1,7 +1,6 @@
 // src/components/results/TeamContributionPanel.tsx
 import React, { useMemo, useState } from 'react';
-import { useRosterStore } from '../../store/useRosterStore';
-import { useRotationStore } from '../../store/useRotationStore';
+import { useResultsSource } from './ResultsSource';
 import { DataLoader } from '../../utils/DataLoader';
 import type { DpsWindowKey } from '../../types/results';
 import { PieChart } from './PieChart';
@@ -12,8 +11,7 @@ import { Dropdown } from '../common/Dropdown';
 import { UnitTabs } from '../common/UnitTabs';
 
 export const TeamContributionPanel: React.FC = () => {
-  const team = useRosterStore(s => s.team);
-  const results = useRotationStore(s => s.results);
+  const { team, results } = useResultsSource();
   const units = team.filter(s => s.character).map(s => s.character);
   const tabs = ['Team', ...units];
   const [activeTab, setActiveTab] = useState('Team');

@@ -377,12 +377,14 @@
 .substat-chart { display: flex; flex-direction: column; gap: var(--space-1); }
 .substat-chart-headrow, .substat-row {
     display: grid;
-    grid-template-columns: 90px 1fr 46px 52px 46px;
+    grid-template-columns: 38px 76px 1fr 46px 52px 46px;
     align-items: center;
     gap: var(--space-2);
 }
 .substat-chart-headrow { font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; }
 .substat-col-header { text-align: right; }
+/* The roll value each row was tested at, e.g. "7.5%". */
+.substat-roll-col { font-size: 0.7rem; font-weight: 700; color: var(--accent); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .substat-label-col {
     font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
     color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;

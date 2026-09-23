@@ -1,7 +1,6 @@
 // src/components/results/DpsPanel.tsx
 import React from 'react';
-import { useRotationStore } from '../../store/useRotationStore';
-import { useComparisonStore } from '../../store/useComparisonStore';
+import { useResultsSource } from './ResultsSource';
 import { DPS_WINDOWS } from '../../data/dpsWindows';
 import { PinRotationControl } from './PinRotationControl';
 import { ResultsLegend } from './ResultsLegend';
@@ -25,8 +24,7 @@ const MAX_SPLIT = 90;
 const MIN_SOLO_WIDTH = 20;
 
 export const DpsPanel: React.FC = () => {
-  const results = useRotationStore(s => s.results);
-  const { pinned } = useComparisonStore();
+  const { results, pinned, allowPin } = useResultsSource();
 
   if (!results) return null;
   const current = results.dpsStats;
@@ -37,7 +35,7 @@ export const DpsPanel: React.FC = () => {
     <div className="results-card">
       <div className="results-card-header">
         <span>DPS</span>
-        <PinRotationControl />
+        {allowPin && <PinRotationControl />}
       </div>
 
       {pinned && (

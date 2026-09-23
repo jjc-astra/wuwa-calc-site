@@ -519,19 +519,38 @@ function buildSubstatWorth(twoMinHits: RotationHit[], team: TeamSlot[]): Record<
   return out;
 }
 
-export function buildRotationResults(
+// DPS + contribution only: skips the dmg-over-time series and substat worth, the costly parts.
+export type RotationSummary = Pick<RotationResults, 'dpsStats' | 'contribution'>;
+
+type ResultsArgs = [
   rows: any[],
   team: TeamSlot[],
   options: { startEnergy?: boolean; startConcerto?: boolean },
   enemyConfig: { level: number; res: number; hp: number },
   loopStartIndex: number,
-  endingRotationEnabled: boolean = false,
-  endRotationStartsEarlier: boolean = false,
+  endingRotationEnabled?: boolean,
+  endRotationStartsEarlier?: boolean,
   shared?: SharedExtendedRun
-): RotationResults {
+];
+
+function simulateHits(...[rows, team, options, enemyConfig, loopStartIndex, endingRotationEnabled = false, endRotationStartsEarlier = false, shared]: ResultsArgs) {
   const { evaluatedRows, openerEndTime, loopDuration } = buildExtendedTimeline(rows, team, options, enemyConfig, loopStartIndex, endingRotationEnabled, endRotationStartsEarlier, shared);
   const hits = buildHitList(evaluatedRows, team, enemyConfig);
   const teamNames = team.filter(s => s.character).map(s => s.character);
+  return { hits, openerEndTime, loopDuration, teamNames };
+}
+
+export function buildRotationSummary(...args: ResultsArgs): RotationSummary {
+  const { hits, openerEndTime, loopDuration, teamNames } = simulateHits(...args);
+  return {
+    dpsStats: buildDpsStats(hits, openerEndTime, loopDuration),
+    contribution: buildAllContribution(hits, openerEndTime, loopDuration, teamNames)
+  };
+}
+
+export function buildRotationResults(...args: ResultsArgs): RotationResults {
+  const { hits, openerEndTime, loopDuration, teamNames } = simulateHits(...args);
+  const [, team, , enemyConfig] = args;
   const twoMinHits = windowedHits(hits, -Infinity, TWO_MIN);
 
   return {

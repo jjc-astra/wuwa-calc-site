@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { LandingPage } from './components/LandingPage';
-import { ComingSoonPage } from './components/ComingSoonPage';
+import { CharacterGuidePage } from './components/guide/CharacterGuidePage';
 import { MechanicsBuilder } from './components/builder/MechanicsBuilder';
 import { TeamBuilder } from './components/roster/TeamBuilder';
 import { RotationBuilder } from './components/rotation/RotationBuilder';
@@ -13,7 +13,6 @@ import { checkTeamFreshness, checkBuilderItemFreshness } from './utils/dataFresh
 import { useRosterStore } from './store/useRosterStore';
 import { useRankingsStore } from './store/useRankingsStore';
 import { useBuilderStore, mechFolderFor } from './store/useBuilderStore';
-import { NAV_ITEMS } from './config/nav';
 import { useHashRoute } from './hooks/useHashRoute';
 import './assets/css/palette.css';
 import './assets/css/components.css';
@@ -23,9 +22,10 @@ import './assets/css/landing.css';
 import './assets/css/results.css';
 import './assets/css/rankings.css';
 import './assets/css/timeline.css';
+import './assets/css/guide.css';
 
 export default function App() {
-  const [{ view: currentView, step: activeStep }, navigate] = useHashRoute();
+  const [{ view: currentView, step: activeStep, guideCharacter }, navigate] = useHashRoute();
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Re-checks the Builder's open entity against the manifest, replaying setActiveChar if it
@@ -53,7 +53,7 @@ export default function App() {
       if (document.visibilityState !== 'visible') return;
       if (currentView === 'calculator') {
         checkTeamFreshness(useRosterStore.getState().team);
-      } else if (currentView === 'rankings') {
+      } else if (currentView === 'rankings' || currentView === 'guide') {
         useRankingsStore.getState().load();
       } else if (currentView === 'builder') {
         refreshActiveBuilderItem();
@@ -81,11 +81,9 @@ export default function App() {
     );
   }
 
-  const guideItem = NAV_ITEMS.find(i => i.id === 'guide')!;
-
   return (
     <div id="app-layout">
-      <Header currentView={currentView} onNavClick={navigate} />
+      <Header currentView={currentView} onNavClick={navigate} guideCharacter={guideCharacter} />
 
       {currentView === 'landing' && <LandingPage onNavigate={navigate} />}
 
@@ -109,9 +107,7 @@ export default function App() {
 
       {currentView === 'rankings' && <RotationRankingsPage />}
 
-      {currentView === 'guide' && (
-        <ComingSoonPage title={guideItem.label} description={guideItem.description} icon={guideItem.icon} />
-      )}
+      {currentView === 'guide' && <CharacterGuidePage character={guideCharacter} />}
 
       <FreshnessConflictDialog />
     </div>

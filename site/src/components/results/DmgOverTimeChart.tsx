@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useRotationStore } from '../../store/useRotationStore';
-import { useComparisonStore } from '../../store/useComparisonStore';
+import { useResultsSource } from './ResultsSource';
 import type { DmgOverTimeSeries, DpsWindowKey } from '../../types/results';
 import { PinRotationControl } from './PinRotationControl';
 import { ResultsLegend } from './ResultsLegend';
@@ -109,14 +108,13 @@ function buildDpsPoints(points: DisplayPoint[], domainMaxT: number): DisplayPoin
 }
 
 export const DmgOverTimeChart: React.FC = () => {
-  const results = useRotationStore(s => s.results);
-  const { pinned } = useComparisonStore();
+  const { results, pinned, allowPin, dmgChartDefaults } = useResultsSource();
   const svgRef = useRef<SVGSVGElement>(null);
   const [hoverT, setHoverT] = useState<number | null>(null);
   const [hoverBinIdx, setHoverBinIdx] = useState<number | null>(null);
-  const [mode, setMode] = useState<ViewMode>('dmg');
-  const [chartType, setChartType] = useState<ChartType>('line');
-  const [dpsType, setDpsType] = useState<DpsWindowKey>('twoMin');
+  const [mode, setMode] = useState<ViewMode>(dmgChartDefaults?.mode ?? 'dmg');
+  const [chartType, setChartType] = useState<ChartType>(dmgChartDefaults?.chartType ?? 'line');
+  const [dpsType, setDpsType] = useState<DpsWindowKey>(dmgChartDefaults?.window ?? 'twoMin');
   const [WIDTH, setWidth] = useState(DEFAULT_WIDTH);
 
   const primarydmg = results ? toDisplaySeries(results.dmgOverTimeSeries[dpsType]) : EMPTY_SERIES;
@@ -304,7 +302,7 @@ export const DmgOverTimeChart: React.FC = () => {
       <div className="results-card-header">
         <span>Dmg Over Time</span>
         <div className="results-card-header-controls">
-          <PinRotationControl />
+          {allowPin && <PinRotationControl />}
         </div>
       </div>
       {!hasChart ? (

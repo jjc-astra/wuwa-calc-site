@@ -1,23 +1,29 @@
 // src/components/results/SubstatWorthChart.tsx
 import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useRosterStore } from '../../store/useRosterStore';
-import { useRotationStore } from '../../store/useRotationStore';
+import { useResultsSource } from './ResultsSource';
 import { TooltipManager } from '../../utils/Common';
 import { SegmentedToggle } from '../common/SegmentedToggle';
 import { UnitTabs } from '../common/UnitTabs';
 
 const formatPct = (v: number) => `${v.toFixed(1)}%`;
 
+// Flat ATK/HP/DEF rolls are plain numbers; every other substat is a percentage.
+const FLAT_SUBSTATS = new Set(['ATK', 'HP', 'DEF']);
+// The roll value a row was tested at ("7.5%"). The name drops its " %", since the value shows it.
+const formatRoll = (substat: string, value: number) => (FLAT_SUBSTATS.has(substat) ? `${value}` : `${value}%`);
+const rollLabel = (substat: string) => substat.replace(/ %$/, '');
+
 type Direction = 'minus' | 'plus';
 type Mode = 'team' | 'personal';
 
 export const SubstatWorthChart: React.FC = () => {
-  const team = useRosterStore(s => s.team);
-  const results = useRotationStore(s => s.results);
+  const source = useResultsSource();
+  const { team, results } = source;
   const units = team.filter(s => s.character).map(s => s.character);
   const [activeUnit, setActiveUnit] = useState(units[0] || '');
   const [direction, setDirection] = useState<Direction>('plus');
-  const [mode, setMode] = useState<Mode>('team');
+  const [ownMode, setMode] = useState<Mode>('team');
+  const mode: Mode = source.scope ?? ownMode;
   const unit = units.includes(activeUnit) ? activeUnit : units[0] || '';
 
   // min/max/default are the % DPS worth of a roll at that value, in the selected direction/mode
@@ -29,6 +35,7 @@ export const SubstatWorthChart: React.FC = () => {
     return raw
       .map(r => ({
         substat: r.substat,
+        roll: r.default,
         min: r[direction][mode].min,
         max: r[direction][mode].max,
         default: r[direction][mode].default
@@ -59,17 +66,19 @@ export const SubstatWorthChart: React.FC = () => {
   return (
     <div className="results-card">
       <div className="results-card-header">
-        <span>Substat Worth</span>
+        <span>Substat Worth ({mode === 'team' ? 'Team' : 'Personal'})</span>
         <div className="results-card-header-controls">
-          <SegmentedToggle
-            ariaLabel="Substat worth scope"
-            value={mode}
-            onChange={setMode}
-            options={[
-              { value: 'team', label: 'Team', tooltip: "Show % change of the whole team's damage" },
-              { value: 'personal', label: 'Personal', tooltip: "Show % change of just this unit's own damage" }
-            ]}
-          />
+          {!source.scope && (
+            <SegmentedToggle
+              ariaLabel="Substat worth scope"
+              value={mode}
+              onChange={setMode}
+              options={[
+                { value: 'team', label: 'Team', tooltip: "Show % change of the whole team's damage" },
+                { value: 'personal', label: 'Personal', tooltip: "Show % change of just this unit's own damage" }
+              ]}
+            />
+          )}
           <SegmentedToggle
             ariaLabel="Substat worth direction"
             value={direction}
@@ -88,6 +97,7 @@ export const SubstatWorthChart: React.FC = () => {
           <UnitTabs tabs={units} active={unit} onSelect={setActiveUnit} />
           <div className="substat-chart">
             <div className="substat-chart-headrow">
+              <span className="substat-roll-col" />
               <span className="substat-label-col" />
               <span className="substat-track-col" />
               <span className="substat-col-header">Min</span>
@@ -109,7 +119,8 @@ export const SubstatWorthChart: React.FC = () => {
 
               return (
                 <div key={row.substat} className="substat-row">
-                  <span className="substat-label-col">{row.substat}</span>
+                  <span className="substat-roll-col">{formatRoll(row.substat, row.roll)}</span>
+                  <span className="substat-label-col">{rollLabel(row.substat)}</span>
                   <span className="substat-track-col">
                     <span className="substat-track" ref={idx === 0 ? trackRef : undefined}>
                       <span

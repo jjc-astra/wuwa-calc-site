@@ -2,7 +2,7 @@
 // main thread, with its own separate DataLoader -- compiled DSL trigger-rule functions can't be
 // structured-cloned, so there's no way to share one instance across postMessage anyway.
 import { TimelineEngine } from '../logic/TimelineEngine';
-import { buildRotationResults, populateDamageInstances, previewEndingRotationTiming, type SharedExtendedRun } from '../logic/ResultsCalculator';
+import { buildRotationResults, buildRotationSummary, populateDamageInstances, previewEndingRotationTiming, type SharedExtendedRun } from '../logic/ResultsCalculator';
 import { DataLoader } from '../utils/DataLoader';
 import { applyBuilderOverridesToDataLoader } from './builderOverridePayload';
 
@@ -87,8 +87,10 @@ worker.onmessage = async (e: MessageEvent) => {
     } else if (type === 'calculateDamage') {
       const { rows, team, options, enemy, endingRotationEnabled, endRotationStartsEarlier } = payload;
 
+      // summaryOnly returns just DPS + contribution, skipping the per-row breakdown and timeline rows.
+      const summaryOnly = !!payload.summaryOnly;
       let evaluatedRows = TimelineEngine.recalculateState(rows, team, options, enemy);
-      populateDamageInstances(evaluatedRows, enemy, team);
+      if (!summaryOnly) populateDamageInstances(evaluatedRows, enemy, team);
       // The live calculator passes the loop start it already has; one-shot callers omit it.
       const loopStartIndex: number = typeof payload.loopStartIndex === 'number'
         ? payload.loopStartIndex
@@ -97,14 +99,18 @@ worker.onmessage = async (e: MessageEvent) => {
       // Ending Rotation rows' columns with the plain single-pass evaluation.
       const shared: SharedExtendedRun = {};
       if (endingRotationEnabled) {
-        evaluatedRows = previewEndingRotationTiming(evaluatedRows, team, options, enemy, loopStartIndex, true, !!endRotationStartsEarlier, shared);
+        evaluatedRows = previewEndingRotationTiming(evaluatedRows, team, options, enemy, loopStartIndex, !summaryOnly, !!endRotationStartsEarlier, shared);
       }
 
       // Extended (opener + N-loop-repetition) pass -- feeds the Results panel. Reuses the Ending
       // Rotation preview's simulation when it ran the same timeline.
-      const results = buildRotationResults(rows, team, options, enemy, loopStartIndex, endingRotationEnabled, !!endRotationStartsEarlier, shared);
-
-      worker.postMessage({ id, ok: true, evaluatedRows: stripFunctions(evaluatedRows), results });
+      const args = [rows, team, options, enemy, loopStartIndex, endingRotationEnabled, !!endRotationStartsEarlier, shared] as const;
+      if (summaryOnly) {
+        worker.postMessage({ id, ok: true, results: buildRotationSummary(...args) });
+      } else {
+        const results = buildRotationResults(...args);
+        worker.postMessage({ id, ok: true, evaluatedRows: stripFunctions(evaluatedRows), loopStartIndex, results });
+      }
     }
   } catch (err: any) {
     worker.postMessage({ id, ok: false, error: err?.message || String(err) });

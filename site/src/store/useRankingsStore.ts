@@ -22,6 +22,8 @@ export interface RankingEntry {
   contribution: RotationResults['contribution'];
 }
 
+const ROTATION_TYPE_LABELS = { linear: 'Linear', quickswap: 'Quickswap', unclassified: 'Unclassified' } as const;
+export const rotationTypeLabel = (type: RankingEntry['rotationType']): string => ROTATION_TYPE_LABELS[type ?? 'unclassified'];
 
 // "Same rotation" for Best Only: same characters, same slots, same sequence.
 // Gear/echoes and button order don't factor in.

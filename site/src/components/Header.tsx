@@ -5,13 +5,16 @@ import type { ViewId } from '../config/nav';
 import { HomeIcon, HeartIcon, DiscordIcon, PatreonIcon } from './common/icons';
 import { ActionsMenuButton } from './common/ActionsMenuButton';
 import { SITE_FEATURES, SITE_LINKS } from '../data/db';
+import { guideHash } from '../hooks/useHashRoute';
 
 interface HeaderProps {
   currentView: ViewId;
   onNavClick: (view: ViewId) => void;
+  // The character the guide is open on, if any.
+  guideCharacter?: string;
 }
 
-export const Header: React.FC<HeaderProps> = ({ currentView, onNavClick }) => {
+export const Header: React.FC<HeaderProps> = ({ currentView, onNavClick, guideCharacter }) => {
   const { activeChar, setActiveChar } = useBuilderStore();
 
   return (
@@ -40,6 +43,11 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavClick }) => {
       <div className="header-right">
         {currentView === 'builder' && activeChar !== null && (
           <button id="back-to-grid-btn" className="base-btn" onClick={() => setActiveChar(null)}>
+            Back to Library
+          </button>
+        )}
+        {currentView === 'guide' && guideCharacter && (
+          <button className="base-btn" onClick={() => { window.location.hash = guideHash(); }}>
             Back to Library
           </button>
         )}

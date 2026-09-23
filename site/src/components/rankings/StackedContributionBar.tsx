@@ -28,16 +28,19 @@ interface StackedContributionBarProps {
   /** Only meaningful when there's a real leaderboard to be a % of (Rankings); History has no
    * such reference and always fills to 100%, so it passes false to suppress a meaningless label. */
   showPercentage?: boolean;
+  /** Overrides the % label, which otherwise shows widthPct. Bar length still follows widthPct. */
+  percentLabel?: number;
 }
 
 const formatValue = (v: number) => Math.round(v).toLocaleString();
+const formatPct = (v: number) => `${v.toFixed(Math.abs(v - 100) < 0.05 ? 0 : 2)}%`;
 
 // Above this width, the % label draws inside the bar (right-aligned) instead of past its edge,
 // so it never overflows the track.
 const PCT_INSIDE_THRESHOLD = 90;
 
 export const StackedContributionBar: React.FC<StackedContributionBarProps> = ({
-  segments, unitNames, unitBreakdowns, widthPct, dpsValue, showPercentage = true
+  segments, unitNames, unitBreakdowns, widthPct, dpsValue, showPercentage = true, percentLabel
 }) => {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const slices = segments.filter(s => s.dmg > 0);
@@ -119,7 +122,7 @@ export const StackedContributionBar: React.FC<StackedContributionBarProps> = ({
           className={`ranking-bar-pct ${pctInside ? 'is-inside' : 'is-outside'}`}
           style={pctInside ? undefined : { left: `${clampedWidth}%` }}
         >
-          {clampedWidth.toFixed(clampedWidth >= 99.95 ? 0 : 2)}%
+          {formatPct(percentLabel ?? clampedWidth)}
         </div>
       )}
     </div>

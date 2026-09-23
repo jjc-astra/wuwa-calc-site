@@ -26,11 +26,18 @@ function setLastStep(step: 1 | 2): void {
 export interface Route {
   view: ViewId;
   step: 1 | 2;
+  // Character Guide only: "#/guide/<name>".
+  guideCharacter?: string;
 }
+
+// Also set directly (window.location.hash = ...) by components that navigate() doesn't reach.
+export const guideHash = (character?: string): string =>
+  character ? `#/guide/${encodeURIComponent(character)}` : '#/guide';
 
 function parseHash(): Route {
   const parts = window.location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
   const view = VALID_VIEWS.includes(parts[0] as ViewId) ? (parts[0] as ViewId) : 'landing';
+  if (view === 'guide') return { view, step: 1, guideCharacter: parts[1] ? decodeURIComponent(parts[1]) : undefined };
   if (view !== 'calculator') return { view, step: 1 };
 
   // routeToHash always writes an explicit step-1/step-2, so a missing segment here only

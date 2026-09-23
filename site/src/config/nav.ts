@@ -36,7 +36,6 @@ export const NAV_ITEMS: NavItem[] = [
     id: 'guide',
     label: 'Character Guide',
     description: 'In-depth character build and team recommendations.',
-    icon: GuideIcon,
-    comingSoon: true
+    icon: GuideIcon
   }
 ];

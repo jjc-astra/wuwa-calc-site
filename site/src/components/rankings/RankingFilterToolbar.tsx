@@ -89,7 +89,8 @@ interface RankingFilterToolbarProps {
   onChange: (next: RankingFilters) => void;
 }
 
-export const RankingFilterToolbar: React.FC<RankingFilterToolbarProps> = ({ filters, onChange }) => {
+// One range slider per team slot.
+export const SequenceRangeFilters: React.FC<RankingFilterToolbarProps> = ({ filters, onChange }) => {
   const updateSeq = (slotIdx: number, next: RangeValue) => {
     const ranges = [...filters.sequenceRanges] as RankingFilters['sequenceRanges'];
     ranges[slotIdx] = next;
@@ -97,26 +98,38 @@ export const RankingFilterToolbar: React.FC<RankingFilterToolbarProps> = ({ filt
   };
 
   return (
-    <div className="ranking-toolbar">
-      <div className="panel-header-tiny">Sequence Filter</div>
+    <>
       {SLOT_LABELS.map((label, i) => (
         <div key={label} className="ranking-seq-row">
           <span className="ranking-seq-row-label">{label}</span>
           <RangeSlider min={0} max={6} value={filters.sequenceRanges[i]} onChange={v => updateSeq(i, v)} />
         </div>
       ))}
+    </>
+  );
+};
+
+export const RotationStyleToggle: React.FC<RankingFilterToolbarProps> = ({ filters, onChange }) => (
+  <SegmentedToggle
+    ariaLabel="Rotation style"
+    value={filters.rotationStyle}
+    onChange={rotationStyle => onChange({ ...filters, rotationStyle })}
+    options={[
+      { value: 'any', label: 'Any' },
+      { value: 'linear', label: 'Linear' },
+      { value: 'quickswap', label: 'Quickswap' }
+    ]}
+  />
+);
+
+export const RankingFilterToolbar: React.FC<RankingFilterToolbarProps> = ({ filters, onChange }) => {
+  return (
+    <div className="ranking-toolbar">
+      <div className="panel-header-tiny">Sequence Filter</div>
+      <SequenceRangeFilters filters={filters} onChange={onChange} />
 
       <div className="panel-header-tiny">Rotation Type</div>
-      <SegmentedToggle
-        ariaLabel="Rotation style"
-        value={filters.rotationStyle}
-        onChange={rotationStyle => onChange({ ...filters, rotationStyle })}
-        options={[
-          { value: 'any', label: 'Any' },
-          { value: 'linear', label: 'Linear' },
-          { value: 'quickswap', label: 'Quickswap' }
-        ]}
-      />
+      <RotationStyleToggle filters={filters} onChange={onChange} />
       {/* Grouped with Rotation Type, not DMG Type -- both describe the rotation itself, applied
           last in RotationRankingsPage's filter order regardless of position here. */}
       <SegmentedToggle
