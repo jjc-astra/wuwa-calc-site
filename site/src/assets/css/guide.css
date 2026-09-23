@@ -119,6 +119,13 @@
         background: linear-gradient(to bottom, transparent, var(--border) 8%, var(--border) 92%, transparent);
     }
 }
+/* Stacked (one column): dissolve the two column wrappers so their panels share one list, with
+   the selectors (Team & Investment, then Echo Stats) first instead of the Results column's top. */
+@container (max-width: 1139.98px) {
+    .guide-column { display: contents; }
+    .guide-config { order: -2; }
+    .guide-echo-stats { order: -1; }
+}
 .guide-pair-weighted { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: flex-start; }
 .guide-pair-weighted > :first-child { flex: 1 1 250px; min-width: 0; }
 .guide-pair-weighted > :last-child { flex: 2 1 340px; min-width: 0; }
