@@ -189,12 +189,14 @@ const GuideBody: React.FC<GuideBodyProps> = ({ character, entries }) => {
       <ResultsSourceContext.Provider value={{ results: full.results, team: full.team, isStale, pinned: null, allowPin: false, scope, dmgChartDefaults: GUIDE_DMG_CHART_DEFAULTS }}>
         <div className={`guide-columns ${isStale ? 'is-stale' : ''}`}>
           <div className="guide-column">
+            <div className="guide-column-header">
+              <div className="panel-header-main">Results</div>
+            </div>
             <GuideConfigPanel
               groups={groups}
               group={group}
               config={config}
               isDefault={!picked || JSON.stringify(picked) === JSON.stringify(defaultCfg)}
-              rotationEntry={selectedJob.entry}
               onGroupChange={g => setPicked(s0r1Config(g))}
               onSlotChange={updateSlot}
               onReset={() => setPicked(null)}
@@ -211,7 +213,7 @@ const GuideBody: React.FC<GuideBodyProps> = ({ character, entries }) => {
           </div>
 
           <div className="guide-column">
-            <div className="guide-cmp-toolbar">
+            <div className="guide-column-header">
               <div className="panel-header-main">Comparisons</div>
               <SegmentedToggle
                 ariaLabel="Comparison scope"
@@ -285,7 +287,6 @@ interface GuideConfigPanelProps {
   group: GuideTeamGroup;
   config: GuideConfig;
   isDefault: boolean;
-  rotationEntry: RankingEntry;
   onGroupChange: (group: GuideTeamGroup) => void;
   onSlotChange: (slotIdx: number, patch: Partial<GuideConfig['slots'][number]>) => void;
   onReset: () => void;
@@ -295,7 +296,7 @@ const SEQUENCE_OPTIONS = Array.from({ length: MAX_SEQUENCE + 1 }, (_, s) => ({ v
 const RANK_OPTIONS = Array.from({ length: MAX_RANK }, (_, r) => ({ value: String(r + 1), label: `R${r + 1}` }));
 
 const GuideConfigPanel: React.FC<GuideConfigPanelProps> = ({
-  groups, group, config, isDefault, rotationEntry, onGroupChange, onSlotChange, onReset
+  groups, group, config, isDefault, onGroupChange, onSlotChange, onReset
 }) => {
   const teamOptions: DropdownGroup[] = (['linear', 'quickswap', null] as const)
     .map(type => ({
@@ -305,10 +306,6 @@ const GuideConfigPanel: React.FC<GuideConfigPanelProps> = ({
     .filter(g => g.options.length > 0);
 
   const team = group.entries[0].team;
-  const rotationSeqs = team
-    .map((slot, i) => (slot.character ? `${slot.character} S${rotationEntry.sequences[i] ?? 0}` : null))
-    .filter(Boolean)
-    .join(', ');
 
   return (
     <div className="results-card guide-config">
@@ -371,11 +368,6 @@ const GuideConfigPanel: React.FC<GuideConfigPanelProps> = ({
           );
         })}
       </div>
-
-      <p className="guide-cmp-note">
-        Rotation: submitted at {rotationSeqs}
-        {rotationEntry.author ? ` by ${rotationEntry.author}` : ''} (highest submission at or below the selected sequences).
-      </p>
     </div>
   );
 };

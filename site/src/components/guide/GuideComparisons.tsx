@@ -50,7 +50,6 @@ export const SequenceComparison: React.FC<SectionProps & { defs: SequenceDef[]; 
   return (
     <div className="results-card guide-cmp-card">
       <div className="results-card-header"><span>Sequence Value ({scopeLabel(scope)})</span></div>
-      <p className="guide-cmp-note">vs S0. Tagged rows switch to that sequence's own submitted rotation.</p>
       <ComparisonTable
         columns={[{ label: scopeLabel(scope) }]}
         rows={rows}
@@ -95,7 +94,6 @@ export const WeaponComparison: React.FC<SectionProps & {
         <span>Ranks</span>
         <RangeSlider min={1} max={5} value={rankRange} onChange={onRankRangeChange} />
       </div>
-      <p className="guide-cmp-note">vs {selectedWeapon} (selected). Click a row to equip it.</p>
       <ComparisonTable
         columns={ranks.map(rank => ({ label: `R${rank}` }))}
         rows={rows}
@@ -142,9 +140,6 @@ export const EchoComparison: React.FC<SectionProps & { defs: EchoDef[]; setDefs:
   return (
     <div className="results-card guide-cmp-card">
       <div className="results-card-header"><span>Echo Build Comparison ({scopeLabel(scope)})</span></div>
-      <p className="guide-cmp-note">
-        vs the submitted build (highlighted). Main stat rows keep the substats; set rows use that set's own submission.
-      </p>
       {setRows.length === 0 ? table(statRows) : (
         <div className="guide-pair">
           <div>
