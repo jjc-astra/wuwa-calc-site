@@ -32,8 +32,8 @@ import type { GuideConfig, GuideMetric, GuideScope, GuideTeamGroup } from './gui
 import { useGuideFullCalc, useGuideSummaries } from './useGuideCalc';
 
 
-// Per-loop damage bars: the cumulative line mainly helps when comparing against a pinned rotation.
-const GUIDE_DMG_CHART_DEFAULTS = { window: 'avgLoop', mode: 'dmg', chartType: 'bar' } as const;
+// Damage bars: the cumulative line mainly helps when comparing against a pinned rotation.
+const GUIDE_DMG_CHART_DEFAULTS = { window: 'twoMin', mode: 'dmg', chartType: 'bar' } as const;
 
 interface CharacterGuidePageProps {
   character?: string;
