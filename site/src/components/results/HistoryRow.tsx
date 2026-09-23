@@ -3,53 +3,31 @@ import React, { useState } from 'react';
 import { TeamPreview } from '../common/TeamPreview';
 import { StackedContributionBar } from '../rankings/StackedContributionBar';
 import { ConfirmDialog } from '../common/ConfirmDialog';
-import { ExportResultsDialog } from '../common/ExportResultsDialog';
+import { ExportRotationDialog } from '../common/ExportRotationDialog';
 import { ActionsMenuButton } from '../common/ActionsMenuButton';
 import { useRotationHistoryStore } from '../../store/useRotationHistoryStore';
 import type { HistoryEntry } from '../../store/useRotationHistoryStore';
 import { loadSavedRotation } from '../../store/loadSavedRotation';
 import { teamCharacters } from '../../utils/TeamUtils';
 import { useComparisonStore } from '../../store/useComparisonStore';
-import { tip, CommonUtils } from '../../utils/Common';
+import { tip } from '../../utils/Common';
+import { defaultEnemyStats } from '../../data/db';
 
 interface HistoryRowProps {
   entry: HistoryEntry;
-}
-
-function buildFilename(entry: HistoryEntry, suffix: string): string {
-  return CommonUtils.exportFilename('Rotation', entry.team, suffix);
 }
 
 export const HistoryRow: React.FC<HistoryRowProps> = ({ entry }) => {
   const toggleFavorite = useRotationHistoryStore(s => s.toggleFavorite);
   const removeEntry = useRotationHistoryStore(s => s.removeEntry);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [saveResultsOpen, setSaveResultsOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const unitNames = teamCharacters(entry.team);
   const label = unitNames.join(' · ');
   const dps = entry.results.dpsStats.twoMinDps ?? 0;
   const segments = entry.results.contribution.twoMin?.team ?? [];
   const unitBreakdowns = entry.results.contribution.twoMin?.units ?? {};
-
-  const handleSaveResultsConfirm = (filename: string, author: string) => {
-    // Superset of Export Rotation's shape (rotation/team/settings) plus computed results --
-    // round-trips through Restore Rotation, and drops into public/data/character_results/ for
-    // Rankings to read without recalculating. dmgOverTimeSeries is left out (unused, cheap to
-    // regenerate); substatWorth stays in for a future Character Guide page.
-    const { dmgOverTimeSeries, ...resultsWithoutDmgOverTime } = entry.results;
-    CommonUtils.downloadJson(
-      {
-        rotation: entry.rotation,
-        team: entry.team,
-        settings: entry.settings,
-        ...(author && { author }),
-        results: resultsWithoutDmgOverTime
-      },
-      filename
-    );
-    setSaveResultsOpen(false);
-  };
 
   const handleRestoreConfirm = async () => {
     await loadSavedRotation(entry);
@@ -95,7 +73,7 @@ export const HistoryRow: React.FC<HistoryRowProps> = ({ entry }) => {
             triggerClassName="base-btn icon-btn"
             iconSize={14}
             items={[
-              { label: 'Save Results', onClick: () => setSaveResultsOpen(true) },
+              { label: 'Export', onClick: () => setExportOpen(true) },
               { label: 'Restore Rotation', onClick: () => setConfirmOpen(true) },
               // Instant -- this entry already carries full RotationResults (dmgOverTimeSeries included).
               { label: 'Pin to Comparison', onClick: () => useComparisonStore.getState().pinFromHistoryEntry(entry.team, entry.results) },
@@ -115,11 +93,16 @@ export const HistoryRow: React.FC<HistoryRowProps> = ({ entry }) => {
         />
       )}
 
-      {saveResultsOpen && (
-        <ExportResultsDialog
-          defaultFilename={buildFilename(entry, '_Results')}
-          onConfirm={handleSaveResultsConfirm}
-          onCancel={() => setSaveResultsOpen(false)}
+      {exportOpen && (
+        <ExportRotationDialog
+          source={{
+            rotation: entry.rotation,
+            team: entry.team,
+            settings: entry.settings,
+            enemy: entry.enemy ?? defaultEnemyStats(),
+            customResults: entry.results
+          }}
+          onClose={() => setExportOpen(false)}
         />
       )}
     </div>

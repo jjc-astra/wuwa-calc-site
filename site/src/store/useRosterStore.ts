@@ -1,9 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { persistStorage } from '../utils/safeLocalStorage';
-import type { TeamSlot } from '../types';
+import type { TeamSlot, EnemyStats } from '../types';
 import {
-  ENEMY_DEFAULTS,
+  defaultEnemyStats,
   DEFAULT_SUBSTATS,
   DEFAULT_ECHO_LAYOUT,
   costsForLayout,
@@ -81,6 +81,60 @@ export const calculateEchoStatsForSlot = (slot: TeamSlot) => {
   return echoStats;
 };
 
+// A character's recommended build from db_builds.json (its first listed role), if it has one.
+export const recommendedBuildFor = (character: string): any | undefined => {
+  const builds = DataLoader.buildDB[character];
+  const roles = builds ? Object.keys(builds) : [];
+  return roles.length > 0 ? builds[roles[0]] : undefined;
+};
+
+// A recommended build's echo layout, main stats and default-roll substats, on this slot's five
+// echoes. Sets, main echo and weapon are left alone.
+export function recommendedEchoes(slot: TeamSlot, build: any): Pick<TeamSlot, 'layout' | 'echoes'> {
+  const layout = build.echoLayout || slot.layout;
+  const costs = costsForLayout(layout);
+  const remainingSubs = { ...(build.subStats || build.substats || {}) };
+  const subStatKeys = Object.keys(remainingSubs);
+  const statDataRaw = build.mainStats || build.mainstats;
+
+  const echoes = slot.echoes.map((echo, i) => {
+    const cost = costs[i];
+    let targetMainStat = '';
+    const statData = statDataRaw ? statDataRaw[`cost${cost}`] : null;
+    if (statData) {
+      if (Array.isArray(statData)) {
+        const countSoFar = costs.slice(0, i).filter(c => c === cost).length;
+        targetMainStat = statData[countSoFar] || statData[0];
+      } else {
+        targetMainStat = statData;
+      }
+    }
+
+    const usedOnThisEcho = new Set<string>();
+    const substats = echo.substats.map(() => {
+      let targetSub = 'N/A';
+      for (const key of subStatKeys) {
+        if (remainingSubs[key] > 0 && !usedOnThisEcho.has(key)) {
+          targetSub = key;
+          remainingSubs[key]--;
+          usedOnThisEcho.add(key);
+          break;
+        }
+      }
+      let val: string | number = '';
+      if (targetSub !== 'N/A' && STAT_DB[targetSub]) {
+        const defaultIdx = STAT_DB[targetSub].defaultIndex || 0;
+        val = STAT_DB[targetSub].values[defaultIdx];
+      }
+      return { name: targetSub, value: val };
+    });
+
+    return { mainStat: targetMainStat || echo.mainStat, substats };
+  });
+
+  return { layout, echoes };
+}
+
 // Publishes a new team: the Builder edits for its members are replayed onto the DataLoader first.
 const publishTeam = (team: TeamSlot[]) => {
   applyBuilderOverridesForTeam(team);
@@ -95,11 +149,13 @@ const commitTeam = (team: TeamSlot[]) => {
 
 interface RosterState {
   team: TeamSlot[];
-  enemy: { level: number; res: number; hp: number };
+  enemy: EnemyStats;
   setSlotField: (slotIndex: number, field: keyof TeamSlot, value: any) => Promise<void>;
   clearSlot: (slotIndex: number) => void;
   setSubstat: (slotIndex: number, echoIndex: number, subIndex: number, name: string, value: string | number) => void;
   setEnemyField: (field: 'level' | 'res' | 'hp', value: number) => void;
+  // Replaces the target without recalculating -- for loaders that recalculate right after.
+  setEnemy: (enemy: EnemyStats) => void;
   importTeam: (teamData: TeamSlot[]) => Promise<void>;
   applyRecommendedBuild: (slotIndex: number, charName: string) => Promise<void>;
   getIdleStats: (slotIndex: number) => any;
@@ -109,23 +165,17 @@ export const useRosterStore = create<RosterState>()(
   persist(
     (set, get) => ({
       team: [createEmptySlot(0), createEmptySlot(1), createEmptySlot(2)],
-      enemy: { level: ENEMY_DEFAULTS.level, res: ENEMY_DEFAULTS.res, hp: ENEMY_DEFAULTS.hp },
+      enemy: defaultEnemyStats(),
 
       applyRecommendedBuild: async (slotIndex, charName) => {
-        if (!charName || !DataLoader.buildDB[charName]) return;
-        const roles = Object.keys(DataLoader.buildDB[charName]);
-        if (roles.length === 0) return;
-
-        const build = DataLoader.buildDB[charName][roles[0]];
+        const build = recommendedBuildFor(charName);
+        if (!build) return;
         const team = [...get().team];
         const slot = { ...team[slotIndex], character: charName };
 
         if (build.weapon) {
           slot.weapon = build.weapon;
           await DataLoader.loadMechanic('weapons', build.weapon);
-        }
-        if (build.echoLayout) {
-          slot.layout = build.echoLayout;
         }
         if (build.mainSet) {
           slot.mainSet = build.mainSet;
@@ -143,52 +193,7 @@ export const useRosterStore = create<RosterState>()(
           await DataLoader.loadMechanic('echoes', build.mainEcho);
         }
 
-        const costs = costsForLayout(slot.layout);
-        let remainingSubs = { ...(build.subStats || build.substats || {}) };
-        const subStatKeys = Object.keys(remainingSubs);
-
-        const newEchoes = slot.echoes.map((echo, i) => {
-          const cost = costs[i];
-          let targetMainStat = '';
-          const costKey = `cost${cost}`;
-          const statDataRaw = build.mainStats || build.mainstats;
-          const statData = statDataRaw ? statDataRaw[costKey] : null;
-
-          if (statData) {
-            if (Array.isArray(statData)) {
-              const countSoFar = costs.slice(0, i).filter(c => c === cost).length;
-              targetMainStat = statData[countSoFar] || statData[0];
-            } else {
-              targetMainStat = statData;
-            }
-          }
-
-          let usedOnThisEcho = new Set<string>();
-          const substats = echo.substats.map(() => {
-            let targetSub = 'N/A';
-            for (let key of subStatKeys) {
-              if (remainingSubs[key] > 0 && !usedOnThisEcho.has(key)) {
-                targetSub = key;
-                remainingSubs[key]--;
-                usedOnThisEcho.add(key);
-                break;
-              }
-            }
-            let val: string | number = '';
-            if (targetSub !== 'N/A' && STAT_DB[targetSub]) {
-              const defaultIdx = STAT_DB[targetSub].defaultIndex || 0;
-              val = STAT_DB[targetSub].values[defaultIdx];
-            }
-            return { name: targetSub, value: val };
-          });
-
-          return {
-            mainStat: targetMainStat || echo.mainStat,
-            substats
-          };
-        });
-
-        slot.echoes = newEchoes;
+        Object.assign(slot, recommendedEchoes(slot, build));
         slot.echoStats = calculateEchoStatsForSlot(slot);
         team[slotIndex] = slot;
         commitTeam(team);
@@ -264,6 +269,8 @@ export const useRosterStore = create<RosterState>()(
         set({ team });
         useRotationStore.getState().recalculate();
       },
+
+      setEnemy: enemy => set({ enemy: { ...enemy } }),
 
       setEnemyField: (field, value) => {
         set(state => ({ enemy: { ...state.enemy, [field]: value } }));

@@ -3,9 +3,9 @@
 //
 // A changed entity is safe to evict, unless the user has unsaved Builder edits to it
 // (useBuilderStore.hasChanges) -- then it surfaces via useFreshnessConflictStore instead.
-// Results files have no Builder counterpart, so they're always silently evicted.
+// Ranking files have no Builder counterpart, so they're always silently evicted.
 import { create } from 'zustand';
-import { DataLoader } from './DataLoader';
+import { DataLoader, RANKINGS_DIR } from './DataLoader';
 import { getTeamEntityRefs } from './TeamUtils';
 import { useBuilderStore } from '../store/useBuilderStore';
 import type { TeamSlot, EntityRef, EntityFolder } from '../types';
@@ -104,29 +104,25 @@ export async function checkBuilderItemFreshness(folder: EntityFolder, name: stri
   return checkItems([{ folder, name }]);
 }
 
-// Results files have no Builder counterpart -- changes are just evicted from characterResults.
-// Return value tells useRankingsStore.load to force a reload even when status says 'ready'.
+// Ranking files have no Builder counterpart -- changes just evict them from DataLoader's caches.
+// True when the index itself changed, so Rankings needs a full reload.
 export async function checkResultsFreshness(): Promise<boolean> {
   const manifest = await DataLoader.refreshManifest();
-  const indexPath = 'character_results/index.json';
+  const changedSinceLoad = (relPath: string) => {
+    const known = DataLoader.loadedHashes[relPath];
+    return !!known && !!manifest[relPath] && known !== manifest[relPath];
+  };
 
-  const indexKnown = DataLoader.loadedHashes[indexPath];
-  const indexLatest = manifest[indexPath];
-  if (indexKnown && indexLatest && indexKnown !== indexLatest) {
-    // Which results exist changed -- wipe everything rather than diffing the file list.
-    DataLoader.characterResults = {};
+  if (changedSinceLoad(`${RANKINGS_DIR}/index.json`)) {
+    DataLoader.rankingIndex = null;
+    DataLoader.rankedRuns = {};
     return true;
   }
-
-  let changed = false;
-  Object.keys(DataLoader.characterResults).forEach(filename => {
-    const relPath = `character_results/${filename}`;
-    const knownHash = DataLoader.loadedHashes[relPath];
-    const latestHash = manifest[relPath];
-    if (knownHash && latestHash && knownHash !== latestHash) {
-      delete DataLoader.characterResults[filename];
-      changed = true;
+  // A run is two files; either changing means refetching both.
+  (DataLoader.rankingIndex || []).forEach(entry => {
+    if (changedSinceLoad(`${RANKINGS_DIR}/results/${entry.id}`) || changedSinceLoad(`${RANKINGS_DIR}/rotations/${entry.rotationFile}`)) {
+      delete DataLoader.rankedRuns[entry.id];
     }
   });
-  return changed;
+  return false;
 }

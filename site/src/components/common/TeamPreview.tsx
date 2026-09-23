@@ -30,7 +30,7 @@ const PreviewIcon: React.FC<{ name: string; folder: ImageFolder }> = ({ name, fo
 };
 
 interface TeamPreviewProps {
-  team: TeamSlot[];
+  team: Array<Pick<TeamSlot, 'character' | 'sequence' | 'weapon' | 'rank'>>;
 }
 
 export const TeamPreview: React.FC<TeamPreviewProps> = ({ team }) => (

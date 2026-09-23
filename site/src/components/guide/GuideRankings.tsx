@@ -11,7 +11,7 @@ import { ChromeTabs } from '../results/ChromeTabs';
 import { DPS_WINDOW_TABS } from '../results/chartPalette';
 import { dpsFieldOf } from '../../data/dpsWindows';
 import type { DpsWindowKey } from '../../types/results';
-import type { RotationSummary } from '../../logic/ResultsCalculator';
+import type { RotationSummary } from '../../types/results';
 
 const PAGE_SIZE = 20;
 

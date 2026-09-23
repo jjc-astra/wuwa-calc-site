@@ -38,12 +38,16 @@ export const RankingRow: React.FC<RankingRowProps> = ({ rank, entry, activeWindo
   const segments = entry.contribution[activeWindow]?.team ?? [];
   const unitBreakdowns = entry.contribution[activeWindow]?.units ?? {};
 
-  // entry.id is the source file name -- DataLoader.characterResults still caches the full record
-  // (rotation/settings); RankingEntry itself only carries computed dpsStats/contribution.
+  // Opens the ranked run: its rotation, on the team its ranked results were calculated with.
   const handleOpenInCalculator = async () => {
-    const data = DataLoader.characterResults[entry.id];
-    if (!data) return;
-    await loadSavedRotation({ team: entry.team, rotation: data.rotation, settings: data.settings });
+    let run;
+    try {
+      run = await DataLoader.loadRankedRun(entry);
+    } catch (err: any) {
+      alert(err?.message || String(err));
+      return;
+    }
+    await loadSavedRotation(run);
     // Mirrors useHashRoute's routeToHash('calculator', 2) -- no navigate() prop reaches this deep,
     // so this sets the hash directly; the hook's hashchange listener picks it up the same way.
     window.location.hash = '#/calculator/step-2';
@@ -52,7 +56,7 @@ export const RankingRow: React.FC<RankingRowProps> = ({ rank, entry, activeWindo
   // No dmgOverTimeSeries on RankingEntry -- recalculates via worker like Import JSON does
   // (pinFromRankingEntry), then jumps to Calculator since Rankings has no such panel to show it.
   const handlePinToComparison = () => {
-    useComparisonStore.getState().pinFromRankingEntry(entry.id);
+    useComparisonStore.getState().pinFromRankingEntry(entry);
     window.location.hash = '#/calculator/step-2';
   };
 

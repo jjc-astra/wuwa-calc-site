@@ -2,13 +2,14 @@
 // The Character Guide's calcs: a full calc for the selected config (result panels, timeline) and
 // summary calcs for the comparisons, spread across the worker pool.
 import { useEffect, useReducer, useRef, useState } from 'react';
-import { DataLoader } from '../../utils/DataLoader';
 import { runFullCalculation, runSummaryCalculation } from '../../workers/runFullCalculation';
 import { CancelledError } from '../../workers/calcWorkerClient';
-import type { RotationSummary } from '../../logic/ResultsCalculator';
+import type { RotationSummary } from '../../types/results';
 import type { RotationResults } from '../../types/results';
 import type { TeamSlot } from '../../types';
-import type { GuideJob } from './guideModel';
+import { DataLoader } from '../../utils/DataLoader';
+import type { RankingEntry } from '../../store/useRankingsStore';
+import type { GuideJob, GuideEntry } from './guideModel';
 
 // Keyed by GuideJob.key and shared across sections, so each team variant runs once. Cleared on
 // unmount, so a later visit picks up Mechanics Builder edits.
@@ -20,11 +21,6 @@ let wantedKeys = new Set<string>();
 
 const errorMessage = (err: any): string => err?.message || String(err);
 
-function settingsFor(job: GuideJob) {
-  const data = DataLoader.characterResults[job.entry.id];
-  if (!data) throw new Error('This rotation is no longer available.');
-  return { data, settings: data.settings || {} };
-}
 
 function track(key: string, run: Promise<RotationSummary>): Promise<void> {
   const tracked = run
@@ -39,11 +35,7 @@ function startSummary(job: GuideJob): Promise<void> {
   const existing = inflight.get(job.key);
   if (existing) return existing;
   return track(job.key, (async () => {
-    const { data, settings } = settingsFor(job);
-    return runSummaryCalculation(
-      data.rotation, job.team, settings, settings.endingRotationEnabled, settings.endRotationStartsEarlier,
-      () => !wantedKeys.has(job.key)
-    );
+    return runSummaryCalculation({ ...job.entry.run, team: job.team }, () => !wantedKeys.has(job.key));
   })());
 }
 
@@ -115,8 +107,7 @@ export function useGuideFullCalc(job: GuideJob | null): GuideFullCalc {
     setState(prev => ({ ...prev, status: 'loading', error: null }));
 
     const full = (async () => {
-      const { data, settings } = settingsFor(job);
-      return runFullCalculation(data.rotation, job.team, settings, settings.endingRotationEnabled, settings.endRotationStartsEarlier);
+      return runFullCalculation({ ...job.entry.run, team: job.team });
     })();
 
     if (!summaryCache.has(job.key) && !inflight.has(job.key)) {
@@ -135,6 +126,34 @@ export function useGuideFullCalc(job: GuideJob | null): GuideFullCalc {
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
+
+  return state;
+}
+
+export interface GuideEntries {
+  status: 'loading' | 'ready';
+  entries: GuideEntry[];
+}
+
+// Loads the run (rotation + calculated team) of every ranked entry with this character. An entry
+// whose files fail to load is left out rather than blocking the rest.
+export function useGuideEntries(entries: RankingEntry[], character: string): GuideEntries {
+  const [state, setState] = useState<GuideEntries>({ status: 'loading', entries: [] });
+
+  useEffect(() => {
+    let alive = true;
+    setState({ status: 'loading', entries: [] });
+    const withUnit = entries.filter(e => e.team.some(s => s.character === character));
+    Promise.allSettled(withUnit.map(e => DataLoader.loadRankedRun(e))).then(results => {
+      if (!alive) return;
+      const loaded = withUnit.flatMap((entry, i) => {
+        const result = results[i];
+        return result.status === 'fulfilled' ? [{ ...entry, run: result.value }] : [];
+      });
+      setState({ status: 'ready', entries: loaded });
+    });
+    return () => { alive = false; };
+  }, [entries, character]);
 
   return state;
 }

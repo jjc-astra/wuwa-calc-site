@@ -15,6 +15,7 @@ import type {
   TeamDmgSlice,
   SubstatWorthRow,
   RotationResults,
+  RotationSummary,
   DpsWindowKey,
   ContributionForWindow
 } from '../types/results';
@@ -519,8 +520,6 @@ function buildSubstatWorth(twoMinHits: RotationHit[], team: TeamSlot[]): Record<
   return out;
 }
 
-// DPS + contribution only: skips the dmg-over-time series and substat worth, the costly parts.
-export type RotationSummary = Pick<RotationResults, 'dpsStats' | 'contribution'>;
 
 type ResultsArgs = [
   rows: any[],
@@ -540,6 +539,7 @@ function simulateHits(...[rows, team, options, enemyConfig, loopStartIndex, endi
   return { hits, openerEndTime, loopDuration, teamNames };
 }
 
+// DPS + contribution only: skips the dmg-over-time series and substat worth, the costly parts.
 export function buildRotationSummary(...args: ResultsArgs): RotationSummary {
   const { hits, openerEndTime, loopDuration, teamNames } = simulateHits(...args);
   return {

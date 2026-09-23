@@ -7,7 +7,8 @@ import { dpsFieldOf } from '../../data/dpsWindows';
 import { costsForLayout, mainStatOptionsFor } from '../../data/db';
 import { calculateEchoStatsForSlot } from '../../store/useRosterStore';
 import type { RankingEntry } from '../../store/useRankingsStore';
-import type { RotationSummary } from '../../logic/ResultsCalculator';
+import type { RankedRun } from '../../utils/DataLoader';
+import type { RotationSummary, RosterSlot } from '../../types/results';
 import type { TeamSlot } from '../../types';
 import type { RangeValue } from '../common/RangeSlider';
 
@@ -19,19 +20,23 @@ export const isFourStar = (character: string): boolean => DataLoader.characterDB
 
 // --- Team groups ---------------------------------------------------------------------------
 
+// A ranking entry with its run loaded -- the rotation and the full team (echoes included) it was
+// calculated with, which the guide's calcs start from.
+export type GuideEntry = RankingEntry & { run: RankedRun };
+
 // One team composition + rotation style, submitted at one or more sequences.
 export interface GuideTeamGroup {
   key: string;
   label: string;
   characters: string[];
   rotationType: RankingEntry['rotationType'];
-  entries: RankingEntry[];
+  entries: GuideEntry[];
 }
 
 const groupKeyOf = (entry: RankingEntry): string =>
   `${entry.team.map(s => s.character || '').join('|')}#${entry.rotationType ?? 'unclassified'}`;
 
-export function groupTeams(entries: RankingEntry[], character: string): GuideTeamGroup[] {
+export function groupTeams(entries: GuideEntry[], character: string): GuideTeamGroup[] {
   const groups = new Map<string, GuideTeamGroup>();
   for (const entry of entries) {
     if (!entry.team.some(s => s.character === character)) continue;
@@ -55,8 +60,8 @@ const slotCounts = (character: string | undefined): boolean => !!character && !i
 // The submission to run for the selected sequences: the highest-sequence one that doesn't exceed
 // any 5-star member's selection, since a higher-sequence submission usually has its own rotation.
 // Ties go to the higher DPS; if every submission is above the selection, the lowest one is used.
-export function pickRotationEntry(group: GuideTeamGroup, sequences: number[]): RankingEntry {
-  const seqSum = (e: RankingEntry) => e.team.reduce((sum, s, i) => sum + (slotCounts(s.character) ? e.sequences[i] ?? 0 : 0), 0);
+export function pickRotationEntry(group: GuideTeamGroup, sequences: number[]): GuideEntry {
+  const seqSum = (e: GuideEntry) => e.team.reduce((sum, s, i) => sum + (slotCounts(s.character) ? e.sequences[i] ?? 0 : 0), 0);
   const fits = group.entries.filter(e =>
     e.team.every((s, i) => !slotCounts(s.character) || (e.sequences[i] ?? 0) <= (sequences[i] ?? 0)));
   if (fits.length > 0) {
@@ -71,7 +76,7 @@ export function pickRotationEntry(group: GuideTeamGroup, sequences: number[]): R
   });
 }
 
-const pickS0Entry = (group: GuideTeamGroup): RankingEntry => pickRotationEntry(group, [0, 0, 0]);
+const pickS0Entry = (group: GuideTeamGroup): GuideEntry => pickRotationEntry(group, [0, 0, 0]);
 
 // --- Config (what the selectors pick) -----------------------------------------------------
 
@@ -135,12 +140,12 @@ export const findGroupFor = (groups: GuideTeamGroup[], entry: RankingEntry): Gui
 export interface GuideJob {
   // Identifies the calc, not the row -- two rows asking for the same team share one run.
   key: string;
-  entry: RankingEntry;
+  entry: GuideEntry;
   team: TeamSlot[];
 }
 
-export function buildTeam(entry: RankingEntry, slots: GuideSlotChoice[]): TeamSlot[] {
-  return entry.team.map((slot, i) => {
+export function buildTeam(entry: GuideEntry, slots: GuideSlotChoice[]): TeamSlot[] {
+  return entry.run.team.map((slot, i) => {
     const choice = slots[i];
     if (!slot.character || !choice) return slot;
     const next = { ...slot, sequence: choice.sequence, weapon: choice.weapon, rank: choice.rank };
@@ -148,13 +153,13 @@ export function buildTeam(entry: RankingEntry, slots: GuideSlotChoice[]): TeamSl
   });
 }
 
-export function makeJob(entry: RankingEntry, team: TeamSlot[]): GuideJob {
+export function makeJob(entry: GuideEntry, team: TeamSlot[]): GuideJob {
   const fingerprint = team.map(s => [s.character, s.sequence, s.weapon, s.rank, s.layout, s.echoes.map(e => e.mainStat)]);
   return { key: `${entry.id}::${JSON.stringify(fingerprint)}`, entry, team };
 }
 
 // A unit's set build: main set, its paired/extra sets and the main echo.
-export const setSignatureOf = (slot: TeamSlot): string =>
+export const setSignatureOf = (slot: RosterSlot): string =>
   [slot.mainSet, slot.subSet, slot.subSet2a, slot.subSet2b, slot.mainEcho].join('|');
 
 export function jobForConfig(group: GuideTeamGroup, config: GuideConfig): GuideJob {
@@ -319,7 +324,7 @@ export function echoDefs(group: GuideTeamGroup, config: GuideConfig, unitIdx: nu
 
 // --- Echo set variants --------------------------------------------------------------------
 
-const setNameOf = (slot: TeamSlot): string =>
+const setNameOf = (slot: RosterSlot): string =>
   [slot.mainSet, slot.subSet, slot.subSet2a, slot.subSet2b].filter(Boolean).join(' + ') || 'No set';
 
 export interface EchoSetDef {
@@ -336,7 +341,7 @@ export interface EchoSetDef {
 // One row per set build this team was submitted with, each run from that set's own submission
 // with the rest of the selection applied. Empty for a single set build.
 export function echoSetDefs(group: GuideTeamGroup, config: GuideConfig, unitIdx: number, selectedJob: GuideJob): EchoSetDef[] {
-  const bySignature = new Map<string, RankingEntry[]>();
+  const bySignature = new Map<string, GuideEntry[]>();
   for (const entry of group.entries) {
     const signature = setSignatureOf(entry.team[unitIdx]);
     bySignature.set(signature, [...(bySignature.get(signature) || []), entry]);

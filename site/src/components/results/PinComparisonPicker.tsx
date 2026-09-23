@@ -15,6 +15,7 @@ import type { RankingEntry } from '../../store/useRankingsStore';
 import { TeamPreview } from '../common/TeamPreview';
 import { teamCharacters } from '../../utils/TeamUtils';
 import { StackedContributionBar } from '../rankings/StackedContributionBar';
+import { RotationTypeBadge } from '../rankings/RankingRow';
 import { RankingFilterToolbar } from '../rankings/RankingFilterToolbar';
 import { ChromeTabs } from './ChromeTabs';
 import type { DpsWindowKey } from '../../types/results';
@@ -156,7 +157,7 @@ const RankingsPickerBody: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const pick = (entry: RankingEntry) => {
     // Async (recalculates via the worker; RankingEntry never carries dmgOverTimeSeries) but not
     // awaited -- matches pinFromFile's UX: close immediately, let "Calculating..." carry the rest.
-    pinFromRankingEntry(entry.id);
+    pinFromRankingEntry(entry);
     onClose();
   };
 
@@ -210,9 +211,7 @@ const RankingsPickerBody: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                     <div className="ranking-row-main">
                       <div className="ranking-row-label-line">
                         <span className="ranking-row-label">{label || 'Empty Team'}</span>
-                        <span className={`ranking-row-type-badge ranking-row-type-${entry.rotationType ?? 'unclassified'}`}>
-                          {entry.rotationType === 'linear' ? 'Linear' : entry.rotationType === 'quickswap' ? 'Quickswap' : 'Unclassified'}
-                        </span>
+                        <RotationTypeBadge type={entry.rotationType} />
                       </div>
                       <StackedContributionBar
                         segments={segments}

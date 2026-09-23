@@ -797,6 +797,7 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     transition: border-color 0.2s;
 }
 .modal-field-input:focus { border-color: var(--accent); }
+.modal-error { margin: var(--space-4) 0 0; font-size: 0.8rem; color: var(--danger-text); }
 
 /* --- Webkit Scrollbars --- */
 ::-webkit-scrollbar { width: 8px; height: 8px; }

@@ -4,7 +4,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { persistStorage } from '../utils/safeLocalStorage';
-import type { TeamSlot } from '../types/index';
+import type { TeamSlot, EnemyStats } from '../types/index';
 import type { RotationResults } from '../types/results';
 import type { RotationRowFields } from './useRotationStore';
 
@@ -17,6 +17,9 @@ export interface HistoryEntry {
   rotation: RotationRowFields[];
   settings: { startEnergy: boolean; startConcerto: boolean; endingRotationEnabled?: boolean; endRotationStartsEarlier?: boolean };
   results: RotationResults;
+  // The target it was calculated against. Absent on entries saved before it was recorded, which
+  // used the default target.
+  enemy?: EnemyStats;
 }
 
 // Favorited entries are never auto-evicted; only the 10 most recent non-favorite entries are

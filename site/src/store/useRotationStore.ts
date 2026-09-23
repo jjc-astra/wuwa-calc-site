@@ -763,7 +763,8 @@ export const useRotationStore = create<RotationState>()(
             team: serializableTeam(team),
             rotation: rows.map(toSavedRow),
             settings: { ...options, endingRotationEnabled, endRotationStartsEarlier },
-            results: data.results
+            results: data.results,
+            enemy: { ...useRosterStore.getState().enemy }
           });
         },
 

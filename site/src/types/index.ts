@@ -83,6 +83,13 @@ export interface TeamSlot {
   domRef?: any;
 }
 
+// The target's stats the user can set (see ENEMY_DEFAULTS for the rest).
+export interface EnemyStats {
+  level: number;
+  res: number;
+  hp: number;
+}
+
 // --- MECHANICS & DSL TYPES ---
 export interface Effect {
   type?: 'buff' | 'buffAction' | 'resource' | 'tracker' | 'time_scale' | 'cooldown' | 'procced_mechanic';

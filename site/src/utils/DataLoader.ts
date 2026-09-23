@@ -3,7 +3,8 @@ import { WIP_ENABLED, isWipUrl, wipToRealUrl, dataRelPath, realDataUrl, wipDataU
 import { MechanicKey, SYSTEM_NAMESPACE } from './MechanicKey';
 import { getTeamEntityRefs } from './TeamUtils';
 import type { CharacterData, WeaponData, MechanicNode, TeamSlot, HoldConfig } from '../types/index';
-import type { RotationResults } from '../types/results';
+import type { RotationFile, ResultsFile, RankingIndexEntry, CalcInput } from '../types/results';
+import { defaultEnemyStats } from '../data/db';
 
 // Gates content with no real mechanics yet: disabled in the Rotation Calculator, still
 // selectable in the Builder. Toggle during content authoring.
@@ -14,17 +15,11 @@ const MECHANIC_FOLDER_BY_KIND: Record<ImplementedContentKind, string> = {
   character: 'characters', weapon: 'weapons', set: 'sets', echo: 'echoes'
 };
 
-export interface CharacterResultData {
-  rotation: any[];
-  team: TeamSlot[];
-  settings: { startEnergy?: boolean; startConcerto?: boolean; endingRotationEnabled?: boolean; endRotationStartsEarlier?: boolean };
-  rotationType: 'linear' | 'quickswap' | null;
-  // Free-text credit from the Save Results dialog. Optional -- older saved files just render with no author tag.
-  author?: string;
-  // Set when saved via History's "Save Results" -- lets Rankings skip the calc worker.
-  // Absent for a plain Export. dmgOverTimeSeries is always omitted (cheap to regenerate).
-  results?: Omit<RotationResults, 'dmgOverTimeSeries'>;
-}
+// A ranked rotation ready to run: the rotation file's rotation and settings, and the team and
+// target its results were calculated with.
+export type RankedRun = CalcInput;
+
+export const RANKINGS_DIR = 'character_results';
 
 export class DataLoaderClass {
   cache = { mechanics: new Set<string>() };
@@ -52,8 +47,9 @@ export class DataLoaderClass {
   pristineMechanics: Record<string, MechanicNode> = {};
   mechanicsIndex: Record<string, string[]> = {};
   charList: string[] = [];
-  // Submitted rankings page results, lazily populated via loadCharacterResults rather than initDatabases.
-  characterResults: Record<string, CharacterResultData> = {};
+  // Rankings: the index (every ranked row), and full runs fetched per entry only when needed.
+  rankingIndex: RankingIndexEntry[] | null = null;
+  rankedRuns: Record<string, Promise<RankedRun>> = {};
   weaponsByType: Record<string, string[]> = {
     Broadblade: [], Sword: [], Rectifier: [], Gauntlets: [], Pistols: []
   };
@@ -67,9 +63,16 @@ export class DataLoaderClass {
   // Sets whose bonus activates from the main-slot echo alone -- see resolveSetPieceCounts.
   onePcSets: string[] = [];
 
+  // A file the manifest knows is requested by its content hash, so the browser can cache it until
+  // it changes. Anything else (the manifest itself, WIP files) always refetches.
+  private versionedUrl(path: string): string {
+    const hash = isWipUrl(path) ? undefined : this.manifest[dataRelPath(path)];
+    return hash ? `${path}?v=${hash}` : `${path}?t=${Date.now()}`;
+  }
+
   private async _fetchJSON<T>(path: string, silent = false): Promise<T | null> {
     try {
-      const res = await fetch(`${path}?t=${new Date().getTime()}`);
+      const res = await fetch(this.versionedUrl(path));
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const text = await res.text();
       // Vite's dev server serves index.html (200 OK, not a 404) for ANY path under public/ that
@@ -324,20 +327,31 @@ export class DataLoaderClass {
     return releaseKey ? (this.mechanicsDB[releaseKey].holdConfig as HoldConfig) : null;
   }
 
-  // Loads every submitted result for Rankings. index.json (filenames + optional rotationType)
-  // stands in for a directory listing (public/ can't be listed at runtime). Cached by filename.
-  async loadCharacterResults(): Promise<string[]> {
-    const manifest = await this.loadJSON<Array<{ file: string; rotationType?: 'linear' | 'quickswap' | null }>>(
-      CommonUtils.getData('character_results/index.json')
-    ) || [];
-    for (const entry of manifest) {
-      if (this.characterResults[entry.file]) continue;
-      const data = await this.loadJSON<Omit<CharacterResultData, 'rotationType'>>(
-        CommonUtils.getData(`character_results/${entry.file}`)
-      );
-      if (data) this.characterResults[entry.file] = { ...data, rotationType: entry.rotationType ?? null };
+  // Every ranked row, from the generated index.json (one small file instead of one per entry).
+  async loadRankingIndex(): Promise<RankingIndexEntry[]> {
+    if (!this.rankingIndex) {
+      this.rankingIndex = (await this.loadJSON<RankingIndexEntry[]>(CommonUtils.getData(`${RANKINGS_DIR}/index.json`))) || [];
     }
-    return Object.keys(this.characterResults);
+    return this.rankingIndex;
+  }
+
+  // An entry's results file (for its calculated team) and rotation file (for the rotation itself).
+  loadRankedRun(entry: { id: string; rotationFile: string }): Promise<RankedRun> {
+    this.rankedRuns[entry.id] ??= (async () => {
+      const [results, rotation] = await Promise.all([
+        this.loadJSON<ResultsFile>(CommonUtils.getData(`${RANKINGS_DIR}/results/${entry.id}`)),
+        this.loadJSON<RotationFile>(CommonUtils.getData(`${RANKINGS_DIR}/rotations/${entry.rotationFile}`))
+      ]);
+      if (!results || !rotation) {
+        delete this.rankedRuns[entry.id];
+        throw new Error('This rotation is no longer available.');
+      }
+      if (results.hash !== rotation.hash) {
+        console.warn(`[DataLoader] "${entry.id}" was calculated from a different version of "${entry.rotationFile}".`);
+      }
+      return { rotation: rotation.rotation, settings: rotation.settings || {}, team: results.team, enemy: results.enemy ?? defaultEnemyStats() };
+    })();
+    return this.rankedRuns[entry.id];
   }
 
   clearMechanicCache(folder: string, itemName: string): void {

@@ -28,8 +28,8 @@ import {
   sequenceDefs, weaponDefs, echoDefs, echoSetDefs, rankEndpoints,
   MAX_SEQUENCE, MAX_RANK, groupTeams, defaultConfig, s0r1Config, configFromEntry, findGroupFor, jobForConfig, weaponOptionsFor
 } from './guideModel';
-import type { GuideConfig, GuideMetric, GuideScope, GuideTeamGroup } from './guideModel';
-import { useGuideFullCalc, useGuideSummaries } from './useGuideCalc';
+import type { GuideConfig, GuideMetric, GuideScope, GuideTeamGroup, GuideEntry } from './guideModel';
+import { useGuideFullCalc, useGuideSummaries, useGuideEntries } from './useGuideCalc';
 
 
 // Damage bars: the cumulative line mainly helps when comparing against a pinned rotation.
@@ -110,8 +110,19 @@ interface GuideBodyProps {
   entries: RankingEntry[];
 }
 
+// Loads the runs the guide calculates from, then shows the guide.
 const GuideBody: React.FC<GuideBodyProps> = ({ character, entries }) => {
-  const groups = useMemo(() => groupTeams(entries, character), [entries, character]);
+  const guideEntries = useGuideEntries(entries, character);
+  if (guideEntries.status === 'loading') return <div className="results-empty">Loading rotations...</div>;
+  return <GuideContent character={character} entries={entries} guideEntries={guideEntries.entries} />;
+};
+
+interface GuideContentProps extends GuideBodyProps {
+  guideEntries: GuideEntry[];
+}
+
+const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEntries }) => {
+  const groups = useMemo(() => groupTeams(guideEntries, character), [guideEntries, character]);
   const defaultCfg = useMemo(() => defaultConfig(groups), [groups]);
   const [picked, setPicked] = useState<GuideConfig | null>(null);
   const [rankRange, setRankRange] = useState<RangeValue>({ min: 1, max: MAX_RANK });

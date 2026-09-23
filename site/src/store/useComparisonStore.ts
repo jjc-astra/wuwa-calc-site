@@ -3,7 +3,8 @@ import { persist } from 'zustand/middleware';
 import { persistStorage } from '../utils/safeLocalStorage';
 import { runFullCalculation } from '../workers/runFullCalculation';
 import { DataLoader } from '../utils/DataLoader';
-import type { DpsStats, DmgOverTimeSeries, DpsWindowKey, RotationResults } from '../types/results';
+import type { DpsStats, DmgOverTimeSeries, DpsWindowKey, RotationResults, CalcInput } from '../types/results';
+import { defaultEnemyStats } from '../data/db';
 
 export interface PinnedRotation {
   label: string;
@@ -19,8 +20,8 @@ interface ComparisonState {
   // them -- pins instantly, no recalculation.
   pinFromHistoryEntry: (team: Array<{ character?: string }>, results: Pick<RotationResults, 'dpsStats' | 'dmgOverTimeSeries'>) => void;
   // Rankings entries only carry dpsStats/contribution, never dmgOverTimeSeries -- re-runs the
-  // calc worker against the manifest's rotation/team/settings, like pinFromFile does for a file.
-  pinFromRankingEntry: (entryId: string) => Promise<void>;
+  // calc worker on the entry's ranked run, like pinFromFile does for a file.
+  pinFromRankingEntry: (entry: { id: string; rotationFile: string }) => Promise<void>;
   unpin: () => void;
 }
 
@@ -36,15 +37,11 @@ export const useComparisonStore = create<ComparisonState>()(
   persist(
     (set) => {
       // Shared by pinFromFile and pinFromRankingEntry -- same calc-worker round trip, just
-      // sourced from a File vs. an already-loaded manifest entry.
-      const recalcAndPin = async (label: string, rotation: any[], team: any[], options: any) => {
+      // sourced from a File vs. a ranked run.
+      const recalcAndPin = async (label: string, input: CalcInput) => {
         set({ status: 'loading' });
         try {
-          // Top-level, not nested in `options` -- calc.worker.ts reads them from there.
-          // Otherwise an Ending Rotation split silently compares against its truncated tail.
-          const { results } = await runFullCalculation(
-            rotation, team, options, options?.endingRotationEnabled, options?.endRotationStartsEarlier
-          );
+          const { results } = await runFullCalculation(input);
 
           set({
             pinned: { label, dpsStats: results.dpsStats, dmgOverTimeSeries: results.dmgOverTimeSeries },
@@ -60,9 +57,8 @@ export const useComparisonStore = create<ComparisonState>()(
         pinned: null,
         status: 'idle',
 
-        // A pinned file carries rotation/team/settings, sometimes plus saved results without
-        // dmgOverTimeSeries (History's "Save Results"). Either way the chart needs real per-hit
-        // points, so this always re-runs the calc worker instead of trusting a saved dpsStats.
+        // A pinned rotation file carries rotation/team/settings but no results; the chart needs
+        // real per-hit points anyway, so this always runs the calc worker.
         pinFromFile: async (file: File) => {
           const text = await file.text();
           let parsed: any;
@@ -84,20 +80,22 @@ export const useComparisonStore = create<ComparisonState>()(
           const teamLabel = labelFromTeam(team);
           if (teamLabel !== 'Imported Rotation') label = teamLabel;
 
-          await recalcAndPin(label, rotation, team, parsed.settings || {});
+          await recalcAndPin(label, { rotation, team, settings: parsed.settings || {}, enemy: parsed.enemy ?? defaultEnemyStats() });
         },
 
         pinFromHistoryEntry: (team, results) => {
           set({ pinned: { label: labelFromTeam(team), dpsStats: results.dpsStats, dmgOverTimeSeries: results.dmgOverTimeSeries } });
         },
 
-        pinFromRankingEntry: async (entryId: string) => {
-          const data = DataLoader.characterResults[entryId];
-          if (!data) {
+        pinFromRankingEntry: async (entry) => {
+          let run;
+          try {
+            run = await DataLoader.loadRankedRun(entry);
+          } catch {
             alert('Error loading comparison: this rotation is no longer available.');
             return;
           }
-          await recalcAndPin(labelFromTeam(data.team), data.rotation, data.team, data.settings || {});
+          await recalcAndPin(labelFromTeam(run.team), run);
         },
 
         unpin: () => set({ pinned: null })

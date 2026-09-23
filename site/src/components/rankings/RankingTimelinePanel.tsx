@@ -11,7 +11,7 @@ interface RankingTimelinePanelProps {
 }
 
 export const RankingTimelinePanel: React.FC<RankingTimelinePanelProps> = ({ entry }) => {
-  const { status, evaluatedRows, loopStartIndex, team, error } = useRotationTimelineData(entry.id);
+  const { status, evaluatedRows, loopStartIndex, team, error } = useRotationTimelineData(entry);
 
   return (
     <div className="ranking-timeline-panel">

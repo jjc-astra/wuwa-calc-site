@@ -4,19 +4,19 @@ import { persistStorage } from '../utils/safeLocalStorage';
 import { DataLoader } from '../utils/DataLoader';
 import { teamCharacters } from '../utils/TeamUtils';
 import { checkResultsFreshness } from '../utils/dataFreshness';
-import type { TeamSlot } from '../types/index';
-import type { RotationResults } from '../types/results';
-import type { DpsWindowKey } from '../types/results';
+import type { RotationResults, RotationType, RosterSlot, DpsWindowKey } from '../types/results';
 import { dpsFieldOf } from '../data/dpsWindows';
 import { DEFAULT_RANKING_FILTERS, RANKING_ELEMENTS, RANKING_DMG_CATEGORIES } from '../components/rankings/RankingFilterToolbar';
 import type { RankingFilters, RankingElement, RankingDmgCategory } from '../components/rankings/RankingFilterToolbar';
 
 export interface RankingEntry {
+  // The results file's name; DataLoader.loadRankedRun fetches it with its rotation file.
   id: string;
-  team: TeamSlot[];
+  rotationFile: string;
+  team: RosterSlot[];
   // [main DPS, sub DPS, support] sequence, i.e. team[0..2].sequence -- 0 when a slot is empty.
   sequences: number[];
-  rotationType: 'linear' | 'quickswap' | null;
+  rotationType: RotationType;
   author?: string;
   dpsStats: RotationResults['dpsStats'];
   contribution: RotationResults['contribution'];
@@ -181,38 +181,18 @@ export const useRankingsStore = create<RankingsState>()(
     set({ status: 'loading', error: null, entries: [] });
 
     try {
-      const filenames = await DataLoader.loadCharacterResults();
-
-      for (const filename of filenames) {
-        const data = DataLoader.characterResults[filename];
-        if (!data) continue;
-
-        // The leaderboard only trusts pre-computed results (from History's "Save Results") --
-        // an entry exported without them isn't run through the worker just to populate a row.
-        // (The Timeline drill-down is a separate, lighter recalculate-only pass -- see
-        // useRotationTimelineData.ts -- that's fine to run live; this summary row is not.)
-        if (!data.results) {
-          console.warn(`[useRankingsStore] "${filename}" has no saved results -- skipping.`);
-          continue;
-        }
-
-        try {
-          const results = data.results;
-          const entry: RankingEntry = {
-            id: filename,
-            team: data.team,
-            sequences: [0, 1, 2].map(i => Number(data.team[i]?.sequence) || 0),
-            rotationType: data.rotationType,
-            author: data.author,
-            dpsStats: results.dpsStats,
-            contribution: results.contribution
-          };
-          set(state => ({ entries: [...state.entries, entry] }));
-        } catch (err) {
-          console.error(`[useRankingsStore] Failed to calculate "${filename}"`, err);
-        }
-      }
-
+      const index = await DataLoader.loadRankingIndex();
+      const entries: RankingEntry[] = index.map(item => ({
+        id: item.id,
+        rotationFile: item.rotationFile,
+        team: item.team,
+        sequences: [0, 1, 2].map(i => Number(item.team[i]?.sequence) || 0),
+        rotationType: item.rotationType ?? null,
+        author: item.author,
+        dpsStats: item.results.dpsStats,
+        contribution: item.results.contribution
+      }));
+      set({ entries });
       set({ status: 'ready' });
     } catch (err: any) {
       set({ status: 'error', error: err?.message || String(err) });

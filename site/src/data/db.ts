@@ -1,4 +1,4 @@
-import type { MechanicNode } from '../types';
+import type { MechanicNode, EnemyStats } from '../types';
 import { toFrames } from '../utils/Frames';
 import { FORTE_SLOTS, deltaKey, forteKey } from '../utils/ResourceKeys';
 import { CAST_TYPES, ELEMENTS, NEGATIVE_STATUSES, elementBonusKey } from './gameVocab';
@@ -178,6 +178,9 @@ export const ENEMY_DEFAULTS = {
   maxTune: 40,
   statusBaseDmg: 3674
 };
+
+// A fresh copy of the default target's user-settable stats.
+export const defaultEnemyStats = (): EnemyStats => ({ level: ENEMY_DEFAULTS.level, res: ENEMY_DEFAULTS.res, hp: ENEMY_DEFAULTS.hp });
 
 export const BUILDER_CATEGORIES = [
   'Basic Attack', 'Resonance Skill', 'Resonance Liberation',

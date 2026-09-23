@@ -8,7 +8,8 @@ import { CommonUtils, getCharacterThemeColor } from '../../utils/Common';
 import { serializableTeam } from '../../utils/TeamUtils';
 import { DataLoader } from '../../utils/DataLoader';
 import { ConfirmDialog } from '../common/ConfirmDialog';
-import { ExportResultsDialog } from '../common/ExportResultsDialog';
+import { ExportRotationDialog } from '../common/ExportRotationDialog';
+import type { ExportSource } from '../../utils/rotationExport';
 import { findBlocks } from '../../logic/RepeatBlocks';
 import { toSavedRow } from '../../store/useRotationStore';
 
@@ -355,28 +356,19 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     setDragOverInfo(null);
   };
 
-  // Built by handleExport, downloaded only once the dialog below confirms it --
-  // lets the user rename/credit themselves first.
-  const [exportPending, setExportPending] = useState<{ exportObject: Record<string, unknown>; filename: string } | null>(null);
+  // Snapshot handed to the export dialog, which names, calculates and downloads the files.
+  const [exportSource, setExportSource] = useState<ExportSource | null>(null);
 
   const handleExport = () => {
     if (rows.length === 0) return alert('Rotation is empty.');
-
-    // Include results only when not stale, so the export doubles as Rankings-ready.
-    // dmgOverTimeSeries omitted either way -- cheap to regenerate via recalculate.
-    const includeResults = !!results && !isStale;
-    const exportObject: Record<string, unknown> = {
+    setExportSource({
       rotation: rows.map(toSavedRow),
       team: serializableTeam(team),
-      settings: { startEnergy, startConcerto, endingRotationEnabled, endRotationStartsEarlier }
-    };
-    if (includeResults) {
-      const { dmgOverTimeSeries, ...resultsWithoutDmgOverTime } = results!;
-      exportObject.results = resultsWithoutDmgOverTime;
-    }
-
-    const filename = CommonUtils.exportFilename('Rotation', team, includeResults ? '_Results' : '');
-    setExportPending({ exportObject, filename });
+      settings: { startEnergy, startConcerto, endingRotationEnabled, endRotationStartsEarlier },
+      enemy: { ...useRosterStore.getState().enemy },
+      // Current results skip a recalculation for a Custom-build export.
+      customResults: results && !isStale ? results : undefined
+    });
   };
 
   // Set only when the imported team matches Step 1's roster (same characters+sequences) --
@@ -384,6 +376,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
   const [pendingImport, setPendingImport] = useState<{ rawData: any; rotData: any[] } | null>(null);
 
   const applyImport = async (rawData: any, rotData: any[], includeTeam: boolean) => {
+    if (rawData.enemy) useRosterStore.getState().setEnemy(rawData.enemy);
     if (includeTeam && rawData.team) {
       await importTeam(rawData.team);
     }
@@ -473,17 +466,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
         />
       )}
 
-      {exportPending && (
-        <ExportResultsDialog
-          defaultFilename={exportPending.filename}
-          onConfirm={(filename, author) => {
-            const exportObject = author ? { ...exportPending.exportObject, author } : exportPending.exportObject;
-            CommonUtils.downloadJson(exportObject, filename);
-            setExportPending(null);
-          }}
-          onCancel={() => setExportPending(null)}
-        />
-      )}
+      {exportSource && <ExportRotationDialog source={exportSource} onClose={() => setExportSource(null)} />}
         </>
       }
     >
