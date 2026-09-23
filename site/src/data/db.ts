@@ -87,6 +87,11 @@ export const STAT_DB: Record<string, { values: number[]; defaultIndex: number }>
   'DEF': { values: [40, 50, 60, 70], defaultIndex: 1 }
 };
 
+// Flat ATK/HP/DEF rolls are plain numbers; every other substat is a percentage.
+const FLAT_SUBSTATS = new Set(['ATK', 'HP', 'DEF']);
+// A stat value as shown: "7.5%", or "40" for a flat roll.
+export const formatStatValue = (stat: string, value: number): string => (FLAT_SUBSTATS.has(stat) ? `${value}` : `${value}%`);
+
 export const STAT_NAME_MAP: Record<string, string> = {
   'HP': 'flatHP',
   'HP %': 'percentHP',

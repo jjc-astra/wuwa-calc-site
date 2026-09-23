@@ -136,6 +136,28 @@
 .guide-section .panel-header-main { margin-bottom: 0; }
 .guide-timeline-card.is-stale { opacity: 0.45; transition: opacity 0.15s; }
 
+/* --- Echo stats --- */
+/* One line per row: a label column, then chips (label over value, or a single value). */
+.guide-echo-stats { display: flex; flex-direction: column; gap: var(--space-2); }
+.guide-echo-stats .results-card-header { margin-bottom: 0; }
+.guide-echo-row { display: grid; grid-template-columns: 84px minmax(0, 1fr); align-items: center; gap: var(--space-3); }
+.guide-echo-row-label {
+    display: flex; flex-direction: column;
+    font-size: 0.65rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.4px;
+    color: var(--text-dim);
+}
+.guide-echo-row-sub { font-size: 0.7rem; color: var(--accent); letter-spacing: 0; }
+.guide-echo-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.guide-echo-chip {
+    display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+    min-width: 56px; min-height: 34px; box-sizing: border-box;
+    padding: 2px var(--space-3);
+    border-radius: 6px;
+    background: var(--surface-lighten);
+}
+.guide-echo-chip-label { font-size: 0.6rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.3px; color: var(--text-dim); white-space: nowrap; }
+.guide-echo-chip-value { font-size: 0.8rem; font-weight: bold; color: var(--text-main); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
 /* --- Comparisons --- */
 
 

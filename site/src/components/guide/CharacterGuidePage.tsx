@@ -23,6 +23,7 @@ import { TeamContributionPanel } from '../results/TeamContributionPanel';
 import { SubstatWorthChart } from '../results/SubstatWorthChart';
 import { RotationTimeline } from '../timeline/RotationTimeline';
 import { GuideRankings } from './GuideRankings';
+import { EchoStatsPanel } from './EchoStatsPanel';
 import { SequenceComparison, WeaponComparison, EchoComparison } from './GuideComparisons';
 import {
   sequenceDefs, weaponDefs, echoDefs, echoSetDefs, rankEndpoints,
@@ -227,6 +228,7 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
           </div>
 
           <div className="guide-column">
+            <EchoStatsPanel slot={selectedJob.team[unitIdx]} />
             <div className="guide-column-header">
               <div className="panel-header-main">Comparisons</div>
               <SegmentedToggle
