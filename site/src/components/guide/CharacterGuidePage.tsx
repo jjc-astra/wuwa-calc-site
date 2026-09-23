@@ -131,7 +131,10 @@ const GuideBody: React.FC<GuideBodyProps> = ({ character, entries }) => {
     () => (group && config ? weaponDefs(group, config, unitIdx, character, rankEndpoints(rankRange)) : []),
     [group, config, unitIdx, character, rankRange]
   );
-  const echoDefList = useMemo(() => (selectedJob ? echoDefs(selectedJob, unitIdx) : []), [selectedJob, unitIdx]);
+  const echoDefList = useMemo(
+    () => (group && config && selectedJob ? echoDefs(group, config, unitIdx, selectedJob) : []),
+    [group, config, unitIdx, selectedJob]
+  );
   const setDefList = useMemo(
     () => (group && config && selectedJob ? echoSetDefs(group, config, unitIdx, selectedJob) : []),
     [group, config, unitIdx, selectedJob]
@@ -258,7 +261,17 @@ const GuideBody: React.FC<GuideBodyProps> = ({ character, entries }) => {
               />
             </div>
             {full.results && <SubstatWorthChart />}
-            <EchoComparison unit={character} metric={metric} scope={scope} summaries={summaries} defs={echoDefList} setDefs={setDefList} baselineJob={selectedJob} />
+            <EchoComparison
+              unit={character}
+              metric={metric}
+              scope={scope}
+              summaries={summaries}
+              defs={echoDefList}
+              setDefs={setDefList}
+              baselineJob={selectedJob}
+              onSelectEcho={echo => updateSlot(unitIdx, { echo })}
+              onSelectSet={setSignature => updateSlot(unitIdx, { setSignature })}
+            />
           </div>
         </div>
       </ResultsSourceContext.Provider>

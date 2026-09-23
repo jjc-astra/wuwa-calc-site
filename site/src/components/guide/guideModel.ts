@@ -75,10 +75,20 @@ const pickS0Entry = (group: GuideTeamGroup): RankingEntry => pickRotationEntry(g
 
 // --- Config (what the selectors pick) -----------------------------------------------------
 
+// An echo layout and the main stat of each of its five slots.
+export interface EchoBuild {
+  layout: string;
+  mainStats: string[];
+}
+
 export interface GuideSlotChoice {
   sequence: number;
   weapon: string;
   rank: number;
+  // Replaces the submitted layout and main stats (substats stay).
+  echo?: EchoBuild;
+  // Only runs submissions with this set build (see setSignatureOf).
+  setSignature?: string;
 }
 
 export interface GuideConfig {
@@ -109,7 +119,12 @@ export function defaultConfig(groups: GuideTeamGroup[]): GuideConfig | null {
 // A ranking entry's own investment, for jumping the selectors to a specific submission.
 export const configFromEntry = (group: GuideTeamGroup, entry: RankingEntry): GuideConfig => ({
   groupKey: group.key,
-  slots: entry.team.map(slot => ({ sequence: Number(slot.sequence) || 0, weapon: slot.weapon, rank: Number(slot.rank) || 1 }))
+  slots: entry.team.map(slot => ({
+    sequence: Number(slot.sequence) || 0,
+    weapon: slot.weapon,
+    rank: Number(slot.rank) || 1,
+    setSignature: slot.character ? setSignatureOf(slot) : undefined
+  }))
 });
 
 export const findGroupFor = (groups: GuideTeamGroup[], entry: RankingEntry): GuideTeamGroup | undefined =>
@@ -128,7 +143,8 @@ export function buildTeam(entry: RankingEntry, slots: GuideSlotChoice[]): TeamSl
   return entry.team.map((slot, i) => {
     const choice = slots[i];
     if (!slot.character || !choice) return slot;
-    return { ...slot, sequence: choice.sequence, weapon: choice.weapon, rank: choice.rank };
+    const next = { ...slot, sequence: choice.sequence, weapon: choice.weapon, rank: choice.rank };
+    return choice.echo ? applyEchoBuild(next, choice.echo) : next;
   });
 }
 
@@ -137,8 +153,14 @@ export function makeJob(entry: RankingEntry, team: TeamSlot[]): GuideJob {
   return { key: `${entry.id}::${JSON.stringify(fingerprint)}`, entry, team };
 }
 
+// A unit's set build: main set, its paired/extra sets and the main echo.
+export const setSignatureOf = (slot: TeamSlot): string =>
+  [slot.mainSet, slot.subSet, slot.subSet2a, slot.subSet2b, slot.mainEcho].join('|');
+
 export function jobForConfig(group: GuideTeamGroup, config: GuideConfig): GuideJob {
-  const entry = pickRotationEntry(group, config.slots.map(s => s.sequence));
+  const withSets = group.entries.filter(e =>
+    config.slots.every((s, i) => !s.setSignature || setSignatureOf(e.team[i]) === s.setSignature));
+  const entry = pickRotationEntry({ ...group, entries: withSets.length > 0 ? withSets : group.entries }, config.slots.map(s => s.sequence));
   return makeJob(entry, buildTeam(entry, config.slots));
 }
 
@@ -169,11 +191,9 @@ const SHORT_STAT: Record<string, string> = {
 };
 const shortStat = (stat: string): string => SHORT_STAT[stat] ?? (stat.endsWith(' DMG') ? 'Ele' : stat);
 
-export interface EchoVariant {
+export interface EchoVariant extends EchoBuild {
   key: string;
   label: string;
-  layout: string;
-  mainStats: string[];
 }
 
 // 43311 with each 3-cost pair (Ele/Ele, Ele/scalar, scalar/scalar), and 44111 with the second
@@ -219,11 +239,11 @@ export function echoVariants(slot: TeamSlot): EchoVariant[] {
 export const echoVariantKeyOf = (slot: TeamSlot): string => `${slot.layout}|${slot.echoes.map(e => e.mainStat).join(',')}`;
 
 // Swaps the layout and main stats but keeps every echo's substats where they were.
-export function applyEchoVariant(slot: TeamSlot, variant: EchoVariant): TeamSlot {
+export function applyEchoBuild(slot: TeamSlot, build: EchoBuild): TeamSlot {
   const next: TeamSlot = {
     ...slot,
-    layout: variant.layout,
-    echoes: slot.echoes.map((echo, i) => ({ ...echo, mainStat: variant.mainStats[i] }))
+    layout: build.layout,
+    echoes: slot.echoes.map((echo, i) => ({ ...echo, mainStat: build.mainStats[i] }))
   };
   next.echoStats = calculateEchoStatsForSlot(next);
   return next;
@@ -277,12 +297,12 @@ export interface EchoDef {
   isCurrent: boolean;
 }
 
-export function echoDefs(selectedJob: GuideJob, unitIdx: number): EchoDef[] {
+export function echoDefs(group: GuideTeamGroup, config: GuideConfig, unitIdx: number, selectedJob: GuideJob): EchoDef[] {
   const slot = selectedJob.team[unitIdx];
   const currentKey = echoVariantKeyOf(slot);
   const defs: EchoDef[] = echoVariants(slot).map(variant => ({
     variant,
-    job: makeJob(selectedJob.entry, selectedJob.team.map((s, i) => (i === unitIdx ? applyEchoVariant(s, variant) : s))),
+    job: jobForConfig(group, withSlot(config, unitIdx, { echo: { layout: variant.layout, mainStats: variant.mainStats } })),
     isCurrent: variant.key === currentKey
   }));
   // The submitted build may not be one of the standard shapes -- keep it as its own row.
@@ -299,15 +319,12 @@ export function echoDefs(selectedJob: GuideJob, unitIdx: number): EchoDef[] {
 
 // --- Echo set variants --------------------------------------------------------------------
 
-// A unit's set build: main set, its paired/extra sets and the main echo.
-const setSignatureOf = (slot: TeamSlot): string =>
-  [slot.mainSet, slot.subSet, slot.subSet2a, slot.subSet2b, slot.mainEcho].join('|');
-
 const setNameOf = (slot: TeamSlot): string =>
   [slot.mainSet, slot.subSet, slot.subSet2a, slot.subSet2b].filter(Boolean).join(' + ') || 'No set';
 
 export interface EchoSetDef {
   key: string;
+  signature: string;
   label: string;
   // Set + main echo, for the label's tooltip.
   detail: string;
@@ -316,8 +333,8 @@ export interface EchoSetDef {
   isCurrent: boolean;
 }
 
-// One row per set build this team was submitted with, each run from its own submission (echoes
-// and rotation) with the selected sequences and weapons applied. Empty for a single set build.
+// One row per set build this team was submitted with, each run from that set's own submission
+// with the rest of the selection applied. Empty for a single set build.
 export function echoSetDefs(group: GuideTeamGroup, config: GuideConfig, unitIdx: number, selectedJob: GuideJob): EchoSetDef[] {
   const bySignature = new Map<string, RankingEntry[]>();
   for (const entry of group.entries) {
@@ -327,14 +344,13 @@ export function echoSetDefs(group: GuideTeamGroup, config: GuideConfig, unitIdx:
   if (bySignature.size < 2) return [];
 
   const currentSignature = setSignatureOf(selectedJob.team[unitIdx]);
-  const sequences = config.slots.map(s => s.sequence);
   const defs = Array.from(bySignature, ([signature, entries]) => {
     const isCurrent = signature === currentSignature;
-    const entry = isCurrent ? selectedJob.entry : pickRotationEntry({ ...group, entries }, sequences);
-    const job = isCurrent ? selectedJob : makeJob(entry, buildTeam(entry, config.slots));
-    const slot = entry.team[unitIdx];
+    const job = isCurrent ? selectedJob : jobForConfig(group, withSlot(config, unitIdx, { setSignature: signature }));
+    const slot = entries[0].team[unitIdx];
     return {
       key: `set:${signature}`,
+      signature,
       label: setNameOf(slot),
       detail: [setNameOf(slot), slot.mainEcho].filter(Boolean).join(' · '),
       mainSet: slot.mainSet,

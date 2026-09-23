@@ -8,7 +8,7 @@ import { RangeSlider } from '../common/RangeSlider';
 import type { RangeValue } from '../common/RangeSlider';
 import { IMAGE_FOLDERS } from '../../data/db';
 import { metricValue, rankEndpoints } from './guideModel';
-import type { GuideJob, GuideMetric, GuideScope, SequenceDef, WeaponDef, EchoDef, EchoSetDef } from './guideModel';
+import type { GuideJob, GuideMetric, GuideScope, SequenceDef, WeaponDef, EchoDef, EchoSetDef, EchoBuild } from './guideModel';
 import type { GuideSummaries } from './useGuideCalc';
 
 interface SectionProps {
@@ -33,9 +33,11 @@ const rowValue = (summaries: GuideSummaries, job: GuideJob, unit: string, metric
 export const SequenceComparison: React.FC<SectionProps & { defs: SequenceDef[]; selected: number; onSelect: (seq: number) => void }> = ({
   unit, metric, scope, summaries, defs, selected, onSelect
 }) => {
-  const baseJob = defs[0]?.job;
+  const s0Job = defs[0]?.job;
+  // The selected sequence reads as 100%, like the other comparisons.
+  const baselineJob = defs.find(def => def.sequence === selected)?.job;
   const rows: ComparisonRow[] = defs.map(def => {
-    const rotationChanged = def.job.entry.id !== baseJob?.entry.id;
+    const rotationChanged = def.job.entry.id !== s0Job?.entry.id;
     return {
       key: String(def.sequence),
       label: `S${def.sequence}`,
@@ -54,7 +56,7 @@ export const SequenceComparison: React.FC<SectionProps & { defs: SequenceDef[]; 
         columns={[{ label: scopeLabel(scope) }]}
         rows={rows}
         unitLabel={metric.toUpperCase()}
-        baseline={baseJob ? rowValue(summaries, baseJob, unit, metric, scope) : undefined}
+        baseline={baselineJob ? rowValue(summaries, baselineJob, unit, metric, scope) : undefined}
         onSelectRow={key => onSelect(Number(key))}
       />
     </div>
@@ -108,9 +110,13 @@ export const WeaponComparison: React.FC<SectionProps & {
 
 // --- Echoes -------------------------------------------------------------------------------
 
-export const EchoComparison: React.FC<SectionProps & { defs: EchoDef[]; setDefs: EchoSetDef[]; baselineJob: GuideJob }> = ({
-  unit, metric, scope, summaries, defs, setDefs, baselineJob
-}) => {
+export const EchoComparison: React.FC<SectionProps & {
+  defs: EchoDef[];
+  setDefs: EchoSetDef[];
+  baselineJob: GuideJob;
+  onSelectEcho: (build: EchoBuild) => void;
+  onSelectSet: (signature: string) => void;
+}> = ({ unit, metric, scope, summaries, defs, setDefs, baselineJob, onSelectEcho, onSelectSet }) => {
   const statRows: ComparisonRow[] = defs.map(def => ({
     key: def.variant.key,
     label: def.variant.label,
@@ -128,27 +134,36 @@ export const EchoComparison: React.FC<SectionProps & { defs: EchoDef[]; setDefs:
     error: summaries.error(def.job.key)
   }));
 
-  const table = (rows: ComparisonRow[]) => (
+  const table = (rows: ComparisonRow[], onSelectRow: (key: string) => void) => (
     <ComparisonTable
       columns={[{ label: scopeLabel(scope) }]}
       rows={rows}
       unitLabel={metric.toUpperCase()}
       baseline={rowValue(summaries, baselineJob, unit, metric, scope)}
+      onSelectRow={onSelectRow}
     />
   );
+  const selectEcho = (key: string) => {
+    const def = defs.find(d => d.variant.key === key);
+    if (def) onSelectEcho({ layout: def.variant.layout, mainStats: def.variant.mainStats });
+  };
+  const selectSet = (key: string) => {
+    const def = setDefs.find(d => d.key === key);
+    if (def) onSelectSet(def.signature);
+  };
 
   return (
     <div className="results-card guide-cmp-card">
       <div className="results-card-header"><span>Echo Build Comparison ({scopeLabel(scope)})</span></div>
-      {setRows.length === 0 ? table(statRows) : (
+      {setRows.length === 0 ? table(statRows, selectEcho) : (
         <div className="guide-pair">
           <div>
             <div className="guide-cmp-subheading">Main Stats</div>
-            {table(statRows)}
+            {table(statRows, selectEcho)}
           </div>
           <div>
             <div className="guide-cmp-subheading">Echo Sets</div>
-            {table(setRows)}
+            {table(setRows, selectSet)}
           </div>
         </div>
       )}
