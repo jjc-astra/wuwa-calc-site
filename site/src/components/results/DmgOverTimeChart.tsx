@@ -108,13 +108,13 @@ function buildDpsPoints(points: DisplayPoint[], domainMaxT: number): DisplayPoin
 }
 
 export const DmgOverTimeChart: React.FC = () => {
-  const { results, pinned, allowPin, dmgChartDefaults } = useResultsSource();
+  const { results, pinned, allowPin } = useResultsSource();
   const svgRef = useRef<SVGSVGElement>(null);
   const [hoverT, setHoverT] = useState<number | null>(null);
   const [hoverBinIdx, setHoverBinIdx] = useState<number | null>(null);
-  const [mode, setMode] = useState<ViewMode>(dmgChartDefaults?.mode ?? 'dmg');
-  const [chartType, setChartType] = useState<ChartType>(dmgChartDefaults?.chartType ?? 'line');
-  const [dpsType, setDpsType] = useState<DpsWindowKey>(dmgChartDefaults?.window ?? 'twoMin');
+  const [mode, setMode] = useState<ViewMode>('dmg');
+  const [chartType, setChartType] = useState<ChartType>('line');
+  const [dpsType, setDpsType] = useState<DpsWindowKey>('twoMin');
   const [WIDTH, setWidth] = useState(DEFAULT_WIDTH);
 
   const primarydmg = results ? toDisplaySeries(results.dmgOverTimeSeries[dpsType]) : EMPTY_SERIES;

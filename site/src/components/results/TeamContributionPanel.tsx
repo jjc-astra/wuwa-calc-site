@@ -5,7 +5,7 @@ import { DataLoader } from '../../utils/DataLoader';
 import type { DpsWindowKey } from '../../types/results';
 import { PieChart } from './PieChart';
 import { colorForLabel, OTHER_SLICE_COLOR } from './chartPalette';
-import { DPS_WINDOWS } from '../../data/dpsWindows';
+import { DPS_WINDOWS, DEFAULT_BREAKDOWN_WINDOW, shownWindow } from '../../data/dpsWindows';
 import { getCharacterThemeColor } from '../../utils/Common';
 import { Dropdown } from '../common/Dropdown';
 import { UnitTabs } from '../common/UnitTabs';
@@ -15,9 +15,10 @@ export const TeamContributionPanel: React.FC = () => {
   const units = team.filter(s => s.character).map(s => s.character);
   const tabs = ['Team', ...units];
   const [activeTab, setActiveTab] = useState('Team');
-  const [dpsType, setDpsType] = useState<DpsWindowKey>('twoMin');
+  const [pickedWindow, setDpsType] = useState<DpsWindowKey>(DEFAULT_BREAKDOWN_WINDOW);
   const tab = tabs.includes(activeTab) ? activeTab : 'Team';
 
+  const dpsType = shownWindow(pickedWindow, results?.dpsStats);
   const forWindow = results?.contribution[dpsType];
   const teamSlices = useMemo(() => forWindow?.team ?? [], [forWindow]);
   const unitSlices = useMemo(() => (tab !== 'Team' ? forWindow?.units[tab] ?? [] : []), [forWindow, tab]);
@@ -52,14 +53,14 @@ export const TeamContributionPanel: React.FC = () => {
       {!results || units.length === 0 ? (
         <div className="results-empty">Add characters to the team to see contribution.</div>
       ) : (
-        <>
+        <div className="contribution-body">
           <UnitTabs tabs={tabs} active={tab} onSelect={setActiveTab} unthemed={['Team']} />
           {data.length === 0 ? (
             <div className="results-empty">No damage in this window.</div>
           ) : (
             <PieChart data={data} totalLabel={tab === 'Team' ? 'Team DMG' : `${tab} DMG`} />
           )}
-        </>
+        </div>
       )}
     </div>
   );

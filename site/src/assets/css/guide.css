@@ -17,6 +17,8 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
+    /* Queried by .guide-columns, which can't query its own width to pick its column split. */
+    container: guide-body / inline-size;
 }
 /* No shrinking: overflow-clipped cards like the timeline would collapse. */
 .guide-page-body > * { flex-shrink: 0; width: 100%; max-width: 87.5rem; margin-left: auto; margin-right: auto; box-sizing: border-box; }
@@ -68,22 +70,26 @@
 
 .guide-config-slots {
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
+    /* Unit (avatar, name, S) sized to the team's longest, up to half the panel; weapon takes the rest. */
+    grid-template-columns: fit-content(50%) minmax(0, 1fr) auto;
     gap: var(--space-2);
 }
-/* One line per member: avatar, name, S, weapon, R. */
+/* One line per member: avatar, name, S, weapon, R -- columns shared across rows via subgrid. */
 .guide-config-slot {
-    display: flex;
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
     align-items: center;
-    gap: var(--space-2);
     padding: var(--space-1) var(--space-2);
     border-radius: 0.375rem;
     background: var(--surface-lighten);
     border-left: 0.1875rem solid var(--char-theme-raw, var(--accent));
 }
+.guide-config-slot-unit { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.guide-config-slot-unit .avatar { flex-shrink: 0; }
 .guide-config-slot-name {
-    width: 4.5rem; flex-shrink: 0;
-    font-size: 0.8rem; font-weight: bold; color: var(--text-main);
+    flex: 1 1 auto; min-width: 0;
+    font-size: 0.8rem; font-weight: bold; color: var(--char-theme-raw, var(--text-main));
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .guide-config-slot-weapon { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-2); }
@@ -92,15 +98,14 @@
 .guide-mini-select { width: 3.25rem; flex: none; }
 
 /* --- Results + timeline --- */
-/* Left: config + its results. Right: comparisons. Wraps to one column when the view is too
-   narrow for two ~560px columns. */
+/* Left: config + its results. Right: comparisons, split 50/50. Stacks to one column when the
+   view is too narrow for two ~560px columns. */
 .guide-columns {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 35rem), 1fr));
+    grid-template-columns: 1fr;
     gap: var(--space-4) var(--space-6);
     /* Stretch so the divider spans the taller column; panels inside keep their own height. */
     align-items: stretch;
-    container-type: inline-size;
 }
 .guide-column { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; position: relative; }
 /* Section header atop each column; min-height lines both up whether or not it holds toggles. */
@@ -108,7 +113,8 @@
 .guide-column-header .panel-header-main { flex: 1; margin-bottom: 0; }
 /* Divider centered in the column gap, shown while the columns sit side by side
    (2 x 560px + the 20px --space-6 gap). */
-@container (min-width: 71.25rem) {
+@container guide-body (min-width: 71.25rem) {
+    .guide-columns { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
     .guide-column + .guide-column::before {
         content: "";
         position: absolute;
@@ -121,7 +127,7 @@
 }
 /* Stacked (one column): dissolve the two column wrappers so their panels share one list, with
    the selectors (Team & Investment, then Echo Stats) first instead of the Results column's top. */
-@container (max-width: 71.2488rem) {
+@container guide-body (max-width: 71.2488rem) {
     .guide-column { display: contents; }
     .guide-config { order: -2; }
     .guide-echo-stats { order: -1; }
@@ -129,6 +135,10 @@
 .guide-pair-weighted { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: flex-start; }
 .guide-pair-weighted > :first-child { flex: 1 1 15.625rem; min-width: 0; }
 .guide-pair-weighted > :last-child { flex: 2 1 21.25rem; min-width: 0; }
+/* Rotation Time stays compact; DMG Contribution's tabs, legend and pie take the rest. */
+.guide-pair-contribution > :first-child { flex: 0 0 auto; min-width: 14rem; }
+.guide-pair-contribution .results-card-header { white-space: nowrap; }
+.guide-pair-contribution > :last-child { flex-basis: 24rem; }
 .guide-pair {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 17.5rem), 1fr));

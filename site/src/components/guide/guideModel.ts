@@ -14,7 +14,6 @@ import type { RangeValue } from '../common/RangeSlider';
 
 export const MAX_SEQUENCE = 6;
 export const MAX_RANK = 5;
-const TWO_MIN_SECONDS = 120;
 
 export const isFourStar = (character: string): boolean => DataLoader.characterDB[character]?.rarity === 4;
 
@@ -174,14 +173,16 @@ export function jobForConfig(group: GuideTeamGroup, config: GuideConfig): GuideJ
 export type GuideMetric = 'dps' | 'dpr';
 export type GuideScope = 'personal' | 'team';
 
-// DPS = the 2-minute window. DPR = damage per rotation, the Avg Loop window's per-loop damage
-// (null when the rotation has no loop).
+// DPS = the 2-minute window; personal DPS divides the unit's damage by its own on-field time
+// in that window (null if it never takes the field). DPR = damage per rotation, the Avg Loop
+// window's per-loop damage (null when the rotation has no loop).
 export function metricValue(summary: RotationSummary | undefined, unit: string, metric: GuideMetric, scope: GuideScope): number | null {
   if (!summary) return null;
   if (metric === 'dps') {
     if (scope === 'team') return summary.dpsStats.twoMinDps;
-    const slice = summary.contribution.twoMin.team.find(s => s.label === unit);
-    return (slice?.dmg ?? 0) / TWO_MIN_SECONDS;
+    const { team, fieldTime } = summary.contribution.twoMin;
+    const seconds = fieldTime?.[unit] ?? 0;
+    return seconds > 0 ? (team.find(s => s.label === unit)?.dmg ?? 0) / seconds : null;
   }
   if (summary.dpsStats.avgLoopDps === null) return null;
   const slices = summary.contribution.avgLoop.team;

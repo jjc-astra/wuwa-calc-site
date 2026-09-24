@@ -21,7 +21,7 @@ export const EchoStatsPanel: React.FC<EchoStatsPanelProps> = ({ slot }) => {
 
   return (
     <div className="results-card guide-echo-stats">
-      <div className="results-card-header"><span>Echo Stats ({slot.character})</span></div>
+      <div className="results-card-header"><span>Echo Stats</span></div>
       <div className="guide-echo-row">
         <span className="guide-echo-row-label">Substats</span>
         <div className="guide-echo-chips">

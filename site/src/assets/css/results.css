@@ -218,6 +218,15 @@
 }
 .dps-row-value, .dps-row-delta { text-align: right; font-size: 0.78rem; font-weight: bold; font-variant-numeric: tabular-nums; color: var(--text-main); }
 .dps-row-delta.is-up { color: var(--success); }
+.rotation-time-list { display: flex; flex-direction: column; }
+/* Row spacing and dividers match the guide's comparison tables. */
+.rotation-time-row {
+    display: flex; justify-content: space-between; align-items: center; gap: var(--space-3);
+    min-height: 1.625rem; padding: 0.1875rem var(--space-3);
+    border-bottom: 1px solid var(--divider);
+}
+.rotation-time-row .dps-row-label { overflow: hidden; text-overflow: ellipsis; }
+.rotation-time-row.is-unit > span { color: var(--char-theme-raw); }
 .dps-row-delta.is-down { color: var(--danger-text); }
 /* Difference bars grow from the center line: right for better, left for worse. */
 .dps-list.is-compare .bar-track { background: transparent; }
@@ -385,6 +394,20 @@
    ========================================= */
 .pie-chart { display: flex; align-items: center; gap: 0.875rem; flex-wrap: wrap; }
 .pie-chart svg path { cursor: pointer; }
+/* DMG Contribution: tabs, legend, then a spacer the tabs' height on the left, so the legend
+   centers on the pie that spans all three rows on the right. */
+.contribution-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto 1fr auto;
+    column-gap: 0.875rem;
+}
+.contribution-body::after { content: ""; grid-column: 1; grid-row: 3; height: 2rem; }
+.contribution-body > .unit-tabs { grid-column: 1; grid-row: 1; }
+.contribution-body > .results-empty { grid-column: 1; grid-row: 2; }
+.contribution-body .pie-chart { display: contents; }
+.contribution-body .pie-chart-legend { grid-column: 1; grid-row: 2; align-self: center; }
+.contribution-body .pie-chart svg { grid-column: 2; grid-row: 1 / -1; align-self: center; }
 .pie-chart-total-value { fill: var(--text-main); font-size: 15px; font-weight: bold; }
 .pie-chart-total-label { fill: var(--text-dim); font-size: 8px; text-transform: uppercase; letter-spacing: 0.3px; }
 .pie-chart-legend { display: flex; flex-direction: column; gap: 0.3125rem; flex: 1; min-width: 7.5rem; }

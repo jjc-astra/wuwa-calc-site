@@ -22,3 +22,10 @@ export type DpsWindowKey = typeof DPS_WINDOWS[number]['key'];
 
 export const dpsFieldOf = (window: DpsWindowKey): keyof DpsStats =>
   DPS_WINDOWS.find(w => w.key === window)!.dpsField;
+
+// Default for the per-window breakdown panels (DMG Contribution, Rotation Time).
+export const DEFAULT_BREAKDOWN_WINDOW: DpsWindowKey = 'avgLoop';
+
+// The window to actually show: a rotation with no loop has no loop windows, so those fall back to 2-Min.
+export const shownWindow = (window: DpsWindowKey, stats: DpsStats | undefined): DpsWindowKey =>
+  stats && stats[dpsFieldOf(window)] === null ? 'twoMin' : window;

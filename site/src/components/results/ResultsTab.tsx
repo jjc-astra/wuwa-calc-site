@@ -2,6 +2,7 @@
 import React from 'react';
 import { useResultsSource } from './ResultsSource';
 import { DpsPanel } from './DpsPanel';
+import { RotationTimePanel } from './RotationTimePanel';
 import { DmgOverTimeChart } from './DmgOverTimeChart';
 import { TeamContributionPanel } from './TeamContributionPanel';
 import { SubstatWorthChart } from './SubstatWorthChart';
@@ -21,7 +22,7 @@ export const ResultsTab: React.FC = () => {
   return <ResultsGrid />;
 };
 
-// The four result panels.
+// The result panels.
 export const ResultsGrid: React.FC = () => {
   const { results, isStale } = useResultsSource();
   if (!results) return null;
@@ -29,6 +30,7 @@ export const ResultsGrid: React.FC = () => {
     <div className={`results-tab-grid ${isStale ? 'is-stale' : ''}`}>
       <DpsPanel />
       <DmgOverTimeChart />
+      <RotationTimePanel />
       <TeamContributionPanel />
       <SubstatWorthChart />
     </div>

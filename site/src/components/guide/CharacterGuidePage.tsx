@@ -18,8 +18,8 @@ import { SegmentedToggle } from '../common/SegmentedToggle';
 import type { RangeValue } from '../common/RangeSlider';
 import { ResultsSourceContext } from '../results/ResultsSource';
 import { DpsPanel } from '../results/DpsPanel';
-import { DmgOverTimeChart } from '../results/DmgOverTimeChart';
 import { TeamContributionPanel } from '../results/TeamContributionPanel';
+import { RotationTimePanel } from '../results/RotationTimePanel';
 import { SubstatWorthChart } from '../results/SubstatWorthChart';
 import { RotationTimeline } from '../timeline/RotationTimeline';
 import { GuideRankings } from './GuideRankings';
@@ -31,10 +31,6 @@ import {
 } from './guideModel';
 import type { GuideConfig, GuideMetric, GuideScope, GuideTeamGroup, GuideEntry } from './guideModel';
 import { useGuideFullCalc, useGuideSummaries, useGuideEntries } from './useGuideCalc';
-
-
-// Damage bars: the cumulative line mainly helps when comparing against a pinned rotation.
-const GUIDE_DMG_CHART_DEFAULTS = { window: 'twoMin', mode: 'dmg', chartType: 'bar' } as const;
 
 interface CharacterGuidePageProps {
   character?: string;
@@ -200,8 +196,8 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
       {full.status === 'error' && <div className="results-empty">Calculation failed: {full.error}</div>}
       {!full.results && full.status === 'loading' && <div className="results-empty">Calculating rotation...</div>}
 
-      {/* Left: the selected config and its results. Right: the comparisons. */}
-      <ResultsSourceContext.Provider value={{ results: full.results, team: full.team, isStale, pinned: null, allowPin: false, scope, dmgChartDefaults: GUIDE_DMG_CHART_DEFAULTS }}>
+      {/* Left: the selected config, its echoes and results. Right: the comparisons. */}
+      <ResultsSourceContext.Provider value={{ results: full.results, team: full.team, isStale, pinned: null, allowPin: false, scope }}>
         <div className={`guide-columns ${isStale ? 'is-stale' : ''}`}>
           <div className="guide-column">
             <GuideConfigPanel
@@ -213,22 +209,22 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
               onSlotChange={updateSlot}
               onReset={() => setPicked(null)}
             />
+            <EchoStatsPanel slot={selectedJob.team[unitIdx]} />
             <div className="guide-column-header">
               <div className="panel-header-main">Results</div>
             </div>
             {full.results && (
               <>
-                <div className="guide-pair">
-                  <DpsPanel />
+                <DpsPanel />
+                <div className="guide-pair-weighted guide-pair-contribution">
+                  <RotationTimePanel />
                   <TeamContributionPanel />
                 </div>
-                <DmgOverTimeChart />
               </>
             )}
           </div>
 
           <div className="guide-column">
-            <EchoStatsPanel slot={selectedJob.team[unitIdx]} />
             <div className="guide-column-header">
               <div className="panel-header-main">Comparisons</div>
               <SegmentedToggle
@@ -273,7 +269,6 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
                 onSelect={weapon => updateSlot(unitIdx, { weapon })}
               />
             </div>
-            {full.results && <SubstatWorthChart />}
             <EchoComparison
               unit={character}
               metric={metric}
@@ -285,6 +280,7 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
               onSelectEcho={echo => updateSlot(unitIdx, { echo })}
               onSelectSet={setSignature => updateSlot(unitIdx, { setSignature })}
             />
+            {full.results && <SubstatWorthChart />}
           </div>
         </div>
       </ResultsSourceContext.Provider>
@@ -364,14 +360,16 @@ const GuideConfigPanel: React.FC<GuideConfigPanelProps> = ({
           const themeColor = getCharacterThemeColor(DataLoader.characterDB[slot.character]);
           return (
             <div key={i} className="guide-config-slot" style={{ '--char-theme-raw': themeColor } as React.CSSProperties}>
-              <AvatarIcon name={slot.character} folder={IMAGE_FOLDERS.CHARACTERS} className="avatar-sm" />
-              <span className="guide-config-slot-name" {...tip(slot.character)}>{slot.character}</span>
-              <Dropdown
-                className="base-select text-xs guide-mini-select"
-                value={String(choice.sequence)}
-                options={SEQUENCE_OPTIONS}
-                onChange={v => onSlotChange(i, { sequence: Number(v) })}
-              />
+              <div className="guide-config-slot-unit">
+                <AvatarIcon name={slot.character} folder={IMAGE_FOLDERS.CHARACTERS} className="avatar-sm" />
+                <span className="guide-config-slot-name" {...tip(slot.character)}>{slot.character}</span>
+                <Dropdown
+                  className="base-select text-xs guide-mini-select"
+                  value={String(choice.sequence)}
+                  options={SEQUENCE_OPTIONS}
+                  onChange={v => onSlotChange(i, { sequence: Number(v) })}
+                />
+              </div>
               <div className="guide-config-slot-weapon">
                 <AvatarIcon name={choice.weapon} folder={IMAGE_FOLDERS.WEAPONS} className="avatar-sm avatar-rect" />
                 <IconSelect

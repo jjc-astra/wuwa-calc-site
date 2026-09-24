@@ -61,6 +61,20 @@ export const PieChart: React.FC<PieChartProps> = ({ data, size = 170, totalLabel
 
   return (
     <div className="pie-chart">
+      <div className="pie-chart-legend">
+        {arcs.map((arc, i) => (
+          <div
+            key={arc.label}
+            className={`pie-chart-legend-row ${hoverIdx === i ? 'is-hovered' : ''}`}
+            onMouseEnter={() => setHoverIdx(i)}
+            onMouseLeave={() => setHoverIdx(null)}
+          >
+            <span className="pie-chart-swatch" style={{ background: arc.color }} />
+            <span className="pie-chart-legend-label" style={arc.labelColor ? { color: arc.labelColor } : undefined}>{arc.label}</span>
+            <span className="pie-chart-legend-value">{arc.pct.toFixed(1)}%</span>
+          </div>
+        ))}
+      </div>
       <svg style={{ width: `${size / 16}rem`, height: `${size / 16}rem` }} viewBox={`0 0 ${size} ${size}`}>
         {arcs.map((arc, i) => (
           <path
@@ -89,20 +103,6 @@ export const PieChart: React.FC<PieChartProps> = ({ data, size = 170, totalLabel
           {totalLabel}
         </text>
       </svg>
-      <div className="pie-chart-legend">
-        {arcs.map((arc, i) => (
-          <div
-            key={arc.label}
-            className={`pie-chart-legend-row ${hoverIdx === i ? 'is-hovered' : ''}`}
-            onMouseEnter={() => setHoverIdx(i)}
-            onMouseLeave={() => setHoverIdx(null)}
-          >
-            <span className="pie-chart-swatch" style={{ background: arc.color }} />
-            <span className="pie-chart-legend-label" style={arc.labelColor ? { color: arc.labelColor } : undefined}>{arc.label}</span>
-            <span className="pie-chart-legend-value">{arc.pct.toFixed(1)}%</span>
-          </div>
-        ))}
-      </div>
     </div>
   );
 };

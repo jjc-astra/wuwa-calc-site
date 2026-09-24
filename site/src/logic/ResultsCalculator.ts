@@ -84,7 +84,7 @@ function buildExtendedTimeline(
   endingRotationEnabled: boolean,
   endRotationStartsEarlier: boolean = false,
   shared?: SharedExtendedRun
-): { evaluatedRows: any[]; openerEndTime: Frames; loopDuration: Frames | null } {
+): { evaluatedRows: any[]; openerEndTime: Frames; loopEnds: LoopEnds } {
   const contentRows = rows.filter(r => r && r.unit);
   const { openerRows, loopTemplate, endingRows } = splitLoopSegments(contentRows, loopStartIndex, endingRotationEnabled);
 
@@ -98,7 +98,7 @@ function buildExtendedTimeline(
   };
 
   if (loopTemplate.length === 0) {
-    return { evaluatedRows: runSimple(openerRows), openerEndTime, loopDuration: null };
+    return { evaluatedRows: runSimple(openerRows), openerEndTime, loopEnds: null };
   }
 
   const loopEndRow = loopTemplate[loopTemplate.length - 1];
@@ -106,7 +106,7 @@ function buildExtendedTimeline(
   const loopDuration = toFrames(loopEndTime - openerEndTime);
 
   if (loopDuration === 0) {
-    return { evaluatedRows: runSimple([...openerRows, ...loopTemplate, ...endingRows]), openerEndTime, loopDuration: null };
+    return { evaluatedRows: runSimple([...openerRows, ...loopTemplate, ...endingRows]), openerEndTime, loopEnds: null };
   }
 
   // With Ending Rotation, floor (not ceil) the reps to fill what's left of 120s rather than a
@@ -121,7 +121,17 @@ function buildExtendedTimeline(
 
   const previewRun = shared?.run;
   const reusable = previewRun && previewRun.reps === repsToSimulate && previewRun.contentLength === extendedContent.length;
-  return { evaluatedRows: reusable ? previewRun.evaluatedRows : runSimple(extendedContent), openerEndTime, loopDuration };
+  const evaluatedRows = reusable ? previewRun.evaluatedRows : runSimple(extendedContent);
+
+  // Each rep's real end, read off the run: a later rep can take longer than the table's single
+  // one (e.g. waiting on a cooldown the opener's timing didn't), so the loop windows can't
+  // assume every rep matches loopDuration.
+  const simulatedRows = evaluatedRows.filter(r => r && r.unit);
+  const loopEnds = Array.from({ length: repsToSimulate }, (_, rep) => {
+    const row = simulatedRows[openerRows.length + (rep + 1) * loopTemplate.length - 1];
+    return toFrames((row?.gameTimeStart || 0) + (row?.gameTimePassed || 0));
+  });
+  return { evaluatedRows, openerEndTime, loopEnds };
 }
 
 // Prices every row's queued hits in order against the enemy's running HP (each hit reads the HP
@@ -254,26 +264,29 @@ function primaryDmgType(dmgTypes: string[]): string {
 // rotation has no loop to measure.
 interface WindowSpan { start: number; end: Frames; length: Frames }
 
-function windowSpan(key: DpsWindowKey, openerEndTime: Frames, loopDuration: Frames | null): WindowSpan | null {
+// End time of each simulated loop rep, in order; null when the rotation has no loop.
+type LoopEnds = Frames[] | null;
+
+function windowSpan(key: DpsWindowKey, openerEndTime: Frames, loopEnds: LoopEnds): WindowSpan | null {
   switch (key) {
     case 'opener':
       return { start: -Infinity, end: openerEndTime, length: openerEndTime };
     case 'firstLoop':
-      return loopDuration === null ? null : { start: openerEndTime, end: toFrames(openerEndTime + loopDuration), length: loopDuration };
+      return loopEnds === null ? null : { start: openerEndTime, end: loopEnds[0], length: toFrames(loopEnds[0] - openerEndTime) };
     case 'avgLoop':
-      return loopDuration === null
+      return loopEnds === null
         ? null
-        : { start: openerEndTime, end: toFrames(openerEndTime + AVG_LOOP_REPS * loopDuration), length: toFrames(AVG_LOOP_REPS * loopDuration) };
+        : { start: openerEndTime, end: loopEnds[AVG_LOOP_REPS - 1], length: toFrames(loopEnds[AVG_LOOP_REPS - 1] - openerEndTime) };
     case 'twoMin':
       return { start: -Infinity, end: TWO_MIN, length: TWO_MIN };
   }
 }
 
-function buildDpsStats(hits: RotationHit[], openerEndTime: Frames, loopDuration: Frames | null): DpsStats {
+function buildDpsStats(hits: RotationHit[], openerEndTime: Frames, loopEnds: LoopEnds): DpsStats {
   // DPS is damage/second, so each window's frame length converts to seconds at the division.
   const stats: Record<string, number | null> = {};
   for (const window of DPS_WINDOWS) {
-    const span = windowSpan(window.key, openerEndTime, loopDuration);
+    const span = windowSpan(window.key, openerEndTime, loopEnds);
     stats[window.dpsField] = span && span.length > 0 ? sumTotal(windowedHits(hits, span.start, span.end)) / framesToSeconds(span.length) : null;
   }
   return stats as unknown as DpsStats;
@@ -307,8 +320,14 @@ function buildDmgOverTimeForWindow(
 // Folds AVG_LOOP_REPS reps into one loop-length window, averaging damage and timing per move
 // so rep-to-rep jitter doesn't scatter "the same" hit into near-duplicate points. Bar mode
 // (deltas between points) inherits one clean step per move for free.
-function buildAvgLoopDmgOverTime(hits: RotationHit[], openerEndTime: Frames, loopDuration: Frames, bossMaxHp: number): DmgOverTimeSeries {
-  const windowHits = windowedHits(hits, openerEndTime, toFrames(openerEndTime + AVG_LOOP_REPS * loopDuration));
+function buildAvgLoopDmgOverTime(hits: RotationHit[], openerEndTime: Frames, loopEnds: Frames[], bossMaxHp: number): DmgOverTimeSeries {
+  const windowHits = windowedHits(hits, openerEndTime, loopEnds[AVG_LOOP_REPS - 1]);
+  // Reps can differ in length, so each hit is placed by its own rep's start and end.
+  const repStarts = [openerEndTime, ...loopEnds.slice(0, AVG_LOOP_REPS - 1)];
+  const repIndexOf = (h: RotationHit) => {
+    const idx = loopEnds.findIndex(end => h.gameTime <= end);
+    return idx === -1 ? AVG_LOOP_REPS - 1 : Math.min(AVG_LOOP_REPS - 1, idx);
+  };
   // actionId+hitIndex identifies "the same slot" across reps exactly, not by chronological
   // position (a stray extra/dropped tick near a rep boundary could throw that off).
   const moveKey = (h: RotationHit) => `${h.config.actionId ?? h.provider}::${h.config.hitIndex ?? 0}`;
@@ -317,7 +336,7 @@ function buildAvgLoopDmgOverTime(hits: RotationHit[], openerEndTime: Frames, loo
   // Basic Attacks) matches by its own occurrence order, not pooled with the other occurrence.
   const repGroups: Map<string, RotationHit[]>[] = Array.from({ length: AVG_LOOP_REPS }, () => new Map());
   for (const h of windowHits) {
-    const repIndex = Math.min(AVG_LOOP_REPS - 1, Math.max(0, Math.ceil((h.gameTime - openerEndTime) / loopDuration) - 1));
+    const repIndex = repIndexOf(h);
     const key = moveKey(h);
     const list = repGroups[repIndex].get(key);
     if (list) list.push(h);
@@ -327,10 +346,7 @@ function buildAvgLoopDmgOverTime(hits: RotationHit[], openerEndTime: Frames, loo
   const allKeys = new Set<string>();
   repGroups.forEach(m => m.forEach((_, k) => allKeys.add(k)));
 
-  const foldedRel = (h: RotationHit) => {
-    const rel = (h.gameTime - openerEndTime) % loopDuration;
-    return rel === 0 ? loopDuration : rel;
-  };
+  const foldedRel = (h: RotationHit) => h.gameTime - repStarts[repIndexOf(h)];
 
   const folded: { t: Frames; total: number; label: string }[] = [];
   for (const key of allKeys) {
@@ -366,7 +382,7 @@ function buildAvgLoopDmgOverTime(hits: RotationHit[], openerEndTime: Frames, loo
     }
   }
 
-  return { label: 'Avg Loop', points, bossMaxHp, killTime, windowEnd: loopDuration };
+  return { label: 'Avg Loop', points, bossMaxHp, killTime, windowEnd: toFrames((loopEnds[AVG_LOOP_REPS - 1] - openerEndTime) / AVG_LOOP_REPS) };
 }
 
 // What each window's chart series is called. It's a separate name from the tab's, since the
@@ -381,16 +397,16 @@ const SERIES_LABELS: Record<DpsWindowKey, string> = {
 function buildAllDmgOverTime(
   hits: RotationHit[],
   openerEndTime: Frames,
-  loopDuration: Frames | null,
+  loopEnds: LoopEnds,
   bossMaxHp: number
 ): Record<DpsWindowKey, DmgOverTimeSeries> {
   const series = {} as Record<DpsWindowKey, DmgOverTimeSeries>;
   for (const { key } of DPS_WINDOWS) {
-    const span = windowSpan(key, openerEndTime, loopDuration);
+    const span = windowSpan(key, openerEndTime, loopEnds);
     if (!span) {
       series[key] = buildDmgOverTimeForWindow([], bossMaxHp, SERIES_LABELS[key], toFrames(0));
     } else if (key === 'avgLoop') {
-      series[key] = buildAvgLoopDmgOverTime(hits, openerEndTime, loopDuration!, bossMaxHp);
+      series[key] = buildAvgLoopDmgOverTime(hits, openerEndTime, loopEnds!, bossMaxHp);
     } else {
       // A loop's chart starts at 0 at the loop's own start; the others run on the rotation's clock.
       const points = windowedHits(hits, span.start, span.end).map(h => ({
@@ -402,6 +418,21 @@ function buildAllDmgOverTime(
     }
   }
   return series;
+}
+
+// Seconds each unit is the controlled character within (start, end]. A row holds the field from
+// the start of its wait until its game time runs out; Simultaneous rows play alongside the
+// previous one and don't take control (the engine treats a leading Simultaneous row as normal).
+function fieldTimeInWindow(rows: any[], start: number, end: Frames, divisor: number): Record<string, number> {
+  const frames: Record<string, number> = {};
+  rows.forEach((row, i) => {
+    if (!row?.unit || (row.timing === 'Simultaneous' && i > 0)) return;
+    const rowStart = row.gameTimeStart || 0;
+    const from = Math.max(start, rowStart - (row.waitTime || 0));
+    const to = Math.min(end, rowStart + (row.gameTimePassed || 0));
+    if (to > from) frames[row.unit] = (frames[row.unit] || 0) + (to - from);
+  });
+  return Object.fromEntries(Object.entries(frames).map(([unit, f]) => [unit, framesToSeconds(toFrames(f)) / divisor]));
 }
 
 function buildContributionForWindow(windowHits: RotationHit[], teamNames: string[], divisor: number): ContributionForWindow {
@@ -433,19 +464,21 @@ function buildContributionForWindow(windowHits: RotationHit[], teamNames: string
 
 function buildAllContribution(
   hits: RotationHit[],
+  rows: any[],
   openerEndTime: Frames,
-  loopDuration: Frames | null,
+  loopEnds: LoopEnds,
   teamNames: string[]
 ): Record<DpsWindowKey, ContributionForWindow> {
   const contribution = {} as Record<DpsWindowKey, ContributionForWindow>;
   for (const { key } of DPS_WINDOWS) {
-    const span = windowSpan(key, openerEndTime, loopDuration);
+    const span = windowSpan(key, openerEndTime, loopEnds);
     // The Avg Loop window holds AVG_LOOP_REPS loops of damage; report the average one.
-    contribution[key] = buildContributionForWindow(
-      span ? windowedHits(hits, span.start, span.end) : [],
-      teamNames,
-      key === 'avgLoop' ? AVG_LOOP_REPS : 1
-    );
+    const divisor = key === 'avgLoop' ? AVG_LOOP_REPS : 1;
+    contribution[key] = {
+      ...buildContributionForWindow(span ? windowedHits(hits, span.start, span.end) : [], teamNames, divisor),
+      fieldTime: span ? fieldTimeInWindow(rows, span.start, span.end, divisor) : {},
+      duration: span ? framesToSeconds(span.length) / divisor : 0
+    };
   }
   return contribution;
 }
@@ -533,30 +566,30 @@ type ResultsArgs = [
 ];
 
 function simulateHits(...[rows, team, options, enemyConfig, loopStartIndex, endingRotationEnabled = false, endRotationStartsEarlier = false, shared]: ResultsArgs) {
-  const { evaluatedRows, openerEndTime, loopDuration } = buildExtendedTimeline(rows, team, options, enemyConfig, loopStartIndex, endingRotationEnabled, endRotationStartsEarlier, shared);
+  const { evaluatedRows, openerEndTime, loopEnds } = buildExtendedTimeline(rows, team, options, enemyConfig, loopStartIndex, endingRotationEnabled, endRotationStartsEarlier, shared);
   const hits = buildHitList(evaluatedRows, team, enemyConfig);
   const teamNames = team.filter(s => s.character).map(s => s.character);
-  return { hits, openerEndTime, loopDuration, teamNames };
+  return { hits, evaluatedRows, openerEndTime, loopEnds, teamNames };
 }
 
 // DPS + contribution only: skips the dmg-over-time series and substat worth, the costly parts.
 export function buildRotationSummary(...args: ResultsArgs): RotationSummary {
-  const { hits, openerEndTime, loopDuration, teamNames } = simulateHits(...args);
+  const { hits, evaluatedRows, openerEndTime, loopEnds, teamNames } = simulateHits(...args);
   return {
-    dpsStats: buildDpsStats(hits, openerEndTime, loopDuration),
-    contribution: buildAllContribution(hits, openerEndTime, loopDuration, teamNames)
+    dpsStats: buildDpsStats(hits, openerEndTime, loopEnds),
+    contribution: buildAllContribution(hits, evaluatedRows, openerEndTime, loopEnds, teamNames)
   };
 }
 
 export function buildRotationResults(...args: ResultsArgs): RotationResults {
-  const { hits, openerEndTime, loopDuration, teamNames } = simulateHits(...args);
+  const { hits, evaluatedRows, openerEndTime, loopEnds, teamNames } = simulateHits(...args);
   const [, team, , enemyConfig] = args;
   const twoMinHits = windowedHits(hits, -Infinity, TWO_MIN);
 
   return {
-    dpsStats: buildDpsStats(hits, openerEndTime, loopDuration),
-    dmgOverTimeSeries: buildAllDmgOverTime(hits, openerEndTime, loopDuration, enemyConfig.hp),
-    contribution: buildAllContribution(hits, openerEndTime, loopDuration, teamNames),
+    dpsStats: buildDpsStats(hits, openerEndTime, loopEnds),
+    dmgOverTimeSeries: buildAllDmgOverTime(hits, openerEndTime, loopEnds, enemyConfig.hp),
+    contribution: buildAllContribution(hits, evaluatedRows, openerEndTime, loopEnds, teamNames),
     substatWorth: buildSubstatWorth(twoMinHits, team)
   };
 }

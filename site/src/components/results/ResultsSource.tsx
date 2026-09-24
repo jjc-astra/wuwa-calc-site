@@ -6,7 +6,7 @@ import { useRotationStore } from '../../store/useRotationStore';
 import { useRosterStore } from '../../store/useRosterStore';
 import { useComparisonStore } from '../../store/useComparisonStore';
 import type { PinnedRotation } from '../../store/useComparisonStore';
-import type { RotationResults, DpsWindowKey } from '../../types/results';
+import type { RotationResults } from '../../types/results';
 import type { TeamSlot } from '../../types';
 
 export interface ResultsSource {
@@ -18,8 +18,6 @@ export interface ResultsSource {
   allowPin: boolean;
   // Set when the page owns the Team/Personal choice; Substat Worth then hides its own toggle.
   scope?: 'team' | 'personal';
-  // DMG Over Time's starting view. Defaults to 2-Min, DMG, line.
-  dmgChartDefaults?: { window: DpsWindowKey; mode: 'dmg' | 'dps'; chartType: 'line' | 'bar' };
 }
 
 export const ResultsSourceContext = createContext<ResultsSource | null>(null);

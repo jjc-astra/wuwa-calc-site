@@ -74,6 +74,10 @@ export interface ContributionForWindow {
   team: TeamDmgSlice[];
   // Per-unit cast-type breakdown, keyed by character name.
   units: Record<string, CastTypeSlice[]>;
+  // Seconds each unit spent on field (the controlled character), keyed by character name, and
+  // the window's own length in seconds. Missing on results saved before they existed.
+  fieldTime?: Record<string, number>;
+  duration?: number;
 }
 
 export interface RotationResults {
