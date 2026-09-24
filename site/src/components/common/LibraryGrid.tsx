@@ -1,4 +1,3 @@
-// src/components/common/LibraryGrid.tsx
 // The icon-grid library shared by the Mechanics Builder and the Character Guide.
 import React from 'react';
 import { CommonUtils, TooltipManager, tip } from '../../utils/Common';
@@ -12,6 +11,7 @@ interface LibrarySearchInputProps {
   placeholder: string;
 }
 
+/** The library's search box. */
 export const LibrarySearchInput: React.FC<LibrarySearchInputProps> = ({ value, onChange, placeholder }) => (
   <div style={{ padding: '1.25rem 1.25rem 1rem 1.25rem', flexShrink: 0 }}>
     <input
@@ -41,6 +41,7 @@ interface LibrarySectionProps {
   children: React.ReactNode;
 }
 
+/** A titled grid of library cards. */
 export const LibrarySection: React.FC<LibrarySectionProps> = ({ title, children }) => (
   <div className="grid-section" style={{ width: '100%' }}>
     <div
@@ -77,6 +78,7 @@ interface LibraryCardProps {
   badge?: React.ReactNode;
 }
 
+/** One entity's card: its icon (rarity-framed for characters and weapons) and name. */
 export const LibraryCard: React.FC<LibraryCardProps> = ({ itemName, imgFolder, rarity = 5, dimmed = false, dimmedTooltip, onClick, badge }) => {
   const iconPath = CommonUtils.getIconPath(itemName, imgFolder);
   const { loaded: imgLoaded, errored: imgError, onLoad: onImgLoad, onError: onImgError } = useImageStatus(iconPath);

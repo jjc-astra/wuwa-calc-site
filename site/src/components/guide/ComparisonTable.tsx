@@ -1,4 +1,3 @@
-// src/components/guide/ComparisonTable.tsx
 // Variant rows, each showing raw values and their % of a baseline (100%). Shared by the Sequence,
 // Weapon and Echo comparisons.
 import React from 'react';

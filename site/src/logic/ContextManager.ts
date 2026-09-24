@@ -9,6 +9,7 @@ import { forteMax, readResource } from './resources';
 // A buff still in effect: it has time left or stacks.
 const isBuffLive = (buff: any): boolean => !!buff && (buff.duration > 0 || buff.stacks > 0);
 
+// Builds the `ctx` DSL rules and math evaluate against.
 export const ContextManager = {
   // Seconds until `actionName` (bare move name) next has a use available for `unitName`, given
   // TimelineEngine's cooldown state (`cooldowns` for a plain single-timer move, `chargeCooldowns`

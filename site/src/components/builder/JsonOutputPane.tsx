@@ -96,20 +96,11 @@ function applyFieldHighlight(
   });
 }
 
-// Given a click point, finds how many characters into `sourceText` (the raw string that was
-// fed to syntaxHighlight to produce `container`'s HTML) the click landed -- so entering edit
-// mode can place the textarea's caret where the user actually clicked, instead of always at
-// the start. caretPositionFromPoint (Firefox) / caretRangeFromPoint (Chrome/Safari) both report
-// a DOM text node + offset for the click.
-//
-// Can't just walk every text node in `container` and sum lengths: syntaxHighlight renders each
-// source line as its own block-level `.code-line` div and joins them with '' (line breaks come
-// from those being display:block, not from a literal '\n' anywhere in the HTML) -- summing DOM
-// text lengths directly silently drops one character per preceding line, landing the caret on
-// the right row but drifting further off within it the further down the click was. Instead:
-// find which .code-line was clicked and the offset within *that* line's own text nodes (DOM-
-// accurate, and sidesteps syntaxHighlight substituting ' ' for a genuinely empty line), then
-// add back real preceding lines' lengths (+1 per '\n') from `sourceText.split('\n')` itself.
+// The character offset into `sourceText` (what syntaxHighlight rendered into `container`) under a
+// click, so edit mode opens with the caret there.
+// - Finds the clicked `.code-line` and the offset within it, then adds the preceding lines'
+//   lengths from `sourceText` itself.
+// - Summing the DOM's text instead would drift: lines are separate divs with no '\n' between them.
 function getFlatCaretOffset(container: HTMLElement, sourceText: string, x: number, y: number): number | null {
   const doc = document as any;
   let node: Node | null = null;
@@ -174,10 +165,8 @@ const EditableCodeBlock: React.FC<EditableCodeBlockProps> = ({
 }) => {
   const backdropRef = useRef<HTMLPreElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  // The read-only <pre> and the edit-mode textarea are separate DOM elements swapped in and out
-  // by isEditing -- a freshly-mounted one starts at scrollTop 0 with no memory of the other's
-  // position, so it has to be carried across the swap by hand via this ref (survives across
-  // isEditing's own re-renders since it belongs to this component instance, not either element).
+  // The read-only <pre> and the edit textarea swap in and out, each mounting at scrollTop 0, so
+  // the scroll position is carried across the swap here.
   const readOnlyPreRef = useRef<HTMLPreElement>(null);
   const scrollPosRef = useRef({ top: 0, left: 0 });
   const setPreRef = (el: HTMLPreElement | null) => {
@@ -237,7 +226,6 @@ const EditableCodeBlock: React.FC<EditableCodeBlockProps> = ({
     const observer = new ResizeObserver(measureWrap);
     observer.observe(backdrop);
     return () => observer.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditing, draftHighlightedHTML]);
 
   const syncScroll = () => {
@@ -304,6 +292,7 @@ const EditableCodeBlock: React.FC<EditableCodeBlockProps> = ({
   );
 };
 
+/** The Builder's output: the entity's JSON as saved, with import/export and inline editing. */
 export const JsonOutputPane: React.FC = () => {
   const {
     activeChar, activeFolder, baseStats, mechanics, resetCache, highlightedNodeId, hoveredFieldHighlight, hasChanges,
@@ -326,7 +315,7 @@ export const JsonOutputPane: React.FC = () => {
     BuilderUtils.formatJSONOutput(activeChar, baseStats, mechanics, isWeapon, mechFolder)
   );
 
-  // Debounced JSON stringification and syntax highlighting.
+  // Re-formats 50ms after the last edit.
   useEffect(() => {
     const timer = setTimeout(() => {
       setFormatted(BuilderUtils.formatJSONOutput(activeChar, baseStats, mechanics, isWeapon, mechFolder));
@@ -480,13 +469,11 @@ export const JsonOutputPane: React.FC = () => {
     setResetConfirmOpen(false);
   };
 
-  // --- Inline editing: click the mechanics block to swap it for a caret-editable textarea
-  // (layered over a live-highlighted backdrop, see EditableCodeBlock) seeded with the same JSON,
-  // debounce-parse as the user types, and apply successful parses straight through the same
-  // import path Import JSON already uses. draft body matches the read-only display byte-for-byte
-  // (see mechBody above) so a click's flat offset maps onto the draft by subtracting the
-  // comment-prefix length alone. The character block (above) is read-only -- BaseStatsForm's own
-  // fields, plus Import/Export JSON, already cover editing it deliberately.
+  // --- Inline editing of the mechanics block (the character block stays read-only):
+  // - Clicking swaps in a textarea over a live-highlighted backdrop (EditableCodeBlock).
+  // - The draft is parsed as you type; a valid parse applies through Import JSON's path.
+  // - The draft matches the read-only text byte for byte (mechBody), so a click's offset maps
+  //   onto it by subtracting the comment-prefix length.
   const [mechDraft, setMechDraft] = useState<string | null>(null);
   const [mechError, setMechError] = useState<string | null>(null);
   const [mechCaret, setMechCaret] = useState<number | null>(null);

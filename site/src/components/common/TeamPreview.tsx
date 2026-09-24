@@ -1,28 +1,26 @@
-// src/components/common/TeamPreview.tsx
-// Mini character+weapon avatar row for the roster builder's collapsed header -- extracted from
-// TeamBuilder.tsx so Rankings' leaderboard rows can reuse the same "which team" icon treatment.
-import React, { useState } from 'react';
+// Mini character + weapon avatar row: the roster's collapsed header, Rankings and History rows.
+import React from 'react';
 import { CommonUtils, getCharacterThemeColor, tip } from '../../utils/Common';
+import { useImageStatus } from '../../hooks/useImageStatus';
 import { DataLoader } from '../../utils/DataLoader';
 import { IMAGE_FOLDERS } from '../../data/db';
 import type { ImageFolder } from '../../data/db';
 import type { TeamSlot } from '../../types/index';
 
 const PreviewIcon: React.FC<{ name: string; folder: ImageFolder }> = ({ name, folder }) => {
-  const [loaded, setLoaded] = useState(false);
-  const [errored, setErrored] = useState(false);
-  const showImage = !errored;
+  const path = CommonUtils.getIconPath(name, folder);
+  const { loaded, errored, onLoad, onError } = useImageStatus(path);
 
   return (
     <>
-      {!showImage || !loaded ? <span className="preview-char-initial">?</span> : null}
-      {showImage && (
+      {(errored || !loaded) && <span className="preview-char-initial">?</span>}
+      {!errored && (
         <img
           className={`preview-img-abs ${loaded ? 'opacity-1' : 'opacity-0'}`}
-          src={CommonUtils.getIconPath(name, folder)}
+          src={path}
           alt={name}
-          onLoad={() => setLoaded(true)}
-          onError={() => setErrored(true)}
+          onLoad={onLoad}
+          onError={onError}
         />
       )}
     </>

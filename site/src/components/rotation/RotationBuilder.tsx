@@ -5,7 +5,6 @@ import { RotationToolbar } from './RotationToolbar';
 import { RotationRow } from './RotationRow';
 import { CollapsibleSection } from '../common/CollapsibleSection';
 import { CommonUtils, getCharacterThemeColor } from '../../utils/Common';
-import { serializableTeam } from '../../utils/TeamUtils';
 import { DataLoader } from '../../utils/DataLoader';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { ExportRotationDialog } from '../common/ExportRotationDialog';
@@ -67,6 +66,7 @@ function buildRotationScrollbarSegments(rows: any[], loopStartIndex: number, loo
 // route, but the backfill below should only run once per page load.
 let hasRunLoadRefresh = false;
 
+/** Step 2: the rotation table, its toolbar and minimap. */
 export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onToggle }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -363,7 +363,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     if (rows.length === 0) return alert('Rotation is empty.');
     setExportSource({
       rotation: rows.map(toSavedRow),
-      team: serializableTeam(team),
+      team,
       settings: { startEnergy, startConcerto, endingRotationEnabled, endRotationStartsEarlier },
       enemy: { ...useRosterStore.getState().enemy },
       // Current results skip a recalculation for a Custom-build export.

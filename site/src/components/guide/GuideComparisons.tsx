@@ -1,4 +1,3 @@
-// src/components/guide/GuideComparisons.tsx
 // Sequence / Weapon / Echo comparisons. Their jobs come from guideModel's *Defs() builders, so the
 // page can run them all in one useGuideSummaries batch.
 import React from 'react';

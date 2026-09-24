@@ -33,6 +33,7 @@ function labelFromTeam(team: Array<{ character?: string }> | undefined): string 
   return names.length > 0 ? names.join(' / ') : 'Imported Rotation';
 }
 
+// The Calculator's pinned comparison rotation.
 export const useComparisonStore = create<ComparisonState>()(
   persist(
     (set) => {

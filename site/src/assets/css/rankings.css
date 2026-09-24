@@ -1,5 +1,4 @@
-/* src/assets/css/rankings.css
-   Rotation Rankings page -- reuses the site's existing tokens/components throughout
+/* Rotation Rankings page -- reuses the site's existing tokens/components throughout
    (ChromeTabs, .segmented-toggle, TooltipManager) rather than one-off styles. */
 
 /* =========================================

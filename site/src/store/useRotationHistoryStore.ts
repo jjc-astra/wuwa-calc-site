@@ -1,4 +1,3 @@
-// src/store/useRotationHistoryStore.ts
 // One row per successful Calculate press (wired in from useRotationStore.calculateDamage).
 // Newest-first in the Results panel's History tab.
 import { create } from 'zustand';

@@ -9,6 +9,7 @@ import { ELEMENTS } from '../../data/gameVocab';
 import { IMAGE_FOLDERS } from '../../data/db';
 import { Dropdown } from '../common/Dropdown';
 
+/** The open character's or weapon's base stats (its db_characters / db_weapons entry). */
 export const BaseStatsForm: React.FC = () => {
   const { activeChar, baseStats, setBaseStat } = useBuilderStore();
 

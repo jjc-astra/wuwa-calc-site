@@ -1,4 +1,3 @@
-// src/utils/Frames.ts
 // Timing math (actionDuration, freezeTime, damage timeframes, hit scheduling, combo windows)
 // runs on a fixed 60fps integer-frame grid, not float seconds -- avoids drift/rounding error.
 // Cooldowns and buff/effect lifetimes are the exception and stay in seconds -- see
@@ -10,7 +9,7 @@
 // legal while blocking an unconverted seconds-number from being assigned into a Frames slot.
 export type Frames = number & { readonly __frameBrand: unique symbol };
 
-export const FPS = 60;
+const FPS = 60;
 
 // Trust-cast for a value already known to be whole frames (e.g. JSON already migrated).
 // Does not round -- use roundFrames if the value might be fractional.
@@ -32,10 +31,10 @@ export function framesToSeconds(frames: Frames): number {
   return frames / FPS;
 }
 
-// Shared display formatter -- every UI seconds-string should go through this, not an ad hoc `.toFixed(2)+'s'`.
 /** Seconds with an explicit sign, to two places: "+1.47s", "-0.50s", "0.00s". */
 export const formatSignedSeconds = (seconds: number): string => `${seconds > 0 ? '+' : ''}${seconds.toFixed(2)}s`;
 
+/** Frames as display seconds ("1.47s"). Every UI seconds string goes through here or formatSignedSeconds. */
 export function formatFramesAsSeconds(frames: Frames, decimals = 2): string {
   return `${framesToSeconds(frames).toFixed(decimals)}s`;
 }

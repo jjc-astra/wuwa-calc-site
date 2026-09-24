@@ -1,4 +1,3 @@
-// src/components/common/BuffCard.tsx
 import React from 'react';
 import { tip } from '../../utils/Common';
 
@@ -13,6 +12,7 @@ interface BuffCardProps {
   effects: BuffEffectItem[];
 }
 
+/** One source's active buffs: each effect's label, value and stacks. */
 export const BuffCard: React.FC<BuffCardProps> = ({ source, effects }) => {
   return (
     <div className="buff-card">

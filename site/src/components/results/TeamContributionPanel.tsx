@@ -1,4 +1,3 @@
-// src/components/results/TeamContributionPanel.tsx
 import React, { useMemo, useState } from 'react';
 import { useResultsSource } from './ResultsSource';
 import { DataLoader } from '../../utils/DataLoader';
@@ -10,6 +9,7 @@ import { getCharacterThemeColor } from '../../utils/Common';
 import { Dropdown } from '../common/Dropdown';
 import { UnitTabs } from '../common/UnitTabs';
 
+/** DMG Contribution: the team's damage by unit, or one unit's by cast type, for a window. */
 export const TeamContributionPanel: React.FC = () => {
   const { team, results, isStale } = useResultsSource();
   const units = team.filter(s => s.character).map(s => s.character);

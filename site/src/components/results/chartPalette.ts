@@ -1,4 +1,3 @@
-// src/components/results/chartPalette.ts
 import { DataLoader } from '../../utils/DataLoader';
 import { getCharacterThemeColor } from '../../utils/Common';
 import { DPS_WINDOWS } from '../../data/dpsWindows';

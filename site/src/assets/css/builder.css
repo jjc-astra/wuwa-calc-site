@@ -1,4 +1,4 @@
-/* src/assets/css/builder.css */
+/* Mechanics Builder page (components/builder/). */
 
 /* --- Layout --- */
 .builder-view {
@@ -9,15 +9,6 @@
 .builder-view .category-group-name { width: 17.5rem; }
 
 /* --- Grid View --- */
-.char-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(5.625rem, 1fr));
-    gap: var(--space-6) var(--space-4);
-    width: 100%;
-    align-content: start;
-    padding: var(--space-6);
-}
-
 .char-grid-card {
     display: flex;
     flex-direction: column;

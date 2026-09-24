@@ -1,4 +1,3 @@
-// src/components/common/ExportRotationDialog.tsx
 // Export Rotation / History's Export: names the rotation and results files, credits the
 // author, picks the results' build, then calculates and downloads both.
 import React, { useState } from 'react';

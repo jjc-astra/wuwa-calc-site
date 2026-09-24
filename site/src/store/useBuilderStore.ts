@@ -120,6 +120,7 @@ export const mechFolderFor = (folder: string): EntityFolder => {
   return 'characters';
 };
 
+// The Mechanics Builder's open entity, plus the edit log of every entity ever edited.
 export const useBuilderStore = create<BuilderState>()(
   persist(
     (set, get) => ({
@@ -403,9 +404,8 @@ export const useBuilderStore = create<BuilderState>()(
     {
       name: 'wuwa_builder_cache',
       storage: persistStorage(),
-      // `mechanics`/`baseStats` excluded -- derived (pristine data + edits replayed via
-      // setActiveChar), not part of the durable edit log. Persisting them verbatim used to
-      // re-inject stale keys on reload; re-deriving always re-fetches fresh instead.
+      // `mechanics`/`baseStats` aren't saved: setActiveChar re-derives them from fresh data plus
+      // the edit log, so a reload can't bring back stale keys.
       partialize: (state) => ({
         activeChar: state.activeChar,
         activeFolder: state.activeFolder,

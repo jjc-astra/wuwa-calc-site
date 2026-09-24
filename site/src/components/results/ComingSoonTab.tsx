@@ -1,4 +1,3 @@
-// src/components/results/ComingSoonTab.tsx
 import React from 'react';
 
 interface ComingSoonTabProps {
@@ -6,6 +5,7 @@ interface ComingSoonTabProps {
   description: string;
 }
 
+/** Placeholder for a tab that isn't built yet. */
 export const ComingSoonTab: React.FC<ComingSoonTabProps> = ({ title, description }) => (
   <div className="results-coming-soon">
     <span className="coming-soon-badge caps-tag pill-badge">Coming Soon</span>

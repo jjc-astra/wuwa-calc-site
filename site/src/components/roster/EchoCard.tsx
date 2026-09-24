@@ -8,6 +8,7 @@ interface EchoCardProps {
   echoIndex: number;
 }
 
+/** One echo: its main stat and five substats. */
 export const EchoCard: React.FC<EchoCardProps> = ({ slotIndex, echoIndex }) => {
   const { team, setSlotField, setSubstat } = useRosterStore();
   const slot = team[slotIndex];

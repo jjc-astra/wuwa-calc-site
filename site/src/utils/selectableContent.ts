@@ -4,7 +4,7 @@ import { DataLoader, type ImplementedContentKind } from './DataLoader';
 import { useBuilderStore } from '../store/useBuilderStore';
 import type { IconSelectOption } from '../components/common/IconSelect';
 
-export const NOT_IMPLEMENTED_TIP = 'Not yet implemented';
+const NOT_IMPLEMENTED_TIP = 'Not yet implemented';
 
 // Has mechanics in the data repo, or was given some through the Mechanics Builder.
 export const isSelectableContent = (kind: ImplementedContentKind, name: string): boolean =>

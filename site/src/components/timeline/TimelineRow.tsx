@@ -1,4 +1,3 @@
-// src/components/timeline/TimelineRow.tsx
 import React from 'react';
 import { CommonUtils } from '../../utils/Common';
 import { IMAGE_FOLDERS } from '../../data/db';
@@ -10,6 +9,7 @@ interface TimelineRowProps {
   data: UnitRowData;
 }
 
+/** One unit's row: icon, name and clips. */
 export const TimelineRow: React.FC<TimelineRowProps> = ({ data }) => (
   <div
     className="timeline-row"

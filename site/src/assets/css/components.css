@@ -1,5 +1,4 @@
-/* src/assets/css/components.css
-   Shared styling used by 2+ pages or the app shell. Page-specific layout lives in that page's
+/* Shared styling used by 2+ pages or the app shell. Page-specific layout lives in that page's
    own file instead (builder.css, calculator.css, etc). */
 
 /* =========================================
@@ -152,11 +151,6 @@ button, input, select, textarea { font-family: inherit; }
     color: var(--accent);
 }
 
-.nav-item-btn .coming-soon-badge {
-    padding: 1px 0.3125rem;
-    border-radius: 0.1875rem;
-}
-
 /* Phones: tighter header padding and nav buttons (wrapping is handled above at every width). */
 @media (max-width: 720px) {
     .global-nav-header { padding: 0.5rem 0.75rem; }
@@ -176,7 +170,6 @@ button, input, select, textarea { font-family: inherit; }
     scrollbar-width: thin;
     scrollbar-color: var(--text-disabled) var(--bg-dark);
 }
-
 
 .opacity-0 { opacity: 0 !important; }
 .opacity-1 { opacity: 1 !important; }

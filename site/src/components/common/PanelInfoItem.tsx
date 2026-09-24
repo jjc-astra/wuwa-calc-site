@@ -6,6 +6,7 @@ interface PanelInfoItemProps {
   extraClass?: string;
 }
 
+/** A caps label over a value. */
 export const PanelInfoItem: React.FC<PanelInfoItemProps> = ({
   label,
   value,

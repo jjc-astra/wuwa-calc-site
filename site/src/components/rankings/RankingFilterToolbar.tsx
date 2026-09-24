@@ -1,4 +1,3 @@
-// src/components/rankings/RankingFilterToolbar.tsx
 import React from 'react';
 import { RangeSlider } from '../common/RangeSlider';
 import type { RangeValue } from '../common/RangeSlider';
@@ -48,8 +47,7 @@ interface DmgTypeColumnProps<T extends string> {
   onChange: (next: T[]) => void;
 }
 
-// One checkbox list (Element or Category) with Select All / Hide All -- shared so both columns
-// stay in sync instead of drifting as separate hand-copied blocks.
+// One checkbox list (Element or Category) with Select All / Hide All.
 function DmgTypeColumn<T extends string>({ title, options, selected, colorFor, onChange }: DmgTypeColumnProps<T>) {
   const toggle = (option: T) => {
     onChange(selected.includes(option) ? selected.filter(o => o !== option) : [...selected, option]);
@@ -109,6 +107,7 @@ export const SequenceRangeFilters: React.FC<RankingFilterToolbarProps> = ({ filt
   );
 };
 
+/** Rotation style filter: Any / Linear / Quickswap. */
 export const RotationStyleToggle: React.FC<RankingFilterToolbarProps> = ({ filters, onChange }) => (
   <SegmentedToggle
     ariaLabel="Rotation style"
@@ -122,6 +121,7 @@ export const RotationStyleToggle: React.FC<RankingFilterToolbarProps> = ({ filte
   />
 );
 
+/** The Rankings filters: slot sequences, rotation style, element and damage category. */
 export const RankingFilterToolbar: React.FC<RankingFilterToolbarProps> = ({ filters, onChange }) => {
   return (
     <div className="ranking-toolbar">

@@ -1,4 +1,3 @@
-// src/components/builder/SummaryRow.tsx
 // Single-line summary <tr> for one MechanicNode.
 // Clicking most cells opens the matching sub-panel (in MechanicNodeCard) as a detail row below.
 import React from 'react';

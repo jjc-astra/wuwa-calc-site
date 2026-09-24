@@ -69,6 +69,7 @@ function getCommaSegmentInfo(fullCaptured: string): { currentTerm: string; repla
   return { currentTerm, replaceLength, chosenTerms };
 }
 
+/** Text input with DSL highlighting and suggestions; `mode` picks the vocabulary. */
 export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
   mode = 'general',
   value,

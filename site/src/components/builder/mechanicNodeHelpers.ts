@@ -1,4 +1,3 @@
-// src/components/builder/mechanicNodeHelpers.ts
 // Shared formatting/lookup helpers used across MechanicNodeCard and its split-out sub-panels.
 import type { Effect, MechanicNode } from '../../types';
 import { CAST_TYPE_COLORS } from '../../data/db';

@@ -1,4 +1,3 @@
-// src/components/builder/panels/InputsPhysicsPanel.tsx
 import React from 'react';
 import type { MechanicNode, StanceChange } from '../../../types';
 import { AutocompleteInput } from '../../common/AutocompleteInput';
@@ -48,6 +47,7 @@ interface InputsPhysicsPanelProps {
   groupSiblings?: { repeat?: [string, MechanicNode]; release?: [string, MechanicNode] };
 }
 
+/** Builder sub-panel: input binding and type, stance changes and a hold's cursor config. */
 export const InputsPhysicsPanel: React.FC<InputsPhysicsPanelProps> = ({ data, updateNode, forteOptions, groupSiblings }) => {
   const holdCfg = data.holdConfig || {};
   const d = MECHANICS_NOTATION.HOLD_DEFAULTS;

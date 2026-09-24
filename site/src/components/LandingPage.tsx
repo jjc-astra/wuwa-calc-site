@@ -1,4 +1,3 @@
-// src/components/LandingPage.tsx
 import React from 'react';
 import { NAV_ITEMS } from '../config/nav';
 import type { ViewId } from '../config/nav';
@@ -7,6 +6,7 @@ interface LandingPageProps {
   onNavigate: (view: ViewId) => void;
 }
 
+/** The home page: a card per page. */
 export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
   return (
     <div className="landing-page">
@@ -24,7 +24,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
             className="landing-card"
             onClick={() => onNavigate(item.id)}
           >
-            {item.comingSoon && <span className="coming-soon-badge caps-tag pill-badge">Coming Soon</span>}
             <span className="landing-card-icon">
               <item.icon size={24} />
             </span>

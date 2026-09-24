@@ -1,4 +1,3 @@
-// src/components/timeline/RotationTimeline.tsx
 // "Video editor" style rotation timeline -- pure/presentational (evaluated rows + team in, JSX
 // out), no fetching/page knowledge, so reuse elsewhere is just a thin wrapper, not a rewrite.
 import React, { useMemo } from 'react';

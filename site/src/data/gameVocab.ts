@@ -27,7 +27,7 @@ export const PRIMARY_DMG_TYPES = ['Basic', 'Heavy', 'Skill', 'Liberation', 'Intr
 export type ElementBonusKey = `${Lowercase<ElementName>}DmgBonus`;
 export const elementBonusKey = (element: ElementName): ElementBonusKey => `${element.toLowerCase() as Lowercase<ElementName>}DmgBonus`;
 
-export const MOVE_BONUS_KEYS = ['skillDmgBonus', 'basicDmgBonus', 'heavyDmgBonus', 'libDmgBonus'] as const;
+const MOVE_BONUS_KEYS = ['skillDmgBonus', 'basicDmgBonus', 'heavyDmgBonus', 'libDmgBonus'] as const;
 
 // Every stat an echo build can grant, as the keys of a slot's `echoStats` and of the sheet.
 export type EchoStatKey =

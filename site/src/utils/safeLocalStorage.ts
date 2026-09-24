@@ -1,13 +1,9 @@
-// A localStorage-backed StateStorage for Zustand's persist middleware that swallows
-// QuotaExceededError (and any other storage failure) instead of letting it throw uncaught.
-// The in-memory state update that triggered the save has already succeeded independently of
-// persistence -- a failed save should just mean "this change won't survive a reload," not
-// crash the action the user just took. All six persisted stores share one localStorage quota
-// per origin, so any of them hitting the ceiling would otherwise break every store's saves,
-// not just its own.
+// A localStorage StateStorage for Zustand's persist middleware that swallows QuotaExceededError
+// (and any other storage failure): a failed save only means the change won't survive a reload,
+// never a crash of the action that caused it. Every persisted store shares one quota.
 import { createJSONStorage, type StateStorage } from 'zustand/middleware';
 
-export const safeLocalStorage: StateStorage = {
+const safeLocalStorage: StateStorage = {
   getItem: (name) => localStorage.getItem(name),
   setItem: (name, value) => {
     try {

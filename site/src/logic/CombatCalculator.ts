@@ -65,10 +65,8 @@ function classifyBuffIntoTotals(sLower: string, totalVal: number, isPct: boolean
   if (bucket) buffTotals[bucket] += totalVal;
 }
 
+// Damage math: a unit's final stats, the buffs reaching a hit, and pricing the hit.
 export const CombatCalculator = {
-  NEGATIVE_STATUS_MULTS,
-  getNegativeStatusMult,
-
   calcDefense: (unitLevel: number, enemyLevel: number, ignoreDef = 0, reduceDef = 0): number => {
     const k = (800 + 8 * unitLevel) / ((792 + 8 * enemyLevel) * (1 - ignoreDef) * (1 - reduceDef) + 800 + 8 * unitLevel);
     return Math.max(0, k);
@@ -323,7 +321,7 @@ export const CombatCalculator = {
     const titleStr = hitConfig.title || 'Active Hit';
     const actionId = hitConfig.actionId || '';
     const moveName = hitConfig.moveName || '';
-    // Names the move's owner (character, echo...), matching TimelineEngine._moveRef.
+    // Names the move's owner (character, echo...), matching MechanicKey.origin.
     const formattedPointer = hitConfig.moveRef || `@${executingUnit}(${moveName})`;
 
     const hitModifiers = Array.from(modifierSet([...dmgTypes, ...castTypes, actionId, moveName, formattedPointer]));
@@ -335,7 +333,7 @@ export const CombatCalculator = {
     // A move is negative-status dmg only when dmgTypes names JUST a known status -- mixed in
     // with other dmgTypes (e.g. ["Heavy","Spectro Frazzle","Spectro"]) means the name is
     // cosmetic and Standard formula still applies.
-    const isNegativeStatusDmg = !isTuneDmg && dmgTypes.length === 1 && dmgTypes[0] in CombatCalculator.NEGATIVE_STATUS_MULTS;
+    const isNegativeStatusDmg = !isTuneDmg && dmgTypes.length === 1 && dmgTypes[0] in NEGATIVE_STATUS_MULTS;
     // ?? not || -- an explicit "None" scalar is '', which is falsy but must not fall back to ATK.
     const scalarType = isTuneDmg ? '' : (hitConfig.scalar ?? 'ATK').toLowerCase();
     const baseStats = CombatCalculator.calculateFinalStats(executingUnit, [], team);
@@ -398,7 +396,7 @@ export const CombatCalculator = {
       formulaUsed = 'NegativeStatus';
       const statusName = dmgTypes[0];
       const stacks = stateData.activeBuffs?.[`Enemy_${statusName}`]?.stacks || 0;
-      const stackMult = CombatCalculator.getNegativeStatusMult(statusName, stacks);
+      const stackMult = getNegativeStatusMult(statusName, stacks);
       const statusAgg = CombatCalculator.aggregateNegativeStatusBuffTotals(stateData, statusName, team);
       resolvedBuffTotals = statusAgg.buffTotals;
       resolvedAppliedBuffs = statusAgg.appliedBuffs;

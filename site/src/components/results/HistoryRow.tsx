@@ -1,4 +1,3 @@
-// src/components/results/HistoryRow.tsx
 import React, { useState } from 'react';
 import { TeamPreview } from '../common/TeamPreview';
 import { StackedContributionBar } from '../rankings/StackedContributionBar';
@@ -17,6 +16,7 @@ interface HistoryRowProps {
   entry: HistoryEntry;
 }
 
+/** One History entry: team, DPS bar, favorite and actions. */
 export const HistoryRow: React.FC<HistoryRowProps> = ({ entry }) => {
   const toggleFavorite = useRotationHistoryStore(s => s.toggleFavorite);
   const removeEntry = useRotationHistoryStore(s => s.removeEntry);

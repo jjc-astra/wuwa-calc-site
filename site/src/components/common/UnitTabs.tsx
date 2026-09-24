@@ -1,4 +1,3 @@
-// src/components/common/UnitTabs.tsx
 import React from 'react';
 import { DataLoader } from '../../utils/DataLoader';
 import { getCharacterThemeColor } from '../../utils/Common';

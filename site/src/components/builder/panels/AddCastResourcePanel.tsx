@@ -1,4 +1,3 @@
-// src/components/builder/panels/AddCastResourcePanel.tsx
 import React from 'react';
 import type { MechanicNode } from '../../../types';
 import { Dropdown, type DropdownOption } from '../../common/Dropdown';
@@ -14,6 +13,7 @@ interface AddCastResourcePanelProps {
   forteOptions: DropdownOption[];
 }
 
+/** Builder sub-panel: adds an on-cast resource change. */
 export const AddCastResourcePanel: React.FC<AddCastResourcePanelProps> = ({
   data, updateNode, castResType, setCastResType, castResAmt, setCastResAmt, forteOptions
 }) => {

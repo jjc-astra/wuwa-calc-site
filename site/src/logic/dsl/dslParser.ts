@@ -4,10 +4,8 @@ import { getNegativeStatusMult } from '../combat/negativeStatus';
 export interface CompiledDSL {
   triggers: Array<{ event: string; modifiers: string[]; args: (string | number)[] }>;
   evaluate: (ctx: unknown, equipper?: string) => boolean;
-  raw: string;
 }
 
-// Compiles DSL_POINTERS with specific overrides ahead of generic pointer roots to prevent greedy prefix matching, ensuring all properties resolve.
 // Index of the ')' matching the '(' at `openIdx`, or -1 if it never closes.
 function findClosingParen(str: string, openIdx: number): number {
   let depth = 0;
@@ -41,6 +39,8 @@ function validatePointerRegistry(): void {
   }
 }
 
+// DSL_POINTERS as regex -> JS substitutions: full overrides ahead of bare pointer roots (so a
+// root can't swallow a longer property), then the generic suffixes.
 function buildTranslationMaps(): { pointerMap: Record<string, string>; scalarMap: Record<string, string> } {
   validatePointerRegistry();
   const pointerMap: Record<string, string> = {};
@@ -127,8 +127,7 @@ export const DSLParser = {
 
     return {
       triggers,
-      evaluate: DSLParser._buildFunction(conditionStr),
-      raw: dslString
+      evaluate: DSLParser._buildFunction(conditionStr)
     };
   },
 

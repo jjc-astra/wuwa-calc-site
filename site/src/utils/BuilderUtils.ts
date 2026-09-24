@@ -5,10 +5,7 @@ import { MECHANICS_NOTATION } from '../data/db';
 import { getStanceChanges } from './Stance';
 
 export const BuilderUtils = {
-  /**
-   * Strips default-valued optional fields, coerces numeric strings to numbers.
-   * Matches the exported JSON to the hand-authored mechanics files (mirrors the old site).
-   */
+  /** A node as saved JSON: default-valued optional fields dropped, numeric strings as numbers. */
   cleanMechanicNode: (node: MechanicNode, activeChar: string | null): Record<string, any> => {
     const clean: Record<string, any> = { name: node.name };
     if (node.category) clean.category = node.category;
@@ -85,7 +82,7 @@ export const BuilderUtils = {
     return clean;
   },
 
-
+  /** A node's Builder category from its cast types, for nodes without one. */
   guessCategory: (mechData: MechanicNode): string => {
     const casts = mechData.castTypes || [];
     if (casts.includes('Basic') || casts.includes('Heavy') || casts.includes('Dodge')) return 'Basic Attack';
@@ -97,6 +94,7 @@ export const BuilderUtils = {
     return 'Inherent Skill';
   },
 
+  /** JSON text as highlighted HTML, one `.code-line` div per line. */
   syntaxHighlight: (str: string): string => {
     const escaped = str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const highlighted = escaped.replace(
@@ -120,6 +118,7 @@ export const BuilderUtils = {
       .join('');
   },
 
+  /** The Builder's output pane text: the base-stats line and the mechanics file, raw and highlighted. */
   formatJSONOutput: (
     activeChar: string | null,
     baseStats: Record<string, any>,

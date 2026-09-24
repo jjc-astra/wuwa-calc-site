@@ -1,4 +1,4 @@
-// The resource pools a move can cost, grant, cap or require: Energy, Concerto and the numbered
+// The resource pools a move can spend, grant, cap or require: Energy, Concerto and the numbered
 // Forte slots (per-unit pools on a row) plus the enemy's Tune. Every place the simulation reads
 // or changes one goes through here, so a new resource key means editing one list.
 import { DataLoader } from '../utils/DataLoader';
@@ -18,8 +18,9 @@ export const WAITABLE_RESOURCE_KEYS: readonly string[] = RESOURCE_KEYS.filter(ke
 const isEnemyResource = (key: string): boolean => key === 'tune';
 
 // A timed 'Enemy_TuneImmune' buff (e.g. applied by Tune Break) blocks tune gain entirely.
-export const isTuneImmune = (state: any): boolean => !!state.activeBuffs?.['Enemy_TuneImmune'];
+const isTuneImmune = (state: any): boolean => !!state.activeBuffs?.['Enemy_TuneImmune'];
 
+// A unit's current amount of a resource (the enemy's, for Tune).
 export function readResource(state: any, key: string, unit: string): number {
   return (isEnemyResource(key) ? state.enemyTune : state[key]?.[unit]) || 0;
 }
@@ -54,16 +55,6 @@ export function addResource(state: any, key: string, unit: string, amount: numbe
   state[key][unit] = Math.min(Math.max(0, (state[key][unit] || 0) + amount), cap);
 }
 
-// Removes from a resource, floored at 0.
-export function spendResource(state: any, key: string, unit: string, amount: number): void {
-  if (isEnemyResource(key)) {
-    state.enemyTune = Math.max(0, (state.enemyTune || 0) - amount);
-    return;
-  }
-  if (!state[key]) state[key] = {};
-  state[key][unit] = Math.max(0, (state[key][unit] || 0) - amount);
-}
-
 // The unit's Energy Regen % with the buffs currently reaching it.
 export function energyRegenPct(state: any, unit: string, team: any[]): number {
   const validBuffs = Object.values(state.activeBuffs || {}).filter((b: any) =>
@@ -85,11 +76,10 @@ export function resourceLabel(key: string, stats: Record<string, any> | undefine
   return slot ? forteLabel(stats, slot) : key;
 }
 
-// How much of a resource a move needs on hand: its cost plus whatever its cast spends.
+// How much of a resource a move needs on hand: whatever its cast spends.
 export function resourceRequirement(move: MechanicNode, key: string): number {
-  const costs: Record<string, any> = move.cost || {};
-  const castResources: Record<string, any> = move.castResources || (move as any).resources || {};
-  return (costs[key] || 0) + (castResources[key] < 0 ? Math.abs(castResources[key]) : 0);
+  const castAmount = Number(move.castResources?.[key]);
+  return castAmount < 0 ? -castAmount : 0;
 }
 
 // The index of the hit on which `key` first reaches its cap over this move's cast + hit gains

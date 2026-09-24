@@ -1,4 +1,3 @@
-// src/components/roster/CharacterSlot.tsx
 import React from 'react';
 import { useRosterStore } from '../../store/useRosterStore';
 import { useBuilderStore } from '../../store/useBuilderStore';
@@ -17,6 +16,7 @@ interface CharacterSlotProps {
   index: number;
 }
 
+/** One roster slot: character, weapon, echo sets and echoes. */
 export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
   const { team, setSlotField, applyRecommendedBuild, clearSlot } = useRosterStore();
   // Subscribed (not just read) so Builder edits -- which can make an entity selectable -- re-render the pickers.

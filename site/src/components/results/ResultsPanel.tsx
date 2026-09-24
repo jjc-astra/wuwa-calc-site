@@ -1,4 +1,3 @@
-// src/components/results/ResultsPanel.tsx
 import React, { useState } from 'react';
 import { ChromeTabs } from './ChromeTabs';
 import type { ChromeTabDef } from './ChromeTabs';
@@ -17,6 +16,7 @@ interface ResultsPanelProps {
   collapsed: boolean;
 }
 
+/** The Calculator's Results column: Results, Timeline and History tabs. */
 export const ResultsPanel: React.FC<ResultsPanelProps> = ({ collapsed }) => {
   const [activeTab, setActiveTab] = useState('results');
 

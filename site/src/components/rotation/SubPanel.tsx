@@ -1,4 +1,3 @@
-// src/components/rotation/SubPanel.tsx
 import React from 'react';
 import { PANEL_CONFIG } from '../../data/db';
 import { DataLoader } from '../../utils/DataLoader';
@@ -14,6 +13,7 @@ interface SubPanelProps {
   row: any;
 }
 
+/** A row's detail panel for its clicked cell: damage, timeline, offset or a gauge. */
 export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row }) => {
   const config = PANEL_CONFIG[trigger];
   if (!config) return null;
@@ -38,8 +38,7 @@ export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row }) => {
               <div className="panel-content-grid">
                 {group.fields.map((f) => {
                   const rawVal = row[f.key] !== undefined ? row[f.key] : f.default;
-                  // Every field here is a raw Frames value -- format via the shared frames->seconds helper.
-                  // A plain .toFixed(3) would print the raw frame count (e.g. "88s" instead of "1.47s").
+                  // Every field here is a Frames value, shown as seconds.
                   const genericVal = typeof rawVal === 'number' ? CommonUtils.trimNumber(rawVal) : rawVal;
                   const displayVal =
                     typeof rawVal === 'number' && f.suffix === 's'

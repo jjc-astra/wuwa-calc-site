@@ -1,4 +1,3 @@
-// src/utils/rotationExport.ts
 // Builds the two exported files: the rotation file (the rotation, roster and target as submitted)
 // and a results file calculated from it, on either the default build and target or the submitted ones.
 import { runSummaryCalculation } from '../workers/runFullCalculation';
@@ -37,6 +36,7 @@ function withDefaultBuild(team: TeamSlot[]): TeamSlot[] {
   });
 }
 
+// An export's rotation file and its results file (on the default or submitted build).
 export async function buildExportFiles(
   source: ExportSource,
   { rotationFilename, author, build }: ExportOptions

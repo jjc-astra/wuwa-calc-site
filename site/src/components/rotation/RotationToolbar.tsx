@@ -1,8 +1,8 @@
-// src/components/rotation/RotationToolbar.tsx
 import React from 'react';
 import { useRotationStore } from '../../store/useRotationStore';
 import { tip } from '../../utils/Common';
 
+/** The rotation table's toolbar: Calculate, row editing and the rotation's settings. */
 export const RotationToolbar: React.FC = () => {
   const {
     rows,

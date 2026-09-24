@@ -1,4 +1,3 @@
-// src/components/results/ResultsTab.tsx
 import React from 'react';
 import { useResultsSource } from './ResultsSource';
 import { DpsPanel } from './DpsPanel';
@@ -7,6 +6,7 @@ import { DmgOverTimeChart } from './DmgOverTimeChart';
 import { TeamContributionPanel } from './TeamContributionPanel';
 import { SubstatWorthChart } from './SubstatWorthChart';
 
+/** The Results tab: the result panels, or a prompt to Calculate. */
 export const ResultsTab: React.FC = () => {
   const { results } = useResultsSource();
 

@@ -55,6 +55,7 @@ const createEmptySlot = (index: number): TeamSlot => {
   return slot;
 };
 
+// The stats a slot's five echoes add up to: main stats, secondary main stats and substats.
 export const calculateEchoStatsForSlot = (slot: TeamSlot) => {
   const echoStats = { ...slot.echoStats };
   Object.keys(echoStats).forEach(k => ((echoStats as any)[k] = 0));
@@ -93,9 +94,9 @@ export const recommendedBuildFor = (character: string): any | undefined => {
 export function recommendedEchoes(slot: TeamSlot, build: any): Pick<TeamSlot, 'layout' | 'echoes'> {
   const layout = build.echoLayout || slot.layout;
   const costs = costsForLayout(layout);
-  const remainingSubs = { ...(build.subStats || build.substats || {}) };
+  const remainingSubs = { ...(build.subStats || {}) };
   const subStatKeys = Object.keys(remainingSubs);
-  const statDataRaw = build.mainStats || build.mainstats;
+  const statDataRaw = build.mainStats;
 
   const echoes = slot.echoes.map((echo, i) => {
     const cost = costs[i];
@@ -161,6 +162,7 @@ interface RosterState {
   getIdleStats: (slotIndex: number) => any;
 }
 
+// The Calculator's team and target.
 export const useRosterStore = create<RosterState>()(
   persist(
     (set, get) => ({
@@ -181,10 +183,9 @@ export const useRosterStore = create<RosterState>()(
           slot.mainSet = build.mainSet;
           await DataLoader.loadMechanic('sets', build.mainSet);
         }
-        const targetSubSet = build.subSet || build.subset || build.subSets || build.subsets;
-        if (targetSubSet) {
-          slot.subSet = targetSubSet;
-          await DataLoader.loadMechanic('sets', targetSubSet);
+        if (build.subSet) {
+          slot.subSet = build.subSet;
+          await DataLoader.loadMechanic('sets', build.subSet);
         } else {
           slot.subSet = '';
         }

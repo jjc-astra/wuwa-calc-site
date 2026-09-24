@@ -80,7 +80,6 @@ export interface TeamSlot {
   mainEcho: string;
   echoes: EchoSlotData[];
   echoStats: Record<string, number>;
-  domRef?: any;
 }
 
 // The target's stats the user can set (see ENEMY_DEFAULTS for the rest).
@@ -117,13 +116,11 @@ export interface Effect {
 export interface HoldConfig {
   cursorSpeed?: number;
   cursorMode?: 'pingpong' | 'clamp' | 'loop';
-  // Whether releasing carries the cursor's current position into the next hold (Cursor_Accumulated)
+  // Whether releasing carries the cursor's position into the next hold (Cursor_Accumulated).
   retainCursor?: boolean;
-  // Which forte slot (e.g. 'forte1') the cursor's max value and 'clamp' full/empty state are
+  // The forte slot (e.g. 'forte1') that sets the cursor's max and 'clamp' mode's full/empty.
   forteSlot?: string;
-  // Legacy manual override, from before the cursor was tied to a forte slot.
-  maxCursorVal?: number;
-  // 'clamp' mode has no window
+  // 'clamp' mode has no window.
   windowCenter?: string;
   windowSize?: string;
 }
@@ -152,7 +149,6 @@ export interface MechanicNode {
   triggerRule?: string;
   castTypes?: string[];
   dmgTypes?: string[];
-  cost?: Record<string, number>;
   castResources?: Record<string, string | number | number[]>;
   hitResources?: Record<string, string | number | number[]>;
   hitMults?: (number | string)[];

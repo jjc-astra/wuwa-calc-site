@@ -4,6 +4,7 @@ interface FormulaRowProps {
   formulaStr?: string;
 }
 
+/** A hit's damage formula, as selectable text. */
 export const FormulaRow: React.FC<FormulaRowProps> = ({ formulaStr }) => {
   if (!formulaStr) return null;
   return (

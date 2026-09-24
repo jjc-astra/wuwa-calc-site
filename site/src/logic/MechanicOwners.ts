@@ -40,6 +40,7 @@ const applyRank = (mech: MechanicNode, rank: number): MechanicNode => {
   return ranked;
 };
 
+// Every owner for a team: per slot its sets, main echo, weapon and character, then System.
 export function getMechanicOwners(team: TeamSlot[]): MechanicOwner[] {
   const owners: MechanicOwner[] = [];
 

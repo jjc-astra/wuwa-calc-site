@@ -1,4 +1,3 @@
-// src/components/guide/GuideRankings.tsx
 // Rankings for teams with this unit, with the Rankings page's sequence and rotation-style filters
 // (kept separately from that page's own filter state).
 import React, { useMemo, useState } from 'react';

@@ -1,11 +1,12 @@
 import { DataLoader } from '../utils/DataLoader';
 import { getMechanicOwners } from './MechanicOwners';
 import {
-  RESOURCE_KEYS, WAITABLE_RESOURCE_KEYS, addResource, spendResource, readResource, resourceCap,
+  RESOURCE_KEYS, WAITABLE_RESOURCE_KEYS, addResource, readResource, resourceCap,
   energyRegenMult, energyRegenPct, resourceLabel, resourceRequirement, capHitIndex
 } from './resources';
 import { deltaKey, forteKey, holdSlotNumber } from '../utils/ResourceKeys';
 import { backfillPools, cloneJson, dropdownSnapshot, inheritPools, plainCopy, ROW_LINK_KEYS } from './rowState';
+import { toRunInput } from './rotationRows';
 import { eventModifier, isDslExpr, modifierSet, stacksAfterSpending } from './engineValues';
 import { isElement } from '../data/gameVocab';
 import { MechanicKey } from '../utils/MechanicKey';
@@ -47,6 +48,7 @@ const RUN_PROFILES: Record<EngineMode, { dropdownSnapshots: boolean; hitLog: boo
   lean:   { dropdownSnapshots: false, hitLog: false, logWarnings: false }
 };
 
+// Simulates a rotation row by row: timings, resources, buffs, events and the hit queue.
 export class TimelineEngineClass {
   damageQueue: QueuedHit[] = [];
   currentGlobalGameTime = 0;
@@ -516,25 +518,11 @@ export class TimelineEngineClass {
       return { errors: ['Loop has no duration — cannot repeat.'], warnings: [] };
     }
 
-    // recalculateState assumes the array's last element is the UI's trailing blank row.
-    const cloneAuthored = (r: any) => ({
-      unit: r.unit,
-      action: r.action,
-      timing: r.timing,
-      ...(r.offset !== undefined && { offset: r.offset }),
-      ...(r.manualOffset !== undefined && { manualOffset: r.manualOffset })
-    });
-
-    const extendedContent: any[] = [
-      ...openerRows.map(cloneAuthored),
-      ...loopTemplate.map(cloneAuthored),
-      ...loopTemplate.map(cloneAuthored)
-    ];
-    const extendedInput = [...extendedContent, { unit: '', action: '', timing: 'Auto', offset: 0 }];
-    const extendedResult = this.recalculateState(extendedInput, team, { ...options, mode: 'lean' }, enemyConfig);
+    const extendedContent = [...openerRows, ...loopTemplate, ...loopTemplate];
+    const extendedResult = this.recalculateState(toRunInput(extendedContent), team, { ...options, mode: 'lean' }, enemyConfig);
 
     const secondRepStart = openerRows.length + loopTemplate.length;
-    const contentEnd = extendedContent.length; // excludes the synthetic trailing blank row
+    const contentEnd = extendedContent.length; // excludes the trailing blank row
 
     const errors: string[] = [];
     const warnings: string[] = [];
@@ -1210,16 +1198,6 @@ export class TimelineEngineClass {
     effectsArray.forEach(eff => { if (eff.type !== 'procced_mechanic') this._processEffect(eff, currentData, eff.provider || defaultProvider, activeTeam, activeRows, currentData.arrayIndex, team); });
   }
 
-  _applyMoveCosts(currentData: any, moveData: MechanicNode): void {
-    if (!moveData.cost) return;
-    const cost = moveData.cost as Record<string, number>;
-    for (const key of RESOURCE_KEYS) {
-      if (!cost[key]) continue;
-      if (key === 'energy') this._logEnergySpend(currentData, currentData.unit, cost[key]);
-      spendResource(currentData, key, currentData.unit, cost[key]);
-    }
-  }
-
   // Every Energy gain and spend is logged on the row it happens in, in order, for Results'
   // required-ER analysis: a gain with its amount before Energy Regen and the unit's Energy Regen %
   // at that moment (buffs included), a spend with its amount.
@@ -1319,7 +1297,6 @@ export class TimelineEngineClass {
     const moveElements = (moveData.dmgTypes || []).filter(isElement);
     const castModifiers = modifierSet([...(moveData.castTypes || []), ...moveElements, currentData.action, moveData.name, origin.ref]);
 
-    this._applyMoveCosts(currentData, moveData);
     this._applyCastResources(currentData, moveData, activeTeam, team);
     const instantEffects = this._gatherInstantEffects(currentData, moveData, prevData, castModifiers, team);
 
@@ -1479,7 +1456,7 @@ export class TimelineEngineClass {
     }
 
     const targetUnits = this._resolveTargets(resolvedEffect.target, unitName, activeTeam, activeRows, currentIndex);
-    if (resolvedEffect.type === 'tracker') this._handleTracker(resolvedEffect, currentData, unitName, activeTeam, activeRows, currentIndex, targetUnits, team);
+    if (resolvedEffect.type === 'tracker') this._handleTracker(resolvedEffect, currentData, unitName, activeTeam, activeRows, team);
     else if (resolvedEffect.type === 'cooldown') targetUnits.forEach(t => { if (!currentData.cooldowns) currentData.cooldowns = {}; currentData.cooldowns[`${t}_${resolvedEffect.name}`] = resolvedEffect.value; });
     else if (resolvedEffect.type === 'buff' || !resolvedEffect.type) this._updateActiveBuffs(resolvedEffect, currentData, targetUnits, activeTeam, activeRows, team);
     else if (resolvedEffect.type === 'resource') this._handleResourceEffect(resolvedEffect, currentData, targetUnits, team);
@@ -1541,16 +1518,7 @@ export class TimelineEngineClass {
     return [targetStr || unitName];
   }
 
-  _handleTracker(
-    effect: Effect,
-    currentData: any,
-    unitName: string,
-    activeTeam: string[],
-    activeRows: any[],
-    _currentIndex: number,
-    _targetUnits: string[],
-    team: any[]
-  ): void {
+  _handleTracker(effect: Effect, currentData: any, unitName: string, activeTeam: string[], activeRows: any[], team: any[]): void {
     if (!currentData.trackers) currentData.trackers = {};
     const action = effect.action || 'add';
 
@@ -1725,8 +1693,8 @@ export class TimelineEngineClass {
     });
   }
 
-  // A hold cursor's max is the forte slot it's tied to (forteSlot, defaulting to Forte 1) --
-  // maxCursorVal is only a fallback for a slot the active character doesn't actually have.
+  // A hold cursor's max: its forte slot's cap (forteSlot, default Forte 1). A slot the character
+  // doesn't have falls back to Forte 1.
   _getHoldMaxCap(charName: string, config: HoldConfig): number {
     const slot = config.forteSlot || MECHANICS_NOTATION.HOLD_DEFAULTS.FORTE_SLOT;
     const slotNum = holdSlotNumber(slot);
@@ -1735,11 +1703,8 @@ export class TimelineEngineClass {
       console.warn(`[TimelineEngine] ${charName}'s hold config targets ${slot}, but the character only has ${forteCount} forte slot(s) -- falling back to forte1.`);
       return resourceCap(charName, forteKey(1));
     }
-    const fromForte = resourceCap(charName, slot);
-    if (fromForte > 0) return fromForte;
-    return config.maxCursorVal ?? MECHANICS_NOTATION.HOLD_DEFAULTS.MAX_CURSOR_VAL;
+    return resourceCap(charName, slot);
   }
-
 }
 
 export const TimelineEngine = new TimelineEngineClass();

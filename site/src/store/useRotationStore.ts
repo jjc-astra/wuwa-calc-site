@@ -3,7 +3,6 @@ import { persist } from 'zustand/middleware';
 import { persistStorage } from '../utils/safeLocalStorage';
 import { postToWorker } from '../workers/calcWorkerClient';
 import type { WorkerRequest } from '../workers/calcWorkerClient';
-import { serializableTeam } from '../utils/TeamUtils';
 import { buildBuilderPayload } from '../workers/builderOverridePayload';
 import type { RotationResults } from '../types/results';
 import { useRosterStore } from './useRosterStore';
@@ -31,7 +30,7 @@ import {
   toClipboardRow, toSavedRow, toPersistedRow
 } from '../logic/rotationRows';
 import type { RotationRow, RotationRowFields } from '../logic/rotationRows';
-// The row shapes and views live in logic/rotationRows.ts; the rest of the app imports them from here.
+// Row shapes and views live in logic/rotationRows.ts; components import them from here.
 export type { RotationRow, RotationRowFields };
 export { toClipboardRow, toSavedRow, toPersistedRow };
 
@@ -241,12 +240,11 @@ function reviveCommand(data: SerializedCommand, ctx: RevivalContext): Command {
   }
 }
 
-// Simulation pipeline runs in a worker (postToWorker) so long rotations never block the UI thread.
-
 // Tracked per request type, not globally -- a background recalculate() can't invalidate a
 // just-landed calculateDamage() (Calculate press).
 const latestSeqByType: Record<'recalculate' | 'calculateDamage', number> = { recalculate: 0, calculateDamage: 0 };
 
+// The Calculator's rotation table, its undo history and the last results.
 export const useRotationStore = create<RotationState>()(
   persist(
     (set, get) => {
@@ -760,7 +758,7 @@ export const useRotationStore = create<RotationState>()(
 
           // One history row per successful Calculate press, in the same shape Export Rotation uses.
           useRotationHistoryStore.getState().addEntry({
-            team: serializableTeam(team),
+            team,
             rotation: rows.map(toSavedRow),
             settings: { ...options, endingRotationEnabled, endRotationStartsEarlier },
             results: data.results,

@@ -1,4 +1,3 @@
-// src/components/guide/guideCache.ts
 // Persists a character's guide calcs -- every view opened, not just the default -- so coming
 // back to the page reuses them instead of rerunning them. A saved copy records exactly what its
 // results were calculated from (GuideDeps) and is dropped whole if any of it has changed since.

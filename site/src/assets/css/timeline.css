@@ -1,5 +1,4 @@
-/* src/assets/css/timeline.css
-   The reusable "video editor" rotation Timeline -- page-agnostic, not scoped to any one page.
+/* The reusable "video editor" rotation Timeline -- page-agnostic, not scoped to any one page.
    Unlike the rest of the site, sizes inside .timeline-content are px: the timeline's geometry is
    laid out in px (timelineLayout.ts) and RotationTimeline zooms the whole content by the UI scale,
    so text and boxes scale together. Rem here would be scaled twice. */

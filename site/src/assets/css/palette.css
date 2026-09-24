@@ -1,5 +1,4 @@
-/* src/assets/css/palette.css
-   Single source of truth for every color token in the app. Deliberate one-offs (syntax
+/* Single source of truth for every color token in the app. Deliberate one-offs (syntax
    highlighting, per-element/character theming, chart colors) live outside this system. */
 
 :root {
@@ -39,10 +38,8 @@
     --danger-text: #ff6666;
     --success:     #66ff66;
     --warning:     #ffcc00;
-    --danger-tint:         rgba(255, 85, 85, 0.1);
-    --danger-tint-border:  rgba(255, 85, 85, 0.3);
-    --warning-tint:        rgba(255, 204, 0, 0.1);
-    --warning-tint-border: rgba(255, 204, 0, 0.3);
+    --danger-tint:  rgba(255, 85, 85, 0.1);
+    --warning-tint: rgba(255, 204, 0, 0.1);
 
     /* --- Translucent overlays (the "card" system) --- */
     /* Every content card darkens the page by this same amount, instead of its own flat fill. */

@@ -1,4 +1,3 @@
-// src/components/rankings/RotationRankingsPage.tsx
 import React, { useEffect, useMemo, useRef } from 'react';
 import { useRankingsStore, filterRankingEntries } from '../../store/useRankingsStore';
 import { DPS_WINDOW_TABS } from '../results/chartPalette';
@@ -11,6 +10,7 @@ import type { DpsWindowKey } from '../../types/results';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
+/** Rotation Rankings page: every ranked rotation, filtered, sorted and paged. */
 export const RotationRankingsPage: React.FC = () => {
   const {
     status, entries, error, load,

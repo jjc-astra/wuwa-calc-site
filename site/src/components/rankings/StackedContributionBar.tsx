@@ -1,4 +1,3 @@
-// src/components/rankings/StackedContributionBar.tsx
 // Per-row leaderboard bar -- length scaled to top entry's DPS (#1 = 100% width). One segment per
 // dmg source, reusing TeamContributionPanel's pie chart data/colors/hover-dim rule (hover = full
 // opacity, rest fade to 0.45, see PieChart.tsx). Hovering a *unit* segment shows its cast-type

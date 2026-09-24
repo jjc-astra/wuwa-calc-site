@@ -24,6 +24,7 @@ import './assets/css/rankings.css';
 import './assets/css/timeline.css';
 import './assets/css/guide.css';
 
+// Loads the databases, routes between pages, and rechecks loaded data when the tab refocuses.
 export default function App() {
   const [{ view: currentView, step: activeStep, guideCharacter }, navigate] = useHashRoute();
   const [isLoaded, setIsLoaded] = useState(false);

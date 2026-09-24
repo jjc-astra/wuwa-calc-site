@@ -1,4 +1,3 @@
-// src/components/builder/panels/TriggerRuleEffectsPanel.tsx
 import React, { useState } from 'react';
 import type { Effect, MechanicNode } from '../../../types';
 import { BuilderState } from '../../../data/db';
@@ -11,8 +10,7 @@ import { parseTimeInput } from '../../../utils/Frames';
 import { effectLabel, flattenDslShorthand } from '../mechanicNodeHelpers';
 import { MechanicKey } from '../../../utils/MechanicKey';
 
-// Mirrors old site's makeInput/makeSelect wrapper: each field gets its own labeled,
-// min-width flex slot so fields share row space instead of one 100%-width input swallowing others.
+// A labeled, min-width flex slot, so a row's fields share its space.
 const EffField: React.FC<{ label: string; minWidth: number; children: React.ReactNode }> = ({ label, minWidth, children }) => (
   <div className="form-group flex-1" style={{ minWidth: `${minWidth / 16}rem`, margin: 0 }}>
     <label className="form-label caps-label text-dim">{label}</label>
@@ -88,6 +86,7 @@ interface TriggerRuleEffectsPanelProps {
   nodeId?: string;
 }
 
+/** Builder sub-panel: the trigger rule and the node's effects. */
 export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = ({ data, updateNode, forteOptions, groupSiblings, nodeId }) => {
   const { baseStats, activeChar, setMechanicNode, removeMechanicNode } = useBuilderStore();
   const isDualMode = !!baseStats.isDualMode;

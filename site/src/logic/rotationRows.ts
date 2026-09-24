@@ -68,7 +68,7 @@ const repeatFieldsOf = (row: RotationRowFields) => ({
   ...(row.repeatBlockEnd !== undefined && { repeatBlockEnd: row.repeatBlockEnd, ...(row.repeatFinalTiming !== undefined && { repeatFinalTiming: row.repeatFinalTiming }) })
 });
 
-// Three narrower views of a row, none carrying `id`.
+// Narrower views of a row, none carrying `id`.
 export const toClipboardRow = (row: RotationRowFields) => ({
   unit: row.unit,
   action: row.action,
@@ -90,3 +90,16 @@ export const toPersistedRow = (row: RotationRowFields) => ({
   ...(row.offset !== undefined && { offset: row.offset }),
   ...(row.manualOffset !== undefined && { manualOffset: row.manualOffset })
 });
+
+// Rows as a fresh engine run: each row's authored fields and offsets only (no evaluated state or
+// markers), plus the empty trailing row TimelineEngine.recalculateState expects last.
+export const toRunInput = (rows: RotationRowFields[]): RotationRowFields[] => [
+  ...rows.map(row => ({
+    unit: row.unit,
+    action: row.action,
+    timing: row.timing,
+    ...(row.offset !== undefined && { offset: row.offset }),
+    ...(row.manualOffset !== undefined && { manualOffset: row.manualOffset })
+  })),
+  { unit: '', action: '', timing: 'Auto', offset: 0 }
+];

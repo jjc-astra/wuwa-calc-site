@@ -1,4 +1,3 @@
-// src/components/results/ResultsLegend.tsx
 import React from 'react';
 
 interface ResultsLegendItem {

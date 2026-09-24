@@ -7,10 +7,8 @@ import type React from 'react';
  * trigger; 'right' lines up the right edge instead, for a narrow icon-only trigger pinned to a
  * row's right (e.g. a "..." menu), so it doesn't hang off.
  *
- * Every branch sets both members of each offset pair (top/bottom, left/right), never just one --
- * so this fully overrides a caller's CSS default (e.g. .pin-menu's own position:absolute;
- * top:...;right:0). Leaving one side unset lets top+bottom both apply at once, silently squashing
- * the computed height to zero -- the actual "menu won't open" bug. */
+ * Every branch sets both sides of each offset pair (top/bottom, left/right), so a caller's CSS
+ * default (e.g. .pin-menu's top/right) can't combine with it and squash the popup to 0 height. */
 export function computePopupPosition(
   rect: DOMRect,
   { maxHeight, gap = 4, align = 'left' }: { maxHeight: number; gap?: number; align?: 'left' | 'right' }

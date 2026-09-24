@@ -1,4 +1,3 @@
-// src/components/results/SubstatWorthChart.tsx
 import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useResultsSource } from './ResultsSource';
 import { TooltipManager } from '../../utils/Common';
@@ -11,6 +10,7 @@ const formatPct = (v: number) => `${v.toFixed(1)}%`;
 type Direction = 'minus' | 'plus';
 type Mode = 'team' | 'personal';
 
+/** Each substat roll's worth to the team or the unit: a min-max range and the default roll. */
 export const SubstatWorthChart: React.FC = () => {
   const source = useResultsSource();
   const { team, results } = source;

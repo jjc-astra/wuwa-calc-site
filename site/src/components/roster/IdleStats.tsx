@@ -3,6 +3,7 @@ import { useRosterStore } from '../../store/useRosterStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { CommonUtils, getCharacterThemeColor } from '../../utils/Common';
 
+/** Each unit's out-of-combat stats, and the target's settings. */
 export const IdleStats: React.FC = () => {
   const { team, enemy, setEnemyField, getIdleStats } = useRosterStore();
 

@@ -1,4 +1,3 @@
-// src/components/guide/EchoStatsPanel.tsx
 // The selected build's echoes for one unit: each substat summed across all five echoes, every
 // echo's main stat in layout order, and the Energy Regen the rotation needs from them.
 import React from 'react';

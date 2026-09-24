@@ -107,6 +107,7 @@ function buildDpsPoints(points: DisplayPoint[], domainMaxT: number): DisplayPoin
     });
 }
 
+/** Damage (or rolling DPS) over the selected window, with the pinned rotation alongside. */
 export const DmgOverTimeChart: React.FC = () => {
   const { results, pinned, allowPin, isStale } = useResultsSource();
   const svgRef = useRef<SVGSVGElement>(null);

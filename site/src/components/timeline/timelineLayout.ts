@@ -18,7 +18,7 @@ const TIMELINE_ROW_FIELDS = [
 export const trimRowsForTimeline = (rows: any[]): any[] =>
   rows.map(row => row && Object.fromEntries(TIMELINE_ROW_FIELDS.filter(f => f in row).map(f => [f, row[f]])));
 
-export const PX_PER_SECOND = 50;
+const PX_PER_SECOND = 50;
 export const HEADER_COL_WIDTH_PX = 140;
 export const ROW_HEIGHT_PX = 44;
 export const RULER_HEIGHT_PX = 28;
@@ -35,20 +35,19 @@ const FLAG_LANE_GAP_PX = 6;
 // Larger than the clip fill's gap inset so a narrow segment's insets can't cross and vanish it.
 const MIN_CLIP_WIDTH_PX = 4;
 
-// Snaps to whole device pixels, not just CSS pixels, so edges land crisp under fractional
-// devicePixelRatio (e.g. 125% Windows scaling) instead of anti-aliasing inconsistently.
-// Screen pixels per timeline design pixel: the display's ratio times the zoom RotationTimeline
-// applies (the UI scale), so snapped widths land on whole screen pixels.
+// Screen pixels per timeline design pixel: devicePixelRatio times the zoom RotationTimeline
+// applies (the UI scale). Read fresh each call; both can change after load.
 function getDevicePixelRatio(): number {
   return ((typeof window !== 'undefined' && window.devicePixelRatio) || 1) * uiScale();
 }
 
+// Rounds to whole screen pixels, so edges stay crisp under fractional scaling (e.g. 125%).
 export function snapToDevicePixel(px: number): number {
   const dpr = getDevicePixelRatio();
   return Math.round(px * dpr) / dpr;
 }
 
-// Read fresh each call since devicePixelRatio can change (monitor/OS scale change) after load.
+// One screen pixel, in design px.
 export function hairlinePx(): number {
   return snapToDevicePixel(1);
 }
@@ -56,13 +55,13 @@ export function simultaneousLineHeightPx(): number {
   return snapToDevicePixel(3);
 }
 
-export function timeToPx(frames: number): number {
+function timeToPx(frames: number): number {
   return snapToDevicePixel(framesToSeconds(toFrames(frames)) * PX_PER_SECOND);
 }
 
 // Fixed width for the Ending Rotation "fast forward" jump, deliberately not proportional to the
 // real (potentially huge) time it represents -- see compressedTimeToPx.
-export const ENDING_ROTATION_CUT_WIDTH_PX = 48;
+const ENDING_ROTATION_CUT_WIDTH_PX = 48;
 
 export interface TimeCompression {
   gapStartFrames: number;
@@ -176,6 +175,7 @@ function deriveSimultaneousLines(rows: any[], compression: TimeCompression | nul
   return lines;
 }
 
+// Each team member's row of clips and Simultaneous lines.
 export function buildUnitRows(evaluatedRows: any[], team: TeamSlot[], compression: TimeCompression | null = null): UnitRowData[] {
   const unitRows: UnitRowData[] = [];
   team.forEach((slot, slotIndex) => {
@@ -228,6 +228,7 @@ function describeSpamState(prevRow: any, row: any): SpamState | undefined {
   return prevPriority > priority ? 'spam' : 'wait';
 }
 
+// The flag track's flags: one per key input, plus a unit number on each swap.
 export function buildFlags(evaluatedRows: any[], team: TeamSlot[]): TimelineFlag[] {
   const flags: TimelineFlag[] = [];
   let prevUnit: string | null = null;
@@ -248,8 +249,7 @@ export function buildFlags(evaluatedRows: any[], team: TeamSlot[]): TimelineFlag
       const keyLabel = INPUT_KEY_MAP[row.input] || row.input;
       const prefix = row.inputType === 'Hold' ? 'Hold' : row.inputType === 'Release' ? 'Release' : undefined;
       const label = prefix ? `${prefix} ${keyLabel}` : keyLabel;
-      // Basic (left click) gets a mouse icon instead of text -- it's by far the most frequent
-      // input and the text version ate the most flag-track width.
+      // Basic (left click), the most frequent input, gets a compact mouse icon instead of text.
       const icon = row.input === 'Basic' ? 'mouse-left' : undefined;
       const spamState = describeSpamState(prevRow, row);
       flags.push({ type: 'input', timeFrames: row.gameTimeStart, label, prefix, icon, spamState, row, themeColor });
@@ -271,7 +271,8 @@ function estimateLabelWidthPx(label: string): number {
 const ICON_SIZE_PX = 11;
 const ICON_GAP_PX = 3;
 
-export function estimateFlagWidthPx(flag: TimelineFlag): number {
+// A flag's width, estimated from its label (see FLAG_CHAR_WIDTH_PX).
+function estimateFlagWidthPx(flag: TimelineFlag): number {
   if (!flag.icon) return estimateLabelWidthPx(flag.label);
   const prefixWidth = flag.prefix ? flag.prefix.length * FLAG_CHAR_WIDTH_PX + ICON_GAP_PX : 0;
   return Math.max(FLAG_MIN_WIDTH_PX, prefixWidth + ICON_SIZE_PX + FLAG_LABEL_PADDING_PX * 2);
@@ -306,6 +307,7 @@ export interface Tick {
   label?: string;
 }
 
+// The ruler's ticks across `totalFrames`, skipping the compressed gap.
 export function generateTicks(totalFrames: number, compression: TimeCompression | null = null): Tick[] {
   const ticks: Tick[] = [];
   for (let f = 0; f <= totalFrames; f += 15) {
@@ -340,6 +342,7 @@ export function describeTiming(row: any): string {
   return String(row.timing || 'Auto').replace('_', ' ');
 }
 
+// A row's input for tooltips, e.g. "Hold E".
 export function describeInput(row: any): string {
   if (!row.input) return 'None';
   const keyLabel = INPUT_KEY_MAP[row.input] || row.input;

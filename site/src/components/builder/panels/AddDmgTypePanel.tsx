@@ -1,4 +1,3 @@
-// src/components/builder/panels/AddDmgTypePanel.tsx
 import React from 'react';
 import type { MechanicNode } from '../../../types';
 import { BuilderState } from '../../../data/db';
@@ -13,6 +12,7 @@ interface AddDmgTypePanelProps {
   setDmgSelect: (v: string) => void;
 }
 
+/** Builder sub-panel: the node's damage type tags. */
 export const AddDmgTypePanel: React.FC<AddDmgTypePanelProps> = ({ data, updateNode, dmgSelect, setDmgSelect }) => {
   const handleAddDmgTag = () => {
     if (!dmgSelect) return;

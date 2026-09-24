@@ -1,4 +1,3 @@
-// src/components/results/ChromeTabs.tsx
 import React from 'react';
 
 export interface ChromeTabDef {
@@ -13,6 +12,7 @@ interface ChromeTabsProps {
   onSelect: (id: string) => void;
 }
 
+/** Browser-style tab strip. */
 export const ChromeTabs: React.FC<ChromeTabsProps> = ({ tabs, activeId, onSelect }) => (
   <div className="chrome-tabs" role="tablist">
     {tabs.map(tab => (

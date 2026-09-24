@@ -1,4 +1,3 @@
-// src/components/results/PinComparisonPicker.tsx
 // Floating "Pin from History/Rankings" panel -- mirrors those pages' row lists but strips
 // every action except picking a row (no favorite, menu, or tooltips). Click a row to pin
 // and close. Reuses each source's own row markup/CSS and, for Rankings, its exact

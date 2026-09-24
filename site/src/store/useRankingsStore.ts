@@ -152,6 +152,7 @@ interface RankingsState {
   hasHydrated: boolean;
 }
 
+// Rankings entries, plus the page's persisted filter / paging state.
 export const useRankingsStore = create<RankingsState>()(
   persist(
     (set, get) => ({

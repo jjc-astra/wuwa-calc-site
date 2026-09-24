@@ -13,6 +13,7 @@ interface TypeTagProps {
   tooltip?: string;
 }
 
+/** A pill tag, optionally removable. */
 export const TypeTag: React.FC<TypeTagProps> = ({
   val,
   label,

@@ -1,4 +1,3 @@
-// src/components/builder/panels/AddCastTypePanel.tsx
 import React from 'react';
 import type { MechanicNode } from '../../../types';
 import { BuilderState } from '../../../data/db';
@@ -13,6 +12,7 @@ interface AddCastTypePanelProps {
   setCastSelect: (v: string) => void;
 }
 
+/** Builder sub-panel: the node's cast type tags. */
 export const AddCastTypePanel: React.FC<AddCastTypePanelProps> = ({ data, updateNode, castSelect, setCastSelect }) => {
   const handleAddCastTag = () => {
     if (!castSelect) return;

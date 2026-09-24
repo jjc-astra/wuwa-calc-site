@@ -22,14 +22,7 @@ export const slotFieldFolder = (field: keyof TeamSlot): EntityFolder | undefined
 export const teamCharacters = (team: Array<{ character?: string }>): string[] =>
   team.map(slot => slot.character).filter((name): name is string => !!name);
 
-// A team as plain data for saving or exporting, without the UI-only `domRef`.
-export const serializableTeam = (team: TeamSlot[]): TeamSlot[] =>
-  team.map(slot => {
-    const copy = { ...slot };
-    delete copy.domRef;
-    return copy;
-  });
-
+// Every entity a team equips, as EntityRefs (System first, unless excluded).
 export function getTeamEntityRefs(
   team: TeamSlot[],
   options: { includeSystem?: boolean; dedupe?: boolean } = {}

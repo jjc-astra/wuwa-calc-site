@@ -1,4 +1,3 @@
-// src/components/results/RotationTimePanel.tsx
 import React, { useState } from 'react';
 import { useResultsSource } from './ResultsSource';
 import { DataLoader } from '../../utils/DataLoader';

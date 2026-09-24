@@ -2,8 +2,8 @@
 import type { BuffTotals } from '../../types';
 import { ELEMENTS, elementBonusKey } from '../../data/gameVocab';
 
-export const CAST_SCOPES = ['basic', 'heavy', 'skill', 'lib', 'intro', 'outro', 'coordinated'] as const;
-export const ELEMENT_SCOPES: readonly string[] = ELEMENTS.map(element => element.toLowerCase());
+const CAST_SCOPES = ['basic', 'heavy', 'skill', 'lib', 'intro', 'outro', 'coordinated'] as const;
+const ELEMENT_SCOPES: readonly string[] = ELEMENTS.map(element => element.toLowerCase());
 
 export const ALL_SCOPES: readonly string[] = [...CAST_SCOPES, ...ELEMENT_SCOPES];
 

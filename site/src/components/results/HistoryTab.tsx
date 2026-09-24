@@ -1,8 +1,8 @@
-// src/components/results/HistoryTab.tsx
 import React from 'react';
 import { useRotationHistoryStore } from '../../store/useRotationHistoryStore';
 import { HistoryRow } from './HistoryRow';
 
+/** Past Calculate results, newest first. */
 export const HistoryTab: React.FC = () => {
   const entries = useRotationHistoryStore(s => s.entries);
 

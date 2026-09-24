@@ -1,8 +1,7 @@
-// src/components/timeline/useRotationTimelineData.ts
 import { useEffect, useRef, useState } from 'react';
 import { DataLoader } from '../../utils/DataLoader';
 import { postToWorker } from '../../workers/calcWorkerClient';
-import { expandRepeatBlocks } from '../../logic/RepeatBlocks';
+import { buildCalcRequest } from '../../workers/runFullCalculation';
 import type { TeamSlot } from '../../types';
 
 interface TimelineDataState {
@@ -34,17 +33,8 @@ export function useRotationTimelineData(entry: { id: string; rotationFile: strin
     (async () => {
       try {
         const run = await DataLoader.loadRankedRun(entry);
-        // Expands Hold Repeat blocks into explicit row clones for timeline simulation, rendering each repeat as an individual clip.
-        const { expanded } = expandRepeatBlocks(run.rotation);
-        const { result } = postToWorker('recalculate', {
-          rows: expanded,
-          team: run.team,
-          options: { ...run.settings },
-          enemy: run.enemy,
-          // Sends keys at payload root for calc.worker.ts, ensuring Ending Rotation splits properly account for full loop iterations.
-          endingRotationEnabled: run.settings.endingRotationEnabled,
-          endRotationStartsEarlier: run.settings.endRotationStartsEarlier
-        });
+        // Hold Repeat blocks expanded, so each repeat draws as its own clip.
+        const { result } = postToWorker('recalculate', await buildCalcRequest(run));
         const { evaluatedRows, loopStartIndex } = await result;
         if (requestIdRef.current !== thisRequestId) return; // collapsed/re-triggered since
         setState({ status: 'ready', evaluatedRows, loopStartIndex, team: run.team, error: null });

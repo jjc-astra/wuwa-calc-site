@@ -1,7 +1,7 @@
 // Names for the resource pools the simulation tracks. Energy, Concerto and Forte are per-unit
 // pools on a row (`{ unit: value }`); Forte comes in numbered slots (forte1..forte6). Tune is the
 // enemy's, not any unit's.
-export const MAX_FORTE_SLOTS = 6;
+const MAX_FORTE_SLOTS = 6;
 
 export const forteKey = (slot: number | string): string => `forte${slot}`;
 export const maxForteKey = (slot: number | string): string => `maxForte${slot}`;

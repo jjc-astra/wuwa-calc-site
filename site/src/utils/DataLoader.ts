@@ -8,7 +8,7 @@ import { defaultEnemyStats } from '../data/db';
 
 // Gates content with no real mechanics yet: disabled in the Rotation Calculator, still
 // selectable in the Builder. Toggle during content authoring.
-export const DISABLE_UNIMPLEMENTED_CONTENT = true;
+const DISABLE_UNIMPLEMENTED_CONTENT = true;
 
 export type ImplementedContentKind = 'character' | 'weapon' | 'set' | 'echo';
 const MECHANIC_FOLDER_BY_KIND: Record<ImplementedContentKind, string> = {
@@ -21,6 +21,7 @@ export type RankedRun = CalcInput;
 
 export const RANKINGS_DIR = 'character_results';
 
+// Loads and caches game data and mechanics. One instance per thread (the page and each calc worker).
 export class DataLoaderClass {
   cache = { mechanics: new Set<string>() };
   // Content-hash manifest (public/data/manifest.json). Detects changed data files without re-downloading. See dataFreshness.ts.

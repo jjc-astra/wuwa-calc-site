@@ -1,4 +1,3 @@
-// src/components/results/DpsPanel.tsx
 import React from 'react';
 import { useResultsSource } from './ResultsSource';
 import { DPS_WINDOWS } from '../../data/dpsWindows';

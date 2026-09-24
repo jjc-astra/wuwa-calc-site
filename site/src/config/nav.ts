@@ -1,4 +1,3 @@
-// src/config/nav.ts
 import type { ComponentType } from 'react';
 import type { IconProps } from '../components/common/icons';
 import { CalculatorIcon, BuilderIcon, RankingsIcon, GuideIcon } from '../components/common/icons';
@@ -10,9 +9,9 @@ export interface NavItem {
   label: string;
   description: string;
   icon: ComponentType<IconProps>;
-  comingSoon?: boolean;
 }
 
+// The site's pages, in nav bar / landing grid order.
 export const NAV_ITEMS: NavItem[] = [
   {
     id: 'calculator',

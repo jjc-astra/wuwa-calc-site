@@ -1,4 +1,3 @@
-// src/components/results/PieChart.tsx
 import React, { useState } from 'react';
 import { TooltipManager } from '../../utils/Common';
 
@@ -41,6 +40,7 @@ function describeDonutSlice(cx: number, cy: number, rOuter: number, rInner: numb
 
 const defaultFormat = (v: number) => Math.round(v).toLocaleString();
 
+/** Donut chart with its legend. */
 export const PieChart: React.FC<PieChartProps> = ({ data, size = 170, totalLabel = 'Total', formatValue = defaultFormat }) => {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const slices = data.filter(d => d.value > 0);

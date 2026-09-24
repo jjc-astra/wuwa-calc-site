@@ -1,4 +1,3 @@
-// src/components/builder/panels/TimingModsPanel.tsx
 import React, { useState } from 'react';
 import type { MechanicNode } from '../../../types';
 import { parseTimeInput } from '../../../utils/Frames';
@@ -10,6 +9,7 @@ interface TimingModsPanelProps {
   updateNode: (patch: Partial<MechanicNode>) => void;
 }
 
+/** Builder sub-panel: freeze, swap, priority, combo window and cancel timings. */
 export const TimingModsPanel: React.FC<TimingModsPanelProps> = ({ data, updateNode }) => {
   const [cancelTime, setCancelTime] = useState('');
   const [cancelHits, setCancelHits] = useState('');

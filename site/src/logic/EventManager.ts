@@ -21,6 +21,7 @@ export const effectiveTriggerRule = (mechanic: MechanicNode): string | undefined
   return hasNoRule && mechanic.isPassive ? 'ALWAYS' : mechanic.triggerRule;
 };
 
+// The event bus: compiled trigger rules registered per event, emitted as the simulation runs.
 export class EventManagerClass {
   listeners: Record<string, RegisteredListener[]> = {};
 

@@ -63,7 +63,7 @@ const GridCard: React.FC<GridCardProps> = ({ itemName, imgFolder, dbRef, onClick
   );
 };
 
-// Groups Hold/Repeat/Release siblings into a single card via explicit holdGroupId, falling back to legacy input+role matching.
+// Groups each Hold with its Repeat/Release siblings into one card: by holdGroupId, else by shared input + category.
 function resolveHoldGroups(allMechs: Record<string, MechanicNode>) {
   const entries = Object.entries(allMechs);
   const skipIds = new Set<string>();
@@ -74,7 +74,7 @@ function resolveHoldGroups(allMechs: Record<string, MechanicNode>) {
     let repeat: [string, MechanicNode] | undefined;
     let release: [string, MechanicNode] | undefined;
 
-    // Matches explicit holdGroupId first, supporting partial migrations where only one sibling has adopted an ID so far.
+    // holdGroupId first; a sibling without one can still match below.
     if (holdNode.holdGroupId) {
       entries.forEach(([id, m]) => {
         if (id === holdId || m.holdGroupId !== holdNode.holdGroupId) return;
@@ -82,7 +82,7 @@ function resolveHoldGroups(allMechs: Record<string, MechanicNode>) {
         else if (m.inputType === 'Release') release = [id, m];
       });
     }
-    // Legacy fallback matching unassigned nodes by both input and category, preventing basic charged attacks from stealing group releases.
+    // Ungrouped nodes match on input and category, so a Basic charged attack can't claim another group's Release.
     entries.forEach(([id, m]) => {
       if (id === holdId || m.holdGroupId || m.input !== holdNode.input || m.category !== holdNode.category) return;
       if (m.inputType === 'Repeat' && !repeat) repeat = [id, m];
@@ -99,6 +99,7 @@ function resolveHoldGroups(allMechs: Record<string, MechanicNode>) {
   return { skipIds, groupSiblings };
 }
 
+/** Mechanics Builder page: the entity library, or the open entity's node tables and output. */
 export const MechanicsBuilder: React.FC = () => {
   const { activeChar, setActiveChar, mechanics, setMechanicNode, reorderMechanicNode, baseStats, setBaseStat, hasChanges } = useBuilderStore();
   const { skipIds: holdGroupSkipIds, groupSiblings: holdGroupSiblings } = resolveHoldGroups(mechanics);

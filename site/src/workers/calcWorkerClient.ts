@@ -1,7 +1,4 @@
-// src/workers/calcWorkerClient.ts
-// Thin client around calc.worker.ts. Shared by every caller needing the simulation pipeline
-// off the main thread, so the Rankings batch loader reuses the same worker instance and queue
-// instead of duplicating this state management.
+// Client for calc.worker.ts: one main lane for interactive calcs, plus a small pool for batch work.
 import CalcWorker from './calc.worker.ts?worker';
 import { buildBuilderPayload } from './builderOverridePayload';
 import type { TeamSlot, EntityRef } from '../types';
@@ -54,6 +51,7 @@ class WorkerLane {
   }
 }
 
+// Rejects a pool request that was cancelled while queued.
 export class CancelledError extends Error {
   constructor() {
     super('Calculation cancelled.');
@@ -96,6 +94,7 @@ export interface WorkerRequest {
   loopStartIndex?: number;
 }
 
+// Runs a request on the main lane.
 export function postToWorker(
   type: 'recalculate' | 'calculateDamage',
   request: WorkerRequest

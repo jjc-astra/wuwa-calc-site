@@ -1,5 +1,4 @@
-/* src/assets/css/results.css
-   Rotation Calculator's right-hand Results panel -- DPS, Substat Worth, Team Contribution,
+/* Rotation Calculator's right-hand Results panel -- DPS, Substat Worth, Team Contribution,
    History tabs, plus the Pin Comparison control shared across them. */
 
 /* =========================================
@@ -182,7 +181,6 @@
 }
 .results-uncalculated h3 { margin: 0; color: var(--accent); }
 .results-uncalculated p { margin: 0; font-size: 0.85rem; max-width: 17.5rem; }
-
 
 /* Slim bar shared by the DPS panel and Substat Worth. */
 .bar-track { position: relative; display: block; width: 100%; height: 0.375rem; background: var(--surface-lighten-strong); border-radius: 0.1875rem; }

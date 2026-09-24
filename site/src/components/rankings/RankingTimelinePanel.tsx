@@ -1,4 +1,3 @@
-// src/components/rankings/RankingTimelinePanel.tsx
 // Only file importing both RotationTimeline and Rankings types -- keeps the timeline component
 // page-agnostic while this wrapper owns Rankings-specific data fetching.
 import React from 'react';

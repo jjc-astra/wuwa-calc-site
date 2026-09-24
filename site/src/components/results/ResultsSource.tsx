@@ -1,4 +1,3 @@
-// src/components/results/ResultsSource.tsx
 // Where the Results panels read their data: the Calculator's stores by default, or whatever a
 // wrapping provider supplies (the Character Guide).
 import { createContext, useContext } from 'react';

@@ -3,8 +3,8 @@ import { useBuilderStore } from '../store/useBuilderStore';
 import { DataLoader } from '../utils/DataLoader';
 import { getTeamEntityRefs } from '../utils/TeamUtils';
 import type { TeamSlot, BaseStats, MechanicNode } from '../types';
-export type { EntityRef } from '../types';
 
+// The team's Builder edits, for a worker request.
 export function buildBuilderPayload(team: TeamSlot[]) {
   const entityRefs = getTeamEntityRefs(team);
   const builderOverrides = useBuilderStore.getState().getTeamOverrides(entityRefs.map(r => r.name));
@@ -38,6 +38,7 @@ export function applyBuilderOverridesFor(names: string[]): void {
   applyBuilderOverridesToDataLoader(useBuilderStore.getState().getTeamOverrides(names));
 }
 
+// applyBuilderOverridesFor every entity a team equips.
 export function applyBuilderOverridesForTeam(team: TeamSlot[]): void {
   applyBuilderOverridesFor(getTeamEntityRefs(team).map(r => r.name));
 }

@@ -1,4 +1,3 @@
-// src/components/roster/TeamBuilder.tsx
 import React, { useRef } from 'react';
 import { useRosterStore } from '../../store/useRosterStore';
 import { CharacterSlot } from './CharacterSlot';
@@ -6,20 +5,19 @@ import { IdleStats } from './IdleStats';
 import { TeamPreview } from '../common/TeamPreview';
 import { CollapsibleSection } from '../common/CollapsibleSection';
 import { CommonUtils } from '../../utils/Common';
-import { serializableTeam } from '../../utils/TeamUtils';
 
 interface TeamBuilderProps {
   isOpen: boolean;
   onToggle: () => void;
 }
 
+/** Step 1: the team roster, with team import / export. */
 export const TeamBuilder: React.FC<TeamBuilderProps> = ({ isOpen, onToggle }) => {
   const { team, importTeam } = useRosterStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleExport = () => {
-    const dataToExport = serializableTeam(team);
-    CommonUtils.downloadJson(dataToExport, CommonUtils.exportFilename('Team', dataToExport));
+    CommonUtils.downloadJson(team, CommonUtils.exportFilename('Team', team));
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {

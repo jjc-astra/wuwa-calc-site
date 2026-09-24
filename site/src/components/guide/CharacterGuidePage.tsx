@@ -1,4 +1,3 @@
-// src/components/guide/CharacterGuidePage.tsx
 // Browses the submitted Rankings results for one character: pick a team and investment, then see
 // its results, timeline, and sequence / weapon / echo comparisons.
 import React, { useEffect, useMemo, useState } from 'react';

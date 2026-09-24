@@ -1,4 +1,3 @@
-// src/components/common/RangeSlider.tsx
 // Dual-handle range slider (min+max, one track): two overlapping native <input type="range">
 // elements with transparent tracks (CSS) over a static div drawing the fill. Tick marks
 // (step=1) double as labels -- gold inside [min,max], dim outside.

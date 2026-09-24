@@ -1,4 +1,3 @@
-// src/components/builder/panels/HitBreakdownPanel.tsx
 import React, { useState, useEffect } from 'react';
 import type { Frames } from '../../../utils/Frames';
 import type { MechanicNode } from '../../../types';
@@ -14,6 +13,7 @@ interface HitBreakdownPanelProps {
   forteOptions: DropdownOption[];
 }
 
+/** Builder sub-panel: scalar stat, per-hit multipliers and per-hit resources. */
 export const HitBreakdownPanel: React.FC<HitBreakdownPanelProps> = ({ nodeId, data, updateNode, forteOptions }) => {
   // Which resource type "Add Hit Resource" will add next.
   const [newHitResType, setNewHitResType] = useState('energy');
@@ -29,7 +29,6 @@ export const HitBreakdownPanel: React.FC<HitBreakdownPanelProps> = ({ nodeId, da
   const [hitResRaw, setHitResRaw] = useState<Record<string, string>>({});
   useEffect(() => {
     setHitResRaw({});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodeId]);
 
   // Timeline preview mirrors TimelineEngine's getHitTimeOffset, purely for display. Dmg window is

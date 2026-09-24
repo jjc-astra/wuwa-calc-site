@@ -1,4 +1,3 @@
-// src/types/results.ts
 // Shared shapes for the Rotation Calculator's Results panel.
 // Used by both the real calc path (logic/ResultsCalculator.ts) and the comparison-pin path
 // (store/useComparisonStore.ts), which recalculates a pinned file through the same worker

@@ -1,4 +1,3 @@
-// src/components/common/FreshnessConflictDialog.tsx
 // Mounted once at App root; renders when useFreshnessConflictStore has a pending conflict --
 // server data changed while the user has unsaved local edits, so it can't be silently evicted.
 import React from 'react';

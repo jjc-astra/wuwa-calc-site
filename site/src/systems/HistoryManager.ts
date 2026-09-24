@@ -1,8 +1,6 @@
-// Undo/redo stacks are persisted (see useRotationStore's partialize) and some commands
-// (MoveRowsCommand) carry a full rows-array snapshot -- unbounded growth over a long editing
-// session can exceed localStorage's quota and start throwing on every subsequent action.
-// So commands remember only what a row IS (unit, action, timing, markers) -- never what the
-// simulation calculated for it, which the recalculate after every undo/redo rebuilds anyway.
+// Undo/redo for the rotation table. The stacks are persisted (useRotationStore's partialize), so
+// commands keep only a row's authored fields -- never its evaluated state, which the recalculate
+// after every undo/redo rebuilds -- to stay well under the localStorage quota.
 import { makeBlankRow, toPersistedRow } from '../logic/rotationRows';
 
 const MAX_HISTORY_SIZE = 50;
@@ -32,9 +30,8 @@ export type SerializedCommand =
     }
   | { type: 'composite'; commands: SerializedCommand[] };
 
-// Rows carry live `prevRow`/`nextRow` back-refs (TimelineEngine's @Prev/@Next lookups) that
-// break JSON.stringify on circular structure. Safe to drop -- recalculate() rebuilds them.
-export const cloneRowsSansLinks = (rows: any[]): any[] =>
+// A detached copy of rows, minus the circular prevRow/nextRow links (recalculate rebuilds them).
+const cloneRowsSansLinks = (rows: any[]): any[] =>
   JSON.parse(JSON.stringify(rows, (key, value) => (key === 'prevRow' || key === 'nextRow' ? undefined : value)));
 
 export class HistoryManager {
@@ -42,10 +39,6 @@ export class HistoryManager {
   private redoStack: Command[] = [];
   private isExecuting: boolean = false;
   private onChangeCallback?: (canUndo: boolean, canRedo: boolean) => void;
-
-  constructor(onChangeCallback?: (canUndo: boolean, canRedo: boolean) => void) {
-    this.onChangeCallback = onChangeCallback;
-  }
 
   setOnChangeCallback(cb: (canUndo: boolean, canRedo: boolean) => void) {
     this.onChangeCallback = cb;
@@ -205,8 +198,7 @@ export class DeleteRowsCommand extends BaseRowsCommand {
   // indices, so the exact same constructor works both for a fresh delete (see
   // computeDeletedData, called against the live rows) and for reviving a persisted command
   // (deletedData read straight back from storage, since the rows it refers to may no longer
-  // exist at those indices by the time of revival). Each row is cut down to its authored fields
-  // here, which also slims history saved before that was the rule.
+  // exist at those indices by the time of revival). Each row is cut down to its authored fields.
   constructor(
     getRows: () => any[],
     setRows: (rows: any[]) => void,

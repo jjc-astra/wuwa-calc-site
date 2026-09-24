@@ -32,12 +32,8 @@ export const MECHANICS_NOTATION = {
     CURSOR_MODE: 'pingpong' as const,
     RETAIN_CURSOR: false,
     FORTE_SLOT: forteKey(1),
-    MAX_CURSOR_VAL: 100,
     WINDOW_CENTER: '65',
     WINDOW_SIZE: '10'
-  },
-  GAUGES: {
-    DEFAULT_MAX: 100
   }
 };
 
@@ -53,9 +49,9 @@ export const INPUT_KEY_MAP: Record<string, string> = {
 };
 
 export const SET_LAYOUTS = ['4 3 3 1 1', '4 4 1 1 1','4 1 1 1 1'];
-export const MAIN_STATS_4_COST = ['CR Rate', 'CR DMG', 'ATK %', 'HP %', 'DEF %', 'Healing Bonus'];
-export const MAIN_STATS_3_COST = ['Fusion DMG', 'Electro DMG', 'Aero DMG', 'Spectro DMG', 'Havoc DMG', 'Glacio DMG', 'ATK %', 'HP %', 'DEF %', 'ER %'];
-export const MAIN_STATS_1_COST = ['ATK %', 'HP %', 'DEF %'];
+const MAIN_STATS_4_COST = ['CR Rate', 'CR DMG', 'ATK %', 'HP %', 'DEF %', 'Healing Bonus'];
+const MAIN_STATS_3_COST = ['Fusion DMG', 'Electro DMG', 'Aero DMG', 'Spectro DMG', 'Havoc DMG', 'Glacio DMG', 'ATK %', 'HP %', 'DEF %', 'ER %'];
+const MAIN_STATS_1_COST = ['ATK %', 'HP %', 'DEF %'];
 
 export const MAIN_STAT_VALUES: Record<number, Record<string, number>> = {
   4: { 'CR Rate': 22.0, 'CR DMG': 44.0, 'ATK %': 33.0, 'HP %': 33.0, 'DEF %': 41.8, 'Healing Bonus': 26.4 },
@@ -112,7 +108,7 @@ export const STAT_NAME_MAP: Record<string, string> = {
 
 export const DEFAULT_SUBSTATS = ['CR Rate', 'CR DMG', 'ATK %', 'ER %', 'ATK'];
 
-export const COST_DISTRIBUTION: Record<string, number[]> = {
+const COST_DISTRIBUTION: Record<string, number[]> = {
   '4 3 3 1 1': [4, 3, 3, 1, 1],
   '4 4 1 1 1': [4, 4, 1, 1, 1],
   '4 1 1 1 1': [4, 1, 1, 1, 1]
@@ -130,9 +126,7 @@ export const mainStatOptionsFor = (cost: number): string[] =>
   cost === 4 ? MAIN_STATS_4_COST : cost === 3 ? MAIN_STATS_3_COST : MAIN_STATS_1_COST;
 
 export const SIM_CONSTANTS = {
-  DEFAULT_ROW_DURATION: 1.5,
   MAX_SEQUENCE: 6,
-  MAX_WEAPON_RANK: 5,
   LEVEL_CAP: 90,
   // Tune Break/Rupture dmg = hitMults% * this base (calcTuneDmg). Also read by formatDamageBreakdown.
   TUNE_BASE_DMG: 10027,
@@ -192,7 +186,7 @@ export const BUILDER_CATEGORIES = [
   'Forte Circuit', 'Intro', 'Outro', 'Inherent Skill', 'Tune Break', 'Resonance Chain'
 ];
 
-export const CAST_OPTIONS: string[] = [...CAST_TYPES];
+const CAST_OPTIONS: string[] = [...CAST_TYPES];
 
 // Non-elemental cast-type colors, distinct from ELEMENT_COLORS (utils/Common.ts) for dmg types.
 export const CAST_TYPE_COLORS: Record<string, string> = ({
@@ -217,9 +211,9 @@ export const CAST_TYPE_COLORS: Record<string, string> = ({
 // remaining ones.
 const DMG_CAST_TYPES = ['Basic', 'Heavy', 'Skill', 'Liberation', 'Intro', 'Outro', 'Coordinated'] as const satisfies readonly CastType[];
 const DMG_EXTRA_TYPES = ['Echo', 'TuneBreak', 'TuneRupture', 'TuneHack'] as const satisfies readonly CastType[];
-export const DMG_OPTIONS: string[] = [...DMG_CAST_TYPES, ...ELEMENTS, ...NEGATIVE_STATUSES, ...DMG_EXTRA_TYPES];
+const DMG_OPTIONS: string[] = [...DMG_CAST_TYPES, ...ELEMENTS, ...NEGATIVE_STATUSES, ...DMG_EXTRA_TYPES];
 
-export const STAT_OPTIONS = [
+const STAT_OPTIONS = [
   'HP', 'HP %', 'ATK', 'ATK %', 'DEF', 'DEF %',
   'CR Rate', 'CR DMG', 'ER %', 'Healing Bonus'
 ];
@@ -241,7 +235,7 @@ export const SHEET_STAT_TOOLTIPS: Record<string, string> = {
 };
 
 // actionDuration/freezeTime are frames at 60fps; cooldown stays seconds.
-export const BUILDER_TEMPLATES: Record<string, MechanicNode> = {
+const BUILDER_TEMPLATES: Record<string, MechanicNode> = {
   'Basic Attack': {
     name: 'Basic Attack 1',
     castTypes: ['Basic'],
@@ -278,7 +272,7 @@ export const BUILDER_TEMPLATES: Record<string, MechanicNode> = {
     input: 'Liberation',
     priority: 1000,
     stanceReq: 'Any',
-    stanceResult: 'Grounded'
+    stanceChanges: [{ stance: 'Grounded', time: toFrames(0) }]
   },
   'Forte Circuit': {
     name: 'Forte Heavy Attack',
@@ -334,7 +328,7 @@ export const BUILDER_TEMPLATES: Record<string, MechanicNode> = {
     actionDuration: toFrames(60),
     comboWindow: '@Default.ComboWindow',
     stanceReq: 'Any',
-    stanceResult: 'Grounded',
+    stanceChanges: [{ stance: 'Grounded', time: toFrames(0) }],
     priority: 1000
   },
   'Outro Skill': {

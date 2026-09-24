@@ -15,7 +15,7 @@ export async function sha256Hex(text: string): Promise<string> {
   return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
 }
 
-export const EXTENSION = '.webp';
+const EXTENSION = '.webp';
 export const TRANSPARENT_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
 
 export const ELEMENT_COLORS: Record<string, string> = ({
@@ -34,10 +34,7 @@ export function getCharacterThemeColor(dbChar: Record<string, any> | undefined):
   return dbChar.themeColor || dbChar.color || ELEMENT_COLORS[dbChar.element] || '#555555';
 }
 
-/**
- * Single shared, viewport-aware hover tooltip (mirrors the old site's TooltipManager).
- * One DOM node reused by every caller.
- */
+/** The app's one hover tooltip: a single viewport-aware DOM node shared by every caller. */
 class TooltipManagerClass {
   private el: HTMLDivElement | null = null;
 
@@ -104,27 +101,13 @@ export const tip = (text: string) => ({
 });
 
 export const CommonUtils = {
-  debounce: <T extends (...args: any[]) => void>(func: T, delay: number): ((...args: Parameters<T>) => void) => {
-    let timeout: ReturnType<typeof setTimeout>;
-    return (...args: Parameters<T>) => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => func(...args), delay);
-    };
-  },
-
-  enforceLimit: (input: HTMLInputElement, min: number, max: number): void => {
-    const val = parseInt(input.value, 10);
-    if (isNaN(val)) return;
-    if (val > max) input.value = max.toString();
-    if (val < min) input.value = min.toString();
-  },
-
-  /** React-friendly equivalent of enforceLimit for controlled numeric inputs. */
+  /** `val` clamped to [min, max]; NaN reads as min. */
   clampToRange: (val: number, min: number, max: number): number => {
     if (isNaN(val)) return min;
     return Math.min(max, Math.max(min, val));
   },
 
+  /** An entity's icon URL in `folder` (a transparent pixel for no name). */
   getIconPath: (name: string, folder: ImageFolder): string => {
     if (!name) return TRANSPARENT_PIXEL;
     // The data repo's icon for the 'System' entity is still filed under its old name, Generic.
@@ -141,10 +124,8 @@ export const CommonUtils = {
     return img.complete;
   },
 
-  // Cursor position for a Hold's ping-pong/loop/clamp physics, given elapsed progress in cursor
-  // units. Shared by TimelineEngine's auto-timing lookahead + live tracking and Gauge's display
-  // so the three can't quietly diverge (they had -- Gauge's own copy skipped the wrap-to-positive
-  // step for 'loop', and ignored negative progress for 'pingpong', unlike here).
+  // Cursor position for a Hold's pingpong/loop/clamp physics, given elapsed progress in cursor
+  // units. The one copy TimelineEngine and Gauge both use.
   resolveHoldCursor: (progress: number, mode: string, maxVal: number): number => {
     if (mode === 'clamp') return Math.max(0, Math.min(progress, maxVal));
     if (mode === 'loop') return ((progress % maxVal) + maxVal) % maxVal;
@@ -153,11 +134,8 @@ export const CommonUtils = {
     return wrapped > maxVal ? doubleMax - wrapped : wrapped;
   },
 
-  // Cursor position `holdDurationFrames` after a hold started, given how much progress was
-  // already `accumulated` (a retained cursor) and the hold's own cursorSpeed/mode/max. Wraps
-  // resolveHoldCursor so its 3 call sites (TimelineEngine's lookahead search, its per-row live
-  // tracking, and Gauge's display preview) don't each hand-roll the frames->seconds->progress
-  // conversion -- that's what let 'loop' and 'pingpong' drift out of sync before this existed.
+  // Cursor position `holdDurationFrames` after a hold started, from progress already
+  // `accumulated` (a retained cursor) and the hold's own cursorSpeed/mode/max.
   resolveHoldCursorAtTime: (accumulated: number, holdDurationFrames: number, speed: number, mode: string, maxVal: number): number => {
     const progress = accumulated + framesToSeconds(toFrames(holdDurationFrames)) * speed;
     return CommonUtils.resolveHoldCursor(progress, mode, maxVal);
@@ -167,6 +145,7 @@ export const CommonUtils = {
   getImage: imageUrl,
   getData: dataUrl,
 
+  /** A number if `val` reads as one, else its trimmed text; undefined when empty. */
   parseMixed: (val: any): number | string | undefined => {
     if (val === undefined || val === null || val === '') return undefined;
     if (typeof val === 'number') return isNaN(val) ? undefined : val;
@@ -258,7 +237,7 @@ export const CommonUtils = {
         if (Array.isArray(arr)) {
           return arr.map(v => typeof v === 'number' ? v : toVal(String(v)));
         }
-      } catch (e) { /* ignore JSON parse error */ }
+      } catch { /* not JSON: parsed as a plain list below */ }
     }
     if (str.includes(',')) {
       return str.split(',').map(toVal);

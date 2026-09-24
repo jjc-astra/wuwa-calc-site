@@ -1,9 +1,9 @@
-// src/components/results/PinRotationControl.tsx
 import React, { useRef, useState } from 'react';
 import { useComparisonStore } from '../../store/useComparisonStore';
 import { PinComparisonPicker } from './PinComparisonPicker';
 import { tip } from '../../utils/Common';
 
+/** Pins a comparison rotation (from a file, History or Rankings), or shows the pinned one. */
 export const PinRotationControl: React.FC = () => {
   const { pinned, status, pinFromFile, unpin } = useComparisonStore();
   const [menuOpen, setMenuOpen] = useState(false);

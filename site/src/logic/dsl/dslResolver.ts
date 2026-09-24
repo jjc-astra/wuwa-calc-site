@@ -16,9 +16,8 @@ import type { MechanicNode, BaseStats } from '../../types';
 
 // Every mechanic node as an @Namespace(Move Name) ref, scoped to System + the current unit. Uses
 // `.name`, not the raw key, since that's what CombatCalculator's hitModifiers carries as
-// `moveName`. Shared by makeEventModifierBracketRule below and AutocompleteInput.tsx's own
-// 'eff-applies-during' mode.
-export function collectMechanicReferences(mechanics: Record<string, MechanicNode>, currentNamespace: string | null): SuggestionItem[] {
+// `moveName`. Shared by makeEventModifierBracketRule and makeAppliesDuringRule.
+function collectMechanicReferences(mechanics: Record<string, MechanicNode>, currentNamespace: string | null): SuggestionItem[] {
   const seen = new Set<string>();
   const results: SuggestionItem[] = [];
   const addFrom = (mechanicsByKey: Record<string, MechanicNode>) => {
@@ -37,7 +36,7 @@ export function collectMechanicReferences(mechanics: Record<string, MechanicNode
 
 // Effect names don't consistently carry their namespace (some repeat it, e.g.
 // "Lumi_Outro..."; some don't). Deriving namespace from the defining node covers both.
-export function collectEffectNamesByNamespace(builderMechanics: Record<string, MechanicNode>): Record<string, Set<string>> {
+function collectEffectNamesByNamespace(builderMechanics: Record<string, MechanicNode>): Record<string, Set<string>> {
   const byNamespace: Record<string, Set<string>> = {};
   const addFrom = (mechanicsByKey: Record<string, MechanicNode>) => {
     Object.entries(mechanicsByKey).forEach(([key, mech]) => {
@@ -61,7 +60,7 @@ export function collectEffectNamesByNamespace(builderMechanics: Record<string, M
 // Bare mechanic names (not @Namespace(...) refs) for mechanics that declare a `cooldown` --
 // these are the only valid targets for a Buff/CD Control effect's cooldown side, since the
 // engine keys a cooldown by the move's plain `.name`, not a namespaced reference.
-export function collectCooldownReferences(builderMechanics: Record<string, MechanicNode>, currentNamespace: string | null): SuggestionItem[] {
+function collectCooldownReferences(builderMechanics: Record<string, MechanicNode>, currentNamespace: string | null): SuggestionItem[] {
   const seen = new Set<string>();
   const results: SuggestionItem[] = [];
   const addFrom = (mechanicsByKey: Record<string, MechanicNode>) => {
@@ -122,9 +121,7 @@ export function makePropertyRule(baseStats: BaseStats): MatchRule {
       const pointerName = match[1];
       const pointerDef = DSL_POINTERS[pointerName];
       if (!pointerDef) return [];
-      const props = pointerDef.properties
-        .filter(p => !p.hidden)
-        .map(p => ({ val: p.propName, group: 'Properties', pointer: pointerName }));
+      const props = pointerDef.properties.map(p => ({ val: p.propName, group: 'Properties', pointer: pointerName }));
       if (pointerName === 'Self') {
         const fCount = parseInt(String(baseStats.forteCount ?? 1), 10);
         for (let i = 1; i <= fCount; i++) {
@@ -185,11 +182,16 @@ export function makeEventModifierBracketRule(activeChar: string | null, mechanic
 // Checks if `beforeCursor` is within an IF condition, where ALL/XOR/NOT are valid (ANY works in both).
 const isInConditionClause = (beforeCursor: string): boolean => / IF |^IF /.test(beforeCursor);
 
+// Events taking (args) and events taking [modifiers]; the rest take neither.
+const PAREN_EVENTS: string[] = ['AfterHit', 'OnTick'];
+const BRACKET_EVENTS: string[] = DSL_EVENTS.filter(
+  e => !['ALWAYS', 'OnStart', 'OnSwapIn', 'OnSwapOut', 'OnUnitChange', ...PAREN_EVENTS].includes(e)
+);
+// What to insert after a completed event name.
+const eventOpener = (val: string): string => (PAREN_EVENTS.includes(val) ? '(' : BRACKET_EVENTS.includes(val) ? '[' : ' ');
+
+// Events plus the logic wrappers valid at the cursor.
 export function makeEventListRule(trigger: RegExp): MatchRule {
-  const parenEvents: string[] = ['AfterHit', 'OnTick'];
-  const bracketEvents: string[] = DSL_EVENTS.filter(
-    e => !['ALWAYS', 'OnStart', 'OnSwapIn', 'OnSwapOut', 'OnUnitChange', ...parenEvents].includes(e)
-  );
   const logicWrappers = ['ANY', 'ALL', 'XOR', 'NOT'];
   return {
     trigger,
@@ -205,7 +207,7 @@ export function makeEventListRule(trigger: RegExp): MatchRule {
       return items;
     },
     prefix: '',
-    dynamicAppend: (val) => (logicWrappers.includes(val) || parenEvents.includes(val)) ? '(' : (bracketEvents.includes(val) ? '[' : ' ')
+    dynamicAppend: (val) => (logicWrappers.includes(val) ? '(' : eventOpener(val))
   };
 }
 
@@ -222,10 +224,6 @@ export function makeEventArgsCloseRule(): MatchRule {
 
 // Autocompletes top-level events immediately inside ANY(...) after the opening paren or commas.
 export function makeAnyTriggerListRule(): MatchRule {
-  const parenEvents: string[] = ['AfterHit', 'OnTick'];
-  const bracketEvents: string[] = DSL_EVENTS.filter(
-    e => !['ALWAYS', 'OnStart', 'OnSwapIn', 'OnSwapOut', 'OnUnitChange', ...parenEvents].includes(e)
-  );
   return {
     // Captures preceding ANY(...) content in group 1, isolating the active trailing token in group 2 for replacement.
     trigger: /\bANY\(([\s\S]*?)([A-Za-z]*)$/i,
@@ -250,7 +248,7 @@ export function makeAnyTriggerListRule(): MatchRule {
       return DSL_EVENTS.map(v => ({ val: v, group: 'Events' }));
     },
     prefix: '',
-    dynamicAppend: (val) => parenEvents.includes(val) ? '(' : (bracketEvents.includes(val) ? '[' : ' ')
+    dynamicAppend: eventOpener
   };
 }
 

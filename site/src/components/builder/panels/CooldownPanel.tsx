@@ -1,4 +1,3 @@
-// src/components/builder/panels/CooldownPanel.tsx
 import React, { useState } from 'react';
 import type { MechanicNode } from '../../../types';
 import { useBuilderStore } from '../../../store/useBuilderStore';
@@ -11,6 +10,7 @@ interface CooldownPanelProps {
   updateNode: (patch: Partial<MechanicNode>) => void;
 }
 
+/** Builder sub-panel: cooldown, max charges and a shared-cooldown partner. */
 export const CooldownPanel: React.FC<CooldownPanelProps> = ({ data, updateNode }) => {
   const { activeChar, mechanics, setMechanicNode } = useBuilderStore();
   const [shareDraft, setShareDraft] = useState<string | null>(null);

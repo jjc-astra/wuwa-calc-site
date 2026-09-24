@@ -6,6 +6,7 @@ import { resourceCap } from './resources';
 import { STAT_DB, STAT_NAME_MAP } from '../data/db';
 import { PRIMARY_DMG_TYPES } from '../data/gameVocab';
 import { DPS_WINDOWS } from '../data/dpsWindows';
+import { toRunInput } from './rotationRows';
 import type { HitConfig, TeamSlot, DamageInstanceResult } from '../types';
 import { type Frames, toFrames, roundFrames, framesToSeconds } from '../utils/Frames';
 import type {
@@ -26,8 +27,6 @@ const TWO_MIN = toFrames(120 * 60);
 // Fixed avg-loop sample size: first loop + 2 more, regardless of how short a loop is.
 const AVG_LOOP_REPS = 3;
 
-// Hits whose dmgTypes name none of PRIMARY_DMG_TYPES fold into "Other" in the pie chart.
-
 interface RotationHit {
   gameTime: Frames;
   total: number;
@@ -44,14 +43,6 @@ interface RotationHit {
 function hitLabel(h: RotationHit): string {
   return h.formulaUsed !== 'Standard' ? (h.dmgTypes[0] || 'Status Effect') : h.provider;
 }
-
-const cloneAuthored = (r: any) => ({
-  unit: r.unit,
-  action: r.action,
-  timing: r.timing,
-  ...(r.offset !== undefined && { offset: r.offset }),
-  ...(r.manualOffset !== undefined && { manualOffset: r.manualOffset })
-});
 
 // Splits content rows into opener / loop-template / optional Ending Rotation tail. Shared by
 // buildExtendedTimeline and previewEndingRotationTiming so both agree on segments.
@@ -94,10 +85,8 @@ function buildExtendedTimeline(
   const openerEndRow = openerRows.length > 0 ? openerRows[openerRows.length - 1] : null;
   const openerEndTime = toFrames(openerEndRow ? (openerEndRow.gameTimeStart || 0) + (openerEndRow.gameTimePassed || 0) : 0);
 
-  const runSimple = (contentToRun: any[]) => {
-    const extendedInput = [...contentToRun.map(cloneAuthored), { unit: '', action: '', timing: 'Auto', offset: 0 }];
-    return TimelineEngine.recalculateState(extendedInput, team, { ...options, mode: 'silent' }, enemyConfig);
-  };
+  const runSimple = (contentToRun: any[]) =>
+    TimelineEngine.recalculateState(toRunInput(contentToRun), team, { ...options, mode: 'silent' }, enemyConfig);
 
   if (loopTemplate.length === 0) {
     return { evaluatedRows: runSimple(openerRows), openerEndTime, loopEnds: null };
@@ -200,8 +189,7 @@ export function previewEndingRotationTiming(
   for (let i = 0; i < repsToSimulate; i++) extendedContent.push(...loopTemplate);
   extendedContent.push(...endingRows);
 
-  const previewInput = [...extendedContent.map(cloneAuthored), { unit: '', action: '', timing: 'Auto', offset: 0 }];
-  const previewEvaluated = TimelineEngine.recalculateState(previewInput, team, { ...options, mode: 'silent' }, enemyConfig);
+  const previewEvaluated = TimelineEngine.recalculateState(toRunInput(extendedContent), team, { ...options, mode: 'silent' }, enemyConfig);
   if (shared) shared.run = { reps: repsToSimulate, contentLength: extendedContent.length, evaluatedRows: previewEvaluated };
 
   // So Ending Rotation's re-timed rows get their own DMG column too.
@@ -210,7 +198,7 @@ export function previewEndingRotationTiming(
   const evaluatedEndingRows = previewEvaluated.filter((r: any) => r && r.unit).slice(-endingRows.length);
 
   // Overwrites just the Ending Rotation tail with its re-timed counterparts, preserving the
-  // loopStartOverride/loopEndOverride flags cloneAuthored strips out.
+  // loopStartOverride/loopEndOverride flags toRunInput strips out.
   const endingStartContentIdx = openerRows.length + loopTemplate.length;
   let contentIdx = 0;
   return evaluatedRows.map(row => {
@@ -256,6 +244,7 @@ function groupSum(hits: RotationHit[], keyFn: (h: RotationHit) => string): Recor
   return out;
 }
 
+// The pie's cast-type bucket for a hit; one naming none of PRIMARY_DMG_TYPES is "Other".
 function primaryDmgType(dmgTypes: string[]): string {
   for (const p of PRIMARY_DMG_TYPES) if (dmgTypes.includes(p)) return p;
   return 'Other';
@@ -439,8 +428,7 @@ function fieldTimeInWindow(rows: any[], start: number, end: Frames, divisor: num
 
 function buildContributionForWindow(windowHits: RotationHit[], teamNames: string[], divisor: number): ContributionForWindow {
   const teamGroups = groupSum(windowHits, hitLabel);
-  // Sorts by roster slot order (stable across windows), not insertion order -- insertion order
-  // visibly reordered the legend when switching tabs.
+  // Roster slot order, so the legend keeps its order across windows.
   const teamNameSet = new Set(teamNames);
   const orderedLabels = [
     ...teamNames.filter(name => teamGroups[name] !== undefined),
@@ -555,7 +543,6 @@ function buildSubstatWorth(twoMinHits: RotationHit[], team: TeamSlot[]): Record<
   return out;
 }
 
-
 type ResultsArgs = [
   rows: any[],
   team: TeamSlot[],
@@ -642,6 +629,7 @@ function buildEnergyRequirements(
   return out;
 }
 
+// Everything the Calculator's Results panels show.
 export function buildRotationResults(...args: ResultsArgs): RotationResults {
   const { hits, evaluatedRows, openerEndTime, loopEnds, teamNames } = simulateHits(...args);
   const [, team, options, enemyConfig] = args;

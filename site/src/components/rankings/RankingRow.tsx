@@ -1,4 +1,3 @@
-// src/components/rankings/RankingRow.tsx
 import React, { useState } from 'react';
 import { TeamPreview } from '../common/TeamPreview';
 import { StackedContributionBar } from './StackedContributionBar';
@@ -15,6 +14,7 @@ import { dpsFieldOf } from '../../data/dpsWindows';
 import { guideHash } from '../../hooks/useHashRoute';
 import type { ActionsMenuItem } from '../common/ActionsMenuButton';
 
+/** A rotation's Linear / Quickswap tag. */
 export const RotationTypeBadge: React.FC<{ type: RankingEntry['rotationType'] }> = ({ type }) => (
   <span className={`ranking-row-type-badge caps-tag pill-badge outline-badge ranking-row-type-${type ?? 'unclassified'}`}>{rotationTypeLabel(type)}</span>
 );
@@ -29,6 +29,7 @@ interface RankingRowProps {
   extraMenuItems?: ActionsMenuItem[];
 }
 
+/** One ranked rotation: team, DPS bar and actions, expanding to its timeline. */
 export const RankingRow: React.FC<RankingRowProps> = ({ rank, entry, activeWindow, maxDps, baselineDps, extraMenuItems = [] }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const dps = entry.dpsStats[dpsFieldOf(activeWindow)] ?? 0;
@@ -60,8 +61,7 @@ export const RankingRow: React.FC<RankingRowProps> = ({ rank, entry, activeWindo
     window.location.hash = '#/calculator/step-2';
   };
 
-
-  return (
+return (
     <>
       <div className={`ranking-row ${isExpanded ? 'is-expanded' : ''}`} onClick={() => setIsExpanded(v => !v)}>
         <span className={`ranking-row-expand-icon ${isExpanded ? 'is-open' : ''}`}>▶</span>

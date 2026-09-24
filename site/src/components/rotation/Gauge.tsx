@@ -1,4 +1,3 @@
-// src/components/rotation/Gauge.tsx
 
 import React from 'react';
 import { DataLoader } from '../../utils/DataLoader';
@@ -24,6 +23,7 @@ interface DialGaugeProps {
   max?: number;
 }
 
+/** A round gauge for one resource. */
 export const DialGauge: React.FC<DialGaugeProps> = ({ name, value = 0, max = 100 }) => {
   const pct = gaugePercent(value, max);
   const isFull = pct >= 99.9;
@@ -46,6 +46,7 @@ interface VerticalGaugeProps {
   max?: number;
 }
 
+/** A vertical bar gauge for one resource. */
 export const VerticalGauge: React.FC<VerticalGaugeProps> = ({ name, value = 0, max = 100 }) => {
   const pct = gaugePercent(value, max);
   const isFull = pct >= 99.9;
@@ -70,6 +71,7 @@ interface MultiForteGaugeProps {
   onGaugeClick?: (trigger: string) => void;
 }
 
+/** A unit's forte slots, with the active hold's cursor. */
 export const MultiForteGauge: React.FC<MultiForteGaugeProps> = ({ unit, stateData, activeTrigger, onGaugeClick }) => {
   const dbChar: Record<string, any> = unit ? DataLoader.characterDB[unit] || {} : {};
   const forteCount = dbChar.forteCount || 1;

@@ -18,7 +18,6 @@ import { teamCharacters } from '../../utils/TeamUtils';
 import { toFrames, secondsToFrames, framesToSeconds, formatFramesAsSeconds } from '../../utils/Frames';
 import { applyBuilderOverridesFor } from '../../workers/builderOverridePayload';
 
-
 interface RotationRowProps {
   index: number;
   row: any;
@@ -81,6 +80,7 @@ interface ActionGroup {
   options: ActionOption[];
 }
 
+/** One rotation row: unit, action, timing, offset, damage and gauges, plus its open sub-panel. */
 export const RotationRow: React.FC<RotationRowProps> = ({
   index,
   row,
@@ -173,7 +173,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
     const candidates: Candidate[] = [];
 
     // Every owner the unit draws castable moves from (its own, the equipped echo/weapon/sets,
-    // System), sorted so a same-input tie resolves character > echo > System as before.
+    // System), sorted so a same-input tie resolves character > echo > System.
     const owners = getMechanicOwners([slot ?? ({ character: selectedUnit } as TeamSlot)])
       .sort((a, b) => OWNER_KIND_ORDER.indexOf(a.kind) - OWNER_KIND_ORDER.indexOf(b.kind));
     const groupLabelFor = (owner: MechanicOwner, m: any): string => {

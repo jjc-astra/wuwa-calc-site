@@ -1,4 +1,3 @@
-// src/components/builder/panels/IdentityPanel.tsx
 import React from 'react';
 import type { MechanicNode } from '../../../types';
 import { useBuilderStore } from '../../../store/useBuilderStore';
@@ -10,11 +9,12 @@ interface IdentityPanelProps {
   updateNode: (patch: Partial<MechanicNode>) => void;
 }
 
+/** Builder sub-panel: the node's name and provider; its ID follows the name. */
 export const IdentityPanel: React.FC<IdentityPanelProps> = ({ nodeId, data, updateNode }) => {
   const { activeChar, renameMechanicNode } = useBuilderStore();
 
-  // Renaming regenerates the ID (`${activeChar}_${name}`, matching the old site). Re-keys on
-  // blur only -- per-keystroke would change the store/React-list key and drop focus mid-typing.
+  // Renaming regenerates the ID (`${activeChar}_${name}`). Re-keys on blur only: per keystroke
+  // would change the store/React-list key and drop focus mid-typing.
   const handleNameBlur = () => {
     const currentName = data.name || '';
     const newId = currentName.trim() ? MechanicKey.build(MechanicKey.toNamespace(activeChar), currentName) : nodeId;

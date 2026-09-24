@@ -1,4 +1,3 @@
-// src/components/timeline/TimelineClip.tsx
 import React from 'react';
 import { TooltipManager } from '../../utils/Common';
 import { formatFramesAsSeconds, toFrames } from '../../utils/Frames';
@@ -27,6 +26,7 @@ function buildTooltipHtml(segment: TimelineSegment): string {
   );
 }
 
+/** One segment of a unit's row (on-field, off-field or wait), with a hover tooltip. */
 export const TimelineClip: React.FC<TimelineClipProps> = ({ segment }) => {
   // Outer box is the true, unmodified hit target (hover/tooltip). The fill's gap from its
   // neighbor (same idea as StackedContributionBar's .ranking-bar-fill gap) is computed here,

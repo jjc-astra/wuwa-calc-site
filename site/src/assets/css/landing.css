@@ -1,4 +1,4 @@
-/* src/assets/css/landing.css */
+/* Landing page. */
 
 /* --- Landing Page --- */
 .landing-page {
@@ -87,44 +87,3 @@
     line-height: 1.4;
 }
 
-.landing-card .coming-soon-badge {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-}
-
-/* --- Coming Soon Page --- */
-.coming-soon-page {
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.625rem;
-    text-align: center;
-    color: var(--text-dim);
-}
-
-.coming-soon-page .coming-soon-icon {
-    display: inline-flex;
-    margin-bottom: var(--space-3);
-    color: var(--accent);
-    opacity: 0.6;
-}
-
-.coming-soon-page h2 {
-    margin: 0;
-    color: var(--text-main);
-}
-
-.coming-soon-page p {
-    margin: 0;
-    max-width: 26.25rem;
-}
-
-.coming-soon-page .coming-soon-badge {
-    margin-top: var(--space-3);
-    font-size: 0.7rem;
-    padding: 0.25rem 0.625rem;
-}

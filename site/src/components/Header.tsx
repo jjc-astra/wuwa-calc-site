@@ -14,6 +14,7 @@ interface HeaderProps {
   guideCharacter?: string;
 }
 
+/** The site nav bar: home, page links, and the current page's Back to Library. */
 export const Header: React.FC<HeaderProps> = ({ currentView, onNavClick, guideCharacter }) => {
   const { activeChar, setActiveChar } = useBuilderStore();
 
@@ -34,7 +35,6 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavClick, guideCh
             >
               <item.icon size={15} />
               <span>{item.label}</span>
-              {item.comingSoon && <span className="coming-soon-badge caps-tag pill-badge">Soon</span>}
             </button>
           ))}
         </nav>

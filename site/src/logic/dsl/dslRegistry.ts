@@ -6,9 +6,7 @@ import type { CastType } from '../../data/gameVocab';
 // pointer/scalar translation tables from DSL_POINTERS, and AutocompleteInput.tsx (via
 // dslResolver.ts) derives its suggestion lists from the same data.
 //
-// Most properties translate generically as `pointer.targetVar + '.' + targetKey`. Some don't --
-// dslParser.ts historically hardcoded these as full literal substitutions, and several genuinely
-// can't be generic:
+// Most properties translate generically as `pointer.targetVar + '.' + targetKey`. These can't:
 //   - Prev/Next: the BARE pointer (`@Prev`, `@Next`) resolves to their "identity" property
 //     (`ctx.prev.unit`, `ctx.next.name`), not a plain container -- so every OTHER property on
 //     them (Action, CastTypes, Priority) must be its own full override, since deriving from the
@@ -92,10 +90,8 @@ export const DSL_FUNCTION_TOOLTIPS: Record<string, string> = {
   'StatusMult()': 'Function — returns the negative-status damage multiplier for a given status and stack count, e.g. @StatusMult(Aero Erosion, @Self.Tracker(Stacks)).'
 };
 
-// Not DSL sugar -- these are raw JS methods that already work today because a compiled rule is
-// just `new Function('ctx', 'equipper', 'return ' + jsStr)`. Any property that resolves to a real
-// JS array/string already supports its native methods. Listed here purely so autocomplete can
-// surface what's already usable -- doesn't drive any translation/evaluation logic.
+// Native JS methods on a property that resolves to a real array/string (a compiled rule is plain
+// JS). Listed only for autocomplete; not part of translation.
 export const DSL_TYPE_METHODS: Record<DSLDataType, Array<{ name: string; tooltip: string }>> = {
   'string[]': [
     { name: 'includes()', tooltip: "Native JS method -- true if the list/text contains the given value, e.g. @Prev.CastTypes.includes(Outro)." },
@@ -143,12 +139,12 @@ export const DSL_POINTERS: Record<string, DSLPointerDef> = {
       { propName: 'PrevAction', type: 'string', fullOverride: 'ctx.self.prevAction', tooltip: 'Returns the name of the last action Self performed.' },
       { propName: 'NextAction', type: 'string', fullOverride: 'ctx.self.nextAction', tooltip: "Returns the name of the next action Self performs after this row, even if other characters act in between. Empty if Self doesn't act again." },
       { propName: 'Name', type: 'string', fullOverride: 'ctx.self.name', tooltip: "Returns Self's character name." },
-      { propName: 'BuffStacks()', type: 'method', isMethod: true, jsName: 'getBuffStacks', argsSignature: '()', tooltip: 'Method — returns the current stack count of a buff, e.g. @Self.BuffStacks(BuffName).' },
-      { propName: 'BuffMaxStacks()', type: 'method', isMethod: true, jsName: 'getBuffMaxStacks', argsSignature: '()', tooltip: 'Method — returns the configured max stack count of a buff, e.g. @Self.BuffMaxStacks(BuffName).' },
-      { propName: 'HasBuff()', type: 'method', isMethod: true, jsName: 'hasBuff', argsSignature: '()', tooltip: 'Method — returns true if Self currently has the given buff, e.g. @Self.HasBuff(BuffName).' },
-      { propName: 'Tracker()', type: 'method', isMethod: true, jsName: 'getTracker', argsSignature: '()', tooltip: 'Method — returns the current value of a tracker/counter, e.g. @Self.Tracker(TrackerName).' },
-      { propName: 'Cooldown()', type: 'method', isMethod: true, jsName: 'getCooldown', argsSignature: '()', tooltip: 'Method — returns the remaining cooldown in seconds of a skill, e.g. @Self.Cooldown(Skill).' },
-      { propName: 'Stat()', type: 'method', isMethod: true, jsName: 'getStat', argsSignature: '()', tooltip: 'Method — returns the current value of a sheet stat, e.g. @Self.Stat(CR Rate).' }
+      { propName: 'BuffStacks()', type: 'method', isMethod: true, jsName: 'getBuffStacks', tooltip: 'Method — returns the current stack count of a buff, e.g. @Self.BuffStacks(BuffName).' },
+      { propName: 'BuffMaxStacks()', type: 'method', isMethod: true, jsName: 'getBuffMaxStacks', tooltip: 'Method — returns the configured max stack count of a buff, e.g. @Self.BuffMaxStacks(BuffName).' },
+      { propName: 'HasBuff()', type: 'method', isMethod: true, jsName: 'hasBuff', tooltip: 'Method — returns true if Self currently has the given buff, e.g. @Self.HasBuff(BuffName).' },
+      { propName: 'Tracker()', type: 'method', isMethod: true, jsName: 'getTracker', tooltip: 'Method — returns the current value of a tracker/counter, e.g. @Self.Tracker(TrackerName).' },
+      { propName: 'Cooldown()', type: 'method', isMethod: true, jsName: 'getCooldown', tooltip: 'Method — returns the remaining cooldown in seconds of a skill, e.g. @Self.Cooldown(Skill).' },
+      { propName: 'Stat()', type: 'method', isMethod: true, jsName: 'getStat', tooltip: 'Method — returns the current value of a sheet stat, e.g. @Self.Stat(CR Rate).' }
     ]
   },
   Enemy: {
@@ -159,9 +155,9 @@ export const DSL_POINTERS: Record<string, DSLPointerDef> = {
       { propName: 'HP', type: 'number', targetKey: '.hp', tooltip: "Returns the enemy's current HP." },
       { propName: 'MaxHP', type: 'number', targetKey: '.maxHp', tooltip: "Returns the enemy's maximum HP." },
       { propName: 'HPPct', type: 'number', targetKey: '.hpPct', tooltip: "Returns the enemy's current HP as a percentage of max." },
-      { propName: 'BuffStacks()', type: 'method', isMethod: true, jsName: 'getBuffStacks', argsSignature: '()', tooltip: 'Method — returns the current stack count of a debuff/status on the enemy.' },
-      { propName: 'BuffMaxStacks()', type: 'method', isMethod: true, jsName: 'getBuffMaxStacks', argsSignature: '()', tooltip: 'Method — returns the configured max stack count of a debuff/status on the enemy.' },
-      { propName: 'HasBuff()', type: 'method', isMethod: true, jsName: 'hasBuff', argsSignature: '()', tooltip: 'Method — returns true if the enemy currently has the given debuff/status.' },
+      { propName: 'BuffStacks()', type: 'method', isMethod: true, jsName: 'getBuffStacks', tooltip: 'Method — returns the current stack count of a debuff/status on the enemy.' },
+      { propName: 'BuffMaxStacks()', type: 'method', isMethod: true, jsName: 'getBuffMaxStacks', tooltip: 'Method — returns the configured max stack count of a debuff/status on the enemy.' },
+      { propName: 'HasBuff()', type: 'method', isMethod: true, jsName: 'hasBuff', tooltip: 'Method — returns true if the enemy currently has the given debuff/status.' },
       { propName: 'Tune', type: 'number', targetKey: '.tune', tooltip: "Returns the enemy's current Tune (stagger) gauge value." },
       { propName: 'MaxTune', type: 'number', targetKey: '.maxTune', tooltip: "Returns the enemy's maximum Tune (stagger) gauge value." },
       // True irregularity -- compiles to the literal string "Enemy", not a ctx field.
@@ -242,7 +238,7 @@ export const DSL_POINTERS: Record<string, DSLPointerDef> = {
       { propName: 'OutroPriority', type: 'number', targetKey: '.outroPriority', tooltip: 'Default action-priority value for Outro Skills.' }
     ]
   },
-  // Bare-only pointers: no dot-properties are offered for these today.
+  // Bare-only pointers: no dot-properties.
   Team: { pointer: 'Team', targetVar: 'ctx.team', tooltip: 'All characters currently in the team roster.', properties: [] },
   TeamOthers: { pointer: 'TeamOthers', targetVar: 'ctx.teamOthers', tooltip: 'All team members except Self.', properties: [] },
   Equipper: { pointer: 'Equipper', targetVar: 'equipper', tooltip: 'The character this weapon or echo is equipped on.', properties: [] },
@@ -251,10 +247,8 @@ export const DSL_POINTERS: Record<string, DSLPointerDef> = {
   System: { pointer: 'System', usesCallSyntax: true, tooltip: 'Global effects not tied to a specific character.', properties: [] }
 };
 
-// Legacy parser-only translation entries with no corresponding visible autocomplete property:
-// the digit-capturing Forte/MaxForte scalars (Self.Forte{N}/MaxForte{N} are synthesized
-// dynamically in the autocomplete resolver from baseStats.forteCount, never listed statically
-// here, but the parser needs one regex covering any N).
+// Parser-only suffixes: @Self.Forte{N}/MaxForte{N} for any N. Autocomplete lists them per
+// character from its forteCount (dslResolver's makePropertyRule).
 export const DSL_PARSER_SCALAR_EXTRAS: Record<string, string> = {
   '\\.MaxForte([0-9]+)': '.maxForte$1',
   '\\.Forte([0-9]+)': '.forte$1'

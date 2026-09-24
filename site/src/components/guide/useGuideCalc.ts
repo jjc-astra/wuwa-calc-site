@@ -1,4 +1,3 @@
-// src/components/guide/useGuideCalc.ts
 // The Character Guide's calcs: a full calc for the selected config (result panels, timeline) and
 // summary calcs for the comparisons, spread across the worker pool.
 import { useEffect, useReducer, useRef, useState } from 'react';
@@ -26,7 +25,6 @@ let wantedKeys = new Set<string>();
 const errorMessage = (err: any): string => err?.message || String(err);
 // Results tend to land in bursts; one save per burst.
 const SAVE_DEBOUNCE_MS = 1000;
-
 
 function track(key: string, run: Promise<RotationSummary>): Promise<void> {
   const tracked = run

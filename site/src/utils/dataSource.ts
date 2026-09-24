@@ -1,7 +1,7 @@
 // Where game data and images are fetched from. All dev-only WIP mirror logic lives here.
 
 // Public GitHub owner/repo/branch -- not a secret.
-export const DATA_REPO_BASE_URL = 'https://raw.githubusercontent.com/jjc-astra/wuwa-calc-data/main';
+const DATA_REPO_BASE_URL = 'https://raw.githubusercontent.com/jjc-astra/wuwa-calc-data/main';
 
 // Gitignored local mirror of the data repo's data/ and images/ folders (site/public/wip-data/),
 // for testing a unit before it is pushed to the data repo.

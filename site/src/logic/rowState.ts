@@ -16,6 +16,7 @@ const SNAPSHOT_COPIED_KEYS: readonly string[] = [
 // Fields that point back into the row list or hold other snapshots, so they never belong in a copy.
 export const ROW_LINK_KEYS: readonly string[] = ['dropdownState', 'prevRow', 'nextRow'];
 
+// A row's per-unit pools and HP, copied from the previous row.
 export function inheritPools(row: any, prev: any): void {
   for (const key of INHERITED_POOL_KEYS) row[key] = { ...(prev[key] || {}) };
 }
