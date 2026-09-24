@@ -9,6 +9,8 @@ import type { RangeValue } from '../components/common/RangeSlider';
 export interface GuideSelection {
   config: GuideConfig | null;
   rankRange: RangeValue;
+  // Weapons added to the Weapon Comparison.
+  addedWeapons?: string[];
 }
 
 interface GuideSelectionState {

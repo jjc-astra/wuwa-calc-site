@@ -5,9 +5,11 @@ import React from 'react';
 import { ComparisonTable } from './ComparisonTable';
 import type { ComparisonRow } from './ComparisonTable';
 import { RangeSlider } from '../common/RangeSlider';
+import { IconSelect } from '../common/IconSelect';
 import type { RangeValue } from '../common/RangeSlider';
 import { IMAGE_FOLDERS } from '../../data/db';
-import { metricValue, rankEndpoints } from './guideModel';
+import { metricValue, rankEndpoints, weaponsForUnit } from './guideModel';
+import { selectableOptions } from '../../utils/selectableContent';
 import type { GuideJob, GuideMetric, GuideScope, SequenceDef, WeaponDef, EchoDef, EchoSetDef, EchoBuild } from './guideModel';
 import type { GuideSummaries } from './useGuideCalc';
 
@@ -72,8 +74,14 @@ export const WeaponComparison: React.FC<SectionProps & {
   rankRange: RangeValue;
   onRankRangeChange: (range: RangeValue) => void;
   onSelect: (weapon: string) => void;
-}> = ({ unit, metric, scope, summaries, defs, baselineJob, selectedWeapon, rankRange, onRankRangeChange, onSelect }) => {
+  onAdd: (weapon: string) => void;
+  onRemove: (weapon: string) => void;
+}> = ({ unit, metric, scope, summaries, defs, baselineJob, selectedWeapon, rankRange, onRankRangeChange, onSelect, onAdd, onRemove }) => {
   const ranks = rankEndpoints(rankRange);
+  // Every weapon of the unit's type, like the Team & Investment picker; listed ones greyed out too.
+  const addOptions = selectableOptions('weapon', weaponsForUnit(unit)).map(opt =>
+    defs.some(d => d.weapon === opt.value) ? { ...opt, disabled: true, disabledTooltip: 'Already in the comparison' } : opt
+  );
 
   const rows: ComparisonRow[] = defs
     .map(def => ({
@@ -82,6 +90,7 @@ export const WeaponComparison: React.FC<SectionProps & {
       icon: { name: def.weapon, folder: IMAGE_FOLDERS.WEAPONS, rect: true },
       values: def.jobs.map(({ job }) => rowValue(summaries, job, unit, metric, scope)),
       isSelected: def.weapon === selectedWeapon,
+      removable: def.removable,
       error: def.jobs.map(({ job }) => summaries.error(job.key)).find(Boolean)
     }))
     // Best at the top rank first; rows still calculating sort last.
@@ -92,9 +101,25 @@ export const WeaponComparison: React.FC<SectionProps & {
       <div className="results-card-header">
         <span>Weapon Comparison ({scopeLabel(scope)})</span>
       </div>
-      <div className="guide-cmp-rank-range">
-        <span>Ranks</span>
-        <RangeSlider min={1} max={5} value={rankRange} onChange={onRankRangeChange} />
+      <div className="guide-cmp-controls">
+        <div className="guide-cmp-rank-range">
+          <span className="form-label">Ranks</span>
+          <RangeSlider min={1} max={5} value={rankRange} onChange={onRankRangeChange} />
+        </div>
+        <div className="guide-cmp-add mech-add-row">
+          <span className="form-label">Add Weapon</span>
+          <IconSelect
+            value=""
+            options={addOptions}
+            onChange={onAdd}
+            iconFolder={IMAGE_FOLDERS.WEAPONS}
+            iconShape="rect"
+            placeholder="Weapon"
+            className="base-btn mech-add-icon-btn"
+            triggerContent="+"
+            triggerTooltip="Add a weapon to compare"
+          />
+        </div>
       </div>
       <ComparisonTable
         columns={ranks.map(rank => ({ label: `R${rank}` }))}
@@ -102,6 +127,7 @@ export const WeaponComparison: React.FC<SectionProps & {
         unitLabel={metric.toUpperCase()}
         baseline={rowValue(summaries, baselineJob, unit, metric, scope)}
         onSelectRow={onSelect}
+        onRemoveRow={onRemove}
         formatValue={formatShort}
       />
     </div>

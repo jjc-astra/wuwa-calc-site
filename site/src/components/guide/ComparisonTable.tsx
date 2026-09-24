@@ -3,7 +3,7 @@
 // Weapon and Echo comparisons.
 import React from 'react';
 import { AvatarIcon } from '../common/AvatarIcon';
-import { tip } from '../../utils/Common';
+import { tip, TooltipManager } from '../../utils/Common';
 import type { ImageFolder } from '../../data/db';
 
 type Baseline = number | null | undefined;
@@ -25,6 +25,8 @@ export interface ComparisonRow {
   error?: string;
   // Hover text for the label (e.g. the full set + main echo behind a shortened name).
   labelTooltip?: string;
+  // Shows a remove (X) button on the row, calling the table's onRemoveRow.
+  removable?: boolean;
 }
 
 interface ComparisonTableProps {
@@ -33,13 +35,14 @@ interface ComparisonTableProps {
   // The raw value that reads as 100%: one for all columns, or one per column.
   baseline: Baseline | Baseline[];
   onSelectRow?: (key: string) => void;
+  onRemoveRow?: (key: string) => void;
   formatValue?: (value: number) => string;
   unitLabel?: string;
 }
 
 const formatFull = (v: number): string => Math.round(v).toLocaleString();
 
-export const ComparisonTable: React.FC<ComparisonTableProps> = ({ columns, rows, baseline, onSelectRow, formatValue = formatFull, unitLabel }) => {
+export const ComparisonTable: React.FC<ComparisonTableProps> = ({ columns, rows, baseline, onSelectRow, onRemoveRow, formatValue = formatFull, unitLabel }) => {
   const baselineFor = (col: number): Baseline => (Array.isArray(baseline) ? baseline[col] : baseline);
   const pctOf = (v: number | null | undefined, col: number): number | null => {
     const base = baselineFor(col);
@@ -77,6 +80,17 @@ export const ComparisonTable: React.FC<ComparisonTableProps> = ({ columns, rows,
             <span className="guide-cmp-label-text" {...(row.labelTooltip ? tip(row.labelTooltip) : {})}>{row.label}</span>
             {row.tag && (
               <span className="guide-cmp-tag" {...(row.tagTooltip ? tip(row.tagTooltip) : {})}>{row.tag}</span>
+            )}
+            {row.removable && onRemoveRow && (
+              <button
+                type="button"
+                className="guide-cmp-remove"
+                aria-label="Remove"
+                {...tip('Remove')}
+                onClick={e => { e.stopPropagation(); TooltipManager.hide(); onRemoveRow(row.key); }}
+              >
+                ×
+              </button>
             )}
           </span>
           {row.values.map((value, i) => {

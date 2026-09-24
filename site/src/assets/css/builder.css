@@ -319,7 +319,10 @@
 }
 .builder-view .form-group.relative { position: relative; }
 
-.builder-view .form-label {
+/* Also the Character Guide's Weapon Comparison controls (Ranks, Add Weapon), which mirror the
+   sub-panels' add rows below. */
+.builder-view .form-label,
+.guide-cmp-controls .form-label {
     display: block;
     font-size: 0.7rem;
     color: var(--text-dim);
@@ -895,8 +898,9 @@
     text-overflow: ellipsis;
 }
 
-/* Square "+" variant of .base-btn for the sub-panels' add rows. */
-.builder-view .mech-add-icon-btn {
+/* Square "+" variant of .base-btn for the sub-panels' add rows (and the guide's, see .form-label). */
+.builder-view .mech-add-icon-btn,
+.guide-cmp-add .mech-add-icon-btn {
     flex-shrink: 0;
     width: 1.375rem;
     height: 1.375rem;
@@ -908,7 +912,8 @@
     line-height: 1;
 }
 
-.builder-view .mech-add-row {
+.builder-view .mech-add-row,
+.guide-cmp-add.mech-add-row {
     display: flex;
     gap: var(--space-1);
     align-items: center;

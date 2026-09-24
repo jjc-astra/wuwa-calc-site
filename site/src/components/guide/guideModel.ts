@@ -2,6 +2,7 @@
 // The Character Guide has no data of its own: it groups the Rankings results that include a
 // character and builds sequence / weapon / echo variants on top of them.
 import { DataLoader } from '../../utils/DataLoader';
+import { isSelectableContent } from '../../utils/selectableContent';
 import { teamCharacters } from '../../utils/TeamUtils';
 import { dpsFieldOf } from '../../data/dpsWindows';
 import { costsForLayout, mainStatOptionsFor } from '../../data/db';
@@ -255,11 +256,13 @@ export function applyEchoBuild(slot: TeamSlot, build: EchoBuild): TeamSlot {
   return next;
 }
 
-// Weapons the unit can equip that have real mechanics (same gate as the Calculator's picker).
-export function weaponOptionsFor(character: string): string[] {
-  const type = DataLoader.characterDB[character]?.weaponType;
-  return (DataLoader.weaponsByType[type] || []).filter(w => DataLoader.isContentImplemented('weapon', w));
-}
+// Every weapon of the unit's type, for pickers (which grey out the unselectable ones).
+export const weaponsForUnit = (character: string): string[] =>
+  DataLoader.weaponsByType[DataLoader.characterDB[character]?.weaponType] || [];
+
+// The ones that can actually be calculated (same gate as the Calculator's picker).
+export const weaponOptionsFor = (character: string): string[] =>
+  weaponsForUnit(character).filter(w => isSelectableContent('weapon', w));
 
 // --- Comparison rows ----------------------------------------------------------------------
 
@@ -284,15 +287,24 @@ export function sequenceDefs(group: GuideTeamGroup, config: GuideConfig, unitIdx
 
 export interface WeaponDef {
   weapon: string;
+  // The team's own weapon (from its S0R1 config) and the selected one can't be removed.
+  removable: boolean;
   // One job per rank in the selected range's endpoints.
   jobs: Array<{ rank: number; job: GuideJob }>;
 }
 
 export const rankEndpoints = (range: RangeValue): number[] => (range.min === range.max ? [range.min] : [range.min, range.max]);
 
-export function weaponDefs(group: GuideTeamGroup, config: GuideConfig, unitIdx: number, unit: string, ranks: number[]): WeaponDef[] {
-  return weaponOptionsFor(unit).map(weapon => ({
+// The team's own weapon, then the added ones, then the selected one if it's neither. Added weapons
+// the unit can't equip (or that lost their mechanics) are skipped.
+export function weaponDefs(group: GuideTeamGroup, config: GuideConfig, unitIdx: number, unit: string, ranks: number[], added: string[]): WeaponDef[] {
+  const base = s0r1Config(group).slots[unitIdx].weapon;
+  const selected = config.slots[unitIdx].weapon;
+  const options = new Set(weaponOptionsFor(unit));
+  const weapons = [...new Set([base, ...added.filter(w => options.has(w)), selected])];
+  return weapons.map(weapon => ({
     weapon,
+    removable: weapon !== base && weapon !== selected,
     jobs: ranks.map(rank => ({ rank, job: jobForConfig(group, withSlot(config, unitIdx, { weapon, rank })) }))
   }));
 }
@@ -389,12 +401,14 @@ export interface GuideView {
   jobs: GuideJob[];
 }
 
-export function guideView(group: GuideTeamGroup, config: GuideConfig, character: string, rankRange: RangeValue): GuideView | null {
+export function guideView(
+  group: GuideTeamGroup, config: GuideConfig, character: string, rankRange: RangeValue, addedWeapons: string[]
+): GuideView | null {
   const unitIdx = group.entries[0].team.findIndex(s => s.character === character);
   if (unitIdx < 0) return null;
   const selectedJob = jobForConfig(group, config);
   const seqDefs = sequenceDefs(group, config, unitIdx);
-  const weapDefs = weaponDefs(group, config, unitIdx, character, rankEndpoints(rankRange));
+  const weapDefs = weaponDefs(group, config, unitIdx, character, rankEndpoints(rankRange), addedWeapons);
   const echoDefList = echoDefs(group, config, unitIdx, selectedJob);
   const setDefList = echoSetDefs(group, config, unitIdx, selectedJob);
   return {

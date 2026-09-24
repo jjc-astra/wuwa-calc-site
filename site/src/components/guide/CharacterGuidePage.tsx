@@ -26,10 +26,12 @@ import { GuideRankings } from './GuideRankings';
 import { EchoStatsPanel } from './EchoStatsPanel';
 import { SequenceComparison, WeaponComparison, EchoComparison } from './GuideComparisons';
 import {
-  MAX_SEQUENCE, MAX_RANK, FULL_RANK_RANGE, groupTeams, defaultConfig, s0r1Config, configFromEntry, findGroupFor, weaponOptionsFor,
+  MAX_SEQUENCE, MAX_RANK, FULL_RANK_RANGE, groupTeams, defaultConfig, s0r1Config, configFromEntry, findGroupFor, weaponsForUnit,
   guideView, isValidConfig
 } from './guideModel';
 import { useGuideSelectionStore } from '../../store/useGuideSelectionStore';
+import { selectableOptions } from '../../utils/selectableContent';
+import type { GuideSelection } from '../../store/useGuideSelectionStore';
 import type { GuideConfig, GuideMetric, GuideScope, GuideTeamGroup, GuideEntry } from './guideModel';
 import { useGuideFullCalc, useGuideSummaries, useGuideEntries, useGuideCache } from './useGuideCalc';
 
@@ -125,16 +127,20 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
   // Reopens what was last selected for this character (see useGuideSelectionStore).
   const saved = useGuideSelectionStore(s => s.selections[character]);
   const setSelection = useGuideSelectionStore(s => s.setSelection);
-  const [picked, setPickedState] = useState<GuideConfig | null>(() => (saved?.config && isValidConfig(saved.config, groups) ? saved.config : null));
-  const [rankRange, setRankRangeState] = useState<RangeValue>(() => saved?.rankRange ?? FULL_RANK_RANGE);
-  const setPicked = (config: GuideConfig | null) => {
-    setPickedState(config);
-    setSelection(character, { config, rankRange });
+  const [selection, setSelectionState] = useState<GuideSelection>(() => ({
+    config: saved?.config && isValidConfig(saved.config, groups) ? saved.config : null,
+    rankRange: saved?.rankRange ?? FULL_RANK_RANGE,
+    addedWeapons: saved?.addedWeapons ?? []
+  }));
+  const updateSelection = (patch: Partial<GuideSelection>) => {
+    const next = { ...selection, ...patch };
+    setSelectionState(next);
+    setSelection(character, next);
   };
-  const setRankRange = (range: RangeValue) => {
-    setRankRangeState(range);
-    setSelection(character, { config: picked, rankRange: range });
-  };
+  const { config: picked, rankRange } = selection;
+  const addedWeapons = useMemo(() => selection.addedWeapons ?? [], [selection.addedWeapons]);
+  const setPicked = (config: GuideConfig | null) => updateSelection({ config });
+  const setRankRange = (range: RangeValue) => updateSelection({ rankRange: range });
   const [metric, setMetric] = useState<GuideMetric>('dps');
   const [scope, setScope] = useState<GuideScope>('team');
 
@@ -142,10 +148,13 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
   const group = config ? groups.find(g => g.key === config.groupKey) : undefined;
   const defaultGroup = defaultCfg ? groups.find(g => g.key === defaultCfg.groupKey) : undefined;
 
-  const view = useMemo(() => (group && config ? guideView(group, config, character, rankRange) : null), [group, config, character, rankRange]);
+  const view = useMemo(
+    () => (group && config ? guideView(group, config, character, rankRange, addedWeapons) : null),
+    [group, config, character, rankRange, addedWeapons]
+  );
   const defaultView = useMemo(
-    () => (defaultGroup && defaultCfg ? guideView(defaultGroup, defaultCfg, character, FULL_RANK_RANGE) : null),
-    [defaultGroup, defaultCfg, character]
+    () => (defaultGroup && defaultCfg ? guideView(defaultGroup, defaultCfg, character, FULL_RANK_RANGE, addedWeapons) : null),
+    [defaultGroup, defaultCfg, character, addedWeapons]
   );
   const selectedJob = view?.selectedJob ?? null;
   const defaultJob = defaultView?.selectedJob ?? null;
@@ -267,6 +276,8 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
                 rankRange={rankRange}
                 onRankRangeChange={setRankRange}
                 onSelect={weapon => updateSlot(unitIdx, { weapon })}
+                onAdd={weapon => updateSelection({ addedWeapons: [...addedWeapons.filter(w => w !== weapon), weapon] })}
+                onRemove={weapon => updateSelection({ addedWeapons: addedWeapons.filter(w => w !== weapon) })}
               />
             </div>
             <EchoComparison
@@ -374,7 +385,7 @@ const GuideConfigPanel: React.FC<GuideConfigPanelProps> = ({
                 <AvatarIcon name={choice.weapon} folder={IMAGE_FOLDERS.WEAPONS} className="avatar-sm avatar-rect" />
                 <IconSelect
                   value={choice.weapon}
-                  options={weaponOptionsFor(slot.character).map(value => ({ value }))}
+                  options={selectableOptions('weapon', weaponsForUnit(slot.character))}
                   onChange={weapon => onSlotChange(i, { weapon })}
                   iconFolder={IMAGE_FOLDERS.WEAPONS}
                   iconShape="rect"

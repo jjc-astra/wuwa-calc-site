@@ -183,8 +183,22 @@
     font-size: 0.68rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.4px;
     color: var(--text-dim);
 }
-.guide-cmp-rank-range { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-2); font-size: 0.7rem; color: var(--text-dim); }
-.guide-cmp-rank-range > :last-child { flex: 1; max-width: 12.5rem; }
+.guide-cmp-controls {
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-2) var(--space-4);
+    margin-bottom: var(--space-2); font-size: 0.7rem; color: var(--text-dim);
+}
+.guide-cmp-rank-range { display: flex; align-items: center; gap: var(--space-3); }
+.guide-cmp-rank-range .range-slider { width: 7.5rem; }
+/* Label and "+" styled like the Mechanics Builder's add rows (builder.css .mech-add-row). */
+.guide-cmp-controls .form-label { margin: 0; }
+.guide-cmp-add .icon-select { width: auto; }
+/* Remove (X) on a comparison row, pushed to the end of its label cell. */
+.guide-cmp-remove {
+    flex-shrink: 0; margin-left: auto; padding: 0 var(--space-1);
+    background: none; border: none; cursor: pointer;
+    color: var(--text-dim); font-size: 1rem; line-height: 1;
+}
+.guide-cmp-remove:hover { color: var(--danger); }
 
 .guide-cmp-table {
     display: grid;

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { ImageFolder } from '../../data/db';
 import { AvatarIcon } from './AvatarIcon';
-import { TooltipManager } from '../../utils/Common';
+import { TooltipManager, tip } from '../../utils/Common';
 import { usePositionedSelectPopup } from '../../hooks/usePositionedSelectPopup';
 
 export interface IconSelectOption {
@@ -23,6 +23,9 @@ interface IconSelectProps {
   disabled?: boolean;
   /** Adds a text filter at the top of the popup, for long option lists (e.g. the character list). */
   searchable?: boolean;
+  /** Replaces the trigger's value/placeholder label, for a picker that isn't a field (e.g. an add button). */
+  triggerContent?: React.ReactNode;
+  triggerTooltip?: string;
 }
 
 const POPUP_MAX_HEIGHT = 260;
@@ -31,7 +34,8 @@ const POPUP_MAX_HEIGHT = 260;
  * avatars) -- native <select> can't reliably show images in its popup cross-browser. Portaled
  * to <body>, fixed-positioned, so it escapes clipping ancestors (e.g. .char-row's overflow-x). */
 export const IconSelect: React.FC<IconSelectProps> = ({
-  value, options, onChange, iconFolder, iconShape, placeholder, className = '', disabled = false, searchable = false
+  value, options, onChange, iconFolder, iconShape, placeholder, className = '', disabled = false, searchable = false,
+  triggerContent, triggerTooltip
 }) => {
   const avatarClass = iconShape === 'rect' ? 'avatar-sm avatar-rect' : 'avatar-sm';
   const [searchTerm, setSearchTerm] = useState('');
@@ -82,8 +86,9 @@ export const IconSelect: React.FC<IconSelectProps> = ({
         disabled={disabled}
         onClick={() => setIsOpen(o => !o)}
         onKeyDown={handleKeyDown}
+        {...(triggerTooltip ? tip(triggerTooltip) : {})}
       >
-        <span className="icon-select-trigger-label">{value || placeholder}</span>
+        {triggerContent ?? <span className="icon-select-trigger-label">{value || placeholder}</span>}
       </button>
       {isOpen && createPortal(
         <div className="icon-select-popup" ref={popupRef} style={popupPos}>

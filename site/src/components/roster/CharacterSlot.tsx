@@ -2,28 +2,26 @@
 import React from 'react';
 import { useRosterStore } from '../../store/useRosterStore';
 import { useBuilderStore } from '../../store/useBuilderStore';
-import { DataLoader, type ImplementedContentKind } from '../../utils/DataLoader';
+import { DataLoader } from '../../utils/DataLoader';
+import { selectableOptions } from '../../utils/selectableContent';
 import { CommonUtils, getCharacterThemeColor, tip } from '../../utils/Common';
 import { SET_LAYOUTS, IMAGE_FOLDERS } from '../../data/db';
 import type { ImageFolder } from '../../data/db';
 import { EchoCard } from './EchoCard';
 import { AvatarIcon } from '../common/AvatarIcon';
 import { IconSelect } from '../common/IconSelect';
+import type { IconSelectOption } from '../common/IconSelect';
 import { Dropdown } from '../common/Dropdown';
 
 interface CharacterSlotProps {
   index: number;
 }
 
-const NOT_IMPLEMENTED_TIP = 'Not yet implemented';
-
 export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
   const { team, setSlotField, applyRecommendedBuild, clearSlot } = useRosterStore();
-  const { hasChanges: hasBuilderChanges, editedBaseStats } = useBuilderStore();
+  // Subscribed (not just read) so Builder edits -- which can make an entity selectable -- re-render the pickers.
+  const { editedBaseStats } = useBuilderStore();
   const slot = team[index];
-  // A mechanic added through the Builder makes an otherwise-unimplemented entity selectable too.
-  const isSelectable = (kind: ImplementedContentKind, name: string) =>
-    DataLoader.isContentImplemented(kind, name) || hasBuilderChanges(name);
 
   // Builder edits only replay onto DataLoader.characterDB once opened in the Builder
   // (setActiveChar) -- so un-opened edits still need overlaying here (e.g. isDualMode).
@@ -39,14 +37,12 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
   const isOnePcSet = DataLoader.onePcSets.includes(slot.mainSet);
   const allowedEchoes = DataLoader.allowedMainEchoes(slot);
 
-  const selectable = (kind: ImplementedContentKind, names: string[]) =>
-    names.map(name => ({ value: name, disabled: !isSelectable(kind, name), disabledTooltip: NOT_IMPLEMENTED_TIP }));
-  const setOptions = selectable('set', DataLoader.sonataSets);
+  const setOptions = selectableOptions('set', DataLoader.sonataSets);
 
   // One "icon + select" row for a set or echo slot.
   const renderItemRow = (
     field: 'mainSet' | 'subSet' | 'subSet2a' | 'subSet2b' | 'mainEcho',
-    opts: { folder: ImageFolder; placeholder: string; rowClass?: string; selectClass: string; options: ReturnType<typeof selectable> }
+    opts: { folder: ImageFolder; placeholder: string; rowClass?: string; selectClass: string; options: IconSelectOption[] }
   ) => (
     <div className={`flex-row gap-sm${opts.rowClass ? ` ${opts.rowClass}` : ''}`}>
       <AvatarIcon name={slot[field]} folder={opts.folder} className="avatar-sm" />
@@ -108,7 +104,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
             iconShape="circle"
             placeholder="Character"
             searchable
-            options={selectable('character', DataLoader.charList)}
+            options={selectableOptions('character', DataLoader.charList)}
           />
           <div className="flex-row gap-sm seq-mode-row">
             <div className="base-num-box seq-box">
@@ -143,7 +139,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
             iconFolder={IMAGE_FOLDERS.WEAPONS}
             iconShape="rect"
             placeholder={slot.character ? 'Weapon' : 'Select Character First'}
-            options={selectable('weapon', validWeapons)}
+            options={selectableOptions('weapon', validWeapons)}
           />
           <div className="base-num-box">
             <span className="text-xs text-bold text-dim">RANK</span>
@@ -173,7 +169,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
               {renderItemRow('subSet2b', { folder: IMAGE_FOLDERS.ECHO_SETS, placeholder: 'Extra Set B', rowClass: 'sub-set-row', selectClass: 'sub-set-select', options: setOptions })}
             </>
           )}
-          {slot.mainSet && !isOnePcSet && renderItemRow('mainEcho', { folder: IMAGE_FOLDERS.ECHOES, placeholder: 'Main Echo', rowClass: 'main-echo-row', selectClass: 'main-echo-select', options: selectable('echo', allowedEchoes) })}
+          {slot.mainSet && !isOnePcSet && renderItemRow('mainEcho', { folder: IMAGE_FOLDERS.ECHOES, placeholder: 'Main Echo', rowClass: 'main-echo-row', selectClass: 'main-echo-select', options: selectableOptions('echo', allowedEchoes) })}
         </div>
       </div>
 
