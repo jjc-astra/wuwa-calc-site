@@ -372,3 +372,45 @@ export function echoSetDefs(group: GuideTeamGroup, config: GuideConfig, unitIdx:
 
   return defs.sort((a, b) => Number(b.isCurrent) - Number(a.isCurrent));
 }
+
+// --- Views --------------------------------------------------------------------------------
+
+export const FULL_RANK_RANGE: RangeValue = { min: 1, max: MAX_RANK };
+
+// Everything one guide view calculates: the selected config and its comparison rows.
+export interface GuideView {
+  unitIdx: number;
+  selectedJob: GuideJob;
+  seqDefs: SequenceDef[];
+  weapDefs: WeaponDef[];
+  echoDefList: EchoDef[];
+  setDefList: EchoSetDef[];
+  // Every job above, in dispatch priority order.
+  jobs: GuideJob[];
+}
+
+export function guideView(group: GuideTeamGroup, config: GuideConfig, character: string, rankRange: RangeValue): GuideView | null {
+  const unitIdx = group.entries[0].team.findIndex(s => s.character === character);
+  if (unitIdx < 0) return null;
+  const selectedJob = jobForConfig(group, config);
+  const seqDefs = sequenceDefs(group, config, unitIdx);
+  const weapDefs = weaponDefs(group, config, unitIdx, character, rankEndpoints(rankRange));
+  const echoDefList = echoDefs(group, config, unitIdx, selectedJob);
+  const setDefList = echoSetDefs(group, config, unitIdx, selectedJob);
+  return {
+    unitIdx, selectedJob, seqDefs, weapDefs, echoDefList, setDefList,
+    jobs: [
+      selectedJob,
+      ...seqDefs.map(d => d.job),
+      ...echoDefList.map(d => d.job),
+      ...setDefList.map(d => d.job),
+      ...weapDefs.flatMap(d => d.jobs.map(j => j.job))
+    ]
+  };
+}
+
+// A saved selection is only usable while its team still exists with the same slots.
+export const isValidConfig = (config: GuideConfig, groups: GuideTeamGroup[]): boolean => {
+  const group = groups.find(g => g.key === config.groupKey);
+  return !!group && config.slots.length === group.entries[0].team.length;
+};

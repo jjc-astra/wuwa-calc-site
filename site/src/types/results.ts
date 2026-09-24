@@ -89,6 +89,10 @@ export interface RotationResults {
   substatWorth: Record<string, SubstatWorthRow[]>;
 }
 
+// What the Results panels read. The chart series is optional: the Character Guide has no DMG Over
+// Time panel, so its cached results leave the series out.
+export type PanelResults = Omit<RotationResults, 'dmgOverTimeSeries'> & Partial<Pick<RotationResults, 'dmgOverTimeSeries'>>;
+
 // DPS + contribution only: what Rankings rows and the Character Guide's comparisons read.
 export type RotationSummary = Pick<RotationResults, 'dpsStats' | 'contribution'>;
 

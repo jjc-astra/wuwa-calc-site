@@ -6,6 +6,18 @@ import { INPUT_KEY_MAP } from '../../data/db';
 import { toFrames, framesToSeconds } from '../../utils/Frames';
 import type { TeamSlot } from '../../types';
 
+// Every evaluated-row field the Timeline reads. A row carries far more (dropdown snapshots, the
+// hit queue, damage breakdowns, back-links to its neighbors -- megabytes for a full rotation), so
+// anything that stores rows just for the Timeline (the Character Guide's cache) keeps only these.
+// Reading a new row field in this folder means adding it here.
+const TIMELINE_ROW_FIELDS = [
+  'unit', 'moveName', 'input', 'inputType', 'priority', 'timing', '_autoTimingChoice', 'loopEndOverride',
+  'gameTimeStart', 'gameTimePassed', 'duration', 'waitTime', 'cdWaitTime', 'freezeTime', 'animationCommitment'
+] as const;
+
+export const trimRowsForTimeline = (rows: any[]): any[] =>
+  rows.map(row => row && Object.fromEntries(TIMELINE_ROW_FIELDS.filter(f => f in row).map(f => [f, row[f]])));
+
 export const PX_PER_SECOND = 50;
 export const HEADER_COL_WIDTH_PX = 140;
 export const ROW_HEIGHT_PX = 44;

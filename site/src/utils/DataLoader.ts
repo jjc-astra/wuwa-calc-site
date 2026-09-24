@@ -1,4 +1,4 @@
-import { CommonUtils } from './Common';
+import { CommonUtils, sha256Hex } from './Common';
 import { WIP_ENABLED, isWipUrl, wipToRealUrl, dataRelPath, realDataUrl, wipDataUrl } from './dataSource';
 import { MechanicKey, SYSTEM_NAMESPACE } from './MechanicKey';
 import { getTeamEntityRefs } from './TeamUtils';
@@ -72,6 +72,18 @@ export class DataLoaderClass {
 
   private async _fetchJSON<T>(path: string, silent = false): Promise<T | null> {
     try {
+      const text = await this._fetchText(path, true);
+      if (text === null) throw new Error('Missing, or not JSON.');
+      return JSON.parse(text) as T;
+    } catch (e) {
+      if (!silent) console.error(`[DataLoader] Failed to load JSON from ${path}.`, e);
+      return null;
+    }
+  }
+
+  // A data file's raw text, or null if it's missing.
+  private async _fetchText(path: string, throwOnError = false): Promise<string | null> {
+    try {
       const res = await fetch(this.versionedUrl(path));
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const text = await res.text();
@@ -80,9 +92,9 @@ export class DataLoaderClass {
       // check for it explicitly (JSON never starts with '<') instead of letting JSON.parse's
       // syntax error do the job by accident.
       if (/^\s*</.test(text)) throw new Error('Received HTML, not JSON (path does not exist).');
-      return JSON.parse(text) as T;
+      return text;
     } catch (e) {
-      if (!silent) console.error(`[DataLoader] Failed to load JSON from ${path}.`, e);
+      if (throwOnError) throw e;
       return null;
     }
   }
@@ -164,6 +176,16 @@ export class DataLoaderClass {
       this.backfillLoadedHashes(fresh);
     }
     return this.manifest;
+  }
+
+  // Identifies a data file's current content, for caches of results calculated from it: the
+  // manifest's hash (call refreshManifest first), plus -- in dev -- a hash of the WIP mirror's
+  // copy, which either replaces the real file or merges over it and has no manifest entry.
+  async contentVersion(relPath: string): Promise<string> {
+    const real = this.manifest[relPath] ?? 'none';
+    if (!WIP_ENABLED) return real;
+    const wip = await this._fetchText(wipDataUrl(relPath));
+    return wip === null ? real : `${real}+wip:${(await sha256Hex(wip)).slice(0, 16)}`;
   }
 
   // Sets a loadedHashes baseline for anything cached but not yet hashed (e.g. useRosterStore

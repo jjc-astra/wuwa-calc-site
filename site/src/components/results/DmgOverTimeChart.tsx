@@ -117,7 +117,7 @@ export const DmgOverTimeChart: React.FC = () => {
   const [dpsType, setDpsType] = useState<DpsWindowKey>('twoMin');
   const [WIDTH, setWidth] = useState(DEFAULT_WIDTH);
 
-  const primarydmg = results ? toDisplaySeries(results.dmgOverTimeSeries[dpsType]) : EMPTY_SERIES;
+  const primarydmg = results?.dmgOverTimeSeries ? toDisplaySeries(results.dmgOverTimeSeries[dpsType]) : EMPTY_SERIES;
   // Solo series keeps its engine label (e.g. "Opener"); once pinned, both need a rotation name
   // instead, matching DpsPanel's "Current" / pinned.label convention.
   const dmgSeries: DisplaySeries[] = pinned

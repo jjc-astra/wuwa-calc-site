@@ -6,6 +6,7 @@ import { calculateEchoStatsForSlot, recommendedBuildFor, recommendedEchoes } fro
 import type { TeamSlot } from '../types';
 import type { RotationFile, ResultsFile, ResultsBuild, RotationSummary, CalcInput } from '../types/results';
 import { defaultEnemyStats } from '../data/db';
+import { sha256Hex } from './Common';
 
 export interface ExportSource extends CalcInput {
   // Already-calculated results for the submitted build and target, when current -- saves a recalculation.
@@ -21,9 +22,7 @@ interface ExportOptions {
 // Short hash of what a results file is calculated from. The data repo's index script recomputes
 // it from the rotation file (same JSON.stringify of the same fields), so both must stay in sync.
 async function hashRotationInputs({ rotation, team, settings, enemy }: CalcInput): Promise<string> {
-  const bytes = new TextEncoder().encode(JSON.stringify({ rotation, team, settings, enemy }));
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
-  return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
+  return (await sha256Hex(JSON.stringify({ rotation, team, settings, enemy }))).slice(0, 16);
 }
 
 // Each unit on its recommended echo layout, main stats and substats. Set, main echo and weapon stay

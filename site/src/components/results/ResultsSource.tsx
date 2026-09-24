@@ -6,11 +6,11 @@ import { useRotationStore } from '../../store/useRotationStore';
 import { useRosterStore } from '../../store/useRosterStore';
 import { useComparisonStore } from '../../store/useComparisonStore';
 import type { PinnedRotation } from '../../store/useComparisonStore';
-import type { RotationResults } from '../../types/results';
+import type { PanelResults } from '../../types/results';
 import type { TeamSlot } from '../../types';
 
 export interface ResultsSource {
-  results: RotationResults | null;
+  results: PanelResults | null;
   team: TeamSlot[];
   isStale: boolean;
   pinned: PinnedRotation | null;

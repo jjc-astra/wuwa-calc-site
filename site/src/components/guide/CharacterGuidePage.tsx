@@ -26,11 +26,12 @@ import { GuideRankings } from './GuideRankings';
 import { EchoStatsPanel } from './EchoStatsPanel';
 import { SequenceComparison, WeaponComparison, EchoComparison } from './GuideComparisons';
 import {
-  sequenceDefs, weaponDefs, echoDefs, echoSetDefs, rankEndpoints,
-  MAX_SEQUENCE, MAX_RANK, groupTeams, defaultConfig, s0r1Config, configFromEntry, findGroupFor, jobForConfig, weaponOptionsFor
+  MAX_SEQUENCE, MAX_RANK, FULL_RANK_RANGE, groupTeams, defaultConfig, s0r1Config, configFromEntry, findGroupFor, weaponOptionsFor,
+  guideView, isValidConfig
 } from './guideModel';
+import { useGuideSelectionStore } from '../../store/useGuideSelectionStore';
 import type { GuideConfig, GuideMetric, GuideScope, GuideTeamGroup, GuideEntry } from './guideModel';
-import { useGuideFullCalc, useGuideSummaries, useGuideEntries } from './useGuideCalc';
+import { useGuideFullCalc, useGuideSummaries, useGuideEntries, useGuideCache } from './useGuideCalc';
 
 interface CharacterGuidePageProps {
   character?: string;
@@ -121,8 +122,19 @@ interface GuideContentProps extends GuideBodyProps {
 const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEntries }) => {
   const groups = useMemo(() => groupTeams(guideEntries, character), [guideEntries, character]);
   const defaultCfg = useMemo(() => defaultConfig(groups), [groups]);
-  const [picked, setPicked] = useState<GuideConfig | null>(null);
-  const [rankRange, setRankRange] = useState<RangeValue>({ min: 1, max: MAX_RANK });
+  // Reopens what was last selected for this character (see useGuideSelectionStore).
+  const saved = useGuideSelectionStore(s => s.selections[character]);
+  const setSelection = useGuideSelectionStore(s => s.setSelection);
+  const [picked, setPickedState] = useState<GuideConfig | null>(() => (saved?.config && isValidConfig(saved.config, groups) ? saved.config : null));
+  const [rankRange, setRankRangeState] = useState<RangeValue>(() => saved?.rankRange ?? FULL_RANK_RANGE);
+  const setPicked = (config: GuideConfig | null) => {
+    setPickedState(config);
+    setSelection(character, { config, rankRange });
+  };
+  const setRankRange = (range: RangeValue) => {
+    setRankRangeState(range);
+    setSelection(character, { config: picked, rankRange: range });
+  };
   const [metric, setMetric] = useState<GuideMetric>('dps');
   const [scope, setScope] = useState<GuideScope>('team');
 
@@ -130,41 +142,29 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
   const group = config ? groups.find(g => g.key === config.groupKey) : undefined;
   const defaultGroup = defaultCfg ? groups.find(g => g.key === defaultCfg.groupKey) : undefined;
 
-  const unitIdx = group ? group.entries[0].team.findIndex(s => s.character === character) : -1;
-  const selectedJob = useMemo(() => (group && config ? jobForConfig(group, config) : null), [group, config]);
-  const defaultJob = useMemo(() => (defaultGroup && defaultCfg ? jobForConfig(defaultGroup, defaultCfg) : null), [defaultGroup, defaultCfg]);
+  const view = useMemo(() => (group && config ? guideView(group, config, character, rankRange) : null), [group, config, character, rankRange]);
+  const defaultView = useMemo(
+    () => (defaultGroup && defaultCfg ? guideView(defaultGroup, defaultCfg, character, FULL_RANK_RANGE) : null),
+    [defaultGroup, defaultCfg, character]
+  );
+  const selectedJob = view?.selectedJob ?? null;
+  const defaultJob = defaultView?.selectedJob ?? null;
 
-  const seqDefs = useMemo(() => (group && config ? sequenceDefs(group, config, unitIdx) : []), [group, config, unitIdx]);
-  const weapDefs = useMemo(
-    () => (group && config ? weaponDefs(group, config, unitIdx, character, rankEndpoints(rankRange)) : []),
-    [group, config, unitIdx, character, rankRange]
-  );
-  const echoDefList = useMemo(
-    () => (group && config && selectedJob ? echoDefs(group, config, unitIdx, selectedJob) : []),
-    [group, config, unitIdx, selectedJob]
-  );
-  const setDefList = useMemo(
-    () => (group && config && selectedJob ? echoSetDefs(group, config, unitIdx, selectedJob) : []),
-    [group, config, unitIdx, selectedJob]
-  );
+  // The shown view first; the default view trails it (its Default job is also the Rankings
+  // baseline), so the view every visit can open on always finishes and gets saved.
+  const allJobs = useMemo(() => [...(view?.jobs ?? []), ...(defaultView?.jobs ?? [])], [view, defaultView]);
 
-  // Listed in dispatch priority order.
-  const allJobs = useMemo(() => [
-    ...(selectedJob ? [selectedJob] : []),
-    ...(defaultJob ? [defaultJob] : []),
-    ...seqDefs.map(d => d.job),
-    ...echoDefList.map(d => d.job),
-    ...setDefList.map(d => d.job),
-    ...weapDefs.flatMap(d => d.jobs.map(j => j.job))
-  ], [selectedJob, defaultJob, seqDefs, echoDefList, setDefList, weapDefs]);
+  const isDefaultConfig = !picked || JSON.stringify(picked) === JSON.stringify(defaultCfg);
+  const cacheReady = useGuideCache(character, guideEntries, allJobs);
 
   // Must come before useGuideSummaries -- see useGuideFullCalc.
-  const full = useGuideFullCalc(selectedJob);
-  const summaries = useGuideSummaries(allJobs);
+  const full = useGuideFullCalc(cacheReady ? selectedJob : null);
+  const summaries = useGuideSummaries(cacheReady ? allJobs : []);
 
-  if (!group || !config || !selectedJob || unitIdx < 0) {
+  if (!group || !config || !view || !selectedJob) {
     return <div className="results-empty">No ranked rotations include {character} yet.</div>;
   }
+  const { unitIdx, seqDefs, weapDefs, echoDefList, setDefList } = view;
 
   const updateSlot = (slotIdx: number, patch: Partial<GuideConfig['slots'][number]>) =>
     setPicked({ ...config, slots: config.slots.map((s, i) => (i === slotIdx ? { ...s, ...patch } : s)) });
@@ -204,7 +204,7 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
               groups={groups}
               group={group}
               config={config}
-              isDefault={!picked || JSON.stringify(picked) === JSON.stringify(defaultCfg)}
+              isDefault={isDefaultConfig}
               onGroupChange={g => setPicked(s0r1Config(g))}
               onSlotChange={updateSlot}
               onReset={() => setPicked(null)}

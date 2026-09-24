@@ -6,22 +6,30 @@ const VALID_VIEWS: ViewId[] = ['landing', 'calculator', 'builder', 'rankings', '
 // Remembers the last Calculator step (Build Team / Build Rotation) across navigation --
 // without it, a bare "#/calculator" nav click would always land back on step 1.
 const LAST_STEP_KEY = 'wuwa_calc_last_step';
+// Remembers the open Character Guide character, like the Mechanics Builder's open unit: a plain
+// "Character Guide" nav click reopens it, and Back to Library (a bare "#/guide") forgets it.
+const LAST_GUIDE_KEY = 'wuwa_calc_last_guide_character';
 
-function getLastStep(): 1 | 2 {
+// localStorage unavailable (private browsing, etc.) -- the value just isn't remembered.
+function readStored(key: string): string | null {
   try {
-    return localStorage.getItem(LAST_STEP_KEY) === '2' ? 2 : 1;
+    return localStorage.getItem(key);
   } catch {
-    return 1;
+    return null;
   }
 }
 
-function setLastStep(step: 1 | 2): void {
+function writeStored(key: string, value: string | null): void {
   try {
-    localStorage.setItem(LAST_STEP_KEY, String(step));
+    if (value === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, value);
   } catch {
-    // localStorage unavailable (private browsing, etc.) -- step just won't be remembered.
+    // See readStored.
   }
 }
+
+const getLastStep = (): 1 | 2 => (readStored(LAST_STEP_KEY) === '2' ? 2 : 1);
+const setLastStep = (step: 1 | 2): void => writeStored(LAST_STEP_KEY, String(step));
 
 export interface Route {
   view: ViewId;
@@ -37,7 +45,11 @@ export const guideHash = (character?: string): string =>
 function parseHash(): Route {
   const parts = window.location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
   const view = VALID_VIEWS.includes(parts[0] as ViewId) ? (parts[0] as ViewId) : 'landing';
-  if (view === 'guide') return { view, step: 1, guideCharacter: parts[1] ? decodeURIComponent(parts[1]) : undefined };
+  if (view === 'guide') {
+    const guideCharacter = parts[1] ? decodeURIComponent(parts[1]) : undefined;
+    writeStored(LAST_GUIDE_KEY, guideCharacter ?? null);
+    return { view, step: 1, guideCharacter };
+  }
   if (view !== 'calculator') return { view, step: 1 };
 
   // routeToHash always writes an explicit step-1/step-2, so a missing segment here only
@@ -80,11 +92,11 @@ export function useHashRoute(): [Route, (view: ViewId, step?: 1 | 2) => void] {
     // No explicit step (a plain nav-link click) -- resolve to the remembered last step instead
     // of always resetting to 1.
     const resolvedStep = step ?? (view === 'calculator' ? getLastStep() : 1);
-    const nextHash = routeToHash(view, resolvedStep);
+    const nextHash = view === 'guide' ? guideHash(readStored(LAST_GUIDE_KEY) ?? undefined) : routeToHash(view, resolvedStep);
     if (window.location.hash === nextHash) {
       // Hash isn't changing (e.g. re-clicking the same nav item), so no event fires to re-run
       // parseHash() -- update local state directly instead.
-      setRoute({ view, step: resolvedStep });
+      setRoute(parseHash());
       return;
     }
     if (nextHash === '') {
