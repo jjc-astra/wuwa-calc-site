@@ -130,7 +130,8 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
   const [selection, setSelectionState] = useState<GuideSelection>(() => ({
     config: saved?.config && isValidConfig(saved.config, groups) ? saved.config : null,
     rankRange: saved?.rankRange ?? FULL_RANK_RANGE,
-    addedWeapons: saved?.addedWeapons ?? []
+    addedWeapons: saved?.addedWeapons ?? [],
+    showInputs: saved?.showInputs ?? true
   }));
   const updateSelection = (patch: Partial<GuideSelection>) => {
     const next = { ...selection, ...patch };
@@ -141,6 +142,8 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
   const addedWeapons = useMemo(() => selection.addedWeapons ?? [], [selection.addedWeapons]);
   const setPicked = (config: GuideConfig | null) => updateSelection({ config });
   const setRankRange = (range: RangeValue) => updateSelection({ rankRange: range });
+  const showInputs = selection.showInputs ?? true;
+  const setShowInputs = (show: boolean) => updateSelection({ showInputs: show });
   const [metric, setMetric] = useState<GuideMetric>('dps');
   const [scope, setScope] = useState<GuideScope>('team');
 
@@ -298,9 +301,19 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
 
       {full.results && (
         <div className="guide-section">
-          <div className="panel-header-main">Timeline</div>
+          <div className="guide-column-header">
+            <div className="panel-header-main">Timeline</div>
+            <label className="toolbar-toggle-label">
+              <input type="checkbox" checked={showInputs} onChange={e => setShowInputs(e.target.checked)} /> Show Inputs
+            </label>
+          </div>
           <div className={`results-card guide-timeline-card ${isStale ? 'is-stale' : ''}`}>
-            <RotationTimeline evaluatedRows={full.evaluatedRows} team={full.team} loopStartIndex={full.loopStartIndex} />
+            <RotationTimeline
+              evaluatedRows={full.evaluatedRows}
+              team={full.team}
+              loopStartIndex={full.loopStartIndex}
+              showInputs={showInputs}
+            />
           </div>
         </div>
       )}

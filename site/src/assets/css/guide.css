@@ -13,7 +13,8 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    padding: var(--space-6);
+    /* Top padding + #app-layout's 0.625rem gap under the nav = the var(--space-4) gap below the hero. */
+    padding: calc(var(--space-4) - 0.625rem) var(--space-6) var(--space-6);
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
@@ -250,7 +251,7 @@
 .guide-rankings-filters .ranking-seq-row { min-width: 15rem; }
 
 @media (max-width: 900px) {
-    .guide-page-body { padding: var(--space-4); }
+    .guide-page-body { padding: calc(var(--space-4) - 0.625rem) var(--space-4) var(--space-4); }
     .guide-cmp-table { grid-template-columns: minmax(6.875rem, 1fr) repeat(var(--guide-cmp-cols), minmax(6.875rem, auto)); }
     .guide-cmp-pct { width: 3.5rem; }
     .guide-hero { flex-wrap: wrap; }

@@ -11,6 +11,8 @@ export interface GuideSelection {
   rankRange: RangeValue;
   // Weapons added to the Weapon Comparison.
   addedWeapons?: string[];
+  // The Timeline's Show Inputs toggle (on unless turned off).
+  showInputs?: boolean;
 }
 
 interface GuideSelectionState {

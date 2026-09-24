@@ -29,6 +29,8 @@ interface RotationTimelineProps {
   team: TeamSlot[];
   loopStartIndex: number | null;
   className?: string;
+  // The flag track above the rows: key inputs (E, R, Hold...) and unit swaps (1, 2, 3).
+  showInputs?: boolean;
 }
 
 // Loop/ending-rotation marker: a line spanning just the unit rows (not through the ruler), plus
@@ -48,11 +50,14 @@ const TimelineMarkerLine: React.FC<MarkerLineProps> = ({ left, top, height, widt
   </>
 );
 
-export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRows, team, loopStartIndex, className = '' }) => {
+export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRows, team, loopStartIndex, className = '', showInputs = true }) => {
   // Squeezes the Ending Rotation's silently-simulated gap down to a small fixed width. All
   // x/width math below routes through compressedTimeToPx so clips/flags/ticks/width all agree.
   const compression = useMemo(() => buildTimeCompression(evaluatedRows), [evaluatedRows]);
-  const flags = useMemo(() => assignFlagLanes(buildFlags(evaluatedRows, team), compression), [evaluatedRows, team, compression]);
+  const flags = useMemo(
+    () => (showInputs ? assignFlagLanes(buildFlags(evaluatedRows, team), compression) : []),
+    [evaluatedRows, team, compression, showInputs]
+  );
   const unitRows = useMemo(() => buildUnitRows(evaluatedRows, team, compression), [evaluatedRows, team, compression]);
   const totalFrames = useMemo(() => computeTotalDurationFrames(evaluatedRows), [evaluatedRows]);
   const ticks = useMemo(() => generateTicks(totalFrames, compression), [totalFrames, compression]);
@@ -76,7 +81,8 @@ export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRow
   // Poles stop at the bottom of the rows (never cross into the ruler below), and start right at
   // their own flag's label -- not above it, where they'd cross through lower-lane flags' labels.
   const maxLane = flags.reduce((max, f) => Math.max(max, f.lane), -1);
-  const flagTrackHeight = Math.max(FLAG_TRACK_MIN_HEIGHT_PX, (maxLane + 1) * LANE_HEIGHT_PX);
+  // Hidden inputs drop the whole track, so the rows start at the top.
+  const flagTrackHeight = showInputs ? Math.max(FLAG_TRACK_MIN_HEIGHT_PX, (maxLane + 1) * LANE_HEIGHT_PX) : 0;
   const rowsBottom = flagTrackHeight + unitRows.length * ROW_HEIGHT_PX;
   const hairline = hairlinePx();
 
@@ -84,7 +90,7 @@ export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRow
     <div className={`timeline-root ${className}`}>
       <div className="timeline-scroll">
         <div className="timeline-content" style={{ width: contentWidth }}>
-          <TimelineFlagTrack flags={flags} />
+          {showInputs && <TimelineFlagTrack flags={flags} />}
           {unitRows.map(row => (
             <TimelineRow key={row.unit} data={row} />
           ))}
