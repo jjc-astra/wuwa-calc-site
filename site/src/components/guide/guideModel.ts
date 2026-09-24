@@ -202,7 +202,7 @@ export interface EchoVariant extends EchoBuild {
 }
 
 // 43311 with each 3-cost pair (Ele/Ele, Ele/scalar, scalar/scalar), and 44111 with the second
-// 4-cost as the other crit stat or the scalar. The scalar (ATK/HP/DEF %) comes from the submitted
+// 4-cost as the other crit stat. The scalar (ATK/HP/DEF %) comes from the submitted
 // 1-cost echoes; the first 4-cost keeps its submitted main stat.
 export function echoVariants(slot: TeamSlot): EchoVariant[] {
   const element = DataLoader.characterDB[slot.character]?.element;
@@ -217,7 +217,7 @@ export function echoVariants(slot: TeamSlot): EchoVariant[] {
     ['4 3 3 1 1', [first4, elementStat, scalar, scalar, scalar]],
     ['4 3 3 1 1', [first4, scalar, scalar, scalar, scalar]],
     ['4 4 1 1 1', [first4, otherCrit, scalar, scalar, scalar]],
-    ['4 4 1 1 1', [first4, scalar, scalar, scalar, scalar]]
+    ['4 1 1 1 1', [first4, scalar, scalar, scalar, scalar]]
   ];
 
   const seen = new Set<string>();
