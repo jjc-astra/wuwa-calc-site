@@ -1,6 +1,6 @@
 // Pure layout math for the rotation Timeline -- no React/DOM here.
 // Reads off already-recalculated rows (see TimelineEngine.ts for field meanings).
-import { getCharacterThemeColor } from '../../utils/Common';
+import { getCharacterThemeColor, uiScale } from '../../utils/Common';
 import { DataLoader } from '../../utils/DataLoader';
 import { INPUT_KEY_MAP } from '../../data/db';
 import { toFrames, framesToSeconds } from '../../utils/Frames';
@@ -37,8 +37,10 @@ const MIN_CLIP_WIDTH_PX = 4;
 
 // Snaps to whole device pixels, not just CSS pixels, so edges land crisp under fractional
 // devicePixelRatio (e.g. 125% Windows scaling) instead of anti-aliasing inconsistently.
+// Screen pixels per timeline design pixel: the display's ratio times the zoom RotationTimeline
+// applies (the UI scale), so snapped widths land on whole screen pixels.
 function getDevicePixelRatio(): number {
-  return (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+  return ((typeof window !== 'undefined' && window.devicePixelRatio) || 1) * uiScale();
 }
 
 export function snapToDevicePixel(px: number): number {

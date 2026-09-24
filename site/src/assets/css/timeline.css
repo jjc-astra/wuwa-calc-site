@@ -1,5 +1,8 @@
 /* src/assets/css/timeline.css
-   The reusable "video editor" rotation Timeline -- page-agnostic, not scoped to any one page. */
+   The reusable "video editor" rotation Timeline -- page-agnostic, not scoped to any one page.
+   Unlike the rest of the site, sizes inside .timeline-content are px: the timeline's geometry is
+   laid out in px (timelineLayout.ts) and RotationTimeline zooms the whole content by the UI scale,
+   so text and boxes scale together. Rem here would be scaled twice. */
 
 .timeline-root { width: 100%; }
 
@@ -37,9 +40,9 @@
     background: var(--surface-card-flat);
     overflow: hidden;
 }
-.timeline-row-icon { width: 1.375rem; height: 1.375rem; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+.timeline-row-icon { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
 .timeline-row-name {
-    font-size: 0.72rem; font-weight: bold; color: var(--char-theme-raw, var(--text-main));
+    font-size: 11.52px; font-weight: bold; color: var(--char-theme-raw, var(--text-main));
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
@@ -47,12 +50,12 @@
 
 .timeline-clip-hit {
     position: absolute;
-    top: 0.375rem; bottom: 0.375rem;
+    top: 6px; bottom: 6px;
 }
 .timeline-clip {
     position: absolute;
     top: 0; bottom: 0;
-    border-radius: 0.1875rem;
+    border-radius: 3px;
     box-sizing: border-box;
 }
 .timeline-clip-onfield { background: var(--char-theme-raw); }
@@ -88,22 +91,22 @@
     background: var(--surface-card-flat);
 }
 .timeline-flag-track > .timeline-ruler-spacer {
-    margin-top: -0.25rem;
-    height: calc(100% + 0.25rem);
+    margin-top: -4px;
+    height: calc(100% + 4px);
 }
 .timeline-ruler-track { flex: 1; min-width: 0; position: relative; height: 100%; }
 
 .timeline-ruler-tick { position: absolute; top: 0; }
 .timeline-ruler-tick-mark { display: block; background: var(--border); }
-.timeline-ruler-tick-major .timeline-ruler-tick-mark { height: 0.625rem; }
-.timeline-ruler-tick-secondary .timeline-ruler-tick-mark { height: 0.375rem; }
-.timeline-ruler-tick-minor .timeline-ruler-tick-mark { height: 0.1875rem; }
+.timeline-ruler-tick-major .timeline-ruler-tick-mark { height: 10px; }
+.timeline-ruler-tick-secondary .timeline-ruler-tick-mark { height: 6px; }
+.timeline-ruler-tick-minor .timeline-ruler-tick-mark { height: 3px; }
 .timeline-ruler-tick-label {
     position: absolute;
-    top: 0.75rem;
+    top: 12px;
     left: 50%;
     transform: translateX(-50%);
-    font-size: 0.6rem;
+    font-size: 9.6px;
     font-weight: bold;
     color: var(--text-disabled);
     white-space: nowrap;
@@ -127,11 +130,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.6rem;
+    font-size: 9.6px;
     font-weight: 800;
     line-height: 1.3;
-    padding: 2px 0.1875rem;
-    border-radius: 0 0.1875rem 0.1875rem 0;
+    padding: 2px 3px;
+    border-radius: 0 3px 3px 0;
     background: color-mix(in srgb, white 3%, var(--surface-card-flat));
     border: 1px solid var(--border);
     white-space: nowrap;
@@ -145,10 +148,10 @@
 .timeline-flag-label-wait::after {
     content: '';
     position: absolute;
-    top: -0.1875rem;
-    right: -0.1875rem;
-    width: 0.375rem;
-    height: 0.375rem;
+    top: -3px;
+    right: -3px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
     border: 1px solid var(--surface-card-flat);
 }
@@ -181,7 +184,7 @@
     position: absolute;
     transform: translate(-50%, 0);
     color: var(--accent);
-    font-size: 0.6rem;
+    font-size: 9.6px;
     line-height: 1;
     z-index: 3;
     pointer-events: none;
@@ -197,12 +200,12 @@
         var(--border) 0px,
         var(--border) 2px,
         transparent 2px,
-        transparent 0.5625rem
+        transparent 9px
     );
 }
 .timeline-ending-rotation-cut-ff {
-    width: 1.25rem;
-    height: 1.25rem;
+    width: 20px;
+    height: 20px;
     color: var(--accent);
     flex-shrink: 0;
 }

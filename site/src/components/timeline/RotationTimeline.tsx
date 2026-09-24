@@ -3,6 +3,7 @@
 // out), no fetching/page knowledge, so reuse elsewhere is just a thin wrapper, not a rewrite.
 import React, { useMemo } from 'react';
 import { TimelineFlagTrack } from './TimelineFlagTrack';
+import { useUiScale } from '../../hooks/useUiScale';
 import { TimelineRow } from './TimelineRow';
 import { TimelineRuler } from './TimelineRuler';
 import { TooltipManager } from '../../utils/Common';
@@ -51,6 +52,10 @@ const TimelineMarkerLine: React.FC<MarkerLineProps> = ({ left, top, height, widt
 );
 
 export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRows, team, loopStartIndex, className = '', showInputs = true }) => {
+  // All timeline geometry is laid out in fixed design px (timelineLayout), so the content is
+  // zoomed by the UI scale as a whole -- boxes and text shrink together, instead of rem text
+  // shrinking inside px boxes.
+  const scale = useUiScale();
   // Squeezes the Ending Rotation's silently-simulated gap down to a small fixed width. All
   // x/width math below routes through compressedTimeToPx so clips/flags/ticks/width all agree.
   const compression = useMemo(() => buildTimeCompression(evaluatedRows), [evaluatedRows]);
@@ -89,7 +94,7 @@ export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRow
   return (
     <div className={`timeline-root ${className}`}>
       <div className="timeline-scroll">
-        <div className="timeline-content" style={{ width: contentWidth }}>
+        <div className="timeline-content" style={{ width: contentWidth, zoom: scale }}>
           {showInputs && <TimelineFlagTrack flags={flags} />}
           {unitRows.map(row => (
             <TimelineRow key={row.unit} data={row} />
