@@ -324,9 +324,10 @@
 .builder-view .form-label,
 .guide-cmp-controls .form-label {
     display: block;
-    font-size: 0.7rem;
+    font-size: var(--font-label);
     color: var(--text-dim);
     text-transform: uppercase;
+    letter-spacing: var(--caps-spacing);
     font-weight: bold;
     margin-bottom: var(--space-2);
 }

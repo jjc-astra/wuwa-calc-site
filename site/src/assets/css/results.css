@@ -213,10 +213,10 @@
 }
 .dps-list.is-compare .dps-row { grid-template-columns: 4.75rem minmax(0, 1fr) 3.5rem 3.125rem; }
 .dps-row-label {
-    font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+    font-size: var(--font-label); font-weight: 700; text-transform: uppercase; letter-spacing: var(--caps-spacing);
     color: var(--text-main); white-space: nowrap;
 }
-.dps-row-value, .dps-row-delta { text-align: right; font-size: 0.78rem; font-weight: bold; font-variant-numeric: tabular-nums; color: var(--text-main); }
+.dps-row-value, .dps-row-delta { text-align: right; font-size: var(--font-value); font-weight: bold; font-variant-numeric: tabular-nums; color: var(--text-main); }
 .dps-row-delta.is-up { color: var(--success); }
 .rotation-time-list { display: flex; flex-direction: column; }
 /* Row spacing and dividers match the guide's comparison tables. */
@@ -322,7 +322,7 @@
 .unit-tab {
     --unit-theme: var(--accent);
     padding: 0.25rem 0.625rem; background: var(--surface-lighten); border: 1px solid var(--border);
-    border-radius: 0.25rem; color: var(--text-dim); font-size: 0.72rem; font-weight: bold; cursor: pointer;
+    border-radius: 0.25rem; color: var(--text-dim); font-size: var(--font-secondary); font-weight: bold; cursor: pointer;
     transition: color 0.15s, border-color 0.15s, background-color 0.15s;
 }
 .unit-tab:hover { color: color-mix(in srgb, var(--unit-theme) 60%, #ffffff); border-color: var(--unit-theme); }
@@ -344,7 +344,7 @@
     background: var(--surface-lighten);
     border: none;
     color: var(--text-dim);
-    font-size: 0.72rem;
+    font-size: var(--font-secondary);
     font-weight: bold;
     cursor: pointer;
     transition: color 0.15s, background-color 0.15s;
@@ -356,7 +356,7 @@
     color: color-mix(in srgb, var(--accent) 55%, #ffffff);
 }
 
-.results-dps-type-select { width: auto; min-width: 11ch; padding: 2px 0.375rem; font-size: 0.7rem; }
+.results-dps-type-select { width: auto; min-width: 11ch; padding: 2px 0.375rem; font-size: var(--font-secondary); }
 
 .dmg-time-window-row { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; margin-top: var(--space-3); }
 .dmg-time-window-col-left { grid-column: 1; justify-self: start; }
@@ -373,20 +373,24 @@
     align-items: center;
     gap: var(--space-2);
 }
-.substat-chart-headrow { font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; }
+.substat-chart-headrow {
+    font-size: var(--font-label); font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: var(--caps-spacing);
+}
 .substat-col-header { text-align: right; }
 /* The roll value each row was tested at, e.g. "7.5%". */
-.substat-roll-col { font-size: 0.7rem; font-weight: 700; color: var(--accent); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.substat-roll-col { font-size: var(--font-secondary); font-weight: 700; color: var(--accent); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .substat-label-col {
-    font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+    font-size: var(--font-label); font-weight: 700; text-transform: uppercase; letter-spacing: var(--caps-spacing);
     color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .substat-track-col { position: relative; }
+/* Unsnapped fallback only: once measured, SubstatWorthChart sets left/width/margin inline, snapped
+   to whole screen pixels so every row's marker renders equally thick. */
 .substat-default-marker {
-    position: absolute; top: 50%; width: 0.1875rem; height: 0.875rem; margin-left: -1.5px; margin-top: -0.4375rem;
+    position: absolute; top: 50%; width: 3px; height: 0.875rem; margin-left: -1.5px; margin-top: -0.4375rem;
     background: #f0d8a8; border-radius: 2px; cursor: pointer;
 }
-.substat-col-value { text-align: right; font-size: 0.72rem; font-variant-numeric: tabular-nums; color: var(--text-main); }
+.substat-col-value { text-align: right; font-size: var(--font-secondary); font-variant-numeric: tabular-nums; color: var(--text-main); }
 .substat-row:hover { background: var(--surface-lighten); }
 
 /* =========================================
@@ -411,10 +415,10 @@
 .pie-chart-total-value { fill: var(--text-main); font-size: 15px; font-weight: bold; }
 .pie-chart-total-label { fill: var(--text-dim); font-size: 8px; text-transform: uppercase; letter-spacing: 0.3px; }
 .pie-chart-legend { display: flex; flex-direction: column; gap: 0.3125rem; flex: 1; min-width: 7.5rem; }
-.pie-chart-legend-row { display: flex; align-items: center; gap: var(--space-2); font-size: 0.72rem; padding: 2px 0.25rem; border-radius: 0.1875rem; }
+.pie-chart-legend-row { display: flex; align-items: center; gap: var(--space-2); font-size: var(--font-secondary); padding: 2px 0.25rem; border-radius: 0.1875rem; }
 .pie-chart-legend-row.is-hovered { background: rgba(255, 255, 255, 0.05); }
 .pie-chart-swatch { width: 0.625rem; height: 0.625rem; border-radius: 2px; flex-shrink: 0; }
-.pie-chart-legend-label { color: var(--text-main); font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pie-chart-legend-label { color: var(--text-main); font-weight: bold; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pie-chart-legend-value { color: var(--text-dim); font-variant-numeric: tabular-nums; }
 
 /* =========================================

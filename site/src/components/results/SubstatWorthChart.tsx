@@ -39,24 +39,33 @@ export const SubstatWorthChart: React.FC = () => {
   }, [unit, results, direction, mode]);
   const scaleMax = Math.max(1, ...rows.map(r => r.max)) * 1.08;
 
-  // Every row's track shares the same CSS Grid width, so one measurement covers them all.
+  // Every row's track shares the same CSS Grid column, so one measurement covers them all.
   // A raw `left: X%` marker lands on a different fractional pixel per row, and anti-aliasing
-  // makes some read thicker than others. Snapping to a whole pixel fixes that.
+  // makes some read thicker than others. Edges are snapped to whole *screen* pixels -- at 125% OS
+  // scaling a CSS pixel is 1.25 of them -- counted from the track's own on-screen position.
   const trackRef = useRef<HTMLSpanElement>(null);
-  const [trackWidth, setTrackWidth] = useState(0);
+  const [track, setTrack] = useState({ width: 0, left: 0, dpr: 1 });
 
   useLayoutEffect(() => {
     const el = trackRef.current;
     if (!el) return;
-    // Measured synchronously before paint so the first render is already pixel-snapped;
-    // ResizeObserver only needed for later resizes.
-    setTrackWidth(el.getBoundingClientRect().width);
-    const observer = new ResizeObserver(entries => setTrackWidth(entries[0].contentRect.width));
+    // Measured synchronously before paint so the first render is already pixel-snapped. Zoom
+    // changes devicePixelRatio and the track's CSS width together, so ResizeObserver covers it.
+    const measure = () => {
+      const rect = el.getBoundingClientRect();
+      setTrack({ width: rect.width, left: rect.left, dpr: window.devicePixelRatio || 1 });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
   }, [unit]);
 
-  const snapPct = (pct: number) => (trackWidth > 0 ? `${Math.round((pct / 100) * trackWidth)}px` : `${pct}%`);
+  // A CSS x offset within the track, moved to the nearest screen-pixel boundary.
+  const snapX = (pct: number, shiftScreenPx = 0) =>
+    Math.round((track.left + (pct / 100) * track.width) * track.dpr - shiftScreenPx) / track.dpr - track.left;
+  // The Default marker: a whole number of screen pixels wide (~3 CSS px), centered on its value.
+  const markerScreenPx = Math.max(2, Math.round(3 * track.dpr));
 
   return (
     <div className="results-card">
@@ -109,8 +118,8 @@ export const SubstatWorthChart: React.FC = () => {
               const defPct = (row.default / scaleMax) * 100;
 
               // Snap the range bar's edges the same way (not raw min%/width%) to avoid the same pixel inconsistency.
-              const rangeLeft = trackWidth > 0 ? Math.round((minPct / 100) * trackWidth) : null;
-              const rangeRight = trackWidth > 0 ? Math.round((maxPct / 100) * trackWidth) : null;
+              const rangeLeft = track.width > 0 ? snapX(minPct) : null;
+              const rangeRight = track.width > 0 ? snapX(maxPct) : null;
 
               return (
                 <div key={row.substat} className="substat-row">
@@ -128,7 +137,11 @@ export const SubstatWorthChart: React.FC = () => {
                       />
                       <span
                         className="substat-default-marker"
-                        style={{ left: snapPct(defPct) }}
+                        style={
+                          track.width > 0
+                            ? { left: `${snapX(defPct, markerScreenPx / 2)}px`, width: `${markerScreenPx / track.dpr}px`, marginLeft: 0 }
+                            : { left: `${defPct}%` }
+                        }
                         onMouseEnter={e =>
                           TooltipManager.show(
                             e.currentTarget,

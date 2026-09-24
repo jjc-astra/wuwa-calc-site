@@ -87,4 +87,14 @@
     --space-4: 0.75rem;
     --space-5: 1rem;
     --space-6: 1.25rem;
+
+    /* --- Type scale -- the site's text roles; pick one instead of a one-off size. ---
+       Label: bold uppercase row/column names (OPENER, R1, SUBSTATS). Tag: tiny bold uppercase
+       badges, units and chip captions. Value: primary numbers and names. Secondary: %, min/max,
+       legends and small controls. Card titles and section headers keep their own sizes. */
+    --font-label: 0.7rem;
+    --font-tag: 0.65rem;
+    --font-value: 0.8rem;
+    --font-secondary: 0.72rem;
+    --caps-spacing: 0.4px;
 }

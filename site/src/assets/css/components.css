@@ -33,6 +33,9 @@ html {
     html { font-size: 1rem; }
 }
 
+/* Form controls don't inherit the page font by default (they fall back to the browser's own). */
+button, input, select, textarea { font-family: inherit; }
+
 #root {
     width: 100%;
     height: 100%;

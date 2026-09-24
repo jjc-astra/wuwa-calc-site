@@ -181,7 +181,7 @@
 }
 .range-slider-tick-mark { width: 1px; height: 0.25rem; background: var(--border); }
 .range-slider-tick-label {
-    font-size: 0.62rem; font-weight: bold; line-height: 1;
+    font-size: var(--font-tag); font-weight: bold; line-height: 1;
     color: var(--text-disabled);
     transition: color 0.15s;
 }
@@ -259,9 +259,9 @@
     flex-shrink: 0;
     display: inline-block;
     text-transform: uppercase;
-    letter-spacing: 0.4px;
+    letter-spacing: var(--caps-spacing);
     font-weight: bold;
-    font-size: 0.65rem;
+    font-size: var(--font-tag);
     padding: 0.1875rem 0.5rem;
     border-radius: 0.625rem;
     white-space: nowrap;
