@@ -151,6 +151,9 @@
 /* One line per row: a label column, then chips (label over value, or a single value). */
 .guide-echo-stats { display: flex; flex-direction: column; gap: var(--space-2); }
 .guide-echo-stats .results-card-header { margin-bottom: 0; }
+/* Required ER, on the right of the header. */
+.guide-echo-er .caps-label { color: var(--text-dim); }
+.guide-echo-er-value { font-size: var(--font-value); font-weight: bold; font-variant-numeric: tabular-nums; color: var(--accent); }
 .guide-echo-row { display: grid; grid-template-columns: 5.25rem minmax(0, 1fr); align-items: center; gap: var(--space-3); }
 .guide-echo-row-label { display: flex; flex-direction: column; color: var(--text-main); }
 .guide-echo-row-sub { font-size: var(--font-label); color: var(--accent); }

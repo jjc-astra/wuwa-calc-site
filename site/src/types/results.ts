@@ -87,6 +87,21 @@ export interface RotationResults {
   contribution: Record<DpsWindowKey, ContributionForWindow>;
   // Per-unit substat worth rows, keyed by character name.
   substatWorth: Record<string, SubstatWorthRow[]>;
+  // Per unit that spends Energy, keyed by character name. Missing on results saved before it existed.
+  energyRequirements?: Record<string, EnergyRequirement>;
+}
+
+// The Energy Regen a unit needs for every Energy-spending cast in the rotation (its Liberations)
+// to have enough Energy -- found over the whole simulated run, so the cast with the least Energy
+// gained since the one before it (the bottleneck) sets it, not just the first.
+export interface EnergyRequirement {
+  // Energy Regen % from gear (base 100 + stats, before temporary buffs) that's enough everywhere.
+  // null: some cast can't be reached at any Energy Regen (no Energy gained before it).
+  required: number | null;
+  // The unit's current Energy Regen % from gear, on the same basis.
+  current: number;
+  // The cast that needs the most. `segment` is where it falls: Opener, Loop N or Ending.
+  bottleneck: { action: string; time: number; segment: string } | null;
 }
 
 // What the Results panels read. The chart series is optional: the Character Guide has no DMG Over

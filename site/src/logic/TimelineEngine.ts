@@ -110,6 +110,7 @@ export class TimelineEngineClass {
     for (let i = 0; i < activeRows.length; i++) {
       const currentData = activeRows[i];
       currentData.dropdownState = null;
+      currentData.energyLog = [];
       currentData.enemyLevel = enemyConfig.level;
       currentData.enemyRes = enemyConfig.res;
 
@@ -1213,8 +1214,23 @@ export class TimelineEngineClass {
     if (!moveData.cost) return;
     const cost = moveData.cost as Record<string, number>;
     for (const key of RESOURCE_KEYS) {
-      if (cost[key]) spendResource(currentData, key, currentData.unit, cost[key]);
+      if (!cost[key]) continue;
+      if (key === 'energy') this._logEnergySpend(currentData, currentData.unit, cost[key]);
+      spendResource(currentData, key, currentData.unit, cost[key]);
     }
+  }
+
+  // Every Energy gain and spend is logged on the row it happens in, in order, for Results'
+  // required-ER analysis: a gain with its amount before Energy Regen and the unit's Energy Regen %
+  // at that moment (buffs included), a spend with its amount.
+  _gainEnergy(currentData: any, unit: string, base: number, team: any[]): void {
+    const erPct = energyRegenPct(currentData, unit, team);
+    (currentData.energyLog ??= []).push({ unit, gain: base, erPct });
+    addResource(currentData, 'energy', unit, base * (erPct / 100), resourceCap(unit, 'energy'));
+  }
+
+  _logEnergySpend(currentData: any, unit: string, amount: number): void {
+    if (amount > 0) (currentData.energyLog ??= []).push({ unit, spend: amount });
   }
 
   _applyCastResources(currentData: any, moveData: MechanicNode, activeTeam: string[], team: any[]): void {
@@ -1228,8 +1244,9 @@ export class TimelineEngineClass {
       if (key === 'energy' && !(amount < 0)) {
         // Energy a move grants goes to the whole team, each scaled by their own Energy Regen;
         // spending it is the caster's alone.
-        activeTeam.forEach(name => addResource(currentData, key, name, amount * energyRegenMult(currentData, name, team), resourceCap(name, key)));
+        activeTeam.forEach(name => this._gainEnergy(currentData, name, amount, team));
       } else {
+        if (key === 'energy') this._logEnergySpend(currentData, unitName, -amount);
         addResource(currentData, key, unitName, amount, resourceCap(unitName, key));
       }
     }
@@ -1481,8 +1498,9 @@ export class TimelineEngineClass {
     if (!currentData[resKey]) currentData[resKey] = {};
     targetUnits.forEach(tName => {
       // Only Energy a unit gains is scaled by its Energy Regen.
-      const finalAmt = resKey === 'energy' && amt > 0 ? amt * energyRegenMult(currentData, tName, team) : amt;
-      addResource(currentData, resKey, tName, finalAmt, resourceCap(tName, resKey));
+      if (resKey === 'energy' && amt > 0) return this._gainEnergy(currentData, tName, amt, team);
+      if (resKey === 'energy') this._logEnergySpend(currentData, tName, -amt);
+      addResource(currentData, resKey, tName, amt, resourceCap(tName, resKey));
     });
   }
 

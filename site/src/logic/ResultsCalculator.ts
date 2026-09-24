@@ -2,6 +2,7 @@
 // list from an extended opener+N-loop simulation. Every output below just filters/aggregates it.
 import { TimelineEngine } from './TimelineEngine';
 import { CombatCalculator } from './CombatCalculator';
+import { resourceCap } from './resources';
 import { STAT_DB, STAT_NAME_MAP } from '../data/db';
 import { PRIMARY_DMG_TYPES } from '../data/gameVocab';
 import { DPS_WINDOWS } from '../data/dpsWindows';
@@ -16,6 +17,7 @@ import type {
   SubstatWorthRow,
   RotationResults,
   RotationSummary,
+  EnergyRequirement,
   DpsWindowKey,
   ContributionForWindow
 } from '../types/results';
@@ -581,15 +583,75 @@ export function buildRotationSummary(...args: ResultsArgs): RotationSummary {
   };
 }
 
+// Required Energy Regen per unit, from the Energy log TimelineEngine keeps on each row. The run is
+// split at each of the unit's Energy spends (its Liberations); a window's gains (each at its own
+// base amount and the Energy Regen it landed with, buffs included) must add up to the spend. Gains
+// scale linearly with gear Energy Regen G -- a gain lands at base x (G + buffs) / 100 -- so each
+// window solves directly for its G, and the largest window is the bottleneck. At that G every
+// window just fills, so each spend empties the unit and the next window starts from 0; the first
+// starts from the Full Energy setting.
+function buildEnergyRequirements(
+  rows: any[], team: TeamSlot[], startEnergy: boolean, openerEndTime: Frames, loopEnds: LoopEnds
+): Record<string, EnergyRequirement> {
+  const segmentOf = (t: number): string => {
+    if (!loopEnds || t < openerEndTime) return loopEnds ? 'Opener' : 'Rotation';
+    const loop = loopEnds.findIndex(end => t < end);
+    return loop === -1 ? 'Ending' : `Loop ${loop + 1}`;
+  };
+
+  const out: Record<string, EnergyRequirement> = {};
+  team.forEach(slot => {
+    const unit = slot.character;
+    if (!unit) return;
+    const current = CombatCalculator.calculateFinalStats(unit, [], team).energyRegen || 100;
+    let base = 0;          // sum of this window's gains before Energy Regen
+    let buffWeighted = 0;  // sum of base x the Energy Regen buffs on top of gear when each landed
+    let have = startEnergy ? resourceCap(unit, 'energy') : 0;
+    let worst: { need: number; row: any } | null = null;
+    let spent = false;
+
+    rows.forEach(row => {
+      (row?.energyLog || []).forEach((entry: any) => {
+        if (entry.unit !== unit) return;
+        if (entry.gain > 0) {
+          base += entry.gain;
+          buffWeighted += entry.gain * (entry.erPct - current);
+          return;
+        }
+        if (!(entry.spend > 0)) return;
+        spent = true;
+        const missing = entry.spend - have;
+        const need = missing <= 0 ? 0 : base > 0 ? (100 * missing - buffWeighted) / base : Infinity;
+        if (!worst || need > worst.need) worst = { need, row };
+        base = 0; buffWeighted = 0; have = 0;
+      });
+    });
+    if (!spent || !worst) return;
+
+    const { need, row } = worst as { need: number; row: any };
+    out[unit] = {
+      required: Number.isFinite(need) ? Math.max(100, need) : null,
+      current,
+      bottleneck: {
+        action: row.moveName || row.action || '',
+        time: framesToSeconds(toFrames(row.gameTimeStart || 0)),
+        segment: segmentOf(row.gameTimeStart || 0)
+      }
+    };
+  });
+  return out;
+}
+
 export function buildRotationResults(...args: ResultsArgs): RotationResults {
   const { hits, evaluatedRows, openerEndTime, loopEnds, teamNames } = simulateHits(...args);
-  const [, team, , enemyConfig] = args;
+  const [, team, options, enemyConfig] = args;
   const twoMinHits = windowedHits(hits, -Infinity, TWO_MIN);
 
   return {
     dpsStats: buildDpsStats(hits, openerEndTime, loopEnds),
     dmgOverTimeSeries: buildAllDmgOverTime(hits, openerEndTime, loopEnds, enemyConfig.hp),
     contribution: buildAllContribution(hits, evaluatedRows, openerEndTime, loopEnds, teamNames),
-    substatWorth: buildSubstatWorth(twoMinHits, team)
+    substatWorth: buildSubstatWorth(twoMinHits, team),
+    energyRequirements: buildEnergyRequirements(evaluatedRows, team, !!options.startEnergy, openerEndTime, loopEnds)
   };
 }

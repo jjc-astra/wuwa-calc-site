@@ -1,10 +1,13 @@
 // src/components/guide/EchoStatsPanel.tsx
-// The selected build's echoes for one unit: each substat summed across all five echoes, and
-// every echo's main stat in layout order.
+// The selected build's echoes for one unit: each substat summed across all five echoes, every
+// echo's main stat in layout order, and the Energy Regen the rotation needs from them.
 import React from 'react';
 import { CommonUtils } from '../../utils/Common';
 import { STAT_DB, formatStatValue } from '../../data/db';
+import { useResultsSource } from '../results/ResultsSource';
 import type { TeamSlot } from '../../types';
+
+const formatPct = (v: number) => `${v.toFixed(1)}%`;
 
 interface EchoStatsPanelProps {
   slot: TeamSlot;
@@ -18,10 +21,22 @@ export const EchoStatsPanel: React.FC<EchoStatsPanelProps> = ({ slot }) => {
   }));
   // STAT_DB order, and only substats the build actually rolls.
   const substats = Object.keys(STAT_DB).filter(stat => totals[stat] > 0);
+  const { results, isStale } = useResultsSource();
+  const energy = results?.energyRequirements?.[slot.character];
 
   return (
     <div className="results-card guide-echo-stats">
-      <div className="results-card-header"><span>Echo Stats</span></div>
+      <div className="results-card-header">
+        <span>Echo Stats</span>
+        {energy && (
+          <div className={`results-card-header-controls guide-echo-er ${isStale ? 'is-stale' : ''}`}>
+            <span className="caps-label">Required ER</span>
+            <span className="guide-echo-er-value">
+              {energy.required === null ? '—' : formatPct(energy.required)}
+            </span>
+          </div>
+        )}
+      </div>
       <div className="guide-echo-row">
         <span className="guide-echo-row-label caps-label">Substats</span>
         <div className="guide-echo-chips">
