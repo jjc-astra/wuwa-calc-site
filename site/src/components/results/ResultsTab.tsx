@@ -24,10 +24,10 @@ export const ResultsTab: React.FC = () => {
 
 // The result panels.
 export const ResultsGrid: React.FC = () => {
-  const { results, isStale } = useResultsSource();
+  const { results } = useResultsSource();
   if (!results) return null;
   return (
-    <div className={`results-tab-grid ${isStale ? 'is-stale' : ''}`}>
+    <div className="results-tab-grid">
       <DpsPanel />
       <DmgOverTimeChart />
       <RotationTimePanel />

@@ -28,7 +28,7 @@ export const AddCastResourcePanel: React.FC<AddCastResourcePanelProps> = ({
     <div className="sub-panel is-open">
       <div className="panel-header-main">Add On-Cast Resource</div>
       <div className="mech-add-row">
-        <span className="form-label" style={{ margin: 0 }}>Add Resource</span>
+        <span className="form-label caps-label" style={{ margin: 0 }}>Add Resource</span>
         <Dropdown
           className="base-select mech-mini-select has-value"
           value={castResType}

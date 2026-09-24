@@ -15,7 +15,7 @@ import { MechanicKey } from '../../../utils/MechanicKey';
 // min-width flex slot so fields share row space instead of one 100%-width input swallowing others.
 const EffField: React.FC<{ label: string; minWidth: number; children: React.ReactNode }> = ({ label, minWidth, children }) => (
   <div className="form-group flex-1" style={{ minWidth: `${minWidth / 16}rem`, margin: 0 }}>
-    <label className="form-label text-dim">{label}</label>
+    <label className="form-label caps-label text-dim">{label}</label>
     {children}
   </div>
 );
@@ -229,7 +229,7 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
       <div className="panel-header-main">Trigger Rule &amp; Effects</div>
       <div className="form-row">
         <div className="form-group flex-1">
-          <label className="form-label">Trigger Rule (DSL)</label>
+          <label className="form-label caps-label">Trigger Rule (DSL)</label>
           <AutocompleteInput mode="general" value={data.triggerRule || ''} onValueChange={val => updateNode({ triggerRule: val })} placeholder="e.g. IF (@Self.Energy > 50)" />
         </div>
       </div>
@@ -336,7 +336,7 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
                     ]}
                   />
                   <div className="form-group flex-1" style={{ minWidth: '8.125rem', margin: 0 }}>
-                    <label className="form-label text-dim" style={{ opacity: 0, marginBottom: '2px', height: '0.875rem' }}>_</label>
+                    <label className="form-label caps-label text-dim" style={{ opacity: 0, marginBottom: '2px', height: '0.875rem' }}>_</label>
                     <label className="toolbar-toggle-label w-100" style={{ margin: 0, height: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
                       <input type="checkbox" checked={draft.remSwap} onChange={(e: React.ChangeEvent<HTMLInputElement>) => set({ remSwap: e.target.checked })} />
                       <span>Clear on Swap</span>
@@ -380,7 +380,7 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
               <>
                 <div className="flex-row w-100 gap-sm m-0 flex-wrap align-start">
                   <div className="form-group" style={{ flex: '0 0 auto', minWidth: 0, margin: 0 }}>
-                    <label className="form-label text-dim">Target Kind</label>
+                    <label className="form-label caps-label text-dim">Target Kind</label>
                     <SegmentedToggle
                       ariaLabel="Buff/CD target kind"
                       value={effTargetKind}

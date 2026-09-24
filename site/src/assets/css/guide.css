@@ -62,10 +62,7 @@
 .guide-config .results-card-header { margin-bottom: 0; }
 .guide-config-team { display: flex; align-items: center; gap: var(--space-3); }
 .guide-team-select { flex: 1; min-width: 0; }
-.guide-default-badge {
-    font-size: var(--font-tag); font-weight: bold; text-transform: uppercase; letter-spacing: var(--caps-spacing);
-    color: var(--accent); padding: 0.1875rem 0.5rem; border-radius: 0.625rem; background: var(--accent-selected);
-}
+.guide-default-badge { color: var(--accent); background: var(--accent-selected); }
 .guide-reset-btn { padding: 2px var(--space-3); }
 
 .guide-config-slots {
@@ -110,7 +107,7 @@
 .guide-column { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; position: relative; }
 /* Section header atop each column; min-height lines both up whether or not it holds toggles. */
 .guide-column-header { display: flex; align-items: center; gap: var(--space-4); min-height: 1.75rem; }
-.guide-column-header .panel-header-main { flex: 1; margin-bottom: 0; }
+.guide-column-header .panel-header-main { flex: 1; }
 /* Divider centered in the column gap, shown while the columns sit side by side
    (2 x 560px + the 20px --space-6 gap). */
 @container guide-body (min-width: 71.25rem) {
@@ -145,24 +142,17 @@
     gap: var(--space-4);
     align-items: start;
 }
-/* Only the result panels dim while recalculating; the comparisons show per-row pending state. */
-.guide-columns.is-stale .results-card:not(.guide-config):not(.guide-cmp-card) {
-    opacity: 0.45; pointer-events: none; transition: opacity 0.15s;
-}
+/* A titled block below the columns (Timeline, Rankings). */
 .guide-section { display: flex; flex-direction: column; gap: var(--space-3); }
-.guide-section .panel-header-main { margin-bottom: 0; }
-.guide-timeline-card.is-stale { opacity: 0.45; transition: opacity 0.15s; }
+/* Headers here sit in gapped flex columns, so they drop .panel-header-main's own margin. */
+.guide-page .panel-header-main { margin-bottom: 0; }
 
 /* --- Echo stats --- */
 /* One line per row: a label column, then chips (label over value, or a single value). */
 .guide-echo-stats { display: flex; flex-direction: column; gap: var(--space-2); }
 .guide-echo-stats .results-card-header { margin-bottom: 0; }
 .guide-echo-row { display: grid; grid-template-columns: 5.25rem minmax(0, 1fr); align-items: center; gap: var(--space-3); }
-.guide-echo-row-label {
-    display: flex; flex-direction: column;
-    font-size: var(--font-label); font-weight: bold; text-transform: uppercase; letter-spacing: var(--caps-spacing);
-    color: var(--text-main);
-}
+.guide-echo-row-label { display: flex; flex-direction: column; color: var(--text-main); }
 .guide-echo-row-sub { font-size: var(--font-label); color: var(--accent); }
 .guide-echo-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .guide-echo-chip {
@@ -172,20 +162,14 @@
     border-radius: 0.375rem;
     background: var(--surface-lighten);
 }
-.guide-echo-chip-label { font-size: var(--font-tag); font-weight: bold; text-transform: uppercase; letter-spacing: var(--caps-spacing); color: var(--text-dim); white-space: nowrap; }
+.guide-echo-chip-label { color: var(--text-dim); white-space: nowrap; }
 .guide-echo-chip-value { font-size: var(--font-value); font-weight: bold; color: var(--text-main); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* --- Comparisons --- */
-
-
-.guide-cmp-subheading {
-    padding: 0 var(--space-3) var(--space-1);
-    font-size: var(--font-label); font-weight: bold; text-transform: uppercase; letter-spacing: var(--caps-spacing);
-    color: var(--text-dim);
-}
+.guide-cmp-subheading { padding: 0 var(--space-3) var(--space-1); color: var(--text-dim); }
 .guide-cmp-controls {
     display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-2) var(--space-4);
-    margin-bottom: var(--space-2); font-size: 0.7rem; color: var(--text-dim);
+    margin-bottom: var(--space-2);
 }
 .guide-cmp-rank-range { display: flex; align-items: center; gap: var(--space-3); }
 .guide-cmp-rank-range .range-slider { width: 7.5rem; }
@@ -212,7 +196,6 @@
 .guide-cmp-head, .guide-cmp-row { display: contents; }
 .guide-cmp-head > span {
     padding: var(--space-2) var(--space-3);
-    font-size: var(--font-label); font-weight: bold; text-transform: uppercase; letter-spacing: var(--caps-spacing);
     color: var(--text-dim);
     border-bottom: 1px solid var(--divider);
 }
@@ -232,22 +215,17 @@
 
 .guide-cmp-label { gap: var(--space-3); min-width: 0; }
 .guide-cmp-label-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-main); font-weight: bold; }
-.guide-cmp-tag {
-    flex-shrink: 0;
-    font-size: 0.6rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.3px;
-    padding: 2px 0.375rem; border-radius: 0.5rem;
-    color: var(--accent); background: var(--accent-selected);
-}
+.guide-cmp-tag { color: var(--accent); background: var(--accent-selected); }
 
 .guide-cmp-value { gap: var(--space-3); justify-content: space-between; }
-/* Same type treatment as the rankings bar's DPS label (.ranking-bar-dps-value / -unit). */
-.guide-cmp-raw { display: flex; align-items: baseline; gap: 0.25rem; color: #ffffff; }
+/* Same layout as the rankings bar's DPS label (.ranking-bar-dps-value / -unit). */
+.guide-cmp-raw { display: flex; align-items: baseline; gap: 0.25rem; color: var(--text-main); }
 .guide-cmp-raw-value { font-weight: bold; font-size: var(--font-value); font-variant-numeric: tabular-nums; }
-.guide-cmp-raw-unit { font-size: var(--font-tag); font-weight: bold; text-transform: uppercase; letter-spacing: var(--caps-spacing); opacity: 0.85; }
+.guide-cmp-raw-unit { opacity: 0.85; }
 .guide-cmp-pct { width: 4rem; flex-shrink: 0; text-align: right; font-weight: bold; font-size: var(--font-secondary); font-variant-numeric: tabular-nums; color: var(--text-main); }
 .guide-cmp-pct.is-up { color: var(--success); }
 .guide-cmp-pct.is-down { color: var(--danger-text); }
-.guide-cmp-error { color: var(--danger-text); font-size: 0.72rem; }
+.guide-cmp-error { color: var(--danger-text); font-size: var(--font-secondary); }
 .guide-cmp-pending {
     flex: 1;
     min-width: 3.75rem;
@@ -259,9 +237,7 @@
 }
 @keyframes guideShimmer { from { background-position: 200% 0; } to { background-position: 0 0; } }
 
-/* --- Rankings --- */
-.guide-rankings { display: flex; flex-direction: column; gap: var(--space-3); }
-.guide-rankings .panel-header-main { margin-bottom: 0; }
+/* --- Rankings (a .guide-section) --- */
 .guide-rankings-filters {
     display: flex;
     flex-wrap: wrap;

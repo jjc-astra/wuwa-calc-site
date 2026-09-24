@@ -17,7 +17,7 @@ export const ComingSoonPage: React.FC<ComingSoonPageProps> = ({ title, descripti
       </span>
       <h2>{title}</h2>
       <p>{description}</p>
-      <span className="coming-soon-badge">Coming Soon</span>
+      <span className="coming-soon-badge caps-tag pill-badge">Coming Soon</span>
     </div>
   );
 };

@@ -50,15 +50,15 @@ export const ExportRotationDialog: React.FC<ExportRotationDialogProps> = ({ sour
         <div className="modal-content">
           <h3>Export Rotation</h3>
           <div className="modal-field">
-            <label className="modal-field-label">Rotation File Name</label>
+            <label className="modal-field-label caps-label">Rotation File Name</label>
             <input type="text" className="modal-field-input" value={rotationName} onChange={e => setRotationName(e.target.value)} />
           </div>
           <div className="modal-field">
-            <label className="modal-field-label">Results File Name</label>
+            <label className="modal-field-label caps-label">Results File Name</label>
             <input type="text" className="modal-field-input" value={resultsName} onChange={e => setResultsName(e.target.value)} />
           </div>
           <div className="modal-field">
-            <label className="modal-field-label">Results Build</label>
+            <label className="modal-field-label caps-label">Results Build</label>
             <SegmentedToggle
               ariaLabel="Results build"
               value={build}
@@ -70,7 +70,7 @@ export const ExportRotationDialog: React.FC<ExportRotationDialogProps> = ({ sour
             />
           </div>
           <div className="modal-field">
-            <label className="modal-field-label">Author</label>
+            <label className="modal-field-label caps-label">Author</label>
             <input type="text" className="modal-field-input" value={author} placeholder="Optional" onChange={e => setAuthor(e.target.value)} />
           </div>
           {error && <p className="modal-error">{error}</p>}

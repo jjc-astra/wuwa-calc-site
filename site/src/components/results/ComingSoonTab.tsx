@@ -8,7 +8,7 @@ interface ComingSoonTabProps {
 
 export const ComingSoonTab: React.FC<ComingSoonTabProps> = ({ title, description }) => (
   <div className="results-coming-soon">
-    <span className="coming-soon-badge">Coming Soon</span>
+    <span className="coming-soon-badge caps-tag pill-badge">Coming Soon</span>
     <h3>{title}</h3>
     <p className="text-dim">{description}</p>
   </div>

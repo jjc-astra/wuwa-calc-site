@@ -54,7 +54,7 @@ export const ComparisonTable: React.FC<ComparisonTableProps> = ({ columns, rows,
     <div className={`guide-cmp-table ${columns.length > 1 ? 'is-multi' : ''}`} style={{ '--guide-cmp-cols': columns.length } as React.CSSProperties}>
       {/* A single column needs no heading; the panel title names it. */}
       {columns.length > 1 && (
-        <div className="guide-cmp-head">
+        <div className="guide-cmp-head caps-label">
           <span />
           {columns.map(col => (
             <span key={col.label} className="guide-cmp-col-label">
@@ -79,7 +79,7 @@ export const ComparisonTable: React.FC<ComparisonTableProps> = ({ columns, rows,
             )}
             <span className="guide-cmp-label-text" {...(row.labelTooltip ? tip(row.labelTooltip) : {})}>{row.label}</span>
             {row.tag && (
-              <span className="guide-cmp-tag" {...(row.tagTooltip ? tip(row.tagTooltip) : {})}>{row.tag}</span>
+              <span className="guide-cmp-tag caps-tag pill-badge" {...(row.tagTooltip ? tip(row.tagTooltip) : {})}>{row.tag}</span>
             )}
             {row.removable && onRemoveRow && (
               <button
@@ -107,7 +107,7 @@ export const ComparisonTable: React.FC<ComparisonTableProps> = ({ columns, rows,
                   <>
                     <span className="guide-cmp-raw">
                       <span className="guide-cmp-raw-value">{formatValue(value as number)}</span>
-                      {unitLabel && <span className="guide-cmp-raw-unit">{unitLabel}</span>}
+                      {unitLabel && <span className="guide-cmp-raw-unit caps-tag">{unitLabel}</span>}
                     </span>
                     <span className={`guide-cmp-pct ${pct > 100.05 ? 'is-up' : pct < 99.95 ? 'is-down' : ''}`}>
                       {pct.toFixed(2)}%

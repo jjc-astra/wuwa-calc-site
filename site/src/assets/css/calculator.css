@@ -403,7 +403,7 @@
 
 .rotation-header-row {
     background: var(--surface-card); border-bottom: 1px solid var(--border);
-    font-size: 0.75rem; font-weight: bold; color: var(--text-dim); text-transform: uppercase;
+    color: var(--text-dim);
     text-align: center; flex-shrink: 0;
     transition: padding-right 0.1s;
 }

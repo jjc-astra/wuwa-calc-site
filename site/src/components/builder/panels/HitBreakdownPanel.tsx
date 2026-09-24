@@ -103,7 +103,7 @@ export const HitBreakdownPanel: React.FC<HitBreakdownPanelProps> = ({ nodeId, da
       <div className="panel-header-main">Hit Breakdown</div>
       <div className="flex-row gap-sm align-center mb-4px">
         <div className="form-group flex-05" style={{ margin: 0 }}>
-          <label className="form-label">Scalar Stat</label>
+          <label className="form-label caps-label">Scalar Stat</label>
           <Dropdown
             className="base-select"
             value={data.scalar || ''}
@@ -117,7 +117,7 @@ export const HitBreakdownPanel: React.FC<HitBreakdownPanelProps> = ({ nodeId, da
           />
         </div>
         <div className="form-group flex-1" style={{ margin: 0 }}>
-          <label className="form-label">Multiplier String</label>
+          <label className="form-label caps-label">Multiplier String</label>
           <input
             type="text"
             className="form-input"
@@ -144,7 +144,7 @@ export const HitBreakdownPanel: React.FC<HitBreakdownPanelProps> = ({ nodeId, da
             <span className="mech-timeline-label" style={{ right: 4 }}>{timelineMax}f</span>
           </div>
           <table className="mech-hit-table">
-            <thead>
+            <thead className="caps-label">
               <tr>
                 <th>Hit</th>
                 <th>Frame</th>
@@ -206,7 +206,7 @@ export const HitBreakdownPanel: React.FC<HitBreakdownPanelProps> = ({ nodeId, da
           </table>
           {availableHitResTypes.length > 0 && (
             <div className="mech-add-row mt-sm">
-              <span className="form-label" style={{ margin: 0 }}>Add Hit Resource</span>
+              <span className="form-label caps-label" style={{ margin: 0 }}>Add Hit Resource</span>
               <Dropdown
                 className="base-select mech-mini-select has-value"
                 value={effectiveNewHitResType}

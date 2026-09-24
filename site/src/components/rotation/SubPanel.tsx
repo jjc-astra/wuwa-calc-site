@@ -67,7 +67,7 @@ export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row }) => {
         <div className="panel-header-main">Offset Breakdown</div>
         <div className="panel-content-grid" style={{ gridTemplateColumns: '1fr', marginBottom: '1rem' }}>
           <div className="panel-info-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.625rem 0.875rem' }}>
-            <span className="panel-info-label" style={{ marginBottom: 0 }}>Total Offset</span>
+            <span className="panel-info-label caps-label" style={{ marginBottom: 0 }}>Total Offset</span>
             <span className={`panel-info-value ${offsetClass} text-bold`} style={{ fontSize: '1rem' }}>{offsetStr}</span>
           </div>
         </div>

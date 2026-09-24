@@ -37,7 +37,7 @@ export const AddDmgTypePanel: React.FC<AddDmgTypePanelProps> = ({ data, updateNo
         </div>
       )}
       <div className="mech-add-row">
-        <span className="form-label" style={{ margin: 0 }}>Add Damage Type</span>
+        <span className="form-label caps-label" style={{ margin: 0 }}>Add Damage Type</span>
         <Dropdown
           className="base-select mech-mini-select has-value"
           value={dmgSelect}

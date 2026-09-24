@@ -24,7 +24,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
             className="landing-card"
             onClick={() => onNavigate(item.id)}
           >
-            {item.comingSoon && <span className="coming-soon-badge">Coming Soon</span>}
+            {item.comingSoon && <span className="coming-soon-badge caps-tag pill-badge">Coming Soon</span>}
             <span className="landing-card-icon">
               <item.icon size={24} />
             </span>

@@ -16,7 +16,7 @@ const MIN_DELTA_SCALE = 1;
 // Solo: one slim bar per window, scaled to the highest. Pinned: each bar grows left (worse) or
 // right (better) from a 0% center line, scaled to the largest change.
 export const DpsPanel: React.FC = () => {
-  const { results, pinned, allowPin } = useResultsSource();
+  const { results, pinned, allowPin, isStale } = useResultsSource();
 
   if (!results) return null;
   const current = results.dpsStats;
@@ -31,7 +31,7 @@ export const DpsPanel: React.FC = () => {
   const deltaScale = Math.max(MIN_DELTA_SCALE, ...rows.map(r => Math.abs(r.delta ?? 0)));
 
   return (
-    <div className="results-card">
+    <div className={`results-card ${isStale ? 'is-stale' : ''}`}>
       <div className="results-card-header">
         <span>DPS</span>
         {allowPin && <PinRotationControl />}
@@ -48,7 +48,7 @@ export const DpsPanel: React.FC = () => {
               ? tip(`Current ${formatDps(row.value)} · Pinned ${formatDps(row.pinnedValue)}`)
               : {})}
           >
-            <span className="dps-row-label">{row.label}</span>
+            <span className="dps-row-label caps-label">{row.label}</span>
             <span className="bar-track">
               {!pinned && row.value !== null && (
                 <span className="bar-fill" style={{ width: `${(row.value / maxValue) * 100}%` }} />

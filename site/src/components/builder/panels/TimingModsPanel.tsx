@@ -45,19 +45,19 @@ export const TimingModsPanel: React.FC<TimingModsPanelProps> = ({ data, updateNo
       <div className="panel-header-main">Timing Modifiers</div>
       <div className="form-row">
         <div className="form-group">
-          <label className="form-label">Freeze Time</label>
+          <label className="form-label caps-label">Freeze Time</label>
           <AutocompleteInput mode="dsl-value" value={displayTimeVal(data.freezeTime, 'f')} onValueChange={val => updateNode({ freezeTime: val })} onBlur={makeTimeBlur(data, updateNode, 'freezeTime', 'frames')} placeholder="e.g. 5f" />
         </div>
         <div className="form-group">
-          <label className="form-label">Swap Time</label>
+          <label className="form-label caps-label">Swap Time</label>
           <AutocompleteInput mode="dsl-value" value={displayTimeVal(data.swapTiming, 'f')} onValueChange={val => updateNode({ swapTiming: val })} onBlur={makeTimeBlur(data, updateNode, 'swapTiming', 'frames')} placeholder="e.g. 9f" />
         </div>
         <div className="form-group">
-          <label className="form-label">Priority</label>
+          <label className="form-label caps-label">Priority</label>
           <AutocompleteInput mode="dsl-value" value={String(data.priority ?? 0)} onValueChange={val => updateNode({ priority: val })} placeholder="@Default.basicPriority" />
         </div>
         <div className="form-group relative">
-          <label className="form-label">Combo Window</label>
+          <label className="form-label caps-label">Combo Window</label>
           <AutocompleteInput mode="dsl-value" value={displayTimeVal(data.comboWindow, 'f')} onValueChange={val => updateNode({ comboWindow: val })} onBlur={makeTimeBlur(data, updateNode, 'comboWindow', 'frames')} placeholder="@Default.ComboWindow" />
         </div>
       </div>

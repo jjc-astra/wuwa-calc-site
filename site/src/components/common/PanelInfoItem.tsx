@@ -13,7 +13,7 @@ export const PanelInfoItem: React.FC<PanelInfoItemProps> = ({
 }) => {
   return (
     <div className="panel-info-item">
-      <span className="panel-info-label">{label}</span>
+      <span className="panel-info-label caps-label">{label}</span>
       <div className={`panel-info-value ${extraClass}`}>{value}</div>
     </div>
   );

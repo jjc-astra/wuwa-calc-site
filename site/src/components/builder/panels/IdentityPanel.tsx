@@ -33,7 +33,7 @@ export const IdentityPanel: React.FC<IdentityPanelProps> = ({ nodeId, data, upda
       <div className="panel-header-main">Identity</div>
       <div className="form-row">
         <div className="form-group flex-1">
-          <label className="form-label">Name</label>
+          <label className="form-label caps-label">Name</label>
           <input
             type="text"
             className="form-input"
@@ -44,11 +44,11 @@ export const IdentityPanel: React.FC<IdentityPanelProps> = ({ nodeId, data, upda
           />
         </div>
         <div className="form-group flex-05">
-          <label className="form-label">Provider</label>
+          <label className="form-label caps-label">Provider</label>
           <input type="text" className="form-input" value={data.provider || activeChar || ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateNode({ provider: e.target.value })} />
         </div>
         <div className="form-group">
-          <label className="form-label text-accent">ID (Read-Only)</label>
+          <label className="form-label caps-label text-accent">ID (Read-Only)</label>
           <input type="text" className="form-input input-readonly" value={nodeId} readOnly />
         </div>
       </div>

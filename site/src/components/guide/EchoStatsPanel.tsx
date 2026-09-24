@@ -23,18 +23,18 @@ export const EchoStatsPanel: React.FC<EchoStatsPanelProps> = ({ slot }) => {
     <div className="results-card guide-echo-stats">
       <div className="results-card-header"><span>Echo Stats</span></div>
       <div className="guide-echo-row">
-        <span className="guide-echo-row-label">Substats</span>
+        <span className="guide-echo-row-label caps-label">Substats</span>
         <div className="guide-echo-chips">
           {substats.map(stat => (
             <span key={stat} className="guide-echo-chip">
-              <span className="guide-echo-chip-label">{stat}</span>
+              <span className="guide-echo-chip-label caps-tag">{stat}</span>
               <span className="guide-echo-chip-value">{formatStatValue(stat, CommonUtils.trimNumber(totals[stat], 1))}</span>
             </span>
           ))}
         </div>
       </div>
       <div className="guide-echo-row">
-        <span className="guide-echo-row-label">Main Stats<span className="guide-echo-row-sub">{slot.layout.replace(/ /g, '')}</span></span>
+        <span className="guide-echo-row-label caps-label">Main Stats<span className="guide-echo-row-sub">{slot.layout.replace(/ /g, '')}</span></span>
         <div className="guide-echo-chips">
           {slot.echoes.map((echo, i) => (
             <span key={i} className="guide-echo-chip">

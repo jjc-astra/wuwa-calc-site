@@ -136,10 +136,8 @@ button, input, select, textarea { font-family: inherit; }
 }
 
 .nav-item-btn .coming-soon-badge {
-    font-size: 0.6rem;
     padding: 1px 0.3125rem;
     border-radius: 0.1875rem;
-    letter-spacing: 0.3px;
 }
 
 /* Enables nav row wrapping on narrow viewports to prevent trailing links from clipping off-screen. */
@@ -188,21 +186,23 @@ button, input, select, textarea { font-family: inherit; }
 .text-dim    { color: var(--text-dim); }
 .text-gold   { color: var(--accent); }
 
+/* Text roles (sizes in palette.css). Label: bold uppercase row/column names. Tag: tiny bold
+   uppercase units, captions and badges. On a row or header container, they cover all its cells. */
+.caps-label { font-size: var(--font-label); font-weight: bold; text-transform: uppercase; letter-spacing: var(--caps-spacing); }
+.caps-tag   { font-size: var(--font-tag);   font-weight: bold; text-transform: uppercase; letter-spacing: var(--caps-spacing); }
+/* Rounded badge shape, paired with .caps-tag; each badge sets its own colors. */
+.pill-badge { display: inline-block; flex-shrink: 0; padding: 0.1875rem 0.5rem; border-radius: 0.625rem; white-space: nowrap; }
+
+/* Results being recalculated: dimmed and inert until the new ones land. */
+.is-stale { opacity: 0.45; pointer-events: none; transition: opacity 0.15s; }
+
 .brand-discord { color: #5865f2; }
 .brand-patreon { color: #ff424d; }
 .brand-kofi    { color: #72a5f2; }
 
 .coming-soon-badge {
-    display: inline-block;
     background: var(--border);
     color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    font-weight: bold;
-    font-size: 0.65rem;
-    padding: 0.1875rem 0.5rem;
-    border-radius: 0.625rem;
-    white-space: nowrap;
 }
 
 /* =========================================
@@ -629,9 +629,6 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 
 .panel-info-label {
     color: var(--text-dim);
-    font-size: 0.65rem;
-    text-transform: uppercase;
-    font-weight: 600;
     margin-bottom: var(--space-2);
     display: block;
 }
@@ -792,9 +789,6 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 .modal-field-label {
     display: block;
     margin-bottom: 0.25rem;
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
     color: var(--text-dim);
 }
 .modal-field-input {

@@ -108,7 +108,7 @@ function buildDpsPoints(points: DisplayPoint[], domainMaxT: number): DisplayPoin
 }
 
 export const DmgOverTimeChart: React.FC = () => {
-  const { results, pinned, allowPin } = useResultsSource();
+  const { results, pinned, allowPin, isStale } = useResultsSource();
   const svgRef = useRef<SVGSVGElement>(null);
   const [hoverT, setHoverT] = useState<number | null>(null);
   const [hoverBinIdx, setHoverBinIdx] = useState<number | null>(null);
@@ -299,7 +299,7 @@ export const DmgOverTimeChart: React.FC = () => {
   if (!results) return null;
 
   return (
-    <div className="results-card">
+    <div className={`results-card ${isStale ? 'is-stale' : ''}`}>
       <div className="results-card-header">
         <span>Dmg Over Time</span>
         <div className="results-card-header-controls">

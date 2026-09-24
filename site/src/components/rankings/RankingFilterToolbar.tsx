@@ -58,7 +58,7 @@ function DmgTypeColumn<T extends string>({ title, options, selected, colorFor, o
   return (
     <div className="ranking-dmgtype-col">
       <div className="ranking-dmgtype-col-header">
-        <span className="ranking-dmgtype-col-title">{title}</span>
+        <span className="ranking-dmgtype-col-title caps-label">{title}</span>
         <div className="segmented-toggle" role="group" aria-label={`${title}: select all or none`}>
           <button type="button" className="segmented-toggle-btn" onClick={() => onChange([...options])}>All</button>
           <button type="button" className="segmented-toggle-btn" onClick={() => onChange([])}>None</button>
@@ -77,7 +77,7 @@ function DmgTypeColumn<T extends string>({ title, options, selected, colorFor, o
             <input type="checkbox" checked={selected.includes(option)} onChange={() => toggle(option)} />
             <span className="ranking-dmgtype-check-visual" />
           </span>
-          <span className="ranking-dmgtype-tag">{option}</span>
+          <span className="ranking-dmgtype-tag caps-tag pill-badge">{option}</span>
         </label>
       ))}
     </div>
@@ -101,7 +101,7 @@ export const SequenceRangeFilters: React.FC<RankingFilterToolbarProps> = ({ filt
     <>
       {SLOT_LABELS.map((label, i) => (
         <div key={label} className="ranking-seq-row">
-          <span className="ranking-seq-row-label">{label}</span>
+          <span className="ranking-seq-row-label caps-label">{label}</span>
           <RangeSlider min={0} max={6} value={filters.sequenceRanges[i]} onChange={v => updateSeq(i, v)} />
         </div>
       ))}

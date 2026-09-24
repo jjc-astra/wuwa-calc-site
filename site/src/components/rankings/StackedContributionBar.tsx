@@ -74,7 +74,7 @@ export const StackedContributionBar: React.FC<StackedContributionBarProps> = ({
           </div>`;
         })
         .join('');
-      return `<div class="tooltip-val">${formatValue(unitTotal)}</div><div class="ranking-tooltip-unit-label">${seg.label} DMG</div>${rows}`;
+      return `<div class="tooltip-val">${formatValue(unitTotal)}</div><div class="ranking-tooltip-unit-label caps-tag">${seg.label} DMG</div>${rows}`;
     }
     // Non-unit source (e.g. "Aero Erosion") has no cast-type breakdown -- just show its share
     // of the row's total.
@@ -115,7 +115,7 @@ export const StackedContributionBar: React.FC<StackedContributionBarProps> = ({
       </div>
       <div className="ranking-bar-label">
         <span className="ranking-bar-dps-value">{formatValue(dpsValue)}</span>
-        <span className="ranking-bar-dps-unit">DPS</span>
+        <span className="ranking-bar-dps-unit caps-tag">DPS</span>
       </div>
       {showPercentage && (
         <div

@@ -103,11 +103,11 @@ export const WeaponComparison: React.FC<SectionProps & {
       </div>
       <div className="guide-cmp-controls">
         <div className="guide-cmp-rank-range">
-          <span className="form-label">Ranks</span>
+          <span className="form-label caps-label">Ranks</span>
           <RangeSlider min={1} max={5} value={rankRange} onChange={onRankRangeChange} />
         </div>
         <div className="guide-cmp-add mech-add-row">
-          <span className="form-label">Add Weapon</span>
+          <span className="form-label caps-label">Add Weapon</span>
           <IconSelect
             value=""
             options={addOptions}
@@ -184,11 +184,11 @@ export const EchoComparison: React.FC<SectionProps & {
       {setRows.length === 0 ? table(statRows, selectEcho) : (
         <div className="guide-pair">
           <div>
-            <div className="guide-cmp-subheading">Main Stats</div>
+            <div className="guide-cmp-subheading caps-label">Main Stats</div>
             {table(statRows, selectEcho)}
           </div>
           <div>
-            <div className="guide-cmp-subheading">Echo Sets</div>
+            <div className="guide-cmp-subheading caps-label">Echo Sets</div>
             {table(setRows, selectSet)}
           </div>
         </div>

@@ -37,7 +37,7 @@ export const AddCastTypePanel: React.FC<AddCastTypePanelProps> = ({ data, update
         </div>
       )}
       <div className="mech-add-row">
-        <span className="form-label" style={{ margin: 0 }}>Add Cast Type</span>
+        <span className="form-label caps-label" style={{ margin: 0 }}>Add Cast Type</span>
         <Dropdown
           className="base-select mech-mini-select has-value"
           value={castSelect}

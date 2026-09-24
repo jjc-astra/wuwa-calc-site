@@ -472,7 +472,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     >
         <RotationToolbar />
 
-        <div className="rotation-header-row">
+        <div className="rotation-header-row caps-label">
           <div></div>
           <div>Unit</div>
           <div>Action</div>

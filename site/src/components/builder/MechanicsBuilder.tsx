@@ -332,7 +332,7 @@ export const MechanicsBuilder: React.FC = () => {
                         <col style={{ width: '5%' }} />
                         <col style={{ width: '2.5%' }} />
                       </colgroup>
-                      <thead>
+                      <thead className="caps-label">
                         <tr className="mech-group-row">
                           <th></th>
                           <th colSpan={4}>Identity</th>

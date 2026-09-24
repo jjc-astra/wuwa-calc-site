@@ -68,7 +68,7 @@ export const InputsPhysicsPanel: React.FC<InputsPhysicsPanelProps> = ({ data, up
       <div className="panel-header-main">Inputs</div>
       <div className="form-row">
         <div className="form-group">
-          <label className="form-label">Input Binding</label>
+          <label className="form-label caps-label">Input Binding</label>
           <Dropdown
             className="base-select"
             value={data.input || ''}
@@ -86,7 +86,7 @@ export const InputsPhysicsPanel: React.FC<InputsPhysicsPanelProps> = ({ data, up
           />
         </div>
         <div className="form-group">
-          <label className="form-label">Input Type</label>
+          <label className="form-label caps-label">Input Type</label>
           <Dropdown
             className="base-select"
             value={data.inputType || ''}
@@ -104,7 +104,7 @@ export const InputsPhysicsPanel: React.FC<InputsPhysicsPanelProps> = ({ data, up
       <div className="panel-header-main mt-sm">Stance Transitions</div>
       <StanceBar data={data} changes={changes} />
       <table className="mech-hit-table mech-stance-table">
-        <thead>
+        <thead className="caps-label">
           <tr>
             <th>Change</th>
             <th>Stance</th>
@@ -168,7 +168,7 @@ export const InputsPhysicsPanel: React.FC<InputsPhysicsPanelProps> = ({ data, up
         </tbody>
       </table>
       <div className="mech-add-row">
-        <span className="form-label" style={{ margin: 0 }}>Add Stance Change</span>
+        <span className="form-label caps-label" style={{ margin: 0 }}>Add Stance Change</span>
         <button type="button" className="base-btn mech-add-icon-btn" onClick={addChange} {...tip('Add stance change')}>+</button>
       </div>
 
@@ -177,7 +177,7 @@ export const InputsPhysicsPanel: React.FC<InputsPhysicsPanelProps> = ({ data, up
           <div className="w-100 text-gold text-bold" style={{ fontSize: '0.8rem' }}>Hold Input Configuration</div>
           <div className="flex-row gap-sm w-100 flex-wrap">
             <div className="form-group flex-1">
-              <label className="form-label">Cursor Mode</label>
+              <label className="form-label caps-label">Cursor Mode</label>
               <Dropdown
                 className="base-select"
                 value={holdCfg.cursorMode || d.CURSOR_MODE}
@@ -190,11 +190,11 @@ export const InputsPhysicsPanel: React.FC<InputsPhysicsPanelProps> = ({ data, up
               />
             </div>
             <div className="form-group flex-1">
-              <label className="form-label">Speed (Forte per Second)</label>
+              <label className="form-label caps-label">Speed (Forte per Second)</label>
               <input type="number" className="form-input" value={holdCfg.cursorSpeed ?? d.CURSOR_SPEED} onChange={e => updateNode({ holdConfig: { ...holdCfg, cursorSpeed: parseFloat(e.target.value) || d.CURSOR_SPEED } })} />
             </div>
             <div className="form-group flex-1">
-              <label className="form-label">Forte Slot</label>
+              <label className="form-label caps-label">Forte Slot</label>
               <Dropdown
                 className="base-select"
                 value={holdCfg.forteSlot || d.FORTE_SLOT}
@@ -211,11 +211,11 @@ export const InputsPhysicsPanel: React.FC<InputsPhysicsPanelProps> = ({ data, up
           {!isClamp && (
             <div className="flex-row gap-sm w-100">
               <div className="form-group relative flex-1">
-                <label className="form-label">Window Center (DSL)</label>
+                <label className="form-label caps-label">Window Center (DSL)</label>
                 <AutocompleteInput mode="general" value={holdCfg.windowCenter ?? d.WINDOW_CENTER} onValueChange={val => updateNode({ holdConfig: { ...holdCfg, windowCenter: val } })} placeholder={`e.g. ${d.WINDOW_CENTER}`} />
               </div>
               <div className="form-group relative flex-1">
-                <label className="form-label">Window Size (DSL)</label>
+                <label className="form-label caps-label">Window Size (DSL)</label>
                 <AutocompleteInput mode="general" value={holdCfg.windowSize ?? d.WINDOW_SIZE} onValueChange={val => updateNode({ holdConfig: { ...holdCfg, windowSize: val } })} placeholder={`e.g. ${d.WINDOW_SIZE}`} />
               </div>
             </div>

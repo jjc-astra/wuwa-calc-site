@@ -68,7 +68,7 @@ export const SubstatWorthChart: React.FC = () => {
   const markerScreenPx = Math.max(2, Math.round(3 * track.dpr));
 
   return (
-    <div className="results-card">
+    <div className={`results-card ${source.isStale ? 'is-stale' : ''}`}>
       <div className="results-card-header">
         <span>Substat Worth ({mode === 'team' ? 'Team' : 'Personal'})</span>
         <div className="results-card-header-controls">
@@ -100,9 +100,9 @@ export const SubstatWorthChart: React.FC = () => {
         <>
           <UnitTabs tabs={units} active={unit} onSelect={setActiveUnit} />
           <div className="substat-chart">
-            <div className="substat-chart-headrow">
+            <div className="substat-chart-headrow caps-label">
               <span className="substat-roll-col" />
-              <span className="substat-label-col" />
+              <span className="substat-label-col caps-label" />
               <span className="substat-track-col" />
               <span className="substat-col-header">Min</span>
               <span className="substat-col-header">Default</span>
@@ -124,7 +124,7 @@ export const SubstatWorthChart: React.FC = () => {
               return (
                 <div key={row.substat} className="substat-row">
                   <span className="substat-roll-col">{formatStatValue(row.substat, row.roll)}</span>
-                  <span className="substat-label-col">{row.substat}</span>
+                  <span className="substat-label-col caps-label">{row.substat}</span>
                   <span className="substat-track-col">
                     <span className="bar-track" ref={idx === 0 ? trackRef : undefined}>
                       <span

@@ -34,7 +34,7 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavClick, guideCh
             >
               <item.icon size={15} />
               <span>{item.label}</span>
-              {item.comingSoon && <span className="coming-soon-badge">Soon</span>}
+              {item.comingSoon && <span className="coming-soon-badge caps-tag pill-badge">Soon</span>}
             </button>
           ))}
         </nav>

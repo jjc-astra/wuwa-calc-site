@@ -36,7 +36,7 @@ export const GuideRankings: React.FC<GuideRankingsProps> = ({ unit, entries, bas
   const baselineDps = baseline?.dpsStats[dpsFieldOf(activeWindow)] ?? undefined;
 
   return (
-    <div className="guide-rankings">
+    <div className="guide-section">
       <div className="panel-header-main">{unit} Rankings</div>
       <div className="guide-rankings-filters">
         <SequenceRangeFilters filters={filters} onChange={setFilters} />

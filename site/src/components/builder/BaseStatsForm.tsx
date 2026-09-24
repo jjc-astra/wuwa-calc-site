@@ -31,7 +31,7 @@ export const BaseStatsForm: React.FC = () => {
 
   const makeInput = (key: string, label: string, defaultVal: string | number = '', placeholder = '') => (
     <div key={key} className="base-stat-field">
-      <label className="base-stat-label">{label}</label>
+      <label className="base-stat-label caps-tag">{label}</label>
       <input
         type="text"
         className="base-stat-value"
@@ -59,7 +59,7 @@ export const BaseStatsForm: React.FC = () => {
 
   const makeSelect = (key: string, label: string) => (
     <div className="base-stat-field">
-      <label className="base-stat-label">{label}</label>
+      <label className="base-stat-label caps-tag">{label}</label>
       <Dropdown
         className="base-select base-stat-value"
         value={baseStats[key] || ''}
@@ -72,7 +72,7 @@ export const BaseStatsForm: React.FC = () => {
   // Small underlined label per group (matches mechanics table style), not a bordered box.
   const renderGroup = (title: string, children: React.ReactNode) => (
     <div className="base-stats-group">
-      <div className="base-stats-group-title">{title}</div>
+      <div className="base-stats-group-title caps-label">{title}</div>
       <div className="base-stats-group-fields">{children}</div>
     </div>
   );

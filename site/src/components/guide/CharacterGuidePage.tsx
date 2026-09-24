@@ -207,7 +207,7 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
 
       {/* Left: the selected config, its echoes and results. Right: the comparisons. */}
       <ResultsSourceContext.Provider value={{ results: full.results, team: full.team, isStale, pinned: null, allowPin: false, scope }}>
-        <div className={`guide-columns ${isStale ? 'is-stale' : ''}`}>
+        <div className="guide-columns">
           <div className="guide-column">
             <GuideConfigPanel
               groups={groups}
@@ -346,7 +346,7 @@ const GuideConfigPanel: React.FC<GuideConfigPanelProps> = ({
         <span>Team & Investment</span>
         <div className="results-card-header-controls">
           {isDefault
-            ? <span className="guide-default-badge">Default</span>
+            ? <span className="guide-default-badge caps-tag pill-badge">Default</span>
             : <button type="button" className="base-btn text-xs guide-reset-btn" onClick={onReset}>Reset</button>}
         </div>
       </div>

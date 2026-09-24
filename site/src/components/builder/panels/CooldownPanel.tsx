@@ -50,7 +50,7 @@ export const CooldownPanel: React.FC<CooldownPanelProps> = ({ data, updateNode }
       <div className="panel-header-main">Cooldown</div>
       <div className="form-row">
         <div className="form-group">
-          <label className="form-label">Cooldown</label>
+          <label className="form-label caps-label">Cooldown</label>
           <input
             type="text"
             className="form-input"
@@ -61,7 +61,7 @@ export const CooldownPanel: React.FC<CooldownPanelProps> = ({ data, updateNode }
           />
         </div>
         <div className="form-group">
-          <label className="form-label">Max Charges</label>
+          <label className="form-label caps-label">Max Charges</label>
           <input
             type="text"
             inputMode="numeric"
@@ -75,7 +75,7 @@ export const CooldownPanel: React.FC<CooldownPanelProps> = ({ data, updateNode }
           />
         </div>
         <div className="form-group flex-1">
-          <label className="form-label">Share Cooldown With</label>
+          <label className="form-label caps-label">Share Cooldown With</label>
           <AutocompleteInput
             mode="eff-cd-name"
             value={shareDraft !== null ? shareDraft : (data.shareCooldownWith || '')}

@@ -11,7 +11,7 @@ import { Dropdown } from '../common/Dropdown';
 import { UnitTabs } from '../common/UnitTabs';
 
 export const TeamContributionPanel: React.FC = () => {
-  const { team, results } = useResultsSource();
+  const { team, results, isStale } = useResultsSource();
   const units = team.filter(s => s.character).map(s => s.character);
   const tabs = ['Team', ...units];
   const [activeTab, setActiveTab] = useState('Team');
@@ -40,7 +40,7 @@ export const TeamContributionPanel: React.FC = () => {
         }));
 
   return (
-    <div className="results-card">
+    <div className={`results-card ${isStale ? 'is-stale' : ''}`}>
       <div className="results-card-header">
         <span>DMG Contribution</span>
         <Dropdown

@@ -25,7 +25,7 @@ export const ChromeTabs: React.FC<ChromeTabsProps> = ({ tabs, activeId, onSelect
         onClick={() => onSelect(tab.id)}
       >
         <span>{tab.label}</span>
-        {tab.comingSoon && <span className="coming-soon-badge">Soon</span>}
+        {tab.comingSoon && <span className="coming-soon-badge caps-tag pill-badge">Soon</span>}
       </button>
     ))}
   </div>

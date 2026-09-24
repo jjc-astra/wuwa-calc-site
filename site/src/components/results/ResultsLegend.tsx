@@ -12,7 +12,7 @@ interface ResultsLegendProps {
 
 /** Shared swatch + label legend row used above any results chart with more than one series. */
 export const ResultsLegend: React.FC<ResultsLegendProps> = ({ items }) => (
-  <div className="results-legend">
+  <div className="results-legend caps-tag">
     {items.map(item => (
       <span key={item.label} className="results-legend-item">
         <span className="results-legend-swatch" style={{ background: item.color }} />
