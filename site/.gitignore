@@ -12,8 +12,7 @@ dist
 dist-ssr
 *.local
 
-# Local WIP mirror of the wuwa-calc-data repo (dev-only -- see utils/Common.ts's WIP_BASE_URL
-# and DataLoader.ts's loadJSON/loadMergedDB). Never committed; test data stays local.
+# Local WIP mirror of the wuwa-calc-data repo (dev-only; see README.md and utils/dataSource.ts).
 public/wip-data
 
 # Local-only dev scripts (one-off migrations, behavior-lock harness) and the harness's frozen data.
