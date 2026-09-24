@@ -61,9 +61,8 @@
 /* --- Team & investment selector --- */
 .guide-config { display: flex; flex-direction: column; gap: var(--space-3); }
 .guide-config .results-card-header { margin-bottom: 0; }
-.guide-config-team { display: flex; align-items: center; gap: var(--space-3); }
-.guide-team-select { flex: 1; min-width: 0; }
-.guide-default-badge { color: var(--accent); background: var(--accent-selected); }
+/* The site's gold tag colors (e.g. the Builder's .type-tag): gold text and border. */
+.guide-default-badge { color: var(--accent); border-color: var(--accent); }
 .guide-reset-btn { padding: 2px var(--space-3); }
 
 .guide-config-slots {
@@ -124,7 +123,7 @@
     }
 }
 /* Stacked (one column): dissolve the two column wrappers so their panels share one list, with
-   the selectors (Team & Investment, then Echo Stats) first instead of the Results column's top. */
+   the selectors (Team Setup, then Echo Stats) first instead of the Results column's top. */
 @container guide-body (max-width: 71.2488rem) {
     .guide-column { display: contents; }
     .guide-config { order: -2; }

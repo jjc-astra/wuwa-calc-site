@@ -2,7 +2,7 @@
 // Browses the submitted Rankings results for one character: pick a team and investment, then see
 // its results, timeline, and sequence / weapon / echo comparisons.
 import React, { useEffect, useMemo, useState } from 'react';
-import { useRankingsStore, rotationTypeLabel } from '../../store/useRankingsStore';
+import { useRankingsStore } from '../../store/useRankingsStore';
 import { RotationTypeBadge } from '../rankings/RankingRow';
 import type { RankingEntry } from '../../store/useRankingsStore';
 import { DataLoader } from '../../utils/DataLoader';
@@ -13,7 +13,6 @@ import { AvatarIcon } from '../common/AvatarIcon';
 import { LibraryCard, LibrarySection, LibrarySearchInput, matchesLibrarySearch } from '../common/LibraryGrid';
 import { IconSelect } from '../common/IconSelect';
 import { Dropdown } from '../common/Dropdown';
-import type { DropdownGroup } from '../common/Dropdown';
 import { SegmentedToggle } from '../common/SegmentedToggle';
 import type { RangeValue } from '../common/RangeSlider';
 import { ResultsSourceContext } from '../results/ResultsSource';
@@ -26,7 +25,7 @@ import { GuideRankings } from './GuideRankings';
 import { EchoStatsPanel } from './EchoStatsPanel';
 import { SequenceComparison, WeaponComparison, EchoComparison } from './GuideComparisons';
 import {
-  MAX_SEQUENCE, MAX_RANK, FULL_RANK_RANGE, groupTeams, defaultConfig, s0r1Config, configFromEntry, findGroupFor, weaponsForUnit,
+  MAX_SEQUENCE, MAX_RANK, FULL_RANK_RANGE, groupTeams, defaultConfig, configFromEntry, findGroupFor, weaponsForUnit,
   guideView, isValidConfig
 } from './guideModel';
 import { useGuideSelectionStore } from '../../store/useGuideSelectionStore';
@@ -213,11 +212,9 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
         <div className="guide-columns">
           <div className="guide-column">
             <GuideConfigPanel
-              groups={groups}
               group={group}
               config={config}
               isDefault={isDefaultConfig}
-              onGroupChange={g => setPicked(s0r1Config(g))}
               onSlotChange={updateSlot}
               onReset={() => setPicked(null)}
             />
@@ -329,11 +326,9 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
 };
 
 interface GuideConfigPanelProps {
-  groups: GuideTeamGroup[];
   group: GuideTeamGroup;
   config: GuideConfig;
   isDefault: boolean;
-  onGroupChange: (group: GuideTeamGroup) => void;
   onSlotChange: (slotIdx: number, patch: Partial<GuideConfig['slots'][number]>) => void;
   onReset: () => void;
 }
@@ -341,40 +336,20 @@ interface GuideConfigPanelProps {
 const SEQUENCE_OPTIONS = Array.from({ length: MAX_SEQUENCE + 1 }, (_, s) => ({ value: String(s), label: `S${s}` }));
 const RANK_OPTIONS = Array.from({ length: MAX_RANK }, (_, r) => ({ value: String(r + 1), label: `R${r + 1}` }));
 
-const GuideConfigPanel: React.FC<GuideConfigPanelProps> = ({
-  groups, group, config, isDefault, onGroupChange, onSlotChange, onReset
-}) => {
-  const teamOptions: DropdownGroup[] = (['linear', 'quickswap', null] as const)
-    .map(type => ({
-      label: rotationTypeLabel(type),
-      options: groups.filter(g => g.rotationType === type).map(g => ({ value: g.key, label: g.label }))
-    }))
-    .filter(g => g.options.length > 0);
-
+// The selected team's investment. Other teams are picked from the Rankings below (Show in Guide).
+const GuideConfigPanel: React.FC<GuideConfigPanelProps> = ({ group, config, isDefault, onSlotChange, onReset }) => {
   const team = group.entries[0].team;
 
   return (
     <div className="results-card guide-config">
       <div className="results-card-header">
-        <span>Team & Investment</span>
+        <span>Team Setup</span>
         <div className="results-card-header-controls">
+          <RotationTypeBadge type={group.rotationType} />
           {isDefault
-            ? <span className="guide-default-badge caps-tag pill-badge">Default</span>
+            ? <span className="guide-default-badge caps-tag pill-badge outline-badge">Default</span>
             : <button type="button" className="base-btn text-xs guide-reset-btn" onClick={onReset}>Reset</button>}
         </div>
-      </div>
-
-      <div className="guide-config-team">
-        <Dropdown
-          className="base-select text-xs guide-team-select"
-          value={group.key}
-          options={teamOptions}
-          onChange={key => {
-            const next = groups.find(g => g.key === key);
-            if (next) onGroupChange(next);
-          }}
-        />
-        <RotationTypeBadge type={group.rotationType} />
       </div>
 
       <div className="guide-config-slots">

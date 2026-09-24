@@ -78,7 +78,7 @@ export const WeaponComparison: React.FC<SectionProps & {
   onRemove: (weapon: string) => void;
 }> = ({ unit, metric, scope, summaries, defs, baselineJob, selectedWeapon, rankRange, onRankRangeChange, onSelect, onAdd, onRemove }) => {
   const ranks = rankEndpoints(rankRange);
-  // Every weapon of the unit's type, like the Team & Investment picker; listed ones greyed out too.
+  // Every weapon of the unit's type, like the Team Setup panel's picker; listed ones greyed out too.
   const addOptions = selectableOptions('weapon', weaponsForUnit(unit)).map(opt =>
     defs.some(d => d.weapon === opt.value) ? { ...opt, disabled: true, disabledTooltip: 'Already in the comparison' } : opt
   );

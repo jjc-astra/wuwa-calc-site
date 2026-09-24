@@ -192,6 +192,9 @@ button, input, select, textarea { font-family: inherit; }
 .caps-tag   { font-size: var(--font-tag);   font-weight: bold; text-transform: uppercase; letter-spacing: var(--caps-spacing); }
 /* Rounded badge shape, paired with .caps-tag; each badge sets its own colors. */
 .pill-badge { display: inline-block; flex-shrink: 0; padding: 0.1875rem 0.5rem; border-radius: 0.625rem; white-space: nowrap; }
+/* The site's tag look (rotation type, author, Default): thin border, faint fill. Tinted tags
+   override color and border-color, mixed from their hue like .ranking-row-type-linear. */
+.outline-badge { border: 1px solid var(--border); color: var(--text-dim); background: var(--surface-lighten); }
 
 /* Results being recalculated: dimmed and inert until the new ones land. */
 .is-stale { opacity: 0.45; pointer-events: none; transition: opacity 0.15s; }

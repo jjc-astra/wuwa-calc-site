@@ -16,7 +16,7 @@ import { guideHash } from '../../hooks/useHashRoute';
 import type { ActionsMenuItem } from '../common/ActionsMenuButton';
 
 export const RotationTypeBadge: React.FC<{ type: RankingEntry['rotationType'] }> = ({ type }) => (
-  <span className={`ranking-row-type-badge caps-tag pill-badge ranking-row-type-${type ?? 'unclassified'}`}>{rotationTypeLabel(type)}</span>
+  <span className={`ranking-row-type-badge caps-tag pill-badge outline-badge ranking-row-type-${type ?? 'unclassified'}`}>{rotationTypeLabel(type)}</span>
 );
 
 interface RankingRowProps {
@@ -75,7 +75,7 @@ export const RankingRow: React.FC<RankingRowProps> = ({ rank, entry, activeWindo
             <div className="ranking-row-badges">
               <RotationTypeBadge type={entry.rotationType} />
               {entry.author && (
-                <span className="ranking-row-author-badge caps-tag pill-badge">By: {entry.author}</span>
+                <span className="ranking-row-author-badge caps-tag pill-badge outline-badge">By: {entry.author}</span>
               )}
             </div>
           </div>

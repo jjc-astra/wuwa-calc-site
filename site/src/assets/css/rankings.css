@@ -244,13 +244,7 @@
 }
 .ranking-row-badges { display: flex; align-items: center; gap: 0.375rem; flex-shrink: 0; }
 
-/* --- Type / Author Badges --- */
-.ranking-row-type-badge,
-.ranking-row-author-badge {
-    border: 1px solid var(--border);
-    color: var(--text-dim);
-    background: var(--surface-lighten);
-}
+/* --- Type / Author Badges (.outline-badge) --- */
 .ranking-row-type-linear { color: color-mix(in srgb, #3987e5 70%, white); border-color: color-mix(in srgb, #3987e5 50%, var(--border)); }
 .ranking-row-type-quickswap { color: color-mix(in srgb, #d55181 70%, white); border-color: color-mix(in srgb, #d55181 50%, var(--border)); }
 .ranking-row-author-badge { text-transform: none; letter-spacing: normal; }
