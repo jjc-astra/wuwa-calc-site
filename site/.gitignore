@@ -12,7 +12,7 @@ dist
 dist-ssr
 *.local
 
-# Local WIP mirror of the wuwa-calc-data repo (dev-only; see README.md and utils/dataSource.ts).
+# Local WIP mirror of the wuwa-calc-data repo (dev-only; see the root README.md and src/utils/dataSource.ts).
 public/wip-data
 
 # Local-only dev scripts (one-off migrations, behavior-lock harness) and the harness's frozen data.
