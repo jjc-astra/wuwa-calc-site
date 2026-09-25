@@ -2,7 +2,7 @@ import type { ComponentType } from 'react';
 import type { IconProps } from '../components/common/icons';
 import { CalculatorIcon, BuilderIcon, RankingsIcon, GuideIcon } from '../components/common/icons';
 
-export type ViewId = 'landing' | 'calculator' | 'builder' | 'rankings' | 'guide';
+export type ViewId = 'landing' | 'calculator' | 'builder' | 'rankings' | 'guide' | 'about';
 
 export interface NavItem {
   id: ViewId;
@@ -11,7 +11,7 @@ export interface NavItem {
   icon: ComponentType<IconProps>;
 }
 
-// The site's pages, in nav bar / landing grid order.
+// The site's main pages, in nav bar / landing grid order. About sits apart, in the Header's right side.
 export const NAV_ITEMS: NavItem[] = [
   {
     id: 'calculator',

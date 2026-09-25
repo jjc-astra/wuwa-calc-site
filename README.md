@@ -9,6 +9,7 @@ A web tool for planning and optimizing Wuthering Waves team rotations, live at
   calculator runs on.
 - **Rotation Rankings**: leaderboards of submitted rotations.
 - **Character Guide**: per-character builds and team comparisons, calculated from the ranked rotations.
+- **About**: flowcharts of how the codebase works (`src/components/about/`).
 
 Game data and images live in a separate repo,
 [wuwa-calc-data](https://github.com/jjc-astra/wuwa-calc-data). The site fetches them at runtime,

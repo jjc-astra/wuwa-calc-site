@@ -2,7 +2,7 @@ import React from 'react';
 import { useBuilderStore } from '../store/useBuilderStore';
 import { NAV_ITEMS } from '../config/nav';
 import type { ViewId } from '../config/nav';
-import { HomeIcon, HeartIcon, DiscordIcon, PatreonIcon } from './common/icons';
+import { HomeIcon, InfoIcon, HeartIcon, DiscordIcon, PatreonIcon } from './common/icons';
 import { ActionsMenuButton } from './common/ActionsMenuButton';
 import { SITE_FEATURES, SITE_LINKS } from '../data/db';
 import { guideHash } from '../hooks/useHashRoute';
@@ -51,6 +51,14 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavClick, guideCh
             Back to Library
           </button>
         )}
+
+        <button
+          className={`nav-item-btn ${currentView === 'about' ? 'is-active' : ''}`}
+          onClick={() => onNavClick('about')}
+        >
+          <InfoIcon size={15} />
+          <span>About</span>
+        </button>
 
         {SITE_FEATURES.SHOW_DISCORD_BUTTON && (
           <a

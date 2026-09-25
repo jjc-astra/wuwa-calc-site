@@ -7,6 +7,7 @@ import { TeamBuilder } from './components/roster/TeamBuilder';
 import { RotationBuilder } from './components/rotation/RotationBuilder';
 import { ResultsPanel } from './components/results/ResultsPanel';
 import { RotationRankingsPage } from './components/rankings/RotationRankingsPage';
+import { AboutPage } from './components/about/AboutPage';
 import { FreshnessConflictDialog } from './components/common/FreshnessConflictDialog';
 import { DataLoader } from './utils/DataLoader';
 import { checkTeamFreshness, checkBuilderItemFreshness } from './utils/dataFreshness';
@@ -23,6 +24,7 @@ import './assets/css/results.css';
 import './assets/css/rankings.css';
 import './assets/css/timeline.css';
 import './assets/css/guide.css';
+import './assets/css/about.css';
 
 // Loads the databases, routes between pages, and rechecks loaded data when the tab refocuses.
 export default function App() {
@@ -109,6 +111,8 @@ export default function App() {
       {currentView === 'rankings' && <RotationRankingsPage />}
 
       {currentView === 'guide' && <CharacterGuidePage character={guideCharacter} />}
+
+      {currentView === 'about' && <AboutPage />}
 
       <FreshnessConflictDialog />
     </div>

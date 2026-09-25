@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { ViewId } from '../config/nav';
 
-const VALID_VIEWS: ViewId[] = ['landing', 'calculator', 'builder', 'rankings', 'guide'];
+const VALID_VIEWS: ViewId[] = ['landing', 'calculator', 'builder', 'rankings', 'guide', 'about'];
 
 // Remembers the last Calculator step (Build Team / Build Rotation) across navigation --
 // without it, a bare "#/calculator" nav click would always land back on step 1.

@@ -1,0 +1,73 @@
+/* About page: the codebase flowcharts. Sections reuse the calculator's .section-wrapper shell. */
+
+.about-page {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex; flex-direction: column;
+}
+
+/* Jump links to each section: a second header bar above the scroll area, styled like .global-nav-header. */
+.about-jump-bar {
+    flex-shrink: 0;
+    display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-1);
+    padding: var(--space-2) 1.25rem;
+    background: var(--bg-deep);
+    border: 1px solid var(--border); border-radius: 0.5rem;
+    /* Sits right on the scroll area; the shadow falls over the content scrolling under it. */
+    position: relative; z-index: 20;
+    transition: box-shadow 0.15s;
+}
+.about-jump-bar.is-scrolled { box-shadow: 0 0.375rem 0.75rem var(--overlay-b6); }
+.about-jump-bar .nav-item-btn { padding: 0.375rem 0.75rem; }
+.about-jump-bar .nav-item-btn:focus:not(:focus-visible) { outline: none; }
+
+.about-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+
+.about-content {
+    max-width: 118.75rem;
+    margin: 0 auto;
+    padding: var(--space-4) var(--space-6) var(--space-6);
+    display: flex; flex-direction: column; gap: var(--space-6);
+}
+
+.about-hero p { max-width: 47.5rem; line-height: 1.55; }
+.about-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-3) var(--space-4); }
+.about-legend .pill-badge { border-width: 1px; }
+
+/* Static sections: no collapse, so no clickable header. */
+.about-section { flex: none; }
+.about-section .section-header { cursor: default; gap: var(--space-5); }
+.about-section .section-header:hover { background: rgba(0, 0, 0, 0.4); }
+.about-section .header-left { flex-wrap: wrap; align-items: baseline; gap: 0.25rem var(--space-4); }
+.about-size-btn { padding: 0.1875rem 0.625rem; }
+
+.about-section-body {
+    padding: var(--space-5);
+    display: flex; flex-direction: column; gap: var(--space-4);
+}
+
+.about-note { margin: 0; max-width: 68.75rem; color: var(--text-dim); line-height: 1.55; font-size: 0.9rem; }
+.about-note b { color: var(--text-main); }
+.about-page code {
+    background: var(--bg-deep); border: 1px solid var(--border); border-radius: 0.25rem;
+    padding: 1px 0.375rem; font-size: 0.85em; color: var(--accent-light);
+    font-family: 'JetBrains Mono', 'Roboto Mono', monospace;
+}
+.about-link {
+    padding: 0; background: none; border: none; cursor: pointer;
+    color: var(--accent); font-size: inherit;
+}
+.about-link:hover { text-decoration: underline; }
+
+.about-subhead { margin: var(--space-3) 0 0; color: var(--text-dim); }
+
+.about-diagram {
+    background: var(--surface-card);
+    border: 1px solid var(--border); border-radius: 0.5rem;
+    padding: var(--space-4);
+    overflow: auto;
+}
+.about-diagram svg { display: block; margin: 0 auto; }
+.about-diagram .edgeLabel,
+.about-diagram .edgeLabel span,
+.about-diagram .edgeLabel p { color: var(--text-main) !important; }
