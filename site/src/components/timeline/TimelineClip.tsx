@@ -1,15 +1,29 @@
 import React from 'react';
-import { TooltipManager } from '../../utils/Common';
 import { formatFramesAsSeconds, toFrames } from '../../utils/Frames';
-import { describeTiming, describeInput, hairlinePx } from './timelineLayout';
-import type { TimelineSegment } from './timelineLayout';
+import { describeTiming, describeInput, hairlinePx, rowHits, CLIP_INSET_PX } from './timelineLayout';
+import type { SegmentType, TimelineSegment } from './timelineLayout';
 
 interface TimelineClipProps {
   segment: TimelineSegment;
 }
 
-function buildTooltipHtml(segment: TimelineSegment): string {
-  const { type, row } = segment;
+// "Hit #n: x dmg" per hit, with `activeHit` (1-based) highlighted.
+function buildHitLinesHtml(row: any, activeHit?: number): string {
+  const hits = rowHits(row);
+  if (hits.length === 0) return '';
+  const lines = hits.map((hit, i) => {
+    // A proc names its mechanic, e.g. "[Proc] Forte Detonate (Hit 2)" -> "(Forte Detonate)".
+    const proc = typeof hit.title === 'string' && hit.title.startsWith('[Proc] ')
+      ? ` (${hit.title.slice(7).replace(/ \(Hit \d+\)$/, '')})`
+      : '';
+    const cls = i + 1 === activeHit ? 'timeline-tooltip-hit is-active' : 'timeline-tooltip-hit';
+    return `<div class="${cls}"><span class="tooltip-key">Hit #${i + 1}${proc}:</span> <span class="tooltip-val">${Math.floor(hit.total || 0).toLocaleString()} dmg</span></div>`;
+  });
+  return `<div class="timeline-tooltip-hits">${lines.join('')}</div>`;
+}
+
+/** Tooltip for a row's clip, or for one of its hit dots (`activeHit`). */
+export function buildClipTooltipHtml(type: SegmentType, row: any, activeHit?: number): string {
   if (type === 'wait') {
     const reason = row.waitTime === row.cdWaitTime ? 'Waiting for Skill CD' : 'Off-Field Animation Lock';
     return (
@@ -22,26 +36,21 @@ function buildTooltipHtml(segment: TimelineSegment): string {
     `<div><span class="tooltip-key">Start:</span> <span class="tooltip-val">${formatFramesAsSeconds(toFrames(row.gameTimeStart))}</span></div>` +
     `<div><span class="tooltip-key">Duration:</span> <span class="tooltip-val">${formatFramesAsSeconds(toFrames(row.duration))}</span></div>` +
     `<div><span class="tooltip-key">Timing:</span> <span class="tooltip-val">${describeTiming(row)}</span></div>` +
-    `<div><span class="tooltip-key">Input:</span> <span class="tooltip-val">${describeInput(row)}</span></div>`
+    `<div><span class="tooltip-key">Input:</span> <span class="tooltip-val">${describeInput(row)}</span></div>` +
+    buildHitLinesHtml(row, activeHit)
   );
 }
 
-/** One segment of a unit's row (on-field, off-field or wait), with a hover tooltip. */
+/** One segment of a unit's row (on-field, off-field or wait). Hover is handled by TimelineRow. */
 export const TimelineClip: React.FC<TimelineClipProps> = ({ segment }) => {
-  // Outer box is the true, unmodified hit target (hover/tooltip). The fill's gap from its
-  // neighbor (same idea as StackedContributionBar's .ranking-bar-fill gap) is computed here,
-  // not a static CSS inset, so it uses the same device-pixel-snapped hairline as every other edge.
+  // Outer box is the true, unmodified hit target. The fill's gap from its neighbor (same idea as
+  // StackedContributionBar's .ranking-bar-fill gap) is computed here, not a static CSS inset, so
+  // it uses the same device-pixel-snapped hairline as every other edge.
   const hairline = hairlinePx();
   const fillWidth = Math.max(0, segment.widthPx - hairline * 2);
 
   return (
-    <div
-      className="timeline-clip-hit"
-      style={{ left: segment.xPx, width: segment.widthPx }}
-      onMouseEnter={e => TooltipManager.showAtPoint(e.clientX, e.clientY, buildTooltipHtml(segment))}
-      onMouseMove={e => TooltipManager.showAtPoint(e.clientX, e.clientY, buildTooltipHtml(segment))}
-      onMouseLeave={() => TooltipManager.hide()}
-    >
+    <div className="timeline-clip-hit" style={{ left: segment.xPx, width: segment.widthPx, top: CLIP_INSET_PX, bottom: CLIP_INSET_PX }}>
       <div className={`timeline-clip timeline-clip-${segment.type}`} style={{ left: hairline, width: fillWidth }} />
     </div>
   );

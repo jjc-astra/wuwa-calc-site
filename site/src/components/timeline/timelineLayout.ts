@@ -15,8 +15,14 @@ const TIMELINE_ROW_FIELDS = [
   'gameTimeStart', 'gameTimePassed', 'duration', 'waitTime', 'cdWaitTime', 'freezeTime', 'animationCommitment'
 ] as const;
 
+// damageInstances keeps just what the hit dots read (each instance also carries its full buff snapshot).
 export const trimRowsForTimeline = (rows: any[]): any[] =>
-  rows.map(row => row && Object.fromEntries(TIMELINE_ROW_FIELDS.filter(f => f in row).map(f => [f, row[f]])));
+  rows.map(row => row && {
+    ...Object.fromEntries(TIMELINE_ROW_FIELDS.filter(f => f in row).map(f => [f, row[f]])),
+    ...(row.damageInstances && {
+      damageInstances: row.damageInstances.map((d: any) => ({ title: d.title, total: d.total, gameTime: d.gameTime }))
+    })
+  });
 
 const PX_PER_SECOND = 50;
 export const HEADER_COL_WIDTH_PX = 140;
@@ -27,6 +33,17 @@ export const LANE_HEIGHT_PX = 26;
 // Duplicated in timeline.css's .timeline-flag-label -- keep in sync.
 export const FLAG_LABEL_HEIGHT_PX = 20;
 export const FLAG_TRACK_MIN_HEIGHT_PX = LANE_HEIGHT_PX;
+// A clip's gap from the top and bottom of its row.
+export const CLIP_INSET_PX = 6;
+// The row less its 1px bottom border and both insets.
+const CLIP_HEIGHT_PX = ROW_HEIGHT_PX - 1 - CLIP_INSET_PX * 2;
+// Hit dots: diameter (duplicated in timeline.css's .timeline-hit-dot), center-to-center gap when
+// stacked, and the clip edge margin a stack squeezes to stay within.
+const HIT_DOT_SIZE_PX = 4;
+const HIT_DOT_GAP_PX = 5;
+const HIT_DOT_EDGE_PX = 3;
+// Hits closer than this share a column and stack.
+const HIT_DOT_SAME_TIME_PX = 1;
 
 const FLAG_CHAR_WIDTH_PX = 5.5;
 const FLAG_LABEL_PADDING_PX = 2;
@@ -121,12 +138,22 @@ export interface SimultaneousLine {
   row: any;
 }
 
+export interface HitDot {
+  xPx: number;
+  // From the top of the row.
+  yPx: number;
+  row: any;
+  // 1-based, in time order within its row.
+  hitNumber: number;
+}
+
 export interface UnitRowData {
   unit: string;
   slotIndex: number;
   themeColor: string;
   segments: TimelineSegment[];
   simultaneousLines: SimultaneousLine[];
+  hitDots: HitDot[];
 }
 
 function deriveSegments(rows: any[], compression: TimeCompression | null): TimelineSegment[] {
@@ -175,7 +202,37 @@ function deriveSimultaneousLines(rows: any[], compression: TimeCompression | nul
   return lines;
 }
 
-// Each team member's row of clips and Simultaneous lines.
+// The hits a row's damage breakdown lists, in time order.
+export const rowHits = (row: any): any[] =>
+  [...(row.damageInstances || [])].sort((a, b) => (a.gameTime ?? 0) - (b.gameTime ?? 0));
+
+// A dot per hit at the time it lands, centered on the clip. Hits at the same time stack
+// vertically, squeezing together rather than spilling past the clip's height.
+function deriveHitDots(rows: any[], compression: TimeCompression | null): HitDot[] {
+  const dots: HitDot[] = rows.flatMap(row => rowHits(row).map((hit, i) => ({
+    xPx: compressedTimeToPx(hit.gameTime ?? row.gameTimeStart, compression),
+    yPx: 0,
+    row,
+    hitNumber: i + 1
+  })));
+  dots.sort((a, b) => a.xPx - b.xPx);
+
+  const centerY = CLIP_INSET_PX + CLIP_HEIGHT_PX / 2;
+  const maxSpan = CLIP_HEIGHT_PX - HIT_DOT_EDGE_PX * 2 - HIT_DOT_SIZE_PX;
+  for (let start = 0; start < dots.length;) {
+    let end = start + 1;
+    while (end < dots.length && dots[end].xPx - dots[start].xPx < HIT_DOT_SAME_TIME_PX) end++;
+    const count = end - start;
+    const step = count > 1 ? Math.min(HIT_DOT_GAP_PX, maxSpan / (count - 1)) : 0;
+    for (let j = 0; j < count; j++) {
+      dots[start + j].yPx = snapToDevicePixel(centerY + (j - (count - 1) / 2) * step);
+    }
+    start = end;
+  }
+  return dots;
+}
+
+// Each team member's row of clips, Simultaneous lines and hit dots.
 export function buildUnitRows(evaluatedRows: any[], team: TeamSlot[], compression: TimeCompression | null = null): UnitRowData[] {
   const unitRows: UnitRowData[] = [];
   team.forEach((slot, slotIndex) => {
@@ -186,7 +243,8 @@ export function buildUnitRows(evaluatedRows: any[], team: TeamSlot[], compressio
       slotIndex,
       themeColor: getCharacterThemeColor(DataLoader.characterDB[slot.character]),
       segments: deriveSegments(rows, compression),
-      simultaneousLines: deriveSimultaneousLines(rows, compression)
+      simultaneousLines: deriveSimultaneousLines(rows, compression),
+      hitDots: deriveHitDots(rows, compression)
     });
   });
   return unitRows;

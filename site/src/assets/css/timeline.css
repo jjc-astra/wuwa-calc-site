@@ -47,10 +47,8 @@
 
 .timeline-row-track { flex: 1; min-width: 0; position: relative; }
 
-.timeline-clip-hit {
-    position: absolute;
-    top: 6px; bottom: 6px;
-}
+/* top/bottom inset set inline (CLIP_INSET_PX). */
+.timeline-clip-hit { position: absolute; }
 .timeline-clip {
     position: absolute;
     top: 0; bottom: 0;
@@ -66,6 +64,33 @@
     background: var(--danger-tint);
     border: 1px dashed var(--danger);
 }
+
+/* Centered on its (left, top). Size duplicated in timelineLayout.ts's HIT_DOT_SIZE_PX. */
+.timeline-hit-dot {
+    position: absolute;
+    width: 4px; height: 4px;
+    margin: -2px 0 0 -2px;
+    border-radius: 50%;
+    /* The unit's color, a step lighter than its bar. */
+    background: color-mix(in srgb, var(--char-theme-raw) 60%, #fff);
+    pointer-events: none;
+    transition: transform 0.08s;
+}
+.timeline-hit-dot.is-active {
+    background: color-mix(in srgb, var(--char-theme-raw) 35%, #fff);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--char-theme-raw) 70%, #000);
+    transform: scale(1.75);
+    z-index: 1;
+}
+
+/* Hit list in a clip's tooltip; the snapped hit is highlighted. */
+.timeline-tooltip-hits {
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px solid var(--border);
+}
+.timeline-tooltip-hit.is-active .tooltip-key,
+.timeline-tooltip-hit.is-active .tooltip-val { color: var(--accent); font-weight: bold; }
 
 .timeline-simultaneous-line {
     position: absolute;

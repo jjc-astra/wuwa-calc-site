@@ -33,8 +33,8 @@ export function useRotationTimelineData(entry: { id: string; rotationFile: strin
     (async () => {
       try {
         const run = await DataLoader.loadRankedRun(entry);
-        // Hold Repeat blocks expanded, so each repeat draws as its own clip.
-        const { result } = postToWorker('recalculate', await buildCalcRequest(run));
+        // Hold Repeat blocks expanded, so each repeat draws as its own clip. Damage for the hit dots.
+        const { result } = postToWorker('recalculate', { ...(await buildCalcRequest(run)), includeDamage: true });
         const { evaluatedRows, loopStartIndex } = await result;
         if (requestIdRef.current !== thisRequestId) return; // collapsed/re-triggered since
         setState({ status: 'ready', evaluatedRows, loopStartIndex, team: run.team, error: null });
