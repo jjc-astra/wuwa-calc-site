@@ -205,7 +205,7 @@ export const DIAGRAMS = {
       direction TB
       K1["recalculate(markStale, includeDamage): edits,<br/>roster changes, imports; RotationBuilder mount<br/>once (false, true) · calculateDamage: Calculate,<br/>sends the loop start as an expanded-row index"]:::store
       K1 --> S1["snapshot team, enemy, rows, Full Energy /<br/>Concerto, Ending Rotation flags"]:::store
-      S1 --> S2["checkTeamFreshness → staleRefs"]:::data
+      S1 --> S2["checkTeamFreshness (+ fresh manifests)"]:::data
       S2 --> S3["expandRepeatBlocks: each block cloned<br/>repeatCount times (the last rep's end row<br/>uses repeatFinalTiming) + collapseMap"]:::logic
       S3 --> S4["postToWorker: + buildBuilderPayload (the<br/>team's Builder edits); a sequence id;<br/>main lane, one request at a time"]:::worker
     end
@@ -225,11 +225,9 @@ export const DIAGRAMS = {
     graph LR
     subgraph Prep["every request"]
       direction TB
-      P1["getReady: this worker's own<br/>DataLoader.initDatabases (once)"]:::worker
-      P1 --> P2{"calculateDamage, and the<br/>team has Builder edits?"}
-      P2 -- yes --> P3["initDatabases again +<br/>clearMechanicCache every team<br/>entity (pristine re-fetch)"]:::worker
-      P2 -- no --> P4
-      P3 --> P4["clearMechanicCache each staleRef"]:::worker
+      P1["getReady: this worker's own<br/>DataLoader.initDatabases (once; from the<br/>page's seed when it sent one), then<br/>adoptManifests: the page's current ones"]:::worker
+      P1 --> P3["restorePristine: undo the last<br/>request's Builder edits (in memory)"]:::worker
+      P3 --> P4["clearMechanicCache each team entity<br/>whose hash changed (mechanicChanged)"]:::worker
       P4 --> P5["loadTeamMechanics (+ System),<br/>applyBuilderOverridesToDataLoader"]:::worker
     end
     subgraph Run["run"]
@@ -264,13 +262,13 @@ export const DIAGRAMS = {
     end
     subgraph Build["buildCalcRequest"]
       direction TB
-      B1["checkTeamFreshness → staleRefs"]:::data
+      B1["checkTeamFreshness (+ fresh manifests)"]:::data
       B1 --> B2["expandRepeatBlocks (no loop start:<br/>the worker finds it)"]:::logic
     end
     subgraph Lanes["calcWorkerClient"]
       direction TB
       L1["postToWorker → main lane, shared with<br/>the Calculator: one at a time, queued;<br/>worker created on first use"]:::worker
-      L2["postToWorkerPool → pool lanes: a new lane<br/>while all are busy, up to min(4, cores − 1);<br/>the least busy takes it"]:::worker
+      L2["postToWorkerPool → shared queue: a free lane<br/>takes the job sharing most of its loaded<br/>entities; lanes pre-warmed on the Guide,<br/>up to min(16, cores − 1)"]:::worker
       L2 --> L3{"still wanted when<br/>its turn comes?"}
       L3 -- no --> L4["CancelledError"]:::alert
       L3 -- yes --> L5["runs (summaryOnly)"]:::worker
@@ -669,7 +667,7 @@ export const DIAGRAMS = {
       G2["deletedMechanicIds: removed and<br/>renamed-away ids; renamedFrom<br/>chains back to the original"]:::store
       G3["editedBaseStats: also written onto<br/>the live DataLoader entry"]:::store
       G4["revert: the pristine copy back<br/>(refused if its old id is taken)"]:::store
-      G5["Reset Cache: clearMechanicCache,<br/>initDatabases, the entity's edits<br/>dropped, reopened"]:::store
+      G5["Reset Cache: clearMechanicCache,<br/>restoreBaseStats, the entity's edits<br/>dropped, reopened"]:::store
       G1 ~~~ G2 ~~~ G3 ~~~ G4 ~~~ G5
     end
     subgraph Use["used by"]
@@ -881,7 +879,7 @@ export const DIAGRAMS = {
     end
     subgraph Outcome["changed"]
       direction TB
-      O1["no edits: clearMechanicCache + loadMechanic;<br/>returned as staleRefs, so the worker<br/>drops its copy too"]:::data
+      O1["no edits: clearMechanicCache + loadMechanic;<br/>workers drop their copy on their next<br/>request (mechanicChanged)"]:::data
       O2["edits: FreshnessConflictDialog"]:::alert
       O2 --> O3["Keep My Edits: nothing changes<br/>(asked again next check)"]:::store
       O2 --> O4["Discard & Use Latest: discardChanges,<br/>clearMechanicCache, reopened if open"]:::store

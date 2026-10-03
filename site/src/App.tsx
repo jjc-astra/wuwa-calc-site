@@ -25,6 +25,9 @@ import './assets/css/timeline.css';
 import './assets/css/guide.css';
 import './assets/css/about.css';
 
+// The startup database load, shared so StrictMode's double-run mount effect doesn't fetch twice.
+let startupLoad: Promise<void> | null = null;
+
 // Loads the databases, routes between pages, and rechecks loaded data when the tab refocuses.
 export default function App() {
   const [{ view: currentView, step: activeStep, guideCharacter }, navigate] = useHashRoute();
@@ -41,7 +44,8 @@ export default function App() {
   };
 
   useEffect(() => {
-    DataLoader.initDatabases().then(async () => {
+    startupLoad ??= DataLoader.initDatabases();
+    startupLoad.then(async () => {
       // A reload only persists activeChar, not the derived `mechanics` working copy, so it
       // needs the same freshness-check + replay a grid click normally does.
       await refreshActiveBuilderItem(true);

@@ -141,8 +141,11 @@ const providerColor = (provider: string | undefined): string =>
 class LaneBuilder {
   lanes = new Map<string, EffectLane & { section: string; firstFrames: number }>();
   private open = new Map<string, EffectBar>();
+  private compression: TimeCompression | null;
 
-  constructor(private compression: TimeCompression | null) {}
+  constructor(compression: TimeCompression | null) {
+    this.compression = compression;
+  }
 
   private px(frames: number): number {
     return compressedTimeToPx(frames, this.compression);

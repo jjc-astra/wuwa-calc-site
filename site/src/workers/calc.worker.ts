@@ -3,11 +3,16 @@
 // structured-cloned, so there's no way to share one instance across postMessage anyway.
 import { TimelineEngine } from '../logic/TimelineEngine';
 import { buildRotationResults, buildRotationSummary, populateDamageInstances, previewEndingRotationTiming, type SharedExtendedRun } from '../logic/ResultsCalculator';
-import { DataLoader } from '../utils/DataLoader';
+import { DataLoader, type DataSeed } from '../utils/DataLoader';
 import { applyBuilderOverridesToDataLoader } from './builderOverridePayload';
+import { getTeamEntityRefs } from '../utils/TeamUtils';
+import { overriddenEntities } from './builderOverridePayload';
 
 let ready: Promise<void> | null = null;
-const getReady = () => ready ?? (ready = DataLoader.initDatabases());
+// A seed only counts on this worker's first message.
+const getReady = (seed?: DataSeed) => ready ?? (ready = DataLoader.initDatabases(seed));
+// Entities the last request's Builder edits were applied to, undone before the next one.
+let editedEntities: string[] = [];
 
 // Drops function-valued properties (compiled trigger-rule functions) before a result crosses
 // back to the main thread -- structured clone handles the circular prevRow/nextRow links fine.
@@ -29,36 +34,26 @@ const worker = self as any;
 worker.onmessage = async (e: MessageEvent) => {
   const { id, type, payload } = e.data;
   try {
-    await getReady();
-
-    // Only force a pristine reset below when this team actually has something cached in the
-    // builder, or every Calculate press pays for extra JSON fetches for nothing.
-    const overrides = payload.builderOverrides;
-    const hasOverrides = !!overrides && (
-      Object.keys(overrides.editedMechanics || {}).length > 0 ||
-      Object.keys(overrides.editedBaseStats || {}).length > 0 ||
-      (overrides.deletedMechanicIds || []).length > 0
-    );
-
-    // Calculate press forces every entity to a pristine re-fetch -- otherwise a Builder edit
-    // removal (Reset Cache, a deleted node) can't un-stick from this worker's long-lived cache.
-    if (type === 'calculateDamage' && hasOverrides && payload.builderEntityRefs) {
-      await DataLoader.initDatabases();
-      payload.builderEntityRefs.forEach((ref: { name: string; folder: string }) =>
-        DataLoader.clearMechanicCache(ref.folder, ref.name));
+    await getReady(payload?.seed);
+    if (payload?.manifests) DataLoader.adoptManifests(payload.manifests);
+    // Pre-warm: databases only, so it can overlap a real request on the same worker.
+    if (type === 'warmup') {
+      worker.postMessage({ id, ok: true });
+      return;
     }
 
-    // Mirrors whatever the main thread's dataFreshness.ts check already evicted from its own
-    // DataLoader, which this worker's separate instance never saw.
-    if (Array.isArray(payload.staleRefs) && payload.staleRefs.length > 0) {
-      payload.staleRefs.forEach((ref: { folder: string; name: string }) =>
-        DataLoader.clearMechanicCache(ref.folder, ref.name));
-    }
+    // Back to as-fetched, so an edit since removed (Reset Cache, a deleted node) doesn't stick.
+    editedEntities.forEach(name => DataLoader.restorePristine(name));
+    // Drops the team's mechanics whose file changed since this worker loaded them (against the
+    // page's manifests, adopted above), so they reload current.
+    getTeamEntityRefs(payload.team, { includeSystem: true, dedupe: true }).forEach(ref => {
+      if (DataLoader.mechanicChanged(ref.folder, ref.name)) DataLoader.clearMechanicCache(ref.folder, ref.name);
+    });
 
     await DataLoader.loadTeamMechanics(payload.team);
-    // Mirrors useBuilderStore.setActiveChar's "replay edits after the pristine fetch" step,
-    // against this worker's separate DataLoader instance -- a no-op with no cached edits.
+    // The page's current Builder edits for this team, on top of the pristine data.
     applyBuilderOverridesToDataLoader(payload.builderOverrides);
+    editedEntities = overriddenEntities(payload.builderOverrides);
 
     if (type === 'recalculate') {
       const { rows, team, options, enemy } = payload;

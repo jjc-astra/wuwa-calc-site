@@ -12,7 +12,7 @@ import type { RotationResults, RotationSummary, CalcInput } from '../types/resul
 
 // Freshness check + Hold-Repeat expansion, shared by the full and summary calculations.
 export async function buildCalcRequest({ rotation, team, settings, enemy }: CalcInput): Promise<WorkerRequest> {
-  const staleRefs = await checkTeamFreshness(team);
+  await checkTeamFreshness(team);
   // expandRepeatBlocks never reads `.id` -- safe for saved/ranked rows, which never carry one.
   const { expanded } = expandRepeatBlocks(rotation as RotationRow[]);
   // No loopStartIndex: the worker finds it on the expanded rows itself, so this doesn't need a
@@ -23,8 +23,7 @@ export async function buildCalcRequest({ rotation, team, settings, enemy }: Calc
     options: { ...settings },
     enemy,
     endingRotationEnabled: settings.endingRotationEnabled,
-    endRotationStartsEarlier: settings.endRotationStartsEarlier,
-    staleRefs
+    endRotationStartsEarlier: settings.endRotationStartsEarlier
   };
 }
 

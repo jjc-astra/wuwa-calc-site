@@ -101,8 +101,7 @@ const withoutEntityEdits = (state: BuilderState, entityName: string) => ({
 // Gauge and friends see it without a reload), and logged as an edit.
 const withBaseStats = (state: BuilderState, baseStats: BaseStats) => {
   if (!state.activeChar) return { baseStats };
-  const target = DataLoader.baseStatsFor(state.activeChar);
-  if (target) Object.assign(target, baseStats);
+  DataLoader.editBaseStats(state.activeChar, baseStats);
   return { baseStats, editedBaseStats: { ...state.editedBaseStats, [state.activeChar]: baseStats } };
 };
 
@@ -164,10 +163,7 @@ export const useBuilderStore = create<BuilderState>()(
         // overwrites mechanicsDB with pristine JSON.
         const { editedBaseStats, editedMechanics, deletedMechanicIds } = get();
         const charEdits = editedBaseStats[charName];
-        if (charEdits) {
-          const target = DataLoader.baseStatsFor(charName);
-          if (target) Object.assign(target, charEdits);
-        }
+        if (charEdits) DataLoader.editBaseStats(charName, charEdits);
         Object.entries(editedMechanics).forEach(([id, node]) => {
           if (MechanicKey.belongsTo(id, charName)) DataLoader.registerMechanicNode(id, node);
         });
@@ -343,27 +339,16 @@ export const useBuilderStore = create<BuilderState>()(
       },
 
       discardChanges: itemName => {
-        const hadBaseStatEdit = !!get().editedBaseStats[itemName];
         const isActive = get().activeChar === itemName;
-        const isWeapon = !!DataLoader.weaponDB[itemName];
         set(state => ({
           ...withoutEntityEdits(state, itemName),
           ...(isActive ? { baseStats: {}, mechanics: {} } : {})
         }));
-        // setBaseStat/setAllBaseStats write straight onto the live DataLoader entry (see
-        // withBaseStats) -- undo that here too, or a discarded edit keeps showing up outside
-        // the Builder (e.g. Gauge.tsx's forte-dial count) until a full page reload. Only the
-        // active entity's DataLoader entry can carry a live edit in the first place.
-        if (hadBaseStatEdit && isActive) {
-          DataLoader.loadMergedDB<Record<string, any>>(isWeapon ? 'db_weapons.json' : 'db_characters.json').then(fresh => {
-            const pristine = fresh[itemName];
-            const target = DataLoader.baseStatsFor(itemName);
-            if (!pristine || !target) return;
-            Object.keys(target).forEach(k => delete (target as any)[k]);
-            Object.assign(target, pristine);
-            if (get().activeChar === itemName) set({ baseStats: { ...pristine } });
-          });
-        }
+        // Base-stat edits are written straight onto the live DataLoader entry (withBaseStats,
+        // applyBuilderOverridesFor) -- undo that too, or a discarded edit keeps showing up outside
+        // the Builder (e.g. Gauge.tsx's forte-dial count) until a full page reload.
+        DataLoader.restoreBaseStats(itemName);
+        if (isActive) set({ baseStats: { ...(DataLoader.baseStatsFor(itemName) || {}) } as BaseStats });
       },
 
       getTeamOverrides: itemNames => {
@@ -393,7 +378,7 @@ export const useBuilderStore = create<BuilderState>()(
         const mechFolder = mechFolderFor(activeFolder);
 
         DataLoader.clearMechanicCache(mechFolder, activeChar);
-        await DataLoader.initDatabases();
+        DataLoader.restoreBaseStats(activeChar);
 
         // Also clear this entity's edit log, or setActiveChar below just replays the same
         // edits back onto the refetched data.

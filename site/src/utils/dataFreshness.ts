@@ -52,8 +52,9 @@ export const useFreshnessConflictStore = create<FreshnessConflictState>((set, ge
 }));
 
 // Compares loadedHash against a fresh manifest (in dev, the WIP mirror's too: a WIP file added,
-// edited or deleted counts as a change). Evicts changed-and-unedited items (returned so a separate
-// cache, e.g. the calc worker's DataLoader, can mirror it) and raises edited ones.
+// edited or deleted counts as a change). Evicts and reloads changed-and-unedited items (returned)
+// and raises edited ones. Calc workers run the same check against the manifests each request
+// carries (calc.worker.ts).
 async function checkItems(items: EntityRef[]): Promise<EntityRef[]> {
   if (items.length === 0) return [];
   await DataLoader.refreshManifest();
@@ -61,20 +62,7 @@ async function checkItems(items: EntityRef[]): Promise<EntityRef[]> {
   const evicted: EntityRef[] = [];
 
   for (const { folder, name } of items) {
-    const cacheKey = DataLoader.mechanicCacheKey(folder, name);
-    if (!DataLoader.cache.mechanics.has(cacheKey)) continue; // never loaded -- nothing to check
-
-    const relPath = DataLoader.mechanicPath(folder, name);
-    const latestHash = DataLoader.currentHash(relPath);
-    if (!latestHash) continue; // neither manifest has this path (e.g. 404'd) -- nothing to compare
-
-    const knownHash = DataLoader.loadedHashes[relPath];
-    if (!knownHash) {
-      // Loaded before a manifest baseline existed -- adopt the current hash as that baseline.
-      DataLoader.loadedHashes[relPath] = latestHash;
-      continue;
-    }
-    if (knownHash === latestHash) continue;
+    if (!DataLoader.mechanicChanged(folder, name)) continue;
 
     if (useBuilderStore.getState().hasChanges(name)) {
       conflicts.push({ folder, name });
@@ -90,10 +78,9 @@ async function checkItems(items: EntityRef[]): Promise<EntityRef[]> {
   return evicted;
 }
 
-// Loads every mechanic for the team (chars/weapons/sets/echoes) plus System mechanics.
-// Returns evicted items, so Calculate can mirror the drop in the calc worker's own DataLoader.
-export async function checkTeamFreshness(team: TeamSlot[]): Promise<EntityRef[]> {
-  return checkItems(getTeamEntityRefs(team, { includeSystem: true, dedupe: true }));
+// Checks every loaded mechanic for the team (chars/weapons/sets/echoes) plus System.
+export async function checkTeamFreshness(team: TeamSlot[]): Promise<void> {
+  await checkItems(getTeamEntityRefs(team, { includeSystem: true, dedupe: true }));
 }
 
 // Checked before the Builder opens an entity, and on every reload/refocus poll of what's open

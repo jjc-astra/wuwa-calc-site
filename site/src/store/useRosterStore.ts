@@ -175,24 +175,11 @@ export const useRosterStore = create<RosterState>()(
         const team = [...get().team];
         const slot = { ...team[slotIndex], character: charName };
 
-        if (build.weapon) {
-          slot.weapon = build.weapon;
-          await DataLoader.loadMechanic('weapons', build.weapon);
-        }
-        if (build.mainSet) {
-          slot.mainSet = build.mainSet;
-          await DataLoader.loadMechanic('sets', build.mainSet);
-        }
-        if (build.subSet) {
-          slot.subSet = build.subSet;
-          await DataLoader.loadMechanic('sets', build.subSet);
-        } else {
-          slot.subSet = '';
-        }
-        if (build.mainEcho) {
-          slot.mainEcho = build.mainEcho;
-          await DataLoader.loadMechanic('echoes', build.mainEcho);
-        }
+        if (build.weapon) slot.weapon = build.weapon;
+        if (build.mainSet) slot.mainSet = build.mainSet;
+        slot.subSet = build.subSet || '';
+        if (build.mainEcho) slot.mainEcho = build.mainEcho;
+        await DataLoader.loadTeamMechanics([slot]);
 
         Object.assign(slot, recommendedEchoes(slot, build));
         slot.echoStats = calculateEchoStatsForSlot(slot);
@@ -347,11 +334,9 @@ export const useRosterStore = create<RosterState>()(
         return (state, error) => {
           if (!error && state) {
             // Await initDatabases() before applying team overrides to prevent missing base-stat lookups during Zustand rehydration.
-            DataLoader.ready.then(() =>
-              Promise.all(
-                getTeamEntityRefs(state.team, { includeSystem: false, dedupe: true }).map(ref => DataLoader.loadMechanic(ref.folder, ref.name))
-              ).then(() => applyBuilderOverridesForTeam(state.team))
-            );
+            DataLoader.ready
+              .then(() => DataLoader.loadTeamMechanics(state.team))
+              .then(() => applyBuilderOverridesForTeam(state.team));
           }
         };
       }

@@ -32,6 +32,7 @@ import { selectableOptions } from '../../utils/selectableContent';
 import type { GuideSelection } from '../../store/useGuideSelectionStore';
 import type { GuideConfig, GuideMetric, GuideScope, GuideTeamGroup, GuideEntry } from './guideModel';
 import { useGuideFullCalc, useGuideSummaries, useGuideEntries, useGuideCache } from './useGuideCalc';
+import { warmWorkerPool } from '../../workers/calcWorkerClient';
 
 interface CharacterGuidePageProps {
   character?: string;
@@ -43,6 +44,8 @@ export const CharacterGuidePage: React.FC<CharacterGuidePageProps> = ({ characte
   useEffect(() => {
     load();
   }, [load]);
+  // From the library too: the workers load while a character is picked.
+  useEffect(() => warmWorkerPool(), []);
 
   const rankedCharacters = useMemo(() => {
     const names = new Set<string>();

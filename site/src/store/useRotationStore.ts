@@ -316,9 +316,8 @@ export const useRotationStore = create<RotationState>()(
         const options = { startEnergy, startConcerto };
 
         // Evicts stale mechanic JSONs so this runs against current data (a mechanics-file change is
-        // picked up without a reload); staleRefs also goes to the worker so its own DataLoader
-        // instance drops the same entries.
-        const staleRefs = await checkTeamFreshness(team);
+        // picked up without a reload), and refreshes the manifests the worker checks its own against.
+        await checkTeamFreshness(team);
 
         // Hold Repeat blocks are authoring/display sugar -- TimelineEngine only ever sees
         // `expanded` (each block's row range cloned `repeatCount` times); the reply gets folded
@@ -327,7 +326,7 @@ export const useRotationStore = create<RotationState>()(
 
         set({ isCalculating: true });
         const { seq, result, builderOverrides } = postToWorker(type, {
-          rows: expanded, team, options, enemy, endingRotationEnabled, endRotationStartsEarlier, staleRefs, ...extra(collapseMap)
+          rows: expanded, team, options, enemy, endingRotationEnabled, endRotationStartsEarlier, ...extra(collapseMap)
         });
         latestSeqByType[type] = seq;
         let data: any;
