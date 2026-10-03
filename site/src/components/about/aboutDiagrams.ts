@@ -475,7 +475,8 @@ export const DIAGRAMS = {
       O1["passes: hitMults → procced_mechanic (MATH<br/>mults resolved); effects with @Equipper<br/>+ provider filled in; its cooldown"]:::logic
       O2["an ALWAYS listener on another<br/>event: buff effects only"]:::logic
       O3["an ALWAYS listener that fails: its<br/>buffs removed (buffAction remove ALL)"]:::alert
-      O1 ~~~ O2 ~~~ O3
+      O4["an ALWAYS listener's effects are tagged:<br/>while they apply, it sits out the events<br/>they fire (EventManager.applying)"]:::logic
+      O1 ~~~ O2 ~~~ O3 ~~~ O4
     end
     Reg --> Emit --> Out
   `,
@@ -487,6 +488,8 @@ export const DIAGRAMS = {
       P1 --> P2{"target @Next?"}
       P2 -- yes --> P3["pendingNextBuffs: applied to the<br/>next row's unit on inheritance"]:::logic
       P2 -- no --> P4["_resolveTargets: @Self, @Team,<br/>@TeamOthers, @Enemy, @Active, a name"]:::logic
+      P0["_fire / _fireTrackerEvents (_nested):<br/>past 32 events firing inside each other,<br/>the chain is cut with a loop warning"]:::alert
+      P0 ~~~ P1
     end
     subgraph Types["by type"]
       direction TB

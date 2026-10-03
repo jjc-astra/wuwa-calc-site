@@ -13,7 +13,12 @@ export interface RegisteredListener extends MechanicNode {
   requiredModifiers?: string[];
   // The `(...)` parameters of the event itself, e.g. the 2 in AfterHit(2).
   eventArgs: Array<string | number>;
+  // Identifies the listener in ALWAYS_SOURCE tags (see EventManagerClass.applying).
+  listenerId: string;
 }
+
+// Set on the effects an ALWAYS listener produces, naming that listener (see EventManagerClass.applying).
+export const ALWAYS_SOURCE = '_alwaysListener';
 
 // The trigger rule a node actually runs under: a passive with no rule of its own is always on.
 export const effectiveTriggerRule = (mechanic: MechanicNode): string | undefined => {
@@ -24,8 +29,13 @@ export const effectiveTriggerRule = (mechanic: MechanicNode): string | undefined
 // The event bus: compiled trigger rules registered per event, emitted as the simulation runs.
 export class EventManagerClass {
   listeners: Record<string, RegisteredListener[]> = {};
+  // ALWAYS listeners whose own effects are being applied right now. emit skips them, so the buff
+  // events those effects fire can't re-check (and flip) the same listener -- e.g. a rule whose
+  // condition reads its own buff would otherwise add it, fail, remove it, pass, add it... forever.
+  applying = new Set<string>();
 
   reset(): void {
+    this.applying.clear();
     this.listeners = {
       OnStart: [], OnCast: [], OnHit: [], AfterHit: [],
       OnSwapIn: [], OnSwapOut: [], OnUnitChange: [], OnTick: [], OnTrackerDetonate: [],
@@ -51,7 +61,8 @@ export class EventManagerClass {
         triggerEvent: t.event,
         evaluate: compiledRule.evaluate,
         requiredModifiers: t.modifiers,
-        eventArgs: t.args
+        eventArgs: t.args,
+        listenerId: `${mechanicKey ?? mechanic.name}#${t.event}`
       });
     });
   }
@@ -161,6 +172,9 @@ export class EventManagerClass {
       if (!ctx) continue;
 
       const isAlways = listener.triggerEvent === 'ALWAYS';
+      if (isAlways && this.applying.has(listener.listenerId)) continue;
+      // Where this listener's effects start, for tagging them below.
+      const effectsBefore = triggeredEffects.length;
 
       if (eventType === 'OnTick') {
         const { gameTimePassed, getTimeScale } = extraPayload || {};
@@ -241,6 +255,10 @@ export class EventManagerClass {
             }
           });
         }
+      }
+
+      if (isAlways) {
+        for (let i = effectsBefore; i < triggeredEffects.length; i++) triggeredEffects[i][ALWAYS_SOURCE] = listener.listenerId;
       }
     }
     return triggeredEffects;

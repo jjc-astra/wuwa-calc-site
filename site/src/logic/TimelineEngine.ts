@@ -14,7 +14,7 @@ import { CommonUtils } from '../utils/Common';
 import { teamCharacters } from '../utils/TeamUtils';
 import { DSLParser } from './dsl/dslParser';
 import { ContextManager } from './ContextManager';
-import { EventManager } from './EventManager';
+import { EventManager, ALWAYS_SOURCE } from './EventManager';
 import { calculateEchoStatsForSlot } from '../store/useRosterStore';
 import { CHARACTER_DEFAULTS, ENEMY_DEFAULTS, GAME_DEFAULTS, MECHANICS_NOTATION } from '../data/db';
 import type { Effect, MechanicNode, HoldConfig, MoveOrigin } from '../types';
@@ -42,6 +42,9 @@ export interface QueuedHit {
 //   lean    only timings, resources and messages: no dropdown snapshots and no per-hit damage
 //           log, for the loop analysis, which never reads them
 export type EngineMode = 'full' | 'silent' | 'lean';
+
+// How deep events may fire inside other events' effects before the chain is cut as a loop.
+const MAX_EVENT_DEPTH = 32;
 const RUN_PROFILES: Record<EngineMode, { dropdownSnapshots: boolean; hitLog: boolean; logWarnings: boolean }> = {
   full:   { dropdownSnapshots: true,  hitLog: true,  logWarnings: true },
   silent: { dropdownSnapshots: true,  hitLog: true,  logWarnings: false },
@@ -62,6 +65,9 @@ export class TimelineEngineClass {
   _run = RUN_PROFILES.full;
   // Memoizes _getModifiedMoveData per actionId for one recalculateState call; reset each call.
   _moveDataCache: Record<string, MechanicNode | null> = {};
+  // Events currently firing inside each other, outermost first (see _nested).
+  _eventChain: string[] = [];
+  _loopWarned = false;
 
   recalculateState(
     activeRows: any[],
@@ -80,6 +86,8 @@ export class TimelineEngineClass {
     this.currentGlobalRealTime = 0;
     this.lastSwapOutTime = {};
     this._localBuffCache = {};
+    this._eventChain = [];
+    this._loopWarned = false;
 
     if (team && team.length > 0) {
       team.forEach(slot => {
@@ -1154,14 +1162,40 @@ export class TimelineEngineClass {
     eventType: string, modifiers: Set<string>, currentData: any, provider: string, activeTeam: string[], activeRows: any[], team: any[],
     executeAt: number = this.currentGlobalRealTime, extraPayload: any = null
   ): void {
-    const effects = EventManager.emit(eventType, modifiers, currentData, provider, team, extraPayload);
-    this._executeEffectsStream(effects, currentData, activeTeam, activeRows, executeAt, provider, team);
+    this._nested(`${eventType}[${[...modifiers].join(', ')}]`, currentData, () => {
+      const effects = EventManager.emit(eventType, modifiers, currentData, provider, team, extraPayload);
+      this._executeEffectsStream(effects, currentData, activeTeam, activeRows, executeAt, provider, team);
+    });
   }
 
   // Emits several events for one tracker, gathering every listener's effects before running any of them.
   _fireTrackerEvents(events: string[], trackerName: string, currentData: any, unitName: string, activeTeam: string[], activeRows: any[], team: any[]): void {
-    const effects = events.flatMap(event => EventManager.emit(event, eventModifier(trackerName), currentData, unitName, team));
-    this._executeEffectsStream(effects, currentData, activeTeam, activeRows, this.currentGlobalRealTime, unitName, team);
+    this._nested(`${events.join(' + ')}[${trackerName}]`, currentData, () => {
+      const effects = events.flatMap(event => EventManager.emit(event, eventModifier(trackerName), currentData, unitName, team));
+      this._executeEffectsStream(effects, currentData, activeTeam, activeRows, this.currentGlobalRealTime, unitName, team);
+    });
+  }
+
+  // Runs one event's emit-and-apply a level deeper. Past MAX_EVENT_DEPTH it's a loop (rules whose
+  // effects keep re-triggering each other): the event is dropped, with a console warning (once per
+  // run) and a row warning, instead of overflowing the call stack.
+  _nested(label: string, currentData: any, run: () => void): void {
+    if (this._eventChain.length >= MAX_EVENT_DEPTH) {
+      const chain = [...this._eventChain.slice(-4), label].join(' → ');
+      if (!this._loopWarned) {
+        this._loopWarned = true;
+        console.warn(`[TimelineEngine] Event loop stopped after ${MAX_EVENT_DEPTH} nested events: ... ${chain}. A rule's effects keep re-triggering events.`);
+      }
+      const msg = `Event loop stopped (... ${chain}) -- a rule's effects keep re-triggering events.`;
+      if (Array.isArray(currentData.warningMsgs) && !currentData.warningMsgs.includes(msg)) currentData.warningMsgs.push(msg);
+      return;
+    }
+    this._eventChain.push(label);
+    try {
+      run();
+    } finally {
+      this._eventChain.pop();
+    }
   }
 
   // Evaluates a trigger rule (a mechanic's, or a cancel timing's) against the row, compiling and
@@ -1437,7 +1471,23 @@ export class TimelineEngineClass {
     return isPct ? parseFloat((result * 100).toFixed(6)) + '%' : result;
   }
 
+  // Applies one effect. An ALWAYS listener's effect is applied with that listener sitting out the
+  // events it fires (EventManager.applying), so it can't re-check, and flip, itself.
   _processEffect(effect: Effect, currentData: any, unitName: string, activeTeam: string[], activeRows: any[], currentIndex: number, team: any[]): void {
+    const { [ALWAYS_SOURCE]: alwaysListener, ...plainEffect } = effect;
+    if (!alwaysListener || EventManager.applying.has(alwaysListener)) {
+      this._applyEffect(plainEffect, currentData, unitName, activeTeam, activeRows, currentIndex, team);
+      return;
+    }
+    EventManager.applying.add(alwaysListener);
+    try {
+      this._applyEffect(plainEffect, currentData, unitName, activeTeam, activeRows, currentIndex, team);
+    } finally {
+      EventManager.applying.delete(alwaysListener);
+    }
+  }
+
+  _applyEffect(effect: Effect, currentData: any, unitName: string, activeTeam: string[], activeRows: any[], currentIndex: number, team: any[]): void {
     const resolvedEffect = { ...effect };
     const resolve = (val: any) => isDslExpr(val, true) ? this._resolveDynamicMath(val, currentData, unitName, team) : val;
     const isBuff = resolvedEffect.type === 'buff' || !resolvedEffect.type;
