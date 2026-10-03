@@ -385,7 +385,7 @@ export const JsonOutputPane: React.FC = () => {
   };
 
   const handleExportCharacter = () => {
-    if (!activeChar || !formatted.charJsonString) return alert('No character stats to export yet.');
+    if (!activeChar || !formatted.charJsonString) return alert('No stats to export yet.');
     downloadText(JSON.stringify({ [activeChar]: baseStats }, null, 2), `${activeChar}_stats.json`);
   };
 
@@ -528,7 +528,7 @@ export const JsonOutputPane: React.FC = () => {
             matchTriggerWidth
             triggerContent={<span>Import JSON</span>}
             items={[
-              { key: 'char', label: 'Character JSON', onClick: () => startImport('character') },
+              { key: 'char', label: 'Stats JSON', onClick: () => startImport('character') },
               { key: 'mech', label: 'Mechanics JSON', onClick: () => startImport('mechanics') }
             ]}
           />
@@ -537,7 +537,7 @@ export const JsonOutputPane: React.FC = () => {
             matchTriggerWidth
             triggerContent={<span>Export JSON</span>}
             items={[
-              { key: 'char', label: 'Character JSON', onClick: handleExportCharacter },
+              { key: 'char', label: 'Stats JSON', onClick: handleExportCharacter },
               { key: 'mech', label: 'Mechanics JSON', onClick: handleExportMechanics }
             ]}
           />
