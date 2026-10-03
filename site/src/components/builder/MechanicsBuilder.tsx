@@ -258,7 +258,7 @@ export const MechanicsBuilder: React.FC = () => {
 
   return (
     <div id="view-editor" className="builder-view" style={{ flex: 1, minHeight: 0, height: '100%' }}>
-      <div className="editor-pane scrollable" style={{ overflowY: 'auto', minHeight: 0 }}>
+      <div className="editor-pane scrollable">
         <div className="panel-header-main" id="editor-char-name">
           {activeChar.toUpperCase()} SETUP
         </div>

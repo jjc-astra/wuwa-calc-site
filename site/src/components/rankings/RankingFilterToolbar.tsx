@@ -32,7 +32,7 @@ export const DEFAULT_RANKING_FILTERS: RankingFilters = {
     { min: 0, max: 0 }
   ],
   rotationStyle: 'any',
-  bestOnly: false,
+  bestOnly: true,
   elements: [...RANKING_ELEMENTS],
   dmgCategories: [...RANKING_DMG_CATEGORIES]
 };
