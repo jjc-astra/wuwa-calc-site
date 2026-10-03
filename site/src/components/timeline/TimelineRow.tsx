@@ -57,8 +57,10 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({ data }) => {
       style={{ height: ROW_HEIGHT_PX, '--char-theme-raw': data.themeColor } as React.CSSProperties}
     >
       <div className="timeline-row-header" style={{ width: HEADER_COL_WIDTH_PX }}>
-        <img className="timeline-row-icon" src={CommonUtils.getIconPath(data.unit, IMAGE_FOLDERS.CHARACTERS)} alt={data.unit} />
-        <span className="timeline-row-name">{data.unit}</span>
+        <div className="timeline-row-pill outline-badge">
+          <img className="timeline-row-icon" src={CommonUtils.getIconPath(data.unit, IMAGE_FOLDERS.CHARACTERS)} alt={data.unit} />
+          <span className="timeline-row-name">{data.unit}</span>
+        </div>
       </div>
       <div className="timeline-row-track" onMouseMove={handleMove} onMouseLeave={handleLeave}>
         {data.segments.map((segment, i) => (
