@@ -5,7 +5,7 @@ import {
   energyRegenMult, energyRegenPct, resourceLabel, resourceRequirement, capHitIndex
 } from './resources';
 import { deltaKey, forteKey, holdSlotNumber } from '../utils/ResourceKeys';
-import { backfillPools, cloneJson, dropdownSnapshot, inheritPools, plainCopy, ROW_LINK_KEYS } from './rowState';
+import { backfillPools, cloneJson, dropdownSnapshot, hitState, inheritPools, plainCopy, ROW_LINK_KEYS } from './rowState';
 import { toRunInput } from './rotationRows';
 import { eventModifier, isDslExpr, modifierSet, stacksAfterSpending } from './engineValues';
 import { isElement } from '../data/gameVocab';
@@ -971,6 +971,13 @@ export class TimelineEngineClass {
       const limit = nextHit.isProc ? (nextHit.originMoveData.allowedHits !== undefined ? nextHit.originMoveData.allowedHits : Infinity) : nextHit.originRow.allowedHits;
       if (nextHit.hitIndex >= limit) continue;
 
+      // The hit's multiplier as it lands -- per hit, not per cast. A move that needs a value from
+      // its cast (e.g. forte it spends on cast) saves it to a tracker on cast and reads that.
+      const rawMult = nextHit.hitMult;
+      if (typeof rawMult === 'string' && (rawMult.startsWith('MATH(') || isDslExpr(rawMult))) {
+        nextHit.hitMult = this._resolveDynamicMath(rawMult, hitState(currentData, nextHit.originRow), nextHit.origin.caster, team);
+      }
+
       const hitRes = nextHit.originMoveData.hitResources;
       if (hitRes) {
         for (const resKey in hitRes) {
@@ -1113,10 +1120,10 @@ export class TimelineEngineClass {
     this._fire('OnTick', new Set(), currentData, currentData.unit, activeTeam, activeRows, team, this.currentGlobalRealTime, { gameTimePassed: decaySeconds, getTimeScale });
   }
 
-  _scheduleHits(currentData: any, moveData: MechanicNode, origin: MoveOrigin, rawMults: any[], executeStartTime: number, executeEndTime: number, isProc: boolean, hitModifiers: Set<string>, team: any[]): void {
-    const snapshotMath = (hm: any, pUnit: string) => isDslExpr(hm) ? this._resolveDynamicMath(hm, currentData, pUnit, team) : hm;
-    const snapshottedMults = rawMults.map(hm => snapshotMath(hm, origin.caster));
-    const hitCount = snapshottedMults.length;
+  // Queues a move's hits across its damage timeframe. DSL hit mults stay unresolved until each hit
+  // lands (_processQueuedHits), so they read the state at that hit, not at the cast.
+  _scheduleHits(currentData: any, moveData: MechanicNode, origin: MoveOrigin, rawMults: any[], executeStartTime: number, executeEndTime: number, isProc: boolean, hitModifiers: Set<string>): void {
+    const hitCount = rawMults.length;
     for (let i = 0; i < hitCount; i++) {
       let hitTime = executeEndTime;
       if (hitCount > 1 && executeEndTime > executeStartTime) {
@@ -1128,7 +1135,7 @@ export class TimelineEngineClass {
         originMoveData: moveData,
         hitIndex: i,
         totalHits: hitCount,
-        hitMult: snapshottedMults[i],
+        hitMult: rawMults[i],
         origin,
         hitModifiers: hitModifiers,
         executeAt: roundFrames(hitTime),
@@ -1151,7 +1158,7 @@ export class TimelineEngineClass {
         : roundFrames(parseFloat(val));
       const tfStart = mData.damageTimeframe?.start !== undefined ? resolveOffset(mData.damageTimeframe.start) : toFrames(0);
       const tfEnd = mData.damageTimeframe?.end !== undefined ? resolveOffset(mData.damageTimeframe.end) : tfStart;
-      this._scheduleHits(currentData, mData, origin, rawProcMults, executeAt + tfStart, executeAt + tfEnd, true, procModifiers, team);
+      this._scheduleHits(currentData, mData, origin, rawProcMults, executeAt + tfStart, executeAt + tfEnd, true, procModifiers);
     }
     this.damageQueue.sort((a, b) => a.executeAt - b.executeAt);
   }
@@ -1319,10 +1326,6 @@ export class TimelineEngineClass {
       this.damageQueue.sort((a, b) => a.executeAt - b.executeAt);
     }
 
-    if (moveData.cooldown || moveData.shareCooldownWith) {
-      this._startCooldown(currentData, unitName, moveData);
-    }
-
     const origin = MechanicKey.origin(currentData.action, unitName, moveData.name);
 
     // dmgTypes plus name/pointer, so OnHit[...] can target one specific move, not just a
@@ -1331,15 +1334,21 @@ export class TimelineEngineClass {
     const moveElements = (moveData.dmgTypes || []).filter(isElement);
     const castModifiers = modifierSet([...(moveData.castTypes || []), ...moveElements, currentData.action, moveData.name, origin.ref]);
 
-    this._applyCastResources(currentData, moveData, activeTeam, team);
+    // OnCast / swap rules are checked first, so they see the state the move was cast from, before
+    // its own cooldown starts and its costs are paid. Their effects still run after both.
     const instantEffects = this._gatherInstantEffects(currentData, moveData, prevData, castModifiers, team);
+
+    if (moveData.cooldown || moveData.shareCooldownWith) {
+      this._startCooldown(currentData, unitName, moveData);
+    }
+    this._applyCastResources(currentData, moveData, activeTeam, team);
 
     const rawHitMults = Array.isArray(moveData.hitMults) ? moveData.hitMults : [];
     const tfStart = currentData.timeStart + (currentData.damageTimeframe?.start || 0);
     const tfEnd = currentData.timeStart + (currentData.damageTimeframe?.end || currentData.baseDuration);
 
     if (rawHitMults.length > 0) {
-      this._scheduleHits(currentData, moveData, origin, rawHitMults, tfStart, tfEnd, false, hitModifiers, team);
+      this._scheduleHits(currentData, moveData, origin, rawHitMults, tfStart, tfEnd, false, hitModifiers);
     }
 
     this._executeEffectsStream(instantEffects, currentData, activeTeam, activeRows, currentData.timeStart, unitName, team);

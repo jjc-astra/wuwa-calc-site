@@ -41,7 +41,9 @@ export const ContextManager = {
       console.warn('[ContextManager] WARNING: activeUnitName is missing.');
     }
     try {
-      const activeState = stateData?.dropdownState || stateData || {};
+      // The state as it is now -- a caller wanting a row's pre-cast state (its action dropdown)
+      // passes row.dropdownState itself.
+      const activeState = stateData || {};
       const teamNames = teamCharacters(team);
 
       const validBuffs = Object.values(activeState.activeBuffs || {}).filter((buff: any) =>

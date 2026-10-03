@@ -79,18 +79,14 @@ export class EventManagerClass {
     return resolved;
   }
 
-  // A listener that carries its own hits fires as a proc'd mechanic; MATH(...) hit mults resolve here.
-  private resolveProc(listener: RegisteredListener, activeUnitName: string, ctx: any): Effect {
-    const hitMults = (listener.hitMults || []).map(mult =>
-      typeof mult === 'string' && mult.startsWith('MATH(')
-        ? DSLParser.evaluateMath(mult.substring(5, mult.length - 1), ctx, listener.equipper)
-        : mult
-    );
+  // A listener that carries its own hits fires as a proc'd mechanic. Its hit mults resolve as
+  // each hit lands, like a cast move's (TimelineEngine._processQueuedHits).
+  private resolveProc(listener: RegisteredListener, activeUnitName: string): Effect {
     return {
       type: 'procced_mechanic',
       source: listener.name,
       provider: listener.equipper || activeUnitName,
-      mechanicData: { ...listener, hitMults }
+      mechanicData: { ...listener }
     } as any;
   }
 
@@ -203,7 +199,7 @@ export class EventManagerClass {
           currentCount++;
           if (!this.isOnCooldown(listener, stateData, activeUnitName) && listener.evaluate(ctx, listener.equipper)) {
             if (listener.hitMults && listener.hitMults.length > 0) {
-              triggeredEffects.push(this.resolveProc(listener, activeUnitName, ctx));
+              triggeredEffects.push(this.resolveProc(listener, activeUnitName));
             }
             (listener.effects || []).forEach(eff => triggeredEffects.push(this.resolveEffect(eff, listener, activeUnitName)));
             if (listener.cooldown) triggeredEffects.push(this.cooldownEffect(listener, activeUnitName));
@@ -231,7 +227,7 @@ export class EventManagerClass {
       } else {
         if (!this.isOnCooldown(listener, stateData, activeUnitName) && listener.evaluate(ctx, listener.equipper)) {
           if ((listener.hitMults && listener.hitMults.length > 0) && (!isAlways || eventType === 'ALWAYS')) {
-            triggeredEffects.push(this.resolveProc(listener, activeUnitName, ctx));
+            triggeredEffects.push(this.resolveProc(listener, activeUnitName));
           }
           (listener.effects || []).forEach(eff => {
             if (isAlways && eventType !== 'ALWAYS' && eff.type && eff.type !== 'buff') return;

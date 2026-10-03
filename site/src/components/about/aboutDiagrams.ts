@@ -400,10 +400,10 @@ export const DIAGRAMS = {
     subgraph Cast["cast (_evaluateMechanics)"]
       direction TB
       M1["freezeTime: other units' queued<br/>hits pushed later by it"]:::logic
-      M1 --> M3["_startCooldown: a timer or a charge;<br/>the shareCooldownWith partner too"]:::logic
-      M3 --> M4["_applyCastResources: Energy gains to every<br/>unit (× its ER, logged); rest to the caster"]:::logic
-      M4 --> M5["_gatherInstantEffects: the move's effects<br/>+ OnCast (+ OnSwapOut / In, OnUnitChange)"]:::logic
-      M5 --> M6["_scheduleHits: hitMults spread over the<br/>damageTimeframe (DSL snapshot)"]:::logic
+      M1 --> M3["_gatherInstantEffects: the move's effects + OnCast<br/>(+ OnSwapOut / In, OnUnitChange); rules checked<br/>on the pre-cast state"]:::logic
+      M3 --> M4["_startCooldown: a timer or a charge;<br/>the shareCooldownWith partner too"]:::logic
+      M4 --> M5["_applyCastResources: Energy gains to every<br/>unit (× its ER, logged); rest to the caster"]:::logic
+      M5 --> M6["_scheduleHits: hits spread over the<br/>damageTimeframe (mults unresolved)"]:::logic
       M6 --> M7["_executeEffectsStream: procs queued,<br/>other effects → _processEffect"]:::logic
     end
     subgraph Hits["time passes (_decayState)"]
@@ -412,7 +412,7 @@ export const DIAGRAMS = {
       D1 --> D2["_processQueuedHits:<br/>each hit now due"]:::logic
       D2 --> D3{"within<br/>allowedHits?"}
       D3 -- no --> D4["skipped<br/>(cut short)"]:::alert
-      D3 -- yes --> D5["hitResources (Energy to the<br/>team, rest to the caster); OnHit"]:::logic
+      D3 -- yes --> D5["DSL hit mult resolved now (hitState:<br/>live state, the origin row's @Move);<br/>hitResources; OnHit"]:::logic
       D5 --> D6["_pendingHits: hit config + state<br/>snapshot, priced later"]:::logic
       D6 --> D7["AfterHit(n)"]:::logic
     end
@@ -472,7 +472,7 @@ export const DIAGRAMS = {
     end
     subgraph Out["effects returned"]
       direction TB
-      O1["passes: hitMults → procced_mechanic (MATH<br/>mults resolved); effects with @Equipper<br/>+ provider filled in; its cooldown"]:::logic
+      O1["passes: hitMults → procced_mechanic (mults<br/>resolve per hit); effects with @Equipper<br/>+ provider filled in; its cooldown"]:::logic
       O2["an ALWAYS listener on another<br/>event: buff effects only"]:::logic
       O3["an ALWAYS listener that fails: its<br/>buffs removed (buffAction remove ALL)"]:::alert
       O4["an ALWAYS listener's effects are tagged:<br/>while they apply, it sits out the events<br/>they fire (EventManager.applying)"]:::logic

@@ -34,6 +34,23 @@ export function plainCopy(row: any, omit: readonly string[]): any {
   return cloneJson(copy);
 }
 
+// The fields that describe a row's move (what @Move, @Prev and @Next read), as opposed to the
+// carried state (pools, buffs, trackers, cooldowns).
+const MOVE_KEYS: readonly string[] = [
+  'action', 'moveName', 'castTypes', 'dmgTypes', 'timeStart', 'gameTimeStart', 'duration', 'gameTimePassed',
+  'freezeTime', 'damageTimeframe', 'swapTiming', 'baseMult', 'hitMults', 'isInForteWindow',
+  'prevRow', 'nextRow', 'nextUnitActions'
+];
+
+// What a hit's DSL math reads when it lands: the live state, with @Move still meaning the move that
+// queued the hit (its row may be behind the one being simulated now).
+export function hitState(live: any, origin: any): any {
+  if (origin === live) return live;
+  const state = { ...live };
+  for (const key of MOVE_KEYS) state[key] = origin[key];
+  return state;
+}
+
 // The row as the UI's per-cell dropdowns see it: live links kept, carried state deep-copied.
 export function dropdownSnapshot(row: any): any {
   const snapshot = { ...row };

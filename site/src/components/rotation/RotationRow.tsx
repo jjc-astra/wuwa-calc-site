@@ -134,7 +134,8 @@ export const RotationRow: React.FC<RotationRowProps> = ({
   // Build categorized action groups filtered by DSL trigger rules
   const getActionGroups = (): ActionGroup[] => {
     if (!selectedUnit) return [];
-    const ctx = ContextManager.buildContext(row, selectedUnit, team);
+    // The options are what the row could cast, so rules read its state from before its own cast.
+    const ctx = ContextManager.buildContext(row.dropdownState ?? row, selectedUnit, team);
     const skillGroupNames = dbChar.skillGroupNames || {};
     const slot = team.find(t => t.character === selectedUnit);
     const activeMode = slot?.mode && slot.mode !== 'None' ? slot.mode : null;
