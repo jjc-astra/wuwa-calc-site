@@ -15,6 +15,9 @@ export interface RegisteredListener extends MechanicNode {
   eventArgs: Array<string | number>;
   // Identifies the listener in ALWAYS_SOURCE tags (see EventManagerClass.applying).
   listenerId: string;
+  // The entity it came from (a character, weapon, echo, echo set or System), stamped on its
+  // effects as sourceOwner.
+  ownerName?: string;
 }
 
 // Set on the effects an ALWAYS listener produces, naming that listener (see EventManagerClass.applying).
@@ -45,7 +48,7 @@ export class EventManagerClass {
     };
   }
 
-  registerMechanic(mechanic: MechanicNode, equipperName: string, mechanicKey?: string): void {
+  registerMechanic(mechanic: MechanicNode, equipperName: string, mechanicKey?: string, ownerName?: string): void {
     const ruleToCompile = effectiveTriggerRule(mechanic);
     if (!ruleToCompile) return;
 
@@ -62,7 +65,8 @@ export class EventManagerClass {
         evaluate: compiledRule.evaluate,
         requiredModifiers: t.modifiers,
         eventArgs: t.args,
-        listenerId: `${mechanicKey ?? mechanic.name}#${t.event}`
+        listenerId: `${mechanicKey ?? mechanic.name}#${t.event}`,
+        ownerName
       });
     });
   }
@@ -71,6 +75,7 @@ export class EventManagerClass {
   private resolveEffect(eff: Effect, listener: RegisteredListener, activeUnitName: string): Effect {
     const resolved: Effect = { ...eff };
     if (!resolved.source) resolved.source = listener.name;
+    if (!resolved.sourceOwner && listener.ownerName) resolved.sourceOwner = listener.ownerName;
     if (resolved.target === '@Equipper') resolved.target = listener.equipper;
     const provider = resolved.provider;
     if (!provider || provider === 'System' || provider === '@Equipper' || provider === listener.name || provider === listener.provider) {

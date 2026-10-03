@@ -9,7 +9,7 @@ import { backfillPools, cloneJson, dropdownSnapshot, hitState, inheritPools, pla
 import { toRunInput } from './rotationRows';
 import { eventModifier, isDslExpr, modifierSet, stacksAfterSpending } from './engineValues';
 import { isElement } from '../data/gameVocab';
-import { MechanicKey } from '../utils/MechanicKey';
+import { MechanicKey, SYSTEM_NAMESPACE } from '../utils/MechanicKey';
 import { CommonUtils } from '../utils/Common';
 import { teamCharacters } from '../utils/TeamUtils';
 import { DSLParser } from './dsl/dslParser';
@@ -51,6 +51,14 @@ const RUN_PROFILES: Record<EngineMode, { dropdownSnapshots: boolean; hitLog: boo
   lean:   { dropdownSnapshots: false, hitLog: false, logWarnings: false }
 };
 
+// The engine's own hold-cursor bookkeeping (see _handleTracker's Hold_Start branch).
+const HOLD_BOOKKEEPING_TRACKERS = new Set(['Hold_Start', 'Hold_Unit', 'Hold_Input', 'Cursor_Pos', 'Cursor_Accumulated', 'Forte_Win_Center', 'Forte_Win_Size']);
+
+/** A tracker the Timeline shows: an authored one, not the engine's own bookkeeping (OnTick
+ * timers, per-row resource deltas, hold cursors). */
+export const isTimelineTracker = (name: string): boolean =>
+  !name.startsWith('__sys_') && !name.endsWith('_Delta') && !HOLD_BOOKKEEPING_TRACKERS.has(name);
+
 // Simulates a rotation row by row: timings, resources, buffs, events and the hit queue.
 export class TimelineEngineClass {
   damageQueue: QueuedHit[] = [];
@@ -68,6 +76,16 @@ export class TimelineEngineClass {
   // Events currently firing inside each other, outermost first (see _nested).
   _eventChain: string[] = [];
   _loopWarned = false;
+  // The Timeline's change log (_logTimeline): each buff's and tracker's last logged state, buffs
+  // refreshed since (a refresh changes nothing else to compare), and when a buff that ran out did.
+  _buffWatch = new Map<string, { sig: string; stacks: number }>();
+  _trackerWatch = new Map<string, number>();
+  _refreshedBuffs = new Set<string>();
+  _buffRanOutAt = new Map<string, number>();
+  // Each cooldown's last logged timer (seconds left as of `at`; `until` = its last charge's), and
+  // who/what each cooldown key belongs to.
+  _cooldownWatch = new Map<string, { remaining: number; until: number; at: number; charges?: number }>();
+  _cooldownOwners = new Map<string, { unit: string; name: string }>();
 
   recalculateState(
     activeRows: any[],
@@ -88,6 +106,12 @@ export class TimelineEngineClass {
     this._localBuffCache = {};
     this._eventChain = [];
     this._loopWarned = false;
+    this._buffWatch = new Map();
+    this._trackerWatch = new Map();
+    this._refreshedBuffs = new Set();
+    this._buffRanOutAt = new Map();
+    this._cooldownWatch = new Map();
+    this._cooldownOwners = new Map();
 
     if (team && team.length > 0) {
       team.forEach(slot => {
@@ -126,6 +150,7 @@ export class TimelineEngineClass {
       const currentData = activeRows[i];
       currentData.dropdownState = null;
       currentData.energyLog = [];
+      currentData.timelineEvents = [];
       currentData.enemyLevel = enemyConfig.level;
       currentData.enemyRes = enemyConfig.res;
 
@@ -615,14 +640,14 @@ export class TimelineEngineClass {
       if (keys.length === 0) {
         const directNode = owner.allowDirectNode && MechanicKey.findNode(DataLoader.mechanicsDB, owner.name);
         if (directNode && owner.listens(directNode, owner.name)) {
-          EventManager.registerMechanic(owner.transform ? owner.transform(directNode) : directNode, owner.equipper);
+          EventManager.registerMechanic(owner.transform ? owner.transform(directNode) : directNode, owner.equipper, undefined, owner.name);
         }
         return;
       }
       keys.forEach(key => {
         const mech = DataLoader.mechanicsDB[key];
         if (!mech || !owner.listens(mech, key)) return;
-        EventManager.registerMechanic(owner.transform ? owner.transform(mech) : mech, owner.equipper, key);
+        EventManager.registerMechanic(owner.transform ? owner.transform(mech) : mech, owner.equipper, key, owner.name);
       });
     });
 
@@ -662,7 +687,7 @@ export class TimelineEngineClass {
     if (prevData.pendingNextBuffs && prevData.pendingNextBuffs.length > 0 && currentData.unit) {
       const activeTeam = teamCharacters(team);
       prevData.pendingNextBuffs.forEach((eff: any) => {
-        const nextEff = { ...eff, target: currentData.unit };
+        const nextEff = { ...eff, target: currentData.unit, appliesTo: '@Next' };
         this._processEffect(nextEff, currentData, eff.provider || prevData.unit, activeTeam, [], currentData.arrayIndex, team);
       });
     }
@@ -682,6 +707,8 @@ export class TimelineEngineClass {
     }
     // The move's own stanceReq overwrites `stance` later; validation needs the stance it started from.
     currentData.entryStance = currentData.stance;
+    // Buffs dropped on the swap above.
+    this._logTimeline(currentData);
   }
 
   _primeCombatStart(firstRowData: any, team: any[]): void {
@@ -942,9 +969,12 @@ export class TimelineEngineClass {
     const advanceGameTimeTo = (target: number) => {
       const segment = Math.min(target, gameTimePassed) - gameTimeElapsed;
       if (segment <= 0) return;
-      this._processGameTimeDecay(currentData, toFrames(segment), activeTeam, activeRows, team);
+      // Clock first, so what running out fires is logged at the segment's end (_logTimeline).
       this.currentGlobalGameTime += segment;
+      this._processGameTimeDecay(currentData, toFrames(segment), activeTeam, activeRows, team);
       gameTimeElapsed += segment;
+      this._logTimeline(currentData);
+      this._buffRanOutAt.clear();
     };
 
     this._processQueuedHits(currentData, realTimePassed, activeTeam, activeRows, team, elapsedReal => advanceGameTimeTo(Math.max(0, elapsedReal - freezeFrames)));
@@ -1107,7 +1137,12 @@ export class TimelineEngineClass {
         } else {
           if (buff.duration !== undefined) {
             buff.duration -= actualDecay;
-            if (buff.duration <= 0.001 && (buff.stacks || 0) > 0) expiringBuffs.push(buff);
+            if (buff.duration <= 0.001 && (buff.stacks || 0) > 0) {
+              expiringBuffs.push(buff);
+              // When in the segment it actually ran out: the clock is already at the segment's end.
+              const overshoot = actualDecay > 0 ? Math.max(0, -buff.duration) / buffSpeed : 0;
+              this._buffRanOutAt.set(key, this.currentGlobalGameTime - secondsToFrames(overshoot));
+            }
           }
         }
       }
@@ -1335,6 +1370,7 @@ export class TimelineEngineClass {
     if (!(cdVal > 0)) return;
     const maxCharges = Math.max(1, parseInt(String(moveData.maxCharges ?? 1), 10) || 1);
     const key = `${unitName}_${moveData.name}`;
+    this._cooldownOwners.set(key, { unit: unitName, name: moveData.name || '' });
     if (maxCharges > 1) {
       if (!currentData.chargeCooldowns) currentData.chargeCooldowns = {};
       if (!currentData.chargeCooldowns[key]) currentData.chargeCooldowns[key] = [];
@@ -1346,7 +1382,9 @@ export class TimelineEngineClass {
   }
 
   _gatherInstantEffects(currentData: any, moveData: MechanicNode, prevData: any, castModifiers: Set<string>, team: any[]): Effect[] {
-    const effects: Effect[] = [...(moveData.effects || [])];
+    // The move's own effects come from whatever it belongs to (the character, or an echo).
+    const sourceOwner = MechanicKey.origin(currentData.action, currentData.unit, moveData.name).owner;
+    const effects: Effect[] = (moveData.effects || []).map(eff => ({ ...eff, sourceOwner: eff.sourceOwner ?? sourceOwner }));
     effects.push(...EventManager.emit('OnCast', castModifiers, currentData, currentData.unit, team));
     if (prevData && prevData.unit && prevData.unit !== currentData.unit) {
       effects.push(...EventManager.emit('OnSwapOut', new Set(), currentData, prevData.unit, team));
@@ -1388,6 +1426,7 @@ export class TimelineEngineClass {
 
     if (moveData.cooldown || moveData.shareCooldownWith) {
       this._startCooldown(currentData, unitName, moveData);
+      this._logTimeline(currentData);
     }
     this._applyCastResources(currentData, moveData, activeTeam, team);
 
@@ -1564,7 +1603,15 @@ export class TimelineEngineClass {
 
     const targetUnits = this._resolveTargets(resolvedEffect.target, unitName, activeTeam, activeRows, currentIndex);
     if (resolvedEffect.type === 'tracker') this._handleTracker(resolvedEffect, currentData, unitName, activeTeam, activeRows, team);
-    else if (resolvedEffect.type === 'cooldown') targetUnits.forEach(t => { if (!currentData.cooldowns) currentData.cooldowns = {}; currentData.cooldowns[`${t}_${resolvedEffect.name}`] = resolvedEffect.value; });
+    else if (resolvedEffect.type === 'cooldown') {
+      targetUnits.forEach(t => {
+        if (!currentData.cooldowns) currentData.cooldowns = {};
+        const key = `${t}_${resolvedEffect.name}`;
+        currentData.cooldowns[key] = resolvedEffect.value;
+        this._cooldownOwners.set(key, { unit: t, name: resolvedEffect.name || '' });
+      });
+      this._logTimeline(currentData);
+    }
     else if (resolvedEffect.type === 'buff' || !resolvedEffect.type) this._updateActiveBuffs(resolvedEffect, currentData, targetUnits, activeTeam, activeRows, team);
     else if (resolvedEffect.type === 'resource') this._handleResourceEffect(resolvedEffect, currentData, targetUnits, team);
     else if (resolvedEffect.type === 'buffAction') this._handleBuffActionEffect(resolvedEffect, currentData, targetUnits, activeTeam, activeRows, team);
@@ -1595,7 +1642,10 @@ export class TimelineEngineClass {
       if (buff) {
         if (effect.action === 'pause') buff.isPaused = true;
         else if (effect.action === 'resume') buff.isPaused = false;
-        else if (effect.action === 'extend' && effect.value !== undefined) buff.duration = (buff.duration || 0) + parseFloat(String(effect.value));
+        else if (effect.action === 'extend' && effect.value !== undefined) {
+          buff.duration = (buff.duration || 0) + parseFloat(String(effect.value));
+          this._refreshedBuffs.add(buffKey);
+        }
         else if (effect.action === 'remove' || effect.action === 'consume') {
           // Remove and Consume share the same ALL/HALF/N stack math -- they only diverge on
           // which event fires below, so listeners can tell "spent by the wearer" (Consume) apart
@@ -1605,10 +1655,12 @@ export class TimelineEngineClass {
             if (buff.linkedTracker && currentData.trackers) currentData.trackers[buff.linkedTracker] = 0;
             delete currentData.activeBuffs[buffKey];
           }
+          this._logTimeline(currentData);
           this._fire(effect.action === 'consume' ? 'OnBuffConsume' : 'OnBuffRemove', eventModifier(effect.name), currentData, effect.provider || currentData.unit, activeTeam, activeRows, team);
         }
       }
     });
+    this._logTimeline(currentData);
   }
 
   _resolveTargets(targetStr: string | undefined, unitName: string, activeTeam: string[], activeRows: any[], currentIndex: number): string[] {
@@ -1707,8 +1759,98 @@ export class TimelineEngineClass {
       }
     }
 
+    this._logTimeline(currentData);
     if (action !== 'detonate') {
       this._fireTrackerEvents(eventToEmit ? ['OnTrackerChanged', eventToEmit] : ['OnTrackerChanged'], effect.name || '', currentData, unitName, activeTeam, activeRows, team);
+    }
+  }
+
+  // Logs what changed in the row's buffs and trackers since the last call, at the current game
+  // time, onto currentData.timelineEvents -- what the Calculator's Timeline draws its effect rows
+  // from. Called wherever they change: buffs applied or acted on, time running down, a new row.
+  _logTimeline(currentData: any): void {
+    if (!this._run.hitLog) return;
+    const now = this.currentGlobalGameTime;
+    const events: any[] = (currentData.timelineEvents ||= []);
+    const buffs = currentData.activeBuffs || {};
+
+    for (const key in buffs) {
+      const buff = buffs[key];
+      const stacks = buff.stacks || 0;
+      const sig = `${buff.stat ?? ''}|${buff.value ?? ''}|${buff.label ?? ''}`;
+      const prev = this._buffWatch.get(key);
+      const change = !prev ? 'start'
+        : prev.sig !== sig || this._refreshedBuffs.has(key) ? 'refresh'
+        : prev.stacks !== stacks ? 'stacks'
+        : null;
+      if (!change) continue;
+      this._buffWatch.set(key, { sig, stacks });
+      events.push({
+        kind: 'buff', change, t: this._buffRanOutAt.get(key) ?? now, key,
+        name: buff.name, provider: buff.provider, target: buff.target, appliesTo: buff.appliesTo,
+        stat: buff.stat, value: buff.value, label: buff.label, stacks, maxStacks: Number(buff.maxStacks) || 1,
+        permanent: (buff.maxDuration ?? 0) >= GAME_DEFAULTS.permanentDuration, source: buff.source, sourceOwner: buff.sourceOwner,
+        // Seconds left as of this event (separate stacks: the longest-lived one's).
+        remaining: buff.duration ?? (buff.durations?.length ? Math.max(...buff.durations) : undefined)
+      });
+    }
+    for (const key of [...this._buffWatch.keys()]) {
+      if (key in buffs) continue;
+      this._buffWatch.delete(key);
+      events.push({ kind: 'buff', change: 'end', t: this._buffRanOutAt.get(key) ?? now, key });
+    }
+    this._refreshedBuffs.clear();
+
+    const trackers = currentData.trackers || {};
+    for (const name in trackers) {
+      const value = Number(trackers[name]);
+      if (!isTimelineTracker(name) || isNaN(value) || this._trackerWatch.get(name) === value) continue;
+      this._trackerWatch.set(name, value);
+      events.push({ kind: 'tracker', t: now, name, value });
+    }
+    for (const name of [...this._trackerWatch.keys()]) {
+      if (name in trackers) continue;
+      this._trackerWatch.delete(name);
+      events.push({ kind: 'tracker', t: now, name, value: 0 });
+    }
+
+    // Cooldowns: logged when one starts, its time left jumps (a restart or a reduction), or a
+    // charge-based move's in-flight charge count changes -- not every tick it runs down.
+    const timers = new Map<string, { remaining: number; until: number; charges?: number }>();
+    for (const key in currentData.cooldowns || {}) {
+      const left = currentData.cooldowns[key];
+      timers.set(key, { remaining: left, until: left });
+    }
+    for (const key in currentData.chargeCooldowns || {}) {
+      const pending: number[] = currentData.chargeCooldowns[key];
+      if (pending.length > 0) timers.set(key, { remaining: Math.min(...pending), until: Math.max(...pending), charges: pending.length });
+    }
+    // When a logged timer (from `at`) runs out, capped at now.
+    const runsOut = (at: number, seconds: number) => Math.min(now, at + secondsToFrames(seconds));
+    for (const [key, timer] of timers) {
+      const prev = this._cooldownWatch.get(key);
+      if (prev && prev.charges === timer.charges) {
+        // Mid-segment (a listener firing while time runs down) a timer can read up to a segment
+        // behind schedule, so only a rise past its last logged value is a restart, and only a
+        // drop below schedule is a reduction.
+        const expected = prev.remaining - framesToSeconds(toFrames(now - prev.at));
+        if (timer.remaining <= prev.remaining + 0.05 && timer.remaining >= expected - 0.05) continue;
+      }
+      this._cooldownWatch.set(key, { ...timer, at: now });
+      const owner = this._cooldownOwners.get(key) ?? { unit: key.split('_')[0], name: key.slice(key.indexOf('_') + 1) };
+      // A charge coming back happens partway through the window that noticed it.
+      const t = prev && timer.charges !== undefined && (timer.charges ?? 0) < (prev.charges ?? 0) ? runsOut(prev.at, prev.remaining) : now;
+      events.push({
+        kind: 'cooldown', t, key, unit: owner.unit, name: owner.name,
+        isSystem: owner.unit === SYSTEM_NAMESPACE || !!DataLoader.mechanicsDB[MechanicKey.build(SYSTEM_NAMESPACE, owner.name)],
+        remaining: timer.remaining, charges: timer.charges,
+        maxCharges: Number(DataLoader.mechanicsDB[key]?.maxCharges) || 1
+      });
+    }
+    for (const [key, prev] of [...this._cooldownWatch]) {
+      if (timers.has(key)) continue;
+      this._cooldownWatch.delete(key);
+      events.push({ kind: 'cooldown', change: 'end', t: runsOut(prev.at, prev.until), key });
     }
   }
 
@@ -1780,12 +1922,16 @@ export class TimelineEngineClass {
           existingBuff.durations = existingBuff.durations.sort((a: number, b: number) => b - a).slice(0, maxStacks);
         } else {
           existingBuff.duration = effDuration;
+          // A permanent buff re-applied (an ALWAYS rule re-checking) has no timer to refresh.
+          if (effDuration < GAME_DEFAULTS.permanentDuration) this._refreshedBuffs.add(key);
         }
       } else {
         currentData.activeBuffs[key] = {
           ...buffDef,
           value: val,
           target: targetName,
+          // The selector it was applied with (@Team, @Next...) -- `target` is the unit it landed on.
+          appliesTo: buffDef.appliesTo ?? buffDef.target,
           stacks: addedStacks,
           maxDuration: effDuration,
           duration: buffDef.stackBehavior === 'separate' ? undefined : effDuration,
@@ -1794,6 +1940,7 @@ export class TimelineEngineClass {
         actuallyAddedStacks = addedStacks;
       }
 
+      this._logTimeline(currentData);
       if (actuallyAddedStacks > 0) {
         this._fire('OnBuffAdd', eventModifier(buffDef.name), currentData, buffDef.provider || currentData.unit, activeTeam, activeRows, team);
       }

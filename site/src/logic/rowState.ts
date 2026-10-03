@@ -13,8 +13,9 @@ const SNAPSHOT_COPIED_KEYS: readonly string[] = [
   'hp', ...UNIT_POOL_KEYS, 'trackers', 'activeBuffs', 'cooldowns', 'chargeCooldowns'
 ];
 
-// Fields that point back into the row list or hold other snapshots, so they never belong in a copy.
-export const ROW_LINK_KEYS: readonly string[] = ['dropdownState', 'prevRow', 'nextRow'];
+// Fields that point back into the row list or hold other snapshots (or the Timeline's change
+// log), so they never belong in a copy.
+export const ROW_LINK_KEYS: readonly string[] = ['dropdownState', 'prevRow', 'nextRow', 'timelineEvents'];
 
 // A row's per-unit pools and HP, copied from the previous row.
 export function inheritPools(row: any, prev: any): void {

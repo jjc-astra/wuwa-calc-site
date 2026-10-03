@@ -582,7 +582,7 @@ export const DIAGRAMS = {
     subgraph Panel["ResultsPanel (a rail on step 1)"]
       direction TB
       T1["Results: DpsPanel (Δ vs the pin), DmgOverTimeChart<br/>(DMG / DPS, line / bar, pin overlay), RotationTimePanel,<br/>TeamContributionPanel, SubstatWorthChart"]:::ui
-      T2["Timeline: coming soon"]:::ui
+      T2["Timeline: RotationTimeline withEffects<br/>(store.timelineRows + their timelineEvents)"]:::ui
       T3["History: a HistoryRow per Calculate (10 kept + favorites)<br/>Restore Rotation (confirm): loadSavedRotation: setEnemy,<br/>await importTeam, importRotation · Pin to Comparison<br/>(instant) · Favorite, Export, Remove"]:::ui
       T1 ~~~ T2 ~~~ T3
     end

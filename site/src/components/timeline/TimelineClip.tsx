@@ -8,8 +8,8 @@ interface TimelineClipProps {
 }
 
 // "Hit #n: x dmg" per hit, with `activeHit` (1-based) highlighted.
-function buildHitLinesHtml(row: any, activeHit?: number): string {
-  const hits = rowHits(row);
+function buildHitLinesHtml(row: any, activeHit: number | undefined, withSystemHits: boolean): string {
+  const hits = rowHits(row, withSystemHits);
   if (hits.length === 0) return '';
   const lines = hits.map((hit, i) => {
     // A proc names its mechanic, e.g. "[Proc] Forte Detonate (Hit 2)" -> "(Forte Detonate)".
@@ -23,7 +23,11 @@ function buildHitLinesHtml(row: any, activeHit?: number): string {
 }
 
 /** Tooltip for a row's clip, or for one of its hit dots (`activeHit`). */
-export function buildClipTooltipHtml({ type, row, pause }: Pick<TimelineSegment, 'type' | 'row' | 'pause'>, activeHit?: number): string {
+export function buildClipTooltipHtml(
+  { type, row, pause }: Pick<TimelineSegment, 'type' | 'row' | 'pause'>,
+  activeHit?: number,
+  withSystemHits = true
+): string {
   if (type === 'motionstop' && pause) {
     return (
       `<div>Motion Stop</div>` +
@@ -45,7 +49,7 @@ export function buildClipTooltipHtml({ type, row, pause }: Pick<TimelineSegment,
     `<div><span class="tooltip-key">Duration:</span> <span class="tooltip-val">${formatFramesAsSeconds(toFrames(row.duration))}</span></div>` +
     `<div><span class="tooltip-key">Timing:</span> <span class="tooltip-val">${describeTiming(row)}</span></div>` +
     `<div><span class="tooltip-key">Input:</span> <span class="tooltip-val">${describeInput(row)}</span></div>` +
-    buildHitLinesHtml(row, activeHit)
+    buildHitLinesHtml(row, activeHit, withSystemHits)
   );
 }
 

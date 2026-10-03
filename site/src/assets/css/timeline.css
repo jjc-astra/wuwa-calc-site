@@ -62,6 +62,94 @@
 
 .timeline-row-track { flex: 1; min-width: 0; position: relative; }
 
+/* --- Effect sections (Calculator Timeline: RotationTimeline withEffects) --- */
+/* A unit's label as its show/hide-its-effects toggle: caret, pill and effect count, all one button. */
+.timeline-expander {
+    display: flex; align-items: center; gap: 5px;
+    min-width: 0; padding: 0;
+    background: none; border: none;
+    font: inherit; cursor: pointer;
+    pointer-events: auto;
+}
+.timeline-expander:hover:not(:disabled) .timeline-row-pill {
+    border-color: var(--char-theme-raw);
+    background: color-mix(in srgb, var(--char-theme-raw) 22%, var(--surface-card-flat));
+}
+.timeline-expander:disabled { cursor: default; }
+.timeline-expander:disabled .timeline-expander-caret { opacity: 0.3; }
+.timeline-expander-caret { color: var(--accent); }
+.timeline-expander-caret,
+.timeline-section-caret { font-size: 11px; transition: rotate 0.15s; }
+.timeline-expander:not(.is-open) .timeline-expander-caret,
+.timeline-section-toggle:not(.is-open) .timeline-section-caret { rotate: -90deg; }
+.timeline-expander-count { font-size: 9.6px; font-weight: 700; color: var(--text-disabled); }
+
+.timeline-section-row { background: var(--surface-lighten); }
+/* A unit's effect group (Weapon, Echo Sets): a quieter header, indented under the unit's own effects. */
+.timeline-section-row.is-nested { background: none; }
+.timeline-section-row.is-nested .timeline-section-toggle { margin-left: 8px; color: var(--text-dim); }
+.timeline-section-row.is-nested .timeline-section-title { font-size: 9.6px; }
+.timeline-effect-row.is-nested .timeline-effect-label { margin-left: 18px; }
+.timeline-section-toggle {
+    display: flex; align-items: center; gap: 6px;
+    background: none; border: none; padding: 0;
+    color: var(--accent); cursor: pointer;
+    pointer-events: auto;
+    white-space: nowrap;
+}
+.timeline-section-title {
+    font-size: 10.4px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+}
+
+/* An effect row's name: a small tag in its provider's color, indented under the unit pills. */
+.timeline-effect-label {
+    max-width: 100%;
+    margin-left: 8px; padding: 1px 7px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--char-theme-raw) 45%, var(--border));
+    background: color-mix(in srgb, var(--char-theme-raw) 10%, var(--surface-card-flat));
+    color: color-mix(in srgb, var(--char-theme-raw) 75%, white);
+    font-size: 10.4px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    pointer-events: auto;
+}
+.timeline-effect-bar {
+    position: absolute;
+    border-radius: 3px;
+    box-sizing: border-box;
+    background: color-mix(in srgb, var(--char-theme-raw) 45%, transparent);
+    border: 1px solid var(--char-theme-raw);
+}
+.timeline-effect-bar.is-permanent { background: color-mix(in srgb, var(--char-theme-raw) 25%, transparent); }
+/* A cooldown ticking, not an effect in play: lighter, with a dashed edge. */
+.timeline-effect-cooldown .timeline-effect-bar {
+    background: color-mix(in srgb, var(--char-theme-raw) 18%, transparent);
+    border-style: dashed;
+}
+/* Centered on its (left, top): a stack count or tracker value change. */
+.timeline-effect-point {
+    position: absolute;
+    width: 5px; height: 5px;
+    margin: -2.5px 0 0 -2.5px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--char-theme-raw) 35%, #fff);
+    pointer-events: none;
+}
+.timeline-effect-point.is-active {
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--char-theme-raw) 70%, #000);
+    transform: scale(1.6);
+    z-index: 1;
+}
+.timeline-effect-point-label {
+    position: absolute;
+    transform: translateY(-50%);
+    font-size: 9px; font-weight: 700; line-height: 1;
+    color: color-mix(in srgb, var(--char-theme-raw) 20%, #fff);
+    text-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
+    white-space: nowrap;
+    pointer-events: none;
+}
+
 /* top/bottom inset set inline (CLIP_INSET_PX). */
 .timeline-clip-hit { position: absolute; }
 .timeline-clip {

@@ -149,7 +149,10 @@ function priceHits(
 // extended (opener + N-loop) pass, and starts from full enemy HP.
 export function populateDamageInstances(rows: any[], enemyConfig: { hp: number }, team: any[]): void {
   rows.forEach((row: any) => { row.damageInstances = []; });
-  priceHits(rows, team, enemyConfig, (row, _hit, result) => row.damageInstances.push(result));
+  // Who and what dealt it, for the Timeline (a System hit gets its own row there).
+  priceHits(rows, team, enemyConfig, (row, hit, result) => row.damageInstances.push({
+    ...result, provider: hit.config.provider, moveName: hit.config.moveName, moveRef: hit.config.moveRef, dmgTypeList: hit.config.dmgTypes || []
+  }));
 }
 
 // The Ending Rotation preview and the Results pass simulate the same opener + N loops + ending

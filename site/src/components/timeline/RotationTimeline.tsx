@@ -5,6 +5,10 @@ import { TimelineFlagTrack } from './TimelineFlagTrack';
 import { useUiScale } from '../../hooks/useUiScale';
 import { TimelineRow } from './TimelineRow';
 import { TimelineRuler } from './TimelineRuler';
+import { TimelineEffectRow } from './TimelineEffectRow';
+import { buildEffectTimeline, EFFECT_ROW_HEIGHT_PX, SECTION_ROW_HEIGHT_PX, UNIT_EFFECT_GROUPS } from './effectLayout';
+import type { EffectLane, EffectSourceKind } from './effectLayout';
+import { useTimelineViewStore } from '../../store/useTimelineViewStore';
 import { TooltipManager } from '../../utils/Common';
 import {
   buildUnitRows,
@@ -16,6 +20,7 @@ import {
   compressedTimeToPx,
   snapToDevicePixel,
   HEADER_COL_WIDTH_PX,
+  EFFECTS_HEADER_COL_WIDTH_PX,
   LANE_HEIGHT_PX,
   FLAG_LABEL_HEIGHT_PX,
   FLAG_TRACK_MIN_HEIGHT_PX,
@@ -31,6 +36,39 @@ interface RotationTimelineProps {
   className?: string;
   // The flag track above the rows: key inputs (E, R, Hold...) and unit swaps (1, 2, 3).
   showInputs?: boolean;
+  // Effect sections (the Calculator's): each unit's buffs nested under it, then Enemy Effects,
+  // System Effects (with System hits, taken off the unit rows) and Trackers -- each collapsible,
+  // with the view choices in useTimelineViewStore.
+  withEffects?: boolean;
+}
+
+interface TimelineSectionRowProps {
+  title: string;
+  count: number;
+  open: boolean;
+  onToggle: () => void;
+  // A group inside a unit's effects (Weapon, Echo Sets), not a top-level section.
+  nested?: boolean;
+}
+
+// A collapsible effect section's (or a unit's effect group's) header row.
+const TimelineSectionRow: React.FC<TimelineSectionRowProps> = ({ title, count, open, onToggle, nested = false }) => (
+  <div className={`timeline-row timeline-section-row${nested ? ' is-nested' : ''}`} style={{ height: SECTION_ROW_HEIGHT_PX }}>
+    <div className="timeline-row-header" style={{ width: 'var(--timeline-header-width)' }}>
+      <button type="button" className={`timeline-section-toggle ${open ? 'is-open' : ''}`} onClick={onToggle}>
+        <span className="timeline-section-caret">▾</span>
+        <span className="timeline-section-title">{title}</span>
+        <span className="timeline-expander-count">{count}</span>
+      </button>
+    </div>
+    <div className="timeline-row-track" />
+  </div>
+);
+
+interface TimelineItem {
+  key: string;
+  height: number;
+  node: React.ReactNode;
 }
 
 // Loop/ending-rotation marker: a line spanning just the unit rows (not through the ruler), plus
@@ -50,7 +88,7 @@ const TimelineMarkerLine: React.FC<MarkerLineProps> = ({ left, top, height, widt
   </>
 );
 
-export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRows, team, loopStartIndex, className = '', showInputs = true }) => {
+export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRows, team, loopStartIndex, className = '', showInputs = true, withEffects = false }) => {
   // All timeline geometry is laid out in fixed design px (timelineLayout), so the content is
   // zoomed by the UI scale as a whole -- boxes and text shrink together, instead of rem text
   // shrinking inside px boxes.
@@ -62,14 +100,64 @@ export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRow
     () => (showInputs ? assignFlagLanes(buildFlags(evaluatedRows, team), compression) : []),
     [evaluatedRows, team, compression, showInputs]
   );
-  const unitRows = useMemo(() => buildUnitRows(evaluatedRows, team, compression), [evaluatedRows, team, compression]);
+  const unitRows = useMemo(() => buildUnitRows(evaluatedRows, team, compression, !withEffects), [evaluatedRows, team, compression, withEffects]);
+  const effects = useMemo(() => (withEffects ? buildEffectTimeline(evaluatedRows, team, compression) : null), [evaluatedRows, team, compression, withEffects]);
   const totalFrames = useMemo(() => computeTotalDurationFrames(evaluatedRows), [evaluatedRows]);
   const ticks = useMemo(() => generateTicks(totalFrames, compression), [totalFrames, compression]);
+  const { showPermanent, collapsed, toggleCollapsed } = useTimelineViewStore();
 
-  const contentWidth = HEADER_COL_WIDTH_PX + compressedTimeToPx(totalFrames, compression);
+  // Every row under the flag track, top to bottom, with its height (the markers below span them).
+  const items: TimelineItem[] = [];
+  if (!effects) {
+    unitRows.forEach(row => items.push({ key: row.unit, height: ROW_HEIGHT_PX, node: <TimelineRow data={row} /> }));
+  } else {
+    const shown = (lanes: EffectLane[] = []) => (showPermanent ? lanes : lanes.filter(lane => !lane.alwaysOn));
+    const isOpen = (id: string) => !collapsed.includes(id);
+    const laneItems = (lanes: EffectLane[], nested = false) => lanes.forEach(lane =>
+      items.push({ key: lane.id, height: EFFECT_ROW_HEIGHT_PX, node: <TimelineEffectRow lane={lane} nested={nested} /> }));
+    const section = (id: string, title: string, count: number, body: () => void, nested = false) => {
+      items.push({
+        key: `section:${id}`,
+        height: SECTION_ROW_HEIGHT_PX,
+        node: <TimelineSectionRow title={title} count={count} open={isOpen(id)} onToggle={() => toggleCollapsed(id)} nested={nested} />
+      });
+      if (isOpen(id)) body();
+    };
+
+    // Each unit: its own effects, then what its weapon and echoes add (each a collapsible
+    // group), then its cooldowns.
+    section('units', 'Unit Effects', unitRows.length, () => unitRows.forEach(row => {
+      const lanes = shown(effects.unitLanes[row.unit]);
+      const id = `unit:${row.unit}`;
+      items.push({
+        key: row.unit,
+        height: ROW_HEIGHT_PX,
+        node: <TimelineRow data={row} expander={{ open: isOpen(id), count: lanes.length, onToggle: () => toggleCollapsed(id) }} />
+      });
+      if (!isOpen(id)) return;
+      const buffs = lanes.filter(lane => lane.kind !== 'cooldown');
+      const grouped = new Set<EffectSourceKind>(UNIT_EFFECT_GROUPS.flatMap(group => group.kinds));
+      laneItems(buffs.filter(lane => !grouped.has(lane.sourceKind ?? 'character')));
+      UNIT_EFFECT_GROUPS.forEach(group => {
+        const groupLanes = buffs.filter(lane => lane.sourceKind && group.kinds.includes(lane.sourceKind));
+        if (groupLanes.length > 0) section(`${id}:${group.id}`, group.title, groupLanes.length, () => laneItems(groupLanes, true), true);
+      });
+      laneItems(lanes.filter(lane => lane.kind === 'cooldown'));
+    }));
+    const enemy = shown(effects.enemy);
+    section('enemy', 'Enemy Effects', enemy.length, () => laneItems(enemy));
+    const system = shown(effects.system);
+    section('system', 'System Effects', system.length, () => laneItems(system));
+    section('trackers', 'Trackers', effects.trackers.length, () => laneItems(effects.trackers));
+  }
+
+  // The name column: wider with effects, whose names run longer than a unit's. Rows read it as
+  // --timeline-header-width.
+  const headerWidth = withEffects ? EFFECTS_HEADER_COL_WIDTH_PX : HEADER_COL_WIDTH_PX;
+  const contentWidth = headerWidth + compressedTimeToPx(totalFrames, compression);
 
   const loopStartRow = loopStartIndex !== null ? evaluatedRows[loopStartIndex] : null;
-  const loopStartLeft = loopStartRow ? HEADER_COL_WIDTH_PX + compressedTimeToPx(loopStartRow.gameTimeStart, compression) : null;
+  const loopStartLeft = loopStartRow ? headerWidth + compressedTimeToPx(loopStartRow.gameTimeStart, compression) : null;
 
   // Same two-marker convention as RotationRow.tsx: LOOP END closes the loop template; END
   // ROTATION marks custom replacement content when the loop-end row is followed by real content.
@@ -77,27 +165,28 @@ export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRow
   // hasEndRotationContent) rather than persisted flags, so this view can't disagree with that one.
   const loopEndIndex = evaluatedRows.findIndex(r => r && r.unit && r.loopEndOverride === true);
   const loopEndRow = loopEndIndex !== -1 ? evaluatedRows[loopEndIndex] : null;
-  const loopEndLeft = loopEndRow ? HEADER_COL_WIDTH_PX + compressedTimeToPx(loopEndRow.gameTimeStart + loopEndRow.gameTimePassed, compression) : null;
+  const loopEndLeft = loopEndRow ? headerWidth + compressedTimeToPx(loopEndRow.gameTimeStart + loopEndRow.gameTimePassed, compression) : null;
   const hasEndRotationContent = loopEndIndex !== -1 && !!evaluatedRows[loopEndIndex + 1]?.unit;
   const endRotationRow = hasEndRotationContent ? evaluatedRows[loopEndIndex + 1] : null;
-  const endRotationLeft = endRotationRow ? HEADER_COL_WIDTH_PX + compressedTimeToPx(endRotationRow.gameTimeStart, compression) : null;
+  const endRotationLeft = endRotationRow ? headerWidth + compressedTimeToPx(endRotationRow.gameTimeStart, compression) : null;
 
   // Poles stop at the bottom of the rows (never cross into the ruler below), and start right at
   // their own flag's label -- not above it, where they'd cross through lower-lane flags' labels.
   const maxLane = flags.reduce((max, f) => Math.max(max, f.lane), -1);
   // Hidden inputs drop the whole track, so the rows start at the top.
   const flagTrackHeight = showInputs ? Math.max(FLAG_TRACK_MIN_HEIGHT_PX, (maxLane + 1) * LANE_HEIGHT_PX) : 0;
-  const rowsBottom = flagTrackHeight + unitRows.length * ROW_HEIGHT_PX;
+  const rowsBottom = flagTrackHeight + items.reduce((sum, item) => sum + item.height, 0);
   const hairline = hairlinePx();
 
   return (
     <div className={`timeline-root ${className}`}>
       <div className="timeline-scroll">
-        <div className="timeline-content" style={{ width: contentWidth, zoom: scale }}>
+        <div
+          className="timeline-content"
+          style={{ width: contentWidth, zoom: scale, '--timeline-header-width': `${headerWidth}px` } as React.CSSProperties}
+        >
           {showInputs && <TimelineFlagTrack flags={flags} />}
-          {unitRows.map(row => (
-            <TimelineRow key={row.unit} data={row} />
-          ))}
+          {items.map(item => <React.Fragment key={item.key}>{item.node}</React.Fragment>)}
           <TimelineRuler ticks={ticks} />
 
           {/* Vertical bar per flag -- starts at the bottom of its own label (not the full lane
@@ -109,7 +198,7 @@ export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRow
                 key={i}
                 className="timeline-flag-pole"
                 style={{
-                  left: HEADER_COL_WIDTH_PX + flag.xPx,
+                  left: headerWidth + flag.xPx,
                   top,
                   height: Math.max(0, rowsBottom - top),
                   width: hairline,

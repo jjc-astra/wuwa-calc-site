@@ -118,7 +118,8 @@ export const DSLParser = {
     }
 
     let triggers: Array<{ event: string; modifiers: string[]; args: (string | number)[] }>;
-    if (triggerStr.startsWith('ANY(') && triggerStr.endsWith(')')) {
+    // Any case, like the condition wrappers (_resolveLogicalWrappers).
+    if (/^ANY\(/i.test(triggerStr) && triggerStr.endsWith(')')) {
       const inner = triggerStr.substring(4, triggerStr.length - 1);
       triggers = DSLParser._splitArgs(inner).map(t => DSLParser._parseTrigger(t));
     } else {

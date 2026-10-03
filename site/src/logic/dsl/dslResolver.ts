@@ -48,13 +48,22 @@ function collectEffectNamesByNamespace(builderMechanics: Record<string, Mechanic
         // a pool key like "energy"/"forte1", not an identifier meant to be referenced elsewhere).
         if (e.type && e.type !== 'buff' && e.type !== 'tracker') return;
         if (!byNamespace[namespace]) byNamespace[namespace] = new Set();
-        byNamespace[namespace].add(MechanicKey.stripNamespace(e.name, namespace));
+        // As written ("Lumi_Red Light Form"): that's the name the engine matches. Inside a
+        // "@Namespace(" ref the namespace is stripped where it's suggested (namespacedEffectNames).
+        byNamespace[namespace].add(e.name);
       });
     });
   };
   addFrom(DataLoader.mechanicsDB);
   addFrom(builderMechanics);
   return byNamespace;
+}
+
+// A namespace's effect names as they go inside "@Namespace(...)" -- its own prefix off, since
+// flattenDslShorthand puts it back ("@Lumi(Red Light Form)" -> "Lumi_Red Light Form").
+function namespacedEffectNames(builderMechanics: Record<string, MechanicNode>, namespace: string): string[] {
+  const names = collectEffectNamesByNamespace(builderMechanics)[namespace];
+  return names ? [...new Set([...names].map(name => MechanicKey.stripNamespace(name, namespace)))] : [];
 }
 
 // Bare mechanic names (not @Namespace(...) refs) for mechanics that declare a `cooldown` --
@@ -273,8 +282,7 @@ export function makeNamespaceRefRule(mechanics: Record<string, MechanicNode>): M
         }
       });
 
-      const byNamespace = collectEffectNamesByNamespace(mechanics);
-      (byNamespace[namespace] ? Array.from(byNamespace[namespace]) : []).forEach(name => {
+      namespacedEffectNames(mechanics, namespace).forEach(name => {
         results.push({
           val: name,
           group: namespace === 'System' ? 'System Effects' : `${namespace} Effects`
@@ -299,9 +307,7 @@ export function makeEffectNameRules(activeChar: string | null, mechanics: Record
       matchGroup: 2,
       options: (match) => {
         const namespace = match[1];
-        const byNamespace = collectEffectNamesByNamespace(mechanics);
-        const names = byNamespace[namespace] ? Array.from(byNamespace[namespace]) : [];
-        return names.map(name => ({
+        return namespacedEffectNames(mechanics, namespace).map(name => ({
           val: name,
           group: namespace === 'System' ? 'System Effects' : `${namespace} Effects`
         }));

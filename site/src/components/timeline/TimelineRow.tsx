@@ -2,47 +2,36 @@ import React, { useState } from 'react';
 import { CommonUtils, TooltipManager } from '../../utils/Common';
 import { IMAGE_FOLDERS } from '../../data/db';
 import { TimelineClip, buildClipTooltipHtml } from './TimelineClip';
-import { HEADER_COL_WIDTH_PX, ROW_HEIGHT_PX, CLIP_INSET_PX, simultaneousLineHeightPx } from './timelineLayout';
+import { ROW_HEIGHT_PX, CLIP_INSET_PX, simultaneousLineHeightPx } from './timelineLayout';
+import { nearestMarker, trackPointer } from './trackPointer';
 import type { UnitRowData } from './timelineLayout';
 
 interface TimelineRowProps {
   data: UnitRowData;
+  // A caret beside the unit's pill that shows/hides the rows nested under it (its effects).
+  expander?: { open: boolean; count: number; onToggle: () => void };
 }
 
-// How close (design px) the cursor must be to a hit dot to snap to it.
-const HIT_SNAP_RADIUS_PX = 6;
-
 /** One unit's row: icon, name, clips and hit dots. Hovering near a dot snaps the tooltip to that hit. */
-export const TimelineRow: React.FC<TimelineRowProps> = ({ data }) => {
+export const TimelineRow: React.FC<TimelineRowProps> = ({ data, expander }) => {
   const [activeDot, setActiveDot] = useState<number | null>(null);
 
   const handleMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    // The timeline is CSS-zoomed: client px -> the track's own design px.
-    const track = e.currentTarget;
-    const rect = track.getBoundingClientRect();
-    const k = rect.width > 0 ? track.offsetWidth / rect.width : 1;
-    const x = (e.clientX - rect.left) * k;
-    const y = (e.clientY - rect.top) * k;
-
-    // Nearest dot in 2D, so a vertical stack snaps to the one the cursor is level with.
-    let nearest = -1;
-    let nearestDist = HIT_SNAP_RADIUS_PX;
-    data.hitDots.forEach((dot, i) => {
-      const dist = Math.hypot(dot.xPx - x, dot.yPx - y);
-      if (dist <= nearestDist) { nearest = i; nearestDist = dist; }
-    });
+    const pointer = trackPointer(e);
+    const nearest = nearestMarker(data.hitDots, pointer);
     if (nearest !== -1) {
       const dot = data.hitDots[nearest];
+      const at = pointer.toClient(dot.xPx, dot.yPx);
       setActiveDot(nearest);
-      TooltipManager.showAtPoint(rect.left + dot.xPx / k, rect.top + dot.yPx / k, buildClipTooltipHtml({ type: 'onfield', row: dot.row }, dot.hitNumber));
+      TooltipManager.showAtPoint(at.x, at.y, buildClipTooltipHtml({ type: 'onfield', row: dot.row }, dot.hitNumber, data.withSystemHits));
       return;
     }
 
     setActiveDot(null);
     // Later segments draw on top, so the last one under the cursor wins.
-    const inClipBand = y >= CLIP_INSET_PX && y <= ROW_HEIGHT_PX - CLIP_INSET_PX;
-    const segment = inClipBand ? [...data.segments].reverse().find(s => x >= s.xPx && x < s.xPx + s.widthPx) : undefined;
-    if (segment) TooltipManager.showAtPoint(e.clientX, e.clientY, buildClipTooltipHtml(segment));
+    const inClipBand = pointer.y >= CLIP_INSET_PX && pointer.y <= ROW_HEIGHT_PX - CLIP_INSET_PX;
+    const segment = inClipBand ? [...data.segments].reverse().find(s => pointer.x >= s.xPx && pointer.x < s.xPx + s.widthPx) : undefined;
+    if (segment) TooltipManager.showAtPoint(e.clientX, e.clientY, buildClipTooltipHtml(segment, undefined, data.withSystemHits));
     else TooltipManager.hide();
   };
 
@@ -51,16 +40,34 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({ data }) => {
     TooltipManager.hide();
   };
 
+  const pill = (
+    <div className="timeline-row-pill outline-badge">
+      <img className="timeline-row-icon" src={CommonUtils.getIconPath(data.unit, IMAGE_FOLDERS.CHARACTERS)} alt={data.unit} />
+      <span className="timeline-row-name">{data.unit}</span>
+    </div>
+  );
+
   return (
     <div
       className="timeline-row"
       style={{ height: ROW_HEIGHT_PX, '--char-theme-raw': data.themeColor } as React.CSSProperties}
     >
-      <div className="timeline-row-header" style={{ width: HEADER_COL_WIDTH_PX }}>
-        <div className="timeline-row-pill outline-badge">
-          <img className="timeline-row-icon" src={CommonUtils.getIconPath(data.unit, IMAGE_FOLDERS.CHARACTERS)} alt={data.unit} />
-          <span className="timeline-row-name">{data.unit}</span>
-        </div>
+      <div className="timeline-row-header" style={{ width: 'var(--timeline-header-width)' }}>
+        {expander ? (
+          // The whole label opens/closes the unit's effects, like a section header.
+          <button
+            type="button"
+            className={`timeline-expander ${expander.open ? 'is-open' : ''}`}
+            onClick={expander.onToggle}
+            disabled={expander.count === 0}
+            aria-expanded={expander.open}
+            aria-label={`${expander.open ? 'Hide' : 'Show'} ${data.unit}'s effects`}
+          >
+            <span className="timeline-expander-caret">▾</span>
+            {pill}
+            <span className="timeline-expander-count">{expander.count}</span>
+          </button>
+        ) : pill}
       </div>
       <div className="timeline-row-track" onMouseMove={handleMove} onMouseLeave={handleLeave}>
         {data.segments.map((segment, i) => (

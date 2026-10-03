@@ -149,8 +149,15 @@ interface RotationState {
   endRotationStartsEarlier: boolean;
   results: RotationResults | null;
   isCalculating: boolean;
+  // The last calc's rows as the engine ran them (Hold Repeat blocks expanded, each repeat its
+  // own row), for the Timeline -- `rows` is the table's collapsed view. Not persisted.
+  timelineRows: any[];
+  timelineLoopStartIndex: number | null;
+  // While the Timeline is open, every recalculate also prices its hits, for the hit dots.
+  timelineActive: boolean;
 
   setStartEnergy: (val: boolean) => void;
+  setTimelineActive: (active: boolean) => void;
   setStartConcerto: (val: boolean) => void;
   // Dims (isStale=true) instead of silently recalculating when a Mechanics Builder edit
   // relevant to the current team happened since the last Calculate press. Call on returning to
@@ -370,6 +377,16 @@ export const useRotationStore = create<RotationState>()(
         endRotationStartsEarlier: false,
         results: null,
         isCalculating: false,
+        timelineRows: [],
+        timelineLoopStartIndex: null,
+        timelineActive: false,
+
+        setTimelineActive: (active: boolean) => {
+          if (get().timelineActive === active) return;
+          set({ timelineActive: active });
+          // Hit dots need priced hits, which a plain recalculate skips.
+          if (active) get().recalculate(false, true);
+        },
 
         setStartEnergy: (val: boolean) => {
           set({ startEnergy: val });
@@ -713,7 +730,7 @@ export const useRotationStore = create<RotationState>()(
 
         // Recalculates timeline/gauges/timings only -- does not run combat damage.
         recalculate: async (markStale: boolean = true, includeDamage: boolean = false) => {
-          const run = await runWorkerCalc('recalculate', collapseMap => ({ includeDamage, collapseMap }));
+          const run = await runWorkerCalc('recalculate', collapseMap => ({ includeDamage: includeDamage || get().timelineActive, collapseMap }));
           if (!run) return;
           const { data, evaluatedRows, collapseMap } = run;
 
@@ -727,6 +744,8 @@ export const useRotationStore = create<RotationState>()(
 
           set({
             rows: evaluatedRows,
+            timelineRows: data.evaluatedRows,
+            timelineLoopStartIndex: data.loopStartIndex,
             isStale: markStale ? true : get().isStale,
             loopStartIndex: collapseMap[data.loopStartIndex] ?? data.loopStartIndex,
             loopStartIsOverride: data.loopStartIsOverride,
@@ -750,6 +769,8 @@ export const useRotationStore = create<RotationState>()(
 
           set({
             rows: evaluatedRows,
+            timelineRows: data.evaluatedRows,
+            timelineLoopStartIndex: data.loopStartIndex,
             isStale: false,
             results: data.results,
             isCalculating: false,

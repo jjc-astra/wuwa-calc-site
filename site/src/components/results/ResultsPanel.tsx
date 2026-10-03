@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import { ChromeTabs } from './ChromeTabs';
 import type { ChromeTabDef } from './ChromeTabs';
 import { ResultsTab } from './ResultsTab';
-import { ComingSoonTab } from './ComingSoonTab';
+import { TimelineTab } from './TimelineTab';
 import { HistoryTab } from './HistoryTab';
 
 const TABS: ChromeTabDef[] = [
   { id: 'results', label: 'Results' },
-  { id: 'timeline', label: 'Timeline', comingSoon: true },
+  { id: 'timeline', label: 'Timeline' },
   { id: 'history', label: 'History' }
 ];
 
@@ -16,23 +16,19 @@ interface ResultsPanelProps {
   collapsed: boolean;
 }
 
-/** The Calculator's Results column: Results, Timeline and History tabs. */
+/** The Calculator's Results column: Results, Timeline and History tabs. The Timeline widens it. */
 export const ResultsPanel: React.FC<ResultsPanelProps> = ({ collapsed }) => {
   const [activeTab, setActiveTab] = useState('results');
+  const isTimeline = activeTab === 'timeline';
 
   return (
-    <div className={`results-panel ${collapsed ? 'is-collapsed' : ''}`}>
+    <div className={`results-panel ${collapsed ? 'is-collapsed' : ''} ${isTimeline ? 'is-wide' : ''}`}>
       <div className="results-panel-rail-label">Results</div>
       <div className="results-panel-content">
         <ChromeTabs tabs={TABS} activeId={activeTab} onSelect={setActiveTab} />
-        <div className="results-panel-body">
+        <div className={`results-panel-body ${isTimeline ? 'is-timeline' : ''}`}>
           {activeTab === 'results' && <ResultsTab />}
-          {activeTab === 'timeline' && (
-            <ComingSoonTab
-              title="Timeline"
-              description="A video-editor style timeline of character moves, buff lifetimes, and negative status stacks."
-            />
-          )}
+          {isTimeline && <TimelineTab />}
           {activeTab === 'history' && <HistoryTab />}
         </div>
       </div>

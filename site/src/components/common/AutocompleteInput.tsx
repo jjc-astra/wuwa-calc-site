@@ -148,7 +148,9 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
       makeAnyTriggerListRule(),
       makePointerRootRule(),
       makeNamespaceRefRule(mechanics),
-      makeEventListRule(/\b((?:On|After|Det|AL|AN|XO|NO)[a-zA-Z]*)$/i),
+      // A word being typed where an event or logic word can go (start, after ( , ! & | or a
+      // space) -- from its first letter. Not after "." or "@": those are properties/pointers.
+      makeEventListRule(/(?:^|[(,!&|]\s*|\s)([a-zA-Z]+)$/),
       makePropertyRule(baseStats),
       makeMethodChainRule(),
       makeMathRule(),

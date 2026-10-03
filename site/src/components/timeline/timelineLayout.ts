@@ -21,12 +21,14 @@ export const trimRowsForTimeline = (rows: any[]): any[] =>
   rows.map(row => row && {
     ...Object.fromEntries(TIMELINE_ROW_FIELDS.filter(f => f in row).map(f => [f, row[f]])),
     ...(row.damageInstances && {
-      damageInstances: row.damageInstances.map((d: any) => ({ title: d.title, total: d.total, gameTime: d.gameTime }))
+      damageInstances: row.damageInstances.map((d: any) => ({ title: d.title, total: d.total, gameTime: d.gameTime, moveRef: d.moveRef }))
     })
   });
 
 const PX_PER_SECOND = 50;
 export const HEADER_COL_WIDTH_PX = 140;
+// With effect rows (the Calculator's Timeline), whose names run longer.
+export const EFFECTS_HEADER_COL_WIDTH_PX = 200;
 export const ROW_HEIGHT_PX = 44;
 export const RULER_HEIGHT_PX = 28;
 export const LANE_HEIGHT_PX = 26;
@@ -165,6 +167,8 @@ export interface UnitRowData {
   segments: TimelineSegment[];
   simultaneousLines: SimultaneousLine[];
   hitDots: HitDot[];
+  // Whether hitDots (and its tooltip's hit list) include System hits.
+  withSystemHits: boolean;
 }
 
 function deriveSegments(rows: any[], compression: TimeCompression | null): TimelineSegment[] {
@@ -224,28 +228,26 @@ function deriveSimultaneousLines(rows: any[], compression: TimeCompression | nul
   return lines;
 }
 
-// The hits a row's damage breakdown lists, in time order.
-export const rowHits = (row: any): any[] =>
-  [...(row.damageInstances || [])].sort((a, b) => (a.gameTime ?? 0) - (b.gameTime ?? 0));
+// A System mechanic's hit (a negative status tick, Tune Break...), by its move pointer.
+export const isSystemHit = (hit: any): boolean => typeof hit.moveRef === 'string' && hit.moveRef.startsWith('@System(');
 
-// A dot per hit at the time it lands, centered on the clip. Hits at the same time stack
-// vertically, squeezing together rather than spilling past the clip's height.
-function deriveHitDots(rows: any[], compression: TimeCompression | null): HitDot[] {
-  const dots: HitDot[] = rows.flatMap(row => rowHits(row).map((hit, i) => ({
-    xPx: compressedTimeToPx(hit.gameTime ?? row.gameTimeStart, compression),
-    yPx: 0,
-    row,
-    hitNumber: i + 1
-  })));
-  dots.sort((a, b) => a.xPx - b.xPx);
+// The hits a row's damage breakdown lists, in time order -- less System hits when they're drawn
+// on their own rows instead (the Calculator's System Effects).
+export const rowHits = (row: any, withSystemHits = true): any[] =>
+  (row.damageInstances || [])
+    .filter((hit: any) => withSystemHits || !isSystemHit(hit))
+    .sort((a: any, b: any) => (a.gameTime ?? 0) - (b.gameTime ?? 0));
 
-  const centerY = CLIP_INSET_PX + CLIP_HEIGHT_PX / 2;
-  const maxSpan = CLIP_HEIGHT_PX - HIT_DOT_EDGE_PX * 2 - HIT_DOT_SIZE_PX;
+// Spreads dots at the same time into a vertical stack centered in a band (top, height), squeezing
+// together rather than spilling past it. `dots` must be sorted by x.
+export function stackDots<T extends { xPx: number; yPx: number }>(dots: T[], bandTop: number, bandHeight: number): T[] {
+  const centerY = bandTop + bandHeight / 2;
+  const maxSpan = bandHeight - HIT_DOT_EDGE_PX * 2 - HIT_DOT_SIZE_PX;
   for (let start = 0; start < dots.length;) {
     let end = start + 1;
     while (end < dots.length && dots[end].xPx - dots[start].xPx < HIT_DOT_SAME_TIME_PX) end++;
     const count = end - start;
-    const step = count > 1 ? Math.min(HIT_DOT_GAP_PX, maxSpan / (count - 1)) : 0;
+    const step = count > 1 ? Math.max(0, Math.min(HIT_DOT_GAP_PX, maxSpan / (count - 1))) : 0;
     for (let j = 0; j < count; j++) {
       dots[start + j].yPx = snapToDevicePixel(centerY + (j - (count - 1) / 2) * step);
     }
@@ -254,8 +256,26 @@ function deriveHitDots(rows: any[], compression: TimeCompression | null): HitDot
   return dots;
 }
 
-// Each team member's row of clips, Simultaneous lines and hit dots.
-export function buildUnitRows(evaluatedRows: any[], team: TeamSlot[], compression: TimeCompression | null = null): UnitRowData[] {
+// A dot per hit at the time it lands, centered on the clip.
+function deriveHitDots(rows: any[], compression: TimeCompression | null, withSystemHits: boolean): HitDot[] {
+  const dots: HitDot[] = rows.flatMap(row => rowHits(row, withSystemHits).map((hit, i) => ({
+    xPx: compressedTimeToPx(hit.gameTime ?? row.gameTimeStart, compression),
+    yPx: 0,
+    row,
+    hitNumber: i + 1
+  })));
+  dots.sort((a, b) => a.xPx - b.xPx);
+  return stackDots(dots, CLIP_INSET_PX, CLIP_HEIGHT_PX);
+}
+
+// Each team member's row of clips, Simultaneous lines and hit dots. `withSystemHits: false`
+// leaves System hits off the unit rows, for a Timeline that gives them rows of their own.
+export function buildUnitRows(
+  evaluatedRows: any[],
+  team: TeamSlot[],
+  compression: TimeCompression | null = null,
+  withSystemHits = true
+): UnitRowData[] {
   const unitRows: UnitRowData[] = [];
   team.forEach((slot, slotIndex) => {
     if (!slot.character) return;
@@ -266,7 +286,8 @@ export function buildUnitRows(evaluatedRows: any[], team: TeamSlot[], compressio
       themeColor: getCharacterThemeColor(DataLoader.characterDB[slot.character]),
       segments: deriveSegments(rows, compression),
       simultaneousLines: deriveSimultaneousLines(rows, compression),
-      hitDots: deriveHitDots(rows, compression)
+      hitDots: deriveHitDots(rows, compression, withSystemHits),
+      withSystemHits
     });
   });
   return unitRows;

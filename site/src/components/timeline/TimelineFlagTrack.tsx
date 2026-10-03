@@ -2,7 +2,7 @@
 // stacked into as many lanes as needed so close flags don't overlap (assignFlagLanes in
 // timelineLayout.ts). Each flag's vertical pole is drawn separately by RotationTimeline.tsx.
 import React from 'react';
-import { HEADER_COL_WIDTH_PX, LANE_HEIGHT_PX, FLAG_LABEL_HEIGHT_PX, FLAG_TRACK_MIN_HEIGHT_PX } from './timelineLayout';
+import { LANE_HEIGHT_PX, FLAG_LABEL_HEIGHT_PX, FLAG_TRACK_MIN_HEIGHT_PX } from './timelineLayout';
 import type { LaidOutFlag } from './timelineLayout';
 import { MouseClickIcon } from './MouseClickIcon';
 
@@ -16,7 +16,7 @@ export const TimelineFlagTrack: React.FC<TimelineFlagTrackProps> = ({ flags }) =
 
   return (
     <div className="timeline-flag-track" style={{ height }}>
-      <div className="timeline-ruler-spacer" style={{ width: HEADER_COL_WIDTH_PX }} />
+      <div className="timeline-ruler-spacer" style={{ width: 'var(--timeline-header-width)' }} />
       <div className="timeline-flag-track-lanes">
         {flags.map((flag, i) => {
           // 'spam': current action outranks this one, so pressing early costs nothing. 'wait':

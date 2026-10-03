@@ -106,6 +106,10 @@ export interface Effect {
   action?: 'add' | 'set' | 'copy' | 'consume' | 'detonate' | 'remove' | 'delete' | 'pause' | 'resume' | 'extend';
   provider?: string;
   source?: string;
+  // The entity it came from: a character, weapon, echo, echo set or System (the Timeline groups by it).
+  sourceOwner?: string;
+  // The selector a buff was applied with (@Team, @Next...); `target` is the unit it landed on.
+  appliesTo?: string;
   linkedTracker?: string;
   isPaused?: boolean;
   maxDuration?: number;
