@@ -21,6 +21,9 @@ export const dataUrl = (path: string): string => `${preferredBase}/data/${path}`
 export const realDataUrl = (path: string): string => `${DATA_REPO_BASE_URL}/data/${path}`;
 export const wipDataUrl = (path: string): string => `${WIP_BASE_URL}/data/${path}`;
 
+// Dev server endpoint: the WIP mirror's manifest, path -> content hash (wipFilesPlugin in vite.config.ts).
+export const WIP_FILES_URL = '/__wip-files';
+
 export const isWipUrl = (url: string): boolean => WIP_ENABLED && url.startsWith(WIP_BASE_URL);
 export const wipToRealUrl = (url: string): string => url.replace(WIP_BASE_URL, DATA_REPO_BASE_URL);
 // The path inside data/ (the manifest key), from either source.

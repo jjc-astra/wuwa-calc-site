@@ -51,11 +51,12 @@ export const useFreshnessConflictStore = create<FreshnessConflictState>((set, ge
   }
 }));
 
-// Compares loadedHash against a fresh manifest. Evicts changed-and-unedited items (returned
-// so a separate cache, e.g. the calc worker's DataLoader, can mirror it) and raises edited ones.
+// Compares loadedHash against a fresh manifest (in dev, the WIP mirror's too: a WIP file added,
+// edited or deleted counts as a change). Evicts changed-and-unedited items (returned so a separate
+// cache, e.g. the calc worker's DataLoader, can mirror it) and raises edited ones.
 async function checkItems(items: EntityRef[]): Promise<EntityRef[]> {
   if (items.length === 0) return [];
-  const manifest = await DataLoader.refreshManifest();
+  await DataLoader.refreshManifest();
   const conflicts: EntityRef[] = [];
   const evicted: EntityRef[] = [];
 
@@ -64,10 +65,8 @@ async function checkItems(items: EntityRef[]): Promise<EntityRef[]> {
     if (!DataLoader.cache.mechanics.has(cacheKey)) continue; // never loaded -- nothing to check
 
     const relPath = DataLoader.mechanicPath(folder, name);
-    if (DataLoader.wipSourced.has(relPath)) continue; // no manifest baseline applies -- WIP owns this until reloaded
-
-    const latestHash = manifest[relPath];
-    if (!latestHash) continue; // manifest lacks this path (e.g. 404'd) -- nothing to compare
+    const latestHash = DataLoader.currentHash(relPath);
+    if (!latestHash) continue; // neither manifest has this path (e.g. 404'd) -- nothing to compare
 
     const knownHash = DataLoader.loadedHashes[relPath];
     if (!knownHash) {
@@ -107,10 +106,11 @@ export async function checkBuilderItemFreshness(folder: EntityFolder, name: stri
 // Ranking files have no Builder counterpart -- changes just evict them from DataLoader's caches.
 // True when the index itself changed, so Rankings needs a full reload.
 export async function checkResultsFreshness(): Promise<boolean> {
-  const manifest = await DataLoader.refreshManifest();
+  await DataLoader.refreshManifest();
   const changedSinceLoad = (relPath: string) => {
     const known = DataLoader.loadedHashes[relPath];
-    return !!known && !!manifest[relPath] && known !== manifest[relPath];
+    const latest = DataLoader.currentHash(relPath);
+    return !!known && !!latest && known !== latest;
   };
 
   if (changedSinceLoad(`${RANKINGS_DIR}/index.json`)) {

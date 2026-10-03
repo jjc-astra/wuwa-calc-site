@@ -1,5 +1,5 @@
-import { CommonUtils, sha256Hex } from './Common';
-import { WIP_ENABLED, isWipUrl, wipToRealUrl, dataRelPath, realDataUrl, wipDataUrl } from './dataSource';
+import { CommonUtils } from './Common';
+import { WIP_ENABLED, WIP_FILES_URL, isWipUrl, wipToRealUrl, dataRelPath, realDataUrl, wipDataUrl } from './dataSource';
 import { MechanicKey, SYSTEM_NAMESPACE } from './MechanicKey';
 import { getTeamEntityRefs } from './TeamUtils';
 import type { CharacterData, WeaponData, MechanicNode, TeamSlot, HoldConfig } from '../types/index';
@@ -26,10 +26,11 @@ export class DataLoaderClass {
   cache = { mechanics: new Set<string>() };
   // Content-hash manifest (public/data/manifest.json). Detects changed data files without re-downloading. See dataFreshness.ts.
   manifest: Record<string, string> = {};
-  // Hash recorded at last fetch -- vs a fresh manifest, tells "changed" from "never loaded"/"unchanged".
+  // Dev only: the WIP mirror's own manifest (path inside data/ -> content hash), refreshed with
+  // the real one. A WIP file overrides the repo's, so its hash is the one that counts (currentHash).
+  wipManifest: Record<string, string> = {};
+  // Hash recorded at last fetch -- vs currentHash, tells "changed" from "never loaded"/"unchanged".
   loadedHashes: Record<string, string> = {};
-  // Local dev mechanics/ mirrors lacking manifest baselines; dataFreshness skips them to avoid false-positive verification.
-  wipSourced = new Set<string>();
   private manifestFetchedAt = 0;
   // Cooldown map for failed entity fetches to prevent spamming network retries and console errors on every recalculation.
   private missingUntil = new Map<string, number>();
@@ -117,15 +118,12 @@ export class DataLoaderClass {
       usedPath = wipToRealUrl(path);
       data = await this._fetchJSON<T>(usedPath);
     }
-    // Records the manifest hash as loaded content, or flags dev WIP paths lacking a manifest baseline.
+    // Records the loaded content's hash: the WIP mirror's for a WIP copy, else the repo's.
     if (data !== null && !opts.skipHashTracking) {
       const relPath = dataRelPath(usedPath);
-      if (servedFromWip) {
-        this.wipSourced.add(relPath);
-      } else {
-        this.wipSourced.delete(relPath);
-        if (this.manifest[relPath]) this.loadedHashes[relPath] = this.manifest[relPath];
-      }
+      const hash = servedFromWip ? this.wipHash(relPath) : this.manifest[relPath];
+      if (hash) this.loadedHashes[relPath] = hash;
+      else delete this.loadedHashes[relPath];
     }
     return data;
   }
@@ -159,10 +157,23 @@ export class DataLoaderClass {
   }
 
   // Derived from the manifest (populated first -- see App.tsx's initDatabases gate), not a
-  // hand-maintained list: "implemented" = a mechanics JSON file exists on disk for `name`.
+  // hand-maintained list: "implemented" = a mechanics JSON file exists for `name`, in the data
+  // repo or (dev) the WIP mirror.
   isContentImplemented(kind: ImplementedContentKind, name: string): boolean {
     if (!DISABLE_UNIMPLEMENTED_CONTENT) return true;
-    return !!this.manifest[this.mechanicPath(MECHANIC_FOLDER_BY_KIND[kind], name)];
+    const path = this.mechanicPath(MECHANIC_FOLDER_BY_KIND[kind], name);
+    return !!this.currentHash(path);
+  }
+
+  private wipHash(relPath: string): string | undefined {
+    const hash = WIP_ENABLED ? this.wipManifest[relPath] : undefined;
+    return hash && `wip:${hash}`;
+  }
+
+  // The hash of the copy a fresh load would get: the WIP mirror's if it has the file, else the
+  // repo's. Undefined when neither has it. Read after refreshManifest.
+  currentHash(relPath: string): string | undefined {
+    return this.wipHash(relPath) ?? this.manifest[relPath];
   }
 
   // Throttled (5s) so near-simultaneous callers collapse into one request.
@@ -172,32 +183,28 @@ export class DataLoaderClass {
     if (!force && this.manifestFetchedAt && now - this.manifestFetchedAt < 5000) return this.manifest;
     this.manifestFetchedAt = now;
     const fresh = await this.loadJSON<Record<string, string>>(CommonUtils.getData('manifest.json'), { skipHashTracking: true });
-    if (fresh) {
-      this.manifest = fresh;
-      this.backfillLoadedHashes(fresh);
-    }
+    if (fresh) this.manifest = fresh;
+    if (WIP_ENABLED) this.wipManifest = (await this._fetchJSON<Record<string, string>>(WIP_FILES_URL, true)) ?? this.wipManifest;
+    this.backfillLoadedHashes();
     return this.manifest;
   }
 
-  // Identifies a data file's current content, for caches of results calculated from it: the
-  // manifest's hash (call refreshManifest first), plus -- in dev -- a hash of the WIP mirror's
-  // copy, which either replaces the real file or merges over it and has no manifest entry.
-  async contentVersion(relPath: string): Promise<string> {
+  // Identifies a data file's current content, for caches of results calculated from it (call
+  // refreshManifest first). Both hashes count: a WIP copy replaces the real file or, for a db
+  // file, merges over it.
+  contentVersion(relPath: string): string {
     const real = this.manifest[relPath] ?? 'none';
-    if (!WIP_ENABLED) return real;
-    const wip = await this._fetchText(wipDataUrl(relPath));
-    return wip === null ? real : `${real}+wip:${(await sha256Hex(wip)).slice(0, 16)}`;
+    const wip = this.wipHash(relPath);
+    return wip ? `${real}+${wip}` : real;
   }
 
   // Sets a loadedHashes baseline for anything cached but not yet hashed (e.g. useRosterStore
   // rehydrating before any manifest fetch). Runs on every fetch so unhashed paths get another chance.
-  private backfillLoadedHashes(manifest: Record<string, string>): void {
+  private backfillLoadedHashes(): void {
     for (const cacheKey of this.cache.mechanics) {
       const relPath = `mechanics/${cacheKey}.json`;
-      if (this.wipSourced.has(relPath)) continue;
-      if (!this.loadedHashes[relPath] && manifest[relPath]) {
-        this.loadedHashes[relPath] = manifest[relPath];
-      }
+      const hash = this.currentHash(relPath);
+      if (!this.loadedHashes[relPath] && hash) this.loadedHashes[relPath] = hash;
     }
   }
 
@@ -383,7 +390,6 @@ export class DataLoaderClass {
 
     this.cache.mechanics.delete(cacheKey);
     this.missingUntil.delete(cacheKey);
-    this.wipSourced.delete(this.mechanicPath(folder, itemName));
 
     for (const map of [this.mechanicsDB, this.pristineMechanics]) {
       Object.keys(map).forEach(key => {

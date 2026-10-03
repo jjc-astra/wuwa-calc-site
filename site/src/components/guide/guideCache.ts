@@ -58,10 +58,8 @@ export function depsOf(entries: GuideEntry[], jobs: GuideJob[]): { files: string
 export async function readDeps(files: string[], entities: string[]): Promise<GuideDeps> {
   await DataLoader.refreshManifest();
   const { getTeamOverrides } = useBuilderStore.getState();
-  const [fileVersions, editHashes] = await Promise.all([
-    Promise.all(files.map(async path => [path, await DataLoader.contentVersion(path)] as const)),
-    Promise.all(entities.map(async name => [name, await sha256Hex(JSON.stringify(getTeamOverrides([name])))] as const))
-  ]);
+  const fileVersions = files.map(path => [path, DataLoader.contentVersion(path)] as const);
+  const editHashes = await Promise.all(entities.map(async name => [name, await sha256Hex(JSON.stringify(getTeamOverrides([name])))] as const));
   return { calcVersion, files: Object.fromEntries(fileVersions), builderEdits: Object.fromEntries(editHashes) };
 }
 

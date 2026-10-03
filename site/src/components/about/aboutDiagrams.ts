@@ -844,9 +844,9 @@ export const DIAGRAMS = {
       L1{"manifest loaded and<br/>lacks the file?"}
       L1 -- "yes, not WIP" --> L2["skipped (no 404)"]:::data
       L1 -- no --> L3{"a dev WIP path?"}
-      L3 -- yes --> L4["/wip-data first; missing → the repo<br/>(served from WIP: no freshness baseline)"]:::data
+      L3 -- yes --> L4["/wip-data first; missing → the repo"]:::data
       L3 -- no --> L5["fetched with ?v=its manifest hash<br/>(browser-cached until it changes)"]:::data
-      L4 --> L6["loadedHashes[path] = manifest hash"]:::data
+      L4 --> L6["loadedHashes[path] = currentHash:<br/>the WIP mirror's hash (/__wip-files)<br/>if it has the file, else the repo's"]:::data
       L5 --> L6
     end
     subgraph Users["built on it"]
@@ -869,12 +869,12 @@ export const DIAGRAMS = {
     subgraph Check["checkItems, per entity"]
       direction TB
       C0["refreshManifest<br/>(at most every 5 s)"]:::data
-      C0 --> C1{"loaded, not from WIP,<br/>in the manifest?"}
+      C0 --> C1{"loaded, and in either<br/>manifest (repo or WIP)?"}
       C1 -- no --> C2["skipped"]
-      C1 -- yes --> C3{"loaded hash vs manifest"}
-      C3 -->|"none yet"| C4["adopts the<br/>manifest's"]:::data
+      C1 -- yes --> C3{"loaded hash vs<br/>currentHash"}
+      C3 -->|"none yet"| C4["adopts it"]:::data
       C3 -->|"same"| C2
-      C3 -->|"different"| C5{"unsaved Builder<br/>edits to it?"}
+      C3 -->|"different (incl. a WIP file<br/>added, edited, deleted)"| C5{"unsaved Builder<br/>edits to it?"}
     end
     subgraph Outcome["changed"]
       direction TB

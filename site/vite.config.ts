@@ -40,10 +40,41 @@ function calcVersionPlugin(): Plugin {
   }
 }
 
+// Dev only: GET /__wip-files (WIP_FILES_URL in src/utils/dataSource.ts) is the WIP mirror's own
+// manifest -- each data file's path inside data/ and a hash of its content -- so the site can tell
+// which entities have WIP mechanics and notice a WIP file being added, edited or deleted.
+function wipFilesPlugin(): Plugin {
+  const dataDir = join(import.meta.dirname, 'public', 'wip-data', 'data')
+  const listFiles = (dir: string): string[] => {
+    try {
+      return readdirSync(dir, { withFileTypes: true }).flatMap(e =>
+        e.isDirectory() ? listFiles(join(dir, e.name)) : e.name.endsWith('.json') ? [join(dir, e.name)] : []
+      )
+    } catch {
+      return [] // no WIP mirror
+    }
+  }
+
+  return {
+    name: 'wip-files',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/__wip-files', (_req, res) => {
+        const manifest = Object.fromEntries(listFiles(dataDir).map(file => [
+          normalizePath(relative(dataDir, file)),
+          createHash('sha256').update(readFileSync(file)).digest('hex').slice(0, 16)
+        ]))
+        res.setHeader('Content-Type', 'application/json')
+        res.end(JSON.stringify(manifest))
+      })
+    }
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   // Served from wuwacalc.com's root via the custom domain, not the github.io/wuwa-calc-site/
   // subpath, so assets resolve from '/' for both dev and production builds.
   base: '/',
-  plugins: [react(), calcVersionPlugin()],
+  plugins: [react(), calcVersionPlugin(), wipFilesPlugin()],
 })
