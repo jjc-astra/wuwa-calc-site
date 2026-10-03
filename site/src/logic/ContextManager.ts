@@ -131,7 +131,7 @@ export const ContextManager = {
       return {
         self: selfContext,
         active: { name: onFieldUnit },
-        // timeStart/gameTimeStart/duration/gameTimePassed/freezeTime/damageTimeframe/swapTiming
+        // timeStart/gameTimeStart/duration/gameTimePassed/freezeTime/motionStop/damageTimeframe/swapTiming
         // are all FRAMES, not seconds -- DSL math against @Move.* should treat them as frame
         // counts. Cooldown pointers (@Self.Cooldown etc) stay SECONDS -- a deliberate exception.
         move: {
@@ -144,6 +144,7 @@ export const ContextManager = {
           duration: activeState.duration || 0,
           gameTimePassed: activeState.gameTimePassed || 0,
           freezeTime: activeState.freezeTime || 0,
+          motionStop: activeState.motionStop || 0,
           damageTimeframe: activeState.damageTimeframe || { start: 0, end: 0 },
           swapTiming: activeState.swapTiming || 0,
           baseMult: activeState.baseMult || 0,

@@ -34,7 +34,7 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({ data }) => {
     if (nearest !== -1) {
       const dot = data.hitDots[nearest];
       setActiveDot(nearest);
-      TooltipManager.showAtPoint(rect.left + dot.xPx / k, rect.top + dot.yPx / k, buildClipTooltipHtml('onfield', dot.row, dot.hitNumber));
+      TooltipManager.showAtPoint(rect.left + dot.xPx / k, rect.top + dot.yPx / k, buildClipTooltipHtml({ type: 'onfield', row: dot.row }, dot.hitNumber));
       return;
     }
 
@@ -42,7 +42,7 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({ data }) => {
     // Later segments draw on top, so the last one under the cursor wins.
     const inClipBand = y >= CLIP_INSET_PX && y <= ROW_HEIGHT_PX - CLIP_INSET_PX;
     const segment = inClipBand ? [...data.segments].reverse().find(s => x >= s.xPx && x < s.xPx + s.widthPx) : undefined;
-    if (segment) TooltipManager.showAtPoint(e.clientX, e.clientY, buildClipTooltipHtml(segment.type, segment.row));
+    if (segment) TooltipManager.showAtPoint(e.clientX, e.clientY, buildClipTooltipHtml(segment));
     else TooltipManager.hide();
   };
 

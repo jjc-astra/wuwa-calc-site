@@ -233,7 +233,7 @@ export const DSLParser = {
     return jsStr;
   },
 
-  // Frames vs seconds: @Move.TimeStart/Duration/GameTime/FreezeTime/DamageStart/DamageEnd/
+  // Frames vs seconds: @Move.TimeStart/Duration/GameTime/FreezeTime/MotionStop/DamageStart/DamageEnd/
   // SwapTime, and scalarMap's Time/GameTimeStart/SwapTime/ComboWindow/EchoSummonTime suffixes,
   // are all FRAMES. .Cooldown()/.PermanentDuration stay SECONDS -- see TimelineEngine's
   // _processGameTimeDecay for where the two domains cross.

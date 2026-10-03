@@ -234,7 +234,7 @@ export const SHEET_STAT_TOOLTIPS: Record<string, string> = {
   'Healing Bonus': 'Increases the amount healed by healing effects.'
 };
 
-// actionDuration/freezeTime are frames at 60fps; cooldown stays seconds.
+// actionDuration/freezeTime/motionStop are frames at 60fps; cooldown stays seconds.
 const BUILDER_TEMPLATES: Record<string, MechanicNode> = {
   'Basic Attack': {
     name: 'Basic Attack 1',
@@ -266,6 +266,7 @@ const BUILDER_TEMPLATES: Record<string, MechanicNode> = {
     hitMults: ['200%'],
     actionDuration: toFrames(126),
     freezeTime: toFrames(120),
+    motionStop: toFrames(120),
     cooldown: 25.0,
     triggerRule: 'IF (@Self.Energy >= @Self.MaxEnergy)',
     comboWindow: '@Default.ComboWindow',
@@ -357,6 +358,7 @@ const BUILDER_TEMPLATES: Record<string, MechanicNode> = {
     hitMults: [1600],
     actionDuration: toFrames(120),
     freezeTime: toFrames(120),
+    motionStop: toFrames(120),
     priority: '@Default.IntroPriority - 10'
   },
   'Resonance Chain': {
@@ -446,7 +448,8 @@ export const PANEL_CONFIG: Record<string, PanelConfig> = {
           { label: 'Base Duration', key: 'baseDuration', default: 0, suffix: 's' },
           { label: 'Actual Duration', key: 'duration', default: 0, suffix: 's' },
           { label: 'Game Time Passed', key: 'gameTimePassed', default: 0, suffix: 's' },
-          { label: 'Time Stop / Freeze', key: 'freezeTime', default: 0, suffix: 's' }
+          { label: 'Time Stop / Freeze', key: 'freezeTime', default: 0, suffix: 's' },
+          { label: 'Motion Stop', key: 'motionStop', default: 0, suffix: 's' }
         ]
       },
       {

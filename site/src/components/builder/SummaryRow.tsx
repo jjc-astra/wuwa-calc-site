@@ -91,11 +91,12 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
     ...((data.effects?.length ?? 0) > 0 ? [{ label: `Effects +${data.effects!.length}`, tooltip: 'Open Identity to view/edit the Effects Array' }] : [])
   ];
 
-  // Cancel/Freeze/Swap/Priority/Combo Window share one "Timing Modifiers" sub-panel --
+  // Cancel/Freeze/Motion Stop/Swap/Priority/Combo Window share one "Timing Modifiers" sub-panel --
   // the summary column tags only the fields actually set, instead of a column each.
   const dslEvalCtx = { default: GAME_DEFAULTS };
   const cancelTimings = data.cancelTimings || [];
   const freezeVal = resolveDefaultNum(data.freezeTime, dslEvalCtx);
+  const motionStopVal = resolveDefaultNum(data.motionStop, dslEvalCtx);
   const swapVal = resolveDefaultNum(data.swapTiming, dslEvalCtx);
   const priorityVal = data.isPassive ? null : resolveDefaultNum(data.priority, dslEvalCtx);
   const comboVal = resolveDefaultNum(data.comboWindow, dslEvalCtx);
@@ -106,6 +107,7 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
       tooltip: ct.triggerRule ? `Rule: ${ct.triggerRule}` : 'Cancel Timing'
     })),
     ...(freezeVal !== null ? [{ label: `Freeze ${fmtNum(freezeVal)}f`, tooltip: 'Freeze Time' }] : []),
+    ...(motionStopVal !== null ? [{ label: `Motion ${fmtNum(motionStopVal)}f`, tooltip: 'Motion Stop' }] : []),
     ...(swapVal !== null ? [{ label: `Swap ${fmtNum(swapVal)}f`, tooltip: 'Swap Time' }] : []),
     ...(priorityVal !== null ? [{ label: `Prio ${fmtNum(priorityVal)}`, tooltip: 'Priority' }] : []),
     ...(comboVal !== null ? [{ label: `Combo ${fmtNum(comboVal)}f`, tooltip: 'Combo Window' }] : [])

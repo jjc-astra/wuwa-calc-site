@@ -67,6 +67,8 @@ export const BuilderUtils = {
       if (swapTiming !== undefined) clean.swapTiming = swapTiming;
       const freezeTime = CommonUtils.parseMixed(node.freezeTime);
       if (freezeTime !== undefined) clean.freezeTime = freezeTime;
+      const motionStop = CommonUtils.parseMixed(node.motionStop);
+      if (motionStop !== undefined) clean.motionStop = motionStop;
     }
 
     // Unlike the scheduling fields above, damageTimeframe is read by both normal hit-spread

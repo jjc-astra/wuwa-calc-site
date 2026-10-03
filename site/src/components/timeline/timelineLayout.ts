@@ -12,7 +12,8 @@ import type { TeamSlot } from '../../types';
 // Reading a new row field in this folder means adding it here.
 const TIMELINE_ROW_FIELDS = [
   'unit', 'moveName', 'input', 'inputType', 'priority', 'timing', '_autoTimingChoice', 'loopEndOverride',
-  'gameTimeStart', 'gameTimePassed', 'duration', 'waitTime', 'cdWaitTime', 'freezeTime', 'animationCommitment'
+  'gameTimeStart', 'gameTimePassed', 'duration', 'waitTime', 'cdWaitTime', 'freezeTime', 'animationCommitment',
+  'motionStopPauses'
 ] as const;
 
 // damageInstances keeps just what the hit dots read (each instance also carries its full buff snapshot).
@@ -123,13 +124,23 @@ export function compressedTimeToPx(frames: number, compression: TimeCompression 
   return gapStartPx + frac * compressedWidthPx;
 }
 
-export type SegmentType = 'onfield' | 'offfield' | 'wait';
+export type SegmentType = 'onfield' | 'offfield' | 'wait' | 'motionstop';
+
+// Another unit's motion stop pausing this row's move (TimelineEngine._applyMotionStop).
+export interface MotionStopPause {
+  gameTime: number;
+  frames: number;
+  by: string;
+  moveName: string;
+}
 
 export interface TimelineSegment {
   type: SegmentType;
   xPx: number;
   widthPx: number;
   row: any;
+  // Only for a 'motionstop' segment.
+  pause?: MotionStopPause;
 }
 
 export interface SimultaneousLine {
@@ -158,6 +169,7 @@ export interface UnitRowData {
 
 function deriveSegments(rows: any[], compression: TimeCompression | null): TimelineSegment[] {
   const segments: TimelineSegment[] = [];
+  const pauseSegments: TimelineSegment[] = [];
   for (const row of rows) {
     // gameTimePassed (not row.duration) is the freeze-adjusted end, since duration is real-time.
     const onStartX = compressedTimeToPx(row.gameTimeStart, compression);
@@ -175,13 +187,23 @@ function deriveSegments(rows: any[], compression: TimeCompression | null): Timel
     }
 
     // Off-field tail, anchored to onRenderedEndX so a floored on-field clip can't overlap it.
-    const offEndFrames = row.gameTimeStart + Math.max(0, row.animationCommitment - (row.freezeTime || 0));
+    // Motion stops it sat through push its end back by their length.
+    const pauses: MotionStopPause[] = row.motionStopPauses || [];
+    const pausedFrames = pauses.reduce((sum, p) => sum + p.frames, 0);
+    const offEndFrames = row.gameTimeStart + Math.max(0, row.animationCommitment - (row.freezeTime || 0)) + pausedFrames;
     if (offEndFrames > row.gameTimeStart + row.gameTimePassed) {
       const offEndX = compressedTimeToPx(offEndFrames, compression);
       segments.push({ type: 'offfield', xPx: onRenderedEndX, widthPx: Math.max(MIN_CLIP_WIDTH_PX, offEndX - onRenderedEndX), row });
     }
+
+    for (const pause of pauses) {
+      const startX = compressedTimeToPx(pause.gameTime, compression);
+      const endX = compressedTimeToPx(pause.gameTime + pause.frames, compression);
+      pauseSegments.push({ type: 'motionstop', xPx: startX, widthPx: Math.max(MIN_CLIP_WIDTH_PX, endX - startX), row, pause });
+    }
   }
-  return segments;
+  // Last, so they draw over every clip, including a later row's wait.
+  return [...segments, ...pauseSegments];
 }
 
 // Thin bottom-of-row line for a Simultaneous action's duration, separate from its normal

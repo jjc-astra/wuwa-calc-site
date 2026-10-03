@@ -9,7 +9,7 @@ interface TimingModsPanelProps {
   updateNode: (patch: Partial<MechanicNode>) => void;
 }
 
-/** Builder sub-panel: freeze, swap, priority, combo window and cancel timings. */
+/** Builder sub-panel: freeze, motion stop, swap, priority, combo window and cancel timings. */
 export const TimingModsPanel: React.FC<TimingModsPanelProps> = ({ data, updateNode }) => {
   const [cancelTime, setCancelTime] = useState('');
   const [cancelHits, setCancelHits] = useState('');
@@ -47,6 +47,10 @@ export const TimingModsPanel: React.FC<TimingModsPanelProps> = ({ data, updateNo
         <div className="form-group">
           <label className="form-label caps-label">Freeze Time</label>
           <AutocompleteInput mode="dsl-value" value={displayTimeVal(data.freezeTime, 'f')} onValueChange={val => updateNode({ freezeTime: val })} onBlur={makeTimeBlur(data, updateNode, 'freezeTime', 'frames')} placeholder="e.g. 5f" />
+        </div>
+        <div className="form-group">
+          <label className="form-label caps-label">Motion Stop</label>
+          <AutocompleteInput mode="dsl-value" value={displayTimeVal(data.motionStop, 'f')} onValueChange={val => updateNode({ motionStop: val })} onBlur={makeTimeBlur(data, updateNode, 'motionStop', 'frames')} placeholder="e.g. 5f" />
         </div>
         <div className="form-group">
           <label className="form-label caps-label">Swap Time</label>

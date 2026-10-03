@@ -79,6 +79,11 @@
     background: var(--danger-tint);
     border: 1px dashed var(--danger);
 }
+/* Paused by another unit's motion stop -- the wait bar's look, in a dim grey. */
+.timeline-clip-motionstop {
+    background: color-mix(in srgb, var(--text-disabled) 25%, var(--surface-card-flat));
+    border: 1px dotted var(--text-disabled);
+}
 
 /* Centered on its (left, top). Size duplicated in timelineLayout.ts's HIT_DOT_SIZE_PX. */
 .timeline-hit-dot {

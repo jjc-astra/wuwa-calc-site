@@ -1,7 +1,7 @@
 import React from 'react';
 import { formatFramesAsSeconds, toFrames } from '../../utils/Frames';
 import { describeTiming, describeInput, hairlinePx, rowHits, CLIP_INSET_PX } from './timelineLayout';
-import type { SegmentType, TimelineSegment } from './timelineLayout';
+import type { TimelineSegment } from './timelineLayout';
 
 interface TimelineClipProps {
   segment: TimelineSegment;
@@ -23,7 +23,15 @@ function buildHitLinesHtml(row: any, activeHit?: number): string {
 }
 
 /** Tooltip for a row's clip, or for one of its hit dots (`activeHit`). */
-export function buildClipTooltipHtml(type: SegmentType, row: any, activeHit?: number): string {
+export function buildClipTooltipHtml({ type, row, pause }: Pick<TimelineSegment, 'type' | 'row' | 'pause'>, activeHit?: number): string {
+  if (type === 'motionstop' && pause) {
+    return (
+      `<div>Motion Stop</div>` +
+      `<div><span class="tooltip-key">Paused by:</span> <span class="tooltip-val">${pause.by} (${pause.moveName})</span></div>` +
+      `<div><span class="tooltip-key">Paused:</span> <span class="tooltip-val">${formatFramesAsSeconds(toFrames(pause.frames))}</span></div>` +
+      `<div><span class="tooltip-key">Move:</span> <span class="tooltip-val">${row.moveName}</span></div>`
+    );
+  }
   if (type === 'wait') {
     const reason = row.waitTime === row.cdWaitTime ? 'Waiting for Skill CD' : 'Off-Field Animation Lock';
     return (

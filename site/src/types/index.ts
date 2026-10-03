@@ -165,7 +165,10 @@ export interface MechanicNode {
   // sync bidirectionally by CooldownPanel, not meant for hand-authoring both sides separately.
   shareCooldownWith?: string;
   swapTiming?: Frames | string;
+  // Time stop: the world's clock (buffs, cooldowns) pauses while the move plays.
   freezeTime?: Frames | string;
+  // Other units pause their moves (animations and pending hits) for this long after the cast.
+  motionStop?: Frames | string;
   comboWindow?: Frames | string;
   stanceReq?: 'Any' | 'Grounded' | 'Midair';
   // Stance flips after the move starts, each at `time` frames in. Read through getStanceChanges.

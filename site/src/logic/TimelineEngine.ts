@@ -101,6 +101,8 @@ export class TimelineEngineClass {
     let accumulatedTime = 0;
     let accumulatedGameTime = 0;
     const unitBusyUntil: Record<string, number> = {};
+    // Each unit's latest row, which a later motion stop pauses.
+    const lastRowByUnit: Record<string, any> = {};
     let globalSwapCdExpiresAt = 0;
 
     // Link row pointers (@Prev, @Next, @Self.PrevAction)
@@ -139,6 +141,7 @@ export class TimelineEngineClass {
       // Rows are recalculated in place -- clear so a fixed hold config doesn't keep showing
       // last run's "unreachable" error.
       currentData._holdUnreachable = undefined;
+      currentData.motionStopPauses = undefined;
 
       // Populated by the auto-wait lookahead below when this row's own action is a Release --
       // the live cursor-tracking block further down reuses it instead of re-resolving the same
@@ -295,6 +298,7 @@ export class TimelineEngineClass {
       currentData.animationCommitment = animationCommitment;
       currentData.gameTimePassed = Math.max(0, duration - timings.freezeTime);
       currentData.freezeTime = timings.freezeTime;
+      currentData.motionStop = timings.motionStop;
       currentData.damageTimeframe = timings.damageTimeframe;
       currentData.allowedHits = timings.allowedHits;
 
@@ -330,6 +334,8 @@ export class TimelineEngineClass {
       }
 
       unitBusyUntil[currentData.unit] = currentData.timeStart + currentData.animationCommitment;
+      this._applyMotionStop(currentData, unitBusyUntil, lastRowByUnit);
+      lastRowByUnit[currentData.unit] = currentData;
       const baseActDur = dbMove.actionDuration !== undefined && dbMove.actionDuration !== null ? parseFloat(String(dbMove.actionDuration)) : 0;
 
       // Frame counts are exact integers -- no epsilon needed here (unlike seconds-domain decay
@@ -714,6 +720,26 @@ export class TimelineEngineClass {
     return isNaN(value) ? 0 : value;
   }
 
+  // A move's motion stop pauses every other unit still mid-move (animating, or with hits pending)
+  // from its cast: their animation lock runs that much longer (their hits: _evaluateMechanics).
+  // The part not covered by the move's own time stop shows on the Timeline, recorded on the
+  // paused unit's latest row as motionStopPauses.
+  _applyMotionStop(currentData: any, unitBusyUntil: Record<string, number>, lastRowByUnit: Record<string, any>): void {
+    const motionStop = currentData.motionStop || 0;
+    if (motionStop <= 0) return;
+    const visibleFrames = toFrames(Math.max(0, motionStop - (currentData.freezeTime || 0)));
+    for (const [unit, row] of Object.entries(lastRowByUnit)) {
+      if (unit === currentData.unit) continue;
+      const isAnimating = (unitBusyUntil[unit] || 0) > currentData.timeStart;
+      const hasPendingHits = this.damageQueue.some(hit => hit.origin.caster === unit);
+      if (!isAnimating && !hasPendingHits) continue;
+      if (isAnimating) unitBusyUntil[unit] += motionStop;
+      if (visibleFrames > 0) {
+        (row.motionStopPauses ||= []).push({ gameTime: currentData.gameTimeStart, frames: visibleFrames, by: currentData.unit, moveName: currentData.moveName });
+      }
+    }
+  }
+
   _resolveTimings(currentData: any, moveData: MechanicNode, team: any[]): any {
     const timingType = currentData.timing || 'Auto';
     const unitName = currentData.unit;
@@ -727,6 +753,7 @@ export class TimelineEngineClass {
 
     const actionDuration = moveData.actionDuration !== undefined ? resolveMath(moveData.actionDuration, toFrames(0)) : toFrames(0);
     const freezeTime = moveData.freezeTime !== undefined ? resolveMath(moveData.freezeTime, toFrames(0)) : toFrames(0);
+    const motionStop = moveData.motionStop !== undefined ? resolveMath(moveData.motionStop, toFrames(0)) : toFrames(0);
     const swapTiming = moveData.swapTiming !== undefined ? resolveMath(moveData.swapTiming, toFrames(GAME_DEFAULTS.swapTime)) : undefined;
     const hitCount = Array.isArray(moveData.hitMults) ? moveData.hitMults.length : 0;
 
@@ -870,6 +897,7 @@ export class TimelineEngineClass {
       animationCommitment,
       gameTimePassed: Math.max(0, duration - freezeTime),
       freezeTime,
+      motionStop,
       damageTimeframe: { start: tfStart, end: tfEnd },
       allowedHits: finalHits
     };
@@ -999,13 +1027,11 @@ export class TimelineEngineClass {
         const hitName = nextHit.originMoveData.name + (nextHit.totalHits > 1 ? ` (Hit ${nextHit.hitIndex + 1})` : '');
         if (!nextHit.originRow._pendingHits) nextHit.originRow._pendingHits = [];
 
-        // executeAt is real-time; convert to game time. Only freezeTime splits the two domains
-        // -- not a truncated duration, since a hit can resolve after a swap cuts the animation short.
-        const originRow = nextHit.originRow;
-        const elapsedSinceRowStart = Math.max(0, nextHit.executeAt - (originRow.timeStart || 0));
-        const rowFreezeTime = originRow.freezeTime || 0;
-        const hitGameTime = (originRow.gameTimeStart || 0) + Math.max(0, elapsedSinceRowStart - rowFreezeTime);
-
+        // The game clock as the hit lands: beforeHit has run it up to the hit, stopping for any
+        // freeze, whichever unit's. A hit due before this window (a Simultaneous row's) is
+        // dated back by how late it is.
+        const lateBy = Math.max(0, this.currentGlobalRealTime - nextHit.executeAt);
+        const hitGameTime = this.currentGlobalGameTime - lateBy;
         nextHit.originRow._pendingHits.push({
           config: {
             hitMult: nextHit.hitMult, provider: nextHit.origin.caster, dmgTypes: nextHit.originMoveData.dmgTypes,
@@ -1316,11 +1342,12 @@ export class TimelineEngineClass {
 
     const startValues = RESOURCE_KEYS.map(key => readResource(currentData, key, unitName));
 
-    const currentFreezeTime = currentData.freezeTime || 0;
-    if (currentFreezeTime > 0 && this.damageQueue.length > 0) {
+    // Motion stop: other units' pending hits wait it out (their animations: recalculateState).
+    const motionStop = currentData.motionStop || 0;
+    if (motionStop > 0 && this.damageQueue.length > 0) {
       this.damageQueue.forEach(queuedHit => {
         if (queuedHit.origin.caster !== unitName) {
-          queuedHit.executeAt += currentFreezeTime;
+          queuedHit.executeAt += motionStop;
         }
       });
       this.damageQueue.sort((a, b) => a.executeAt - b.executeAt);

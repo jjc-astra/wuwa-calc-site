@@ -38,7 +38,7 @@ export function plainCopy(row: any, omit: readonly string[]): any {
 // carried state (pools, buffs, trackers, cooldowns).
 const MOVE_KEYS: readonly string[] = [
   'action', 'moveName', 'castTypes', 'dmgTypes', 'timeStart', 'gameTimeStart', 'duration', 'gameTimePassed',
-  'freezeTime', 'damageTimeframe', 'swapTiming', 'baseMult', 'hitMults', 'isInForteWindow',
+  'freezeTime', 'motionStop', 'damageTimeframe', 'swapTiming', 'baseMult', 'hitMults', 'isInForteWindow',
   'prevRow', 'nextRow', 'nextUnitActions'
 ];
 

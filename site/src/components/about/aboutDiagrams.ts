@@ -323,7 +323,7 @@ export const DIAGRAMS = {
       A1 -- yes --> A2["global swap cooldown starts"]:::logic
       A1 -- no --> A3
       A2 --> A3["cooldown wait: cooldownRemaining<br/>(charges: only once every one is out)"]:::logic
-      A3 --> A4["busy wait: the unit's last animation<br/>(unitBusyUntil); none for an Outro"]:::logic
+      A3 --> A4["busy wait: the unit's last animation<br/>(unitBusyUntil, + other units' motion stops<br/>during it); none for an Outro"]:::logic
       A4 --> A5["wait = the larger; _applyDecay:<br/>time runs, hits land"]:::logic
     end
     subgraph Res["resources"]
@@ -399,7 +399,7 @@ export const DIAGRAMS = {
     graph LR
     subgraph Cast["cast (_evaluateMechanics)"]
       direction TB
-      M1["freezeTime: other units' queued<br/>hits pushed later by it"]:::logic
+      M1["motionStop: other units' queued<br/>hits pushed later by it"]:::logic
       M1 --> M3["_gatherInstantEffects: the move's effects + OnCast<br/>(+ OnSwapOut / In, OnUnitChange); rules checked<br/>on the pre-cast state"]:::logic
       M3 --> M4["_startCooldown: a timer or a charge;<br/>the shareCooldownWith partner too"]:::logic
       M4 --> M5["_applyCastResources: Energy gains to every<br/>unit (× its ER, logged); rest to the caster"]:::logic
