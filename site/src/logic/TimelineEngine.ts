@@ -103,6 +103,9 @@ export class TimelineEngineClass {
     const unitBusyUntil: Record<string, number> = {};
     // Each unit's latest row, which a later motion stop pauses.
     const lastRowByUnit: Record<string, any> = {};
+    // Each unit's animation still furthest from done (its Timeline off-field tail), with its end
+    // in real frames -- what a later motion stop pushes back.
+    const animationByUnit: Record<string, { row: any; end: number }> = {};
     let globalSwapCdExpiresAt = 0;
 
     // Link row pointers (@Prev, @Next, @Self.PrevAction)
@@ -334,8 +337,12 @@ export class TimelineEngineClass {
       }
 
       unitBusyUntil[currentData.unit] = currentData.timeStart + currentData.animationCommitment;
-      this._applyMotionStop(currentData, unitBusyUntil, lastRowByUnit);
+      this._applyMotionStop(currentData, unitBusyUntil, lastRowByUnit, animationByUnit);
       lastRowByUnit[currentData.unit] = currentData;
+      const animationEnd = currentData.timeStart + currentData.animationCommitment;
+      if (animationEnd >= (animationByUnit[currentData.unit]?.end ?? -Infinity)) {
+        animationByUnit[currentData.unit] = { row: currentData, end: animationEnd };
+      }
       const baseActDur = dbMove.actionDuration !== undefined && dbMove.actionDuration !== null ? parseFloat(String(dbMove.actionDuration)) : 0;
 
       // Frame counts are exact integers -- no epsilon needed here (unlike seconds-domain decay
@@ -721,20 +728,34 @@ export class TimelineEngineClass {
   }
 
   // A move's motion stop pauses every other unit still mid-move (animating, or with hits pending)
-  // from its cast: their animation lock runs that much longer (their hits: _evaluateMechanics).
-  // The part not covered by the move's own time stop shows on the Timeline, recorded on the
-  // paused unit's latest row as motionStopPauses.
-  _applyMotionStop(currentData: any, unitBusyUntil: Record<string, number>, lastRowByUnit: Record<string, any>): void {
+  // from its cast: their move runs that much longer (their hits: _evaluateMechanics).
+  // The part not covered by the move's own time stop shows on the Timeline, recorded as
+  // motionStopPauses on the row whose animation it pushes back -- not necessarily the unit's
+  // latest row (an Outro after it takes no time) -- or, with only hits pending, the latest row.
+  _applyMotionStop(
+    currentData: any,
+    unitBusyUntil: Record<string, number>,
+    lastRowByUnit: Record<string, any>,
+    animationByUnit: Record<string, { row: any; end: number }>
+  ): void {
     const motionStop = currentData.motionStop || 0;
     if (motionStop <= 0) return;
     const visibleFrames = toFrames(Math.max(0, motionStop - (currentData.freezeTime || 0)));
-    for (const [unit, row] of Object.entries(lastRowByUnit)) {
+    for (const [unit, latestRow] of Object.entries(lastRowByUnit)) {
       if (unit === currentData.unit) continue;
-      const isAnimating = (unitBusyUntil[unit] || 0) > currentData.timeStart;
+      const animation = animationByUnit[unit];
+      const isAnimating = !!animation && animation.end > currentData.timeStart;
       const hasPendingHits = this.damageQueue.some(hit => hit.origin.caster === unit);
       if (!isAnimating && !hasPendingHits) continue;
-      if (isAnimating) unitBusyUntil[unit] += motionStop;
+      if ((unitBusyUntil[unit] || 0) > currentData.timeStart) unitBusyUntil[unit] += motionStop;
+      // The paused move runs that much longer, and the unit can't act again until it's done --
+      // even past an Outro that otherwise ended its lock.
+      if (isAnimating) {
+        animation.end += motionStop;
+        unitBusyUntil[unit] = Math.max(unitBusyUntil[unit] || 0, animation.end);
+      }
       if (visibleFrames > 0) {
+        const row = isAnimating ? animation.row : latestRow;
         (row.motionStopPauses ||= []).push({ gameTime: currentData.gameTimeStart, frames: visibleFrames, by: currentData.unit, moveName: currentData.moveName });
       }
     }
