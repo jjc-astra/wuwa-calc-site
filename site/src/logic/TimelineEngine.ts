@@ -36,19 +36,31 @@ export interface QueuedHit {
 
 // What a run produces. Each mode skips the work whose output nobody reads, so a throwaway pass
 // isn't slowed down by bookkeeping meant for the screen.
-//   full    the rotation table: everything, plus console warnings for rows with problems
-//   silent  the same rows and hits without the warnings, for passes that re-simulate rows
-//           another pass already reported (Results, the Ending Rotation preview)
+//   full    everything: the rotation table, Results, the Ending Rotation preview
 //   lean    only timings, resources and messages: no dropdown snapshots and no per-hit damage
 //           log, for the loop analysis, which never reads them
-export type EngineMode = 'full' | 'silent' | 'lean';
+// Row problems surface as each row's errorMsgs/warningMsgs (shown in the table), not the console.
+export type EngineMode = 'full' | 'lean';
 
 // How deep events may fire inside other events' effects before the chain is cut as a loop.
 const MAX_EVENT_DEPTH = 32;
-const RUN_PROFILES: Record<EngineMode, { dropdownSnapshots: boolean; hitLog: boolean; logWarnings: boolean }> = {
-  full:   { dropdownSnapshots: true,  hitLog: true,  logWarnings: true },
-  silent: { dropdownSnapshots: true,  hitLog: true,  logWarnings: false },
-  lean:   { dropdownSnapshots: false, hitLog: false, logWarnings: false }
+// The one part of a context that @Default pointers read (ContextManager.buildContext's `default`).
+const DEFAULTS_ONLY_CTX = { default: GAME_DEFAULTS };
+const defaultsOnlyCache = new Map<string, boolean>();
+// True when every context read in the math is ctx.default.* (it compiles @Default.X to that).
+function readsOnlyDefaults(mathStr: string): boolean {
+  let result = defaultsOnlyCache.get(mathStr);
+  if (result === undefined) {
+    const js = DSLParser._translatePointers(mathStr);
+    result = /\bctx\b/.test(js) && !/\bctx\b(?!\.default\.)/.test(js);
+    defaultsOnlyCache.set(mathStr, result);
+  }
+  return result;
+}
+
+const RUN_PROFILES: Record<EngineMode, { dropdownSnapshots: boolean; hitLog: boolean }> = {
+  full: { dropdownSnapshots: true,  hitLog: true },
+  lean: { dropdownSnapshots: false, hitLog: false }
 };
 
 // The engine's own hold-cursor bookkeeping (see _handleTracker's Hold_Start branch).
@@ -75,7 +87,6 @@ export class TimelineEngineClass {
   _moveDataCache: Record<string, MechanicNode | null> = {};
   // Events currently firing inside each other, outermost first (see _nested).
   _eventChain: string[] = [];
-  _loopWarned = false;
   // The Timeline's change log (_logTimeline): each buff's and tracker's last logged state, buffs
   // refreshed since (a refresh changes nothing else to compare), and when a buff that ran out did.
   _buffWatch = new Map<string, { sig: string; stacks: number }>();
@@ -105,7 +116,6 @@ export class TimelineEngineClass {
     this.lastSwapOutTime = {};
     this._localBuffCache = {};
     this._eventChain = [];
-    this._loopWarned = false;
     this._buffWatch = new Map();
     this._trackerWatch = new Map();
     this._refreshedBuffs = new Set();
@@ -465,15 +475,6 @@ export class TimelineEngineClass {
       }
 
       this._runValidation(currentData, prevData, team, dbMove);
-
-      if (this._run.logWarnings && (currentData.warningMsgs.length > 0 || currentData.errorMsgs.length > 0)) {
-        console.warn(`[TimelineEngine] Row #${i + 1} (${currentData.unit} - ${currentData.action}):`, {
-          errors: currentData.errorMsgs,
-          warnings: currentData.warningMsgs,
-          prevAction: currentData.unitCombos?.[currentData.unit]?.action,
-          prevUnit: prevData?.unit
-        });
-      }
 
       this._evaluateMechanics(currentData, activeTeam, activeRows, i, team, dbMove);
       this._resolveComboWindows(currentData, dbMove, team);
@@ -1273,15 +1274,11 @@ export class TimelineEngineClass {
   }
 
   // Runs one event's emit-and-apply a level deeper. Past MAX_EVENT_DEPTH it's a loop (rules whose
-  // effects keep re-triggering each other): the event is dropped, with a console warning (once per
-  // run) and a row warning, instead of overflowing the call stack.
+  // effects keep re-triggering each other): the event is dropped, with a row warning, instead of
+  // overflowing the call stack.
   _nested(label: string, currentData: any, run: () => void): void {
     if (this._eventChain.length >= MAX_EVENT_DEPTH) {
       const chain = [...this._eventChain.slice(-4), label].join(' → ');
-      if (!this._loopWarned) {
-        this._loopWarned = true;
-        console.warn(`[TimelineEngine] Event loop stopped after ${MAX_EVENT_DEPTH} nested events: ... ${chain}. A rule's effects keep re-triggering events.`);
-      }
       const msg = `Event loop stopped (... ${chain}) -- a rule's effects keep re-triggering events.`;
       if (Array.isArray(currentData.warningMsgs) && !currentData.warningMsgs.includes(msg)) currentData.warningMsgs.push(msg);
       return;
@@ -1567,7 +1564,9 @@ export class TimelineEngineClass {
   }
 
   _resolveDynamicMath(mathStr: string, currentData: any, unitName: string, team: any[]): number | string {
-    const ctx = ContextManager.buildContext(currentData, unitName, team);
+    // Math that only reads @Default constants (e.g. a buff's @Default.PermanentDuration) evaluates
+    // the same against just those, without building the row's full context.
+    const ctx = readsOnlyDefaults(mathStr) ? DEFAULTS_ONLY_CTX : ContextManager.buildContext(currentData, unitName, team);
     if (!ctx) return 0;
     const isPct = typeof mathStr === 'string' && mathStr.includes('%');
     const result = DSLParser.evaluateMath(mathStr, ctx, unitName);
@@ -1915,7 +1914,11 @@ export class TimelineEngineClass {
       const addedStacks = buffDef.stacks !== undefined ? parseInt(String(buffDef.stacks), 10) : 1;
       let actuallyAddedStacks = 0;
 
+      // False only for a re-application that leaves everything the Timeline logs as it was (an
+      // ALWAYS rule re-checking a permanent buff it already applied, on every event).
+      let changed = true;
       if (existingBuff) {
+        const before = { label: existingBuff.label, stat: existingBuff.stat, value: existingBuff.value, stacks: existingBuff.stacks };
         if (buffDef.label) existingBuff.label = buffDef.label;
         if (buffDef.stat) existingBuff.stat = buffDef.stat;
         if (buffDef.value !== undefined) existingBuff.value = val;
@@ -1931,6 +1934,8 @@ export class TimelineEngineClass {
           existingBuff.duration = effDuration;
           // A permanent buff re-applied (an ALWAYS rule re-checking) has no timer to refresh.
           if (effDuration < GAME_DEFAULTS.permanentDuration) this._refreshedBuffs.add(key);
+          else changed = before.label !== existingBuff.label || before.stat !== existingBuff.stat
+            || before.value !== existingBuff.value || before.stacks !== existingBuff.stacks;
         }
       } else {
         currentData.activeBuffs[key] = {
@@ -1947,7 +1952,7 @@ export class TimelineEngineClass {
         actuallyAddedStacks = addedStacks;
       }
 
-      this._logTimeline(currentData);
+      if (changed) this._logTimeline(currentData);
       if (actuallyAddedStacks > 0) {
         this._fire('OnBuffAdd', eventModifier(buffDef.name), currentData, buffDef.provider || currentData.unit, activeTeam, activeRows, team);
       }

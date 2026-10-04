@@ -50,7 +50,11 @@ export const ContextManager = {
         buff.target === activeUnitName || buff.target === '@Team' || buff.target === 'Active'
       );
 
-      const finalStats = CombatCalculator.calculateFinalStats(activeUnitName, validBuffs as any, team);
+      // Only worked out if a rule reads a stat or HP -- most never do. Callers evaluate the context
+      // right away (or, like EventManager.emit, before any of the buffs change), so it's the same
+      // result as computing it up front.
+      let finalStatsMemo: ReturnType<typeof CombatCalculator.calculateFinalStats> | undefined;
+      const finalStats = () => (finalStatsMemo ??= CombatCalculator.calculateFinalStats(activeUnitName, validBuffs as any, team));
       const comboDict = activeState.prevRow ? (activeState.prevRow.unitCombos || {}) : (activeState.unitCombos || {});
       const myCombo = comboDict[activeUnitName];
 
@@ -75,7 +79,7 @@ export const ContextManager = {
       const dbChar = DataLoader.characterDB[activeUnitName] || {};
       const fCount = dbChar.forteCount || CHARACTER_DEFAULTS.forteCount;
 
-      const maxHp = finalStats.hp || 10000;
+      const maxHp = () => finalStats().hp || 10000;
       const hpPct = activeState.hp ? (activeState.hp[activeUnitName] ?? 1.0) : 1.0;
 
       const selfContext: Record<string, any> = {
@@ -87,8 +91,8 @@ export const ContextManager = {
         maxEnergy: dbChar.maxEnergy ? parseFloat(dbChar.maxEnergy as any) : CHARACTER_DEFAULTS.maxEnergy,
         concerto: readResource(activeState, 'concerto', activeUnitName),
         maxConcerto: CHARACTER_DEFAULTS.maxConcerto,
-        hp: hpPct * maxHp,
-        maxHp: maxHp,
+        get hp() { return hpPct * maxHp(); },
+        get maxHp() { return maxHp(); },
         hpPct: hpPct,
         tune: 0,
         maxTune: 0,
@@ -110,7 +114,7 @@ export const ContextManager = {
         },
         getTracker: (trackerName: string) => activeState.trackers?.[trackerName] || 0,
         getCooldown: (actionName: string) => ContextManager.cooldownRemaining(activeState, activeUnitName, actionName),
-        getStat: (statKey: string) => finalStats[statKey] || 0
+        getStat: (statKey: string) => (finalStats() as Record<string, any>)[statKey] || 0
       };
 
       for (let i = 1; i <= fCount; i++) {

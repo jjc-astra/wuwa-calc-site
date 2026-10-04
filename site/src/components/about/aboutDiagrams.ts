@@ -283,7 +283,7 @@ export const DIAGRAMS = {
     graph LR
     subgraph Setup["setup"]
       direction TB
-      S1["recalculateState(rows, team, options, enemy)<br/>full: the table · silent: re-runs ·<br/>lean: loop check (no snapshots, no hit log)"]:::logic
+      S1["recalculateState(rows, team, options, enemy)<br/>full: the table and re-runs ·<br/>lean: loop check (no snapshots, no hit log)"]:::logic
       S1 --> S2["clocks, hit queue and caches reset;<br/>calculateEchoStatsForSlot per slot"]:::logic
       S2 --> S3["_setupEventBoard: EventManager.reset,<br/>every owner's listeners registered"]:::logic
       S3 --> S4["@Prev / @Next rows linked,<br/>each unit's next action noted"]:::logic
@@ -549,7 +549,7 @@ export const DIAGRAMS = {
       X2 -->|"none"| X3["runs the opener alone"]:::logic
       X2 -->|"no duration"| X4["runs everything once"]:::logic
       X2 -->|"ok"| X5["reps: with Ending Rotation, whole loops that fit<br/>in 120 s (−1 if it starts earlier); else enough to<br/>pass 120 s; at least 3"]:::logic
-      X5 --> X6["the Ending Rotation preview's run if the same<br/>length, else recalculateState(silent);<br/>each rep's real end read off it"]:::logic
+      X5 --> X6["the Ending Rotation preview's run if the same<br/>length, else recalculateState(full);<br/>each rep's real end read off it"]:::logic
     end
     subgraph Hits["buildHitList"]
       direction TB

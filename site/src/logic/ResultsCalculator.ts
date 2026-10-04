@@ -86,7 +86,7 @@ function buildExtendedTimeline(
   const openerEndTime = toFrames(openerEndRow ? (openerEndRow.gameTimeStart || 0) + (openerEndRow.gameTimePassed || 0) : 0);
 
   const runSimple = (contentToRun: any[]) =>
-    TimelineEngine.recalculateState(toRunInput(contentToRun), team, { ...options, mode: 'silent' }, enemyConfig);
+    TimelineEngine.recalculateState(toRunInput(contentToRun), team, { ...options, mode: 'full' }, enemyConfig);
 
   if (loopTemplate.length === 0) {
     return { evaluatedRows: runSimple(openerRows), openerEndTime, loopEnds: null };
@@ -193,7 +193,7 @@ export function previewEndingRotationTiming(
   for (let i = 0; i < repsToSimulate; i++) extendedContent.push(...loopTemplate);
   extendedContent.push(...endingRows);
 
-  const previewEvaluated = TimelineEngine.recalculateState(toRunInput(extendedContent), team, { ...options, mode: 'silent' }, enemyConfig);
+  const previewEvaluated = TimelineEngine.recalculateState(toRunInput(extendedContent), team, { ...options, mode: 'full' }, enemyConfig);
   if (shared) shared.run = { reps: repsToSimulate, contentLength: extendedContent.length, evaluatedRows: previewEvaluated, openerLength: openerRows.length, loopLength: loopTemplate.length };
 
   // So Ending Rotation's re-timed rows get their own DMG column too.

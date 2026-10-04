@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useMemo } from 'react';
+import React, { useRef, useState, useEffect, useMemo, useDeferredValue } from 'react';
 import { useRotationStore } from '../../store/useRotationStore';
 import { useRosterStore } from '../../store/useRosterStore';
 import { RotationToolbar } from './RotationToolbar';
@@ -77,7 +77,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
   const [scrollbarWidth, setScrollbarWidth] = useState(0);
 
   const {
-    rows,
+    rows: liveRows,
     startEnergy,
     startConcerto,
     selectedIndices,
@@ -92,10 +92,10 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     undo,
     redo,
     importRotation,
-    loopStartIndex,
-    loopStartIsOverride,
-    loopErrors,
-    loopWarnings,
+    loopStartIndex: liveLoopStartIndex,
+    loopStartIsOverride: liveLoopStartIsOverride,
+    loopErrors: liveLoopErrors,
+    loopWarnings: liveLoopWarnings,
     setLoopStartOverride,
     resetLoopStart,
     setLoopEndOverride,
@@ -115,6 +115,16 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
   } = useRotationStore();
 
   const { team, importTeam } = useRosterStore();
+
+  // The table renders from a deferred copy of the rows and their loop markers: a recalc's new rows
+  // render in the background in small slices (memoized rows keep the current table on screen
+  // meanwhile), instead of one long blocking render. Handlers read the same copy, so they act on
+  // the rows on screen.
+  const table = useDeferredValue(useMemo(
+    () => ({ rows: liveRows, loopStartIndex: liveLoopStartIndex, loopStartIsOverride: liveLoopStartIsOverride, loopErrors: liveLoopErrors, loopWarnings: liveLoopWarnings }),
+    [liveRows, liveLoopStartIndex, liveLoopStartIsOverride, liveLoopErrors, liveLoopWarnings]
+  ));
+  const { rows, loopStartIndex, loopStartIsOverride, loopErrors, loopWarnings } = table;
 
   // Backfills damageInstances (not persisted) once per page load, without flagging isStale.
   // checkBuilderStaleness then dims the results if a Builder edit since the last Calculate
