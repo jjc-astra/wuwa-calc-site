@@ -311,6 +311,11 @@
    7. UNIT TABS (Substat Worth + Team Contribution)
    ========================================= */
 .unit-tabs { display: flex; gap: var(--space-1); margin-bottom: 0.625rem; flex-wrap: wrap; }
+/* Substat Worth: the tabs plus its on/off toggle, right-justified. */
+.substat-tabs-row { display: flex; align-items: center; gap: var(--space-1); margin-bottom: 0.625rem; }
+.substat-tabs-row > .unit-tabs { margin-bottom: 0; }
+/* As tall as the tabs beside it (the toolbar version is taller). */
+.substat-tabs-row > .toolbar-toggle-label { margin-left: auto; flex-shrink: 0; height: auto; align-self: stretch; }
 .unit-tab {
     --unit-theme: var(--accent);
     padding: 0.25rem 0.625rem; background: var(--surface-lighten); border: 1px solid var(--border);

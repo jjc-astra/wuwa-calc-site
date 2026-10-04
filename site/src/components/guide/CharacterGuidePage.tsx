@@ -210,7 +210,7 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
       {!full.results && full.status === 'loading' && <div className="results-empty">Calculating rotation...</div>}
 
       {/* Left: the selected config, its echoes and results. Right: the comparisons. */}
-      <ResultsSourceContext.Provider value={{ results: full.results, team: full.team, isStale, pinned: null, allowPin: false, scope }}>
+      <ResultsSourceContext.Provider value={{ results: full.results, team: full.team, isStale, pinned: null, allowPin: false, allowSubstatToggle: false, scope }}>
         <div className="guide-columns">
           <div className="guide-column">
             <GuideConfigPanel

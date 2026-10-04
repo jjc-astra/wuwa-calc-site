@@ -159,7 +159,8 @@ export function populateDamageInstances(rows: any[], enemyConfig: { hp: number }
 // timeline whenever they pick the same N. The preview records its run here so the Results pass
 // can reuse it instead of simulating again.
 export interface SharedExtendedRun {
-  run?: { reps: number; contentLength: number; evaluatedRows: any[] };
+  // openerLength/loopLength locate each rep's rows in evaluatedRows (content rows only).
+  run?: { reps: number; contentLength: number; evaluatedRows: any[]; openerLength: number; loopLength: number };
 }
 
 // Live-preview counterpart to buildExtendedTimeline, used by calc.worker.ts's cheap
@@ -193,7 +194,7 @@ export function previewEndingRotationTiming(
   extendedContent.push(...endingRows);
 
   const previewEvaluated = TimelineEngine.recalculateState(toRunInput(extendedContent), team, { ...options, mode: 'silent' }, enemyConfig);
-  if (shared) shared.run = { reps: repsToSimulate, contentLength: extendedContent.length, evaluatedRows: previewEvaluated };
+  if (shared) shared.run = { reps: repsToSimulate, contentLength: extendedContent.length, evaluatedRows: previewEvaluated, openerLength: openerRows.length, loopLength: loopTemplate.length };
 
   // So Ending Rotation's re-timed rows get their own DMG column too.
   if (populateDamage) populateDamageInstances(previewEvaluated, enemyConfig, team);
@@ -632,8 +633,9 @@ function buildEnergyRequirements(
   return out;
 }
 
-// Everything the Calculator's Results panels show.
-export function buildRotationResults(...args: ResultsArgs): RotationResults {
+// Everything the Calculator's Results panels show. `withSubstatWorth: false` skips substat worth,
+// the costliest part (78 re-priced hit lists per unit), for quick passes over rotation variations.
+export function buildRotationResults(args: Readonly<ResultsArgs>, { withSubstatWorth = true }: { withSubstatWorth?: boolean } = {}): RotationResults {
   const { hits, evaluatedRows, openerEndTime, loopEnds, teamNames } = simulateHits(...args);
   const [, team, options, enemyConfig] = args;
   const twoMinHits = windowedHits(hits, -Infinity, TWO_MIN);
@@ -642,7 +644,7 @@ export function buildRotationResults(...args: ResultsArgs): RotationResults {
     dpsStats: buildDpsStats(hits, openerEndTime, loopEnds),
     dmgOverTimeSeries: buildAllDmgOverTime(hits, openerEndTime, loopEnds, enemyConfig.hp),
     contribution: buildAllContribution(hits, evaluatedRows, openerEndTime, loopEnds, teamNames),
-    substatWorth: buildSubstatWorth(twoMinHits, team),
+    substatWorth: withSubstatWorth ? buildSubstatWorth(twoMinHits, team) : null,
     energyRequirements: buildEnergyRequirements(evaluatedRows, team, !!options.startEnergy, openerEndTime, loopEnds)
   };
 }

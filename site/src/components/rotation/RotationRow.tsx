@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useRotationStore } from '../../store/useRotationStore';
 import { useRosterStore } from '../../store/useRosterStore';
 import { DataLoader } from '../../utils/DataLoader';
@@ -51,16 +51,16 @@ interface RotationRowProps {
   // single rotation-wide flag.
   isRepeatStart?: boolean;
   repeatCount?: number;
-  onRepeatCountChange?: (n: number) => void;
-  onRepeatMarkerDragStart?: (e: React.DragEvent) => void;
+  // Repeat-block handlers take the block's groupId, so one stable handler serves every row.
+  onRepeatCountChange?: (groupId: string, n: number) => void;
+  onRepeatMarkerDragStart?: (e: React.DragEvent, groupId: string, role: 'start' | 'end') => void;
   onRepeatMarkerDragEnd?: (e: React.DragEvent) => void;
-  onRemoveRepeatBlock?: () => void;
+  onRemoveRepeatBlock?: (groupId: string) => void;
   isRepeatEnd?: boolean;
-  onRepeatEndMarkerDragStart?: (e: React.DragEvent) => void;
   // Overrides `timing` on just the block's last repetition (e.g. it needs "Full" instead of
   // "Auto" to not get cut short before what comes right after the block ends).
   repeatFinalTiming?: string;
-  onRepeatFinalTimingChange?: (val: string | undefined) => void;
+  onRepeatFinalTimingChange?: (groupId: string, val: string | undefined) => void;
 }
 
 interface TimingOption {
@@ -80,8 +80,11 @@ interface ActionGroup {
   options: ActionOption[];
 }
 
-/** One rotation row: unit, action, timing, offset, damage and gauges, plus its open sub-panel. */
-export const RotationRow: React.FC<RotationRowProps> = ({
+/**
+ * One rotation row: unit, action, timing, offset, damage and gauges, plus its open sub-panel.
+ * Memoized: RotationBuilder passes stable handlers, so a row re-renders only when its own props do.
+ */
+export const RotationRow = React.memo<RotationRowProps>(({
   index,
   row,
   isSelected,
@@ -115,12 +118,14 @@ export const RotationRow: React.FC<RotationRowProps> = ({
   onRepeatMarkerDragEnd,
   onRemoveRepeatBlock,
   isRepeatEnd,
-  onRepeatEndMarkerDragStart,
   repeatFinalTiming,
   onRepeatFinalTimingChange
 }) => {
-  const { updateRowField, updateRowFields, setRowUnit, isStale } = useRotationStore();
-  const { team } = useRosterStore();
+  const updateRowField = useRotationStore(s => s.updateRowField);
+  const updateRowFields = useRotationStore(s => s.updateRowFields);
+  const setRowUnit = useRotationStore(s => s.setRowUnit);
+  const isStale = useRotationStore(s => s.isStale);
+  const team = useRosterStore(s => s.team);
   const [isDraggable, setIsDraggable] = useState(true);
   const [offsetDraft, setOffsetDraft] = useState<string | null>(null);
   const [repeatCountDraft, setRepeatCountDraft] = useState<string | null>(null);
@@ -258,7 +263,9 @@ export const RotationRow: React.FC<RotationRowProps> = ({
       .sort((a, b) => groupRank(a.label) - groupRank(b.label));
   };
 
-  const actionGroups = getActionGroups();
+  // Trigger rules over every castable move -- only redone when the row's state or the team changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const actionGroups = useMemo(getActionGroups, [row, team]);
 
   const handleUnitChange = async (newUnit: string) => {
     if (newUnit) {
@@ -307,7 +314,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
     if (repeatCountDraft === null) return;
     const draft = repeatCountDraft;
     setRepeatCountDraft(null);
-    onRepeatCountChange?.(parseInt(draft, 10) || 1);
+    if (row.repeatBlockStart) onRepeatCountChange?.(row.repeatBlockStart, parseInt(draft, 10) || 1);
   };
 
   const handleRepeatCountKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -321,7 +328,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
 
   const stepRepeatCount = (delta: number) => {
     setRepeatCountDraft(null);
-    onRepeatCountChange?.(Math.max(1, (repeatCount ?? 2) + delta));
+    if (row.repeatBlockStart) onRepeatCountChange?.(row.repeatBlockStart, Math.max(1, (repeatCount ?? 2) + delta));
   };
 
   const timeStart = row.gameTimeStart !== undefined ? formatFramesAsSeconds(toFrames(row.gameTimeStart)) : '0.00s';
@@ -434,7 +441,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
         <div
           className="repeat-start-tag"
           draggable
-          onDragStart={onRepeatMarkerDragStart}
+          onDragStart={e => onRepeatMarkerDragStart?.(e, row.repeatBlockStart, 'start')}
           onDragEnd={onRepeatMarkerDragEnd}
           onMouseEnter={e => TooltipManager.show(e.currentTarget, '<div>Repeat block begins here — drag to move</div>')}
           onMouseLeave={() => TooltipManager.hide()}
@@ -481,7 +488,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
           </span>
           <button
             className="loop-tag-reset"
-            onClick={e => { e.stopPropagation(); onRemoveRepeatBlock?.(); }}
+            onClick={e => { e.stopPropagation(); onRemoveRepeatBlock?.(row.repeatBlockStart); }}
             onMouseEnter={e => { e.stopPropagation(); TooltipManager.show(e.currentTarget, '<div>Remove this repeat block</div>'); }}
             onMouseLeave={() => TooltipManager.hide()}
           >
@@ -653,7 +660,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
         <div
           className="repeat-end-tag"
           draggable
-          onDragStart={onRepeatEndMarkerDragStart}
+          onDragStart={e => onRepeatMarkerDragStart?.(e, row.repeatBlockEnd, 'end')}
           onDragEnd={onRepeatMarkerDragEnd}
           onMouseEnter={e => TooltipManager.show(e.currentTarget, '<div>Repeat block ends here — drag to move</div>')}
           onMouseLeave={() => TooltipManager.hide()}
@@ -672,7 +679,7 @@ export const RotationRow: React.FC<RotationRowProps> = ({
             <Dropdown
               className="base-select text-xs has-value"
               value={repeatFinalTiming || ''}
-              onChange={(v: string) => onRepeatFinalTimingChange?.(v === '' ? undefined : v)}
+              onChange={(v: string) => onRepeatFinalTimingChange?.(row.repeatBlockEnd, v === '' ? undefined : v)}
               options={[{ value: '', label: 'Same' }, ...availableTimings.map((t: TimingOption) => ({ value: t.val, label: t.label, tooltip: t.title }))]}
             />
           </span>
@@ -699,4 +706,4 @@ export const RotationRow: React.FC<RotationRowProps> = ({
       )}
     </div>
   );
-};
+});

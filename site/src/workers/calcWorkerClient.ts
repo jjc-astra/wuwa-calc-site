@@ -3,6 +3,7 @@ import CalcWorker from './calc.worker.ts?worker';
 import { buildBuilderPayload } from './builderOverridePayload';
 import { getTeamEntityRefs } from '../utils/TeamUtils';
 import { DataLoader } from '../utils/DataLoader';
+import { toPersistedRow } from '../logic/rotationRows';
 import type { TeamSlot } from '../types';
 
 // One worker and its request queue. Requests run one at a time: the worker's TimelineEngine and
@@ -59,7 +60,8 @@ const mainLane = new WorkerLane();
 
 // Extra lanes for batch work (the Character Guide's comparisons), run in parallel and never ahead
 // of the main lane. Capped: each lane loads its own databases and mechanics.
-const POOL_SIZE = Math.max(1, Math.min(16, (navigator.hardwareConcurrency || 2) - 1));
+// Measured: Guide throughput stops climbing past ~8 workers (each extra one only costs memory).
+const POOL_SIZE = Math.max(1, Math.min(8, (navigator.hardwareConcurrency || 2) - 1));
 // A pool lane plus the entities its worker has loaded mechanics for (approximate: the worker can
 // still evict some for stale data or Builder edits).
 interface PoolLane {
@@ -176,12 +178,16 @@ export interface WorkerRequest {
   collapseMap?: number[];
   // 'calculateDamage' only: where the loop starts, in `rows`' (expanded) index space.
   loopStartIndex?: number;
+  // 'calculateDamage' only: false skips substat worth (the toolbar's Substat Worth toggle).
+  substatWorth?: boolean;
 }
 
 // The page's manifests ride along on every request, so the worker reloads changed data by its
-// current hash (callers just refreshed them via checkTeamFreshness).
+// current hash (callers just refreshed them via checkTeamFreshness). Rows go as their authored
+// fields only: the engine recomputes everything else, and evaluated rows are ~40 KB each to copy.
 function requestPayload(request: WorkerRequest) {
-  return { ...request, ...buildBuilderPayload(request.team), manifests: DataLoader.currentManifests() };
+  const rows = request.rows.map(row => ({ ...(row.id && { id: row.id }), ...toPersistedRow(row) }));
+  return { ...request, rows, ...buildBuilderPayload(request.team), manifests: DataLoader.currentManifests() };
 }
 
 // Whether the main lane's worker has been sent a seed (see DataLoader.dataSeed).

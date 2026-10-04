@@ -147,6 +147,9 @@ interface RotationState {
   // True: sim one fewer loop rep before the Ending Rotation splice, so it replaces/extends
   // the final loop instead of tacking on after it.
   endRotationStartsEarlier: boolean;
+  // Calculate also works out substat worth -- off by default for quicker presses while
+  // trying out variations of a rotation.
+  substatWorthEnabled: boolean;
   results: RotationResults | null;
   isCalculating: boolean;
   // The last calc's rows as the engine ran them (Hold Repeat blocks expanded, each repeat its
@@ -197,6 +200,8 @@ interface RotationState {
   setEndingRotationEnabled: (val: boolean) => void;
   // No-op while there's no active Ending Rotation split.
   setEndRotationStartsEarlier: (val: boolean) => void;
+  // Takes effect on the next Calculate press; no recalculate.
+  setSubstatWorthEnabled: (val: boolean) => void;
 
   // markStale: false for an informational refresh that shouldn't flip isStale back on.
   // includeDamage: true only for the one-time mount refresh, so DMG column populates without
@@ -374,6 +379,7 @@ export const useRotationStore = create<RotationState>()(
         loopWarnings: [],
         endingRotationEnabled: false,
         endRotationStartsEarlier: false,
+        substatWorthEnabled: false,
         results: null,
         isCalculating: false,
         timelineRows: [],
@@ -395,6 +401,7 @@ export const useRotationStore = create<RotationState>()(
           set({ startConcerto: val });
           get().recalculate();
         },
+        setSubstatWorthEnabled: (val: boolean) => set({ substatWorthEnabled: val }),
         checkBuilderStaleness: () => {
           const { results, isStale, builderOverridesSnapshot } = get();
           if (!results || isStale) return;
@@ -761,7 +768,10 @@ export const useRotationStore = create<RotationState>()(
             // loopStartIndex was computed against the original (collapsed) rows -- translate it to
             // where that same content now sits in the expanded rows the worker runs the loop over.
             const expandedLoopStartIndex = collapseMap.indexOf(loopStartIndex);
-            return { loopStartIndex: expandedLoopStartIndex === -1 ? loopStartIndex : expandedLoopStartIndex };
+            return {
+              loopStartIndex: expandedLoopStartIndex === -1 ? loopStartIndex : expandedLoopStartIndex,
+              substatWorth: get().substatWorthEnabled
+            };
           });
           if (!run) return;
           const { data, evaluatedRows, rows, team, options, endingRotationEnabled, endRotationStartsEarlier, builderOverrides } = run;
@@ -822,6 +832,7 @@ export const useRotationStore = create<RotationState>()(
         startConcerto: state.startConcerto,
         endingRotationEnabled: state.endingRotationEnabled,
         endRotationStartsEarlier: state.endRotationStartsEarlier,
+        substatWorthEnabled: state.substatWorthEnabled,
         // Last Calculate press's output, so a reload still shows Results instead of "No Results Yet".
         results: state.results,
         isStale: state.isStale,

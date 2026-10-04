@@ -567,14 +567,21 @@ export class TimelineEngineClass {
     const extendedContent = [...openerRows, ...loopTemplate, ...loopTemplate];
     const extendedResult = this.recalculateState(toRunInput(extendedContent), team, { ...options, mode: 'lean' }, enemyConfig);
 
-    const secondRepStart = openerRows.length + loopTemplate.length;
-    const contentEnd = extendedContent.length; // excludes the trailing blank row
+    // The second rep, up to extendedContent.length (which leaves out the trailing blank row).
+    return this.loopIssues(extendedResult, openerRows.length + loopTemplate.length, extendedContent.length);
+  }
 
+  /**
+   * The issues in one loop repetition, rows [from, to) of a run that simulated it after at least
+   * one earlier repetition -- analyzeLoop's own run, or the Ending Rotation preview's (which
+   * already covers opener + 2+ reps, so the live recalc reads it instead of simulating again).
+   */
+  loopIssues(runRows: any[], from: number, to: number): { errors: string[]; warnings: string[] } {
     const errors: string[] = [];
     const warnings: string[] = [];
 
-    for (let i = secondRepStart; i < contentEnd; i++) {
-      const row = extendedResult[i];
+    for (let i = from; i < to; i++) {
+      const row = runRows[i];
       const moveName = row.moveName || row.action;
 
       (row.errorMsgs || []).forEach((msg: string) => errors.push(`${moveName}: ${msg}`));

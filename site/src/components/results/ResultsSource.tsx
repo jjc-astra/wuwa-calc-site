@@ -15,6 +15,8 @@ export interface ResultsSource {
   pinned: PinnedRotation | null;
   // Shows the Pin Comparison control, which writes the Calculator's own pin.
   allowPin: boolean;
+  // Shows Substat Worth's on/off toggle, which writes the Calculator's own setting.
+  allowSubstatToggle: boolean;
   // Set when the page owns the Team/Personal choice; Substat Worth then hides its own toggle.
   scope?: 'team' | 'personal';
 }
@@ -27,5 +29,5 @@ export function useResultsSource(): ResultsSource {
   const isStale = useRotationStore(s => s.isStale);
   const team = useRosterStore(s => s.team);
   const pinned = useComparisonStore(s => s.pinned);
-  return provided ?? { results, team, isStale, pinned, allowPin: true };
+  return provided ?? { results, team, isStale, pinned, allowPin: true, allowSubstatToggle: true };
 }

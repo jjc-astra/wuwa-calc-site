@@ -84,8 +84,9 @@ export interface RotationResults {
   // Same 4 windows as `contribution` below -- lets the chart zoom into one window's timeline.
   dmgOverTimeSeries: Record<DpsWindowKey, DmgOverTimeSeries>;
   contribution: Record<DpsWindowKey, ContributionForWindow>;
-  // Per-unit substat worth rows, keyed by character name.
-  substatWorth: Record<string, SubstatWorthRow[]>;
+  // Per-unit substat worth rows, keyed by character name. Null when the Calculate press skipped
+  // it (the toolbar's Substat Worth toggle).
+  substatWorth: Record<string, SubstatWorthRow[]> | null;
   // Per unit that spends Energy, keyed by character name. Missing on results saved before it existed.
   energyRequirements?: Record<string, EnergyRequirement>;
 }

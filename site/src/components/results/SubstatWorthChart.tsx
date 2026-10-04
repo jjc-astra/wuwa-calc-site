@@ -1,6 +1,7 @@
 import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useResultsSource } from './ResultsSource';
-import { TooltipManager } from '../../utils/Common';
+import { TooltipManager, tip } from '../../utils/Common';
+import { useRotationStore } from '../../store/useRotationStore';
 import { SegmentedToggle } from '../common/SegmentedToggle';
 import { UnitTabs } from '../common/UnitTabs';
 import { formatStatValue } from '../../data/db';
@@ -19,6 +20,8 @@ export const SubstatWorthChart: React.FC = () => {
   const [direction, setDirection] = useState<Direction>('plus');
   const [ownMode, setMode] = useState<Mode>('team');
   const mode: Mode = source.scope ?? ownMode;
+  const substatWorthEnabled = useRotationStore(s => s.substatWorthEnabled);
+  const setSubstatWorthEnabled = useRotationStore(s => s.setSubstatWorthEnabled);
   const unit = units.includes(activeUnit) ? activeUnit : units[0] || '';
 
   // min/max/default are the % DPS worth of a roll at that value, in the selected direction/mode
@@ -26,7 +29,7 @@ export const SubstatWorthChart: React.FC = () => {
   // Rows with zero effect (overcapped stat, or one this kit never touches) are dropped
   // instead of shown as a dead 0.0% line.
   const rows = useMemo(() => {
-    const raw = unit ? results?.substatWorth[unit] ?? [] : [];
+    const raw = unit ? results?.substatWorth?.[unit] ?? [] : [];
     return raw
       .map(r => ({
         substat: r.substat,
@@ -38,6 +41,7 @@ export const SubstatWorthChart: React.FC = () => {
       .filter(r => r.min !== 0 || r.max !== 0 || r.default !== 0);
   }, [unit, results, direction, mode]);
   const scaleMax = Math.max(1, ...rows.map(r => r.max)) * 1.08;
+  const hasRows = rows.length > 0;
 
   // Every row's track shares the same CSS Grid column, so one measurement covers them all.
   // A raw `left: X%` marker lands on a different fractional pixel per row, and anti-aliasing
@@ -46,6 +50,7 @@ export const SubstatWorthChart: React.FC = () => {
   const trackRef = useRef<HTMLSpanElement>(null);
   const [track, setTrack] = useState({ width: 0, left: 0, dpr: 1 });
 
+  // Re-runs on hasRows too: the track only mounts once there's substat worth to show.
   useLayoutEffect(() => {
     const el = trackRef.current;
     if (!el) return;
@@ -59,7 +64,7 @@ export const SubstatWorthChart: React.FC = () => {
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [unit]);
+  }, [unit, hasRows]);
 
   // A CSS x offset within the track, moved to the nearest screen-pixel boundary.
   const snapX = (pct: number, shiftScreenPx = 0) =>
@@ -98,67 +103,78 @@ export const SubstatWorthChart: React.FC = () => {
         <div className="results-empty">Add characters to the team to see substat worth.</div>
       ) : (
         <>
-          <UnitTabs tabs={units} active={unit} onSelect={setActiveUnit} />
-          <div className="substat-chart">
-            <div className="substat-chart-headrow caps-label">
-              <span className="substat-roll-col" />
-              <span className="substat-label-col caps-label" />
-              <span className="substat-track-col" />
-              <span className="substat-col-header">Min</span>
-              <span className="substat-col-header">Default</span>
-              <span className="substat-col-header">Max</span>
-            </div>
-            {rows.map((row, idx) => {
-              // Worth doesn't strictly increase with roll size near overcap (e.g. a big Crit Rate
-              // roll can be worth *less* than a smaller one past 100% crit) -- guard edges, don't assume min <= max.
-              const lo = Math.min(row.min, row.max);
-              const hi = Math.max(row.min, row.max);
-              const minPct = (lo / scaleMax) * 100;
-              const maxPct = (hi / scaleMax) * 100;
-              const defPct = (row.default / scaleMax) * 100;
-
-              // Snap the range bar's edges the same way (not raw min%/width%) to avoid the same pixel inconsistency.
-              const rangeLeft = track.width > 0 ? snapX(minPct) : null;
-              const rangeRight = track.width > 0 ? snapX(maxPct) : null;
-
-              return (
-                <div key={row.substat} className="substat-row">
-                  <span className="substat-roll-col">{formatStatValue(row.substat, row.roll)}</span>
-                  <span className="substat-label-col caps-label">{row.substat}</span>
-                  <span className="substat-track-col">
-                    <span className="bar-track" ref={idx === 0 ? trackRef : undefined}>
-                      <span
-                        className="bar-fill"
-                        style={
-                          rangeLeft !== null
-                            ? { left: `${rangeLeft}px`, width: `${rangeRight! - rangeLeft}px` }
-                            : { left: `${minPct}%`, width: `${maxPct - minPct}%` }
-                        }
-                      />
-                      <span
-                        className="substat-default-marker"
-                        style={
-                          track.width > 0
-                            ? { left: `${snapX(defPct, markerScreenPx / 2)}px`, width: `${markerScreenPx / track.dpr}px`, marginLeft: 0 }
-                            : { left: `${defPct}%` }
-                        }
-                        onMouseEnter={e =>
-                          TooltipManager.show(
-                            e.currentTarget,
-                            `<div class="tooltip-val">${formatPct(row.default)}</div><div style="margin-top:2px;">Default roll worth — ${row.substat}</div>`
-                          )
-                        }
-                        onMouseLeave={() => TooltipManager.hide()}
-                      />
-                    </span>
-                  </span>
-                  <span className="substat-col-value">{formatPct(row.min)}</span>
-                  <span className="substat-col-value text-gold">{formatPct(row.default)}</span>
-                  <span className="substat-col-value">{formatPct(row.max)}</span>
-                </div>
-              );
-            })}
+          <div className="substat-tabs-row">
+            <UnitTabs tabs={units} active={unit} onSelect={setActiveUnit} />
+            {source.allowSubstatToggle && (
+              <label className="toolbar-toggle-label" {...tip("Computes substat roll value: toggle off to speed up calculation runs.")}>
+                <input type="checkbox" checked={substatWorthEnabled} onChange={e => setSubstatWorthEnabled(e.target.checked)} /> Substat Worth
+              </label>
+            )}
           </div>
+          {results && !results.substatWorth ? (
+            <div className="results-empty">Substat Worth was off for this Calculate. Turn it on and press Calculate.</div>
+          ) : (
+            <div className="substat-chart">
+              <div className="substat-chart-headrow caps-label">
+                <span className="substat-roll-col" />
+                <span className="substat-label-col caps-label" />
+                <span className="substat-track-col" />
+                <span className="substat-col-header">Min</span>
+                <span className="substat-col-header">Default</span>
+                <span className="substat-col-header">Max</span>
+              </div>
+              {rows.map((row, idx) => {
+                // Worth doesn't strictly increase with roll size near overcap (e.g. a big Crit Rate
+                // roll can be worth *less* than a smaller one past 100% crit) -- guard edges, don't assume min <= max.
+                const lo = Math.min(row.min, row.max);
+                const hi = Math.max(row.min, row.max);
+                const minPct = (lo / scaleMax) * 100;
+                const maxPct = (hi / scaleMax) * 100;
+                const defPct = (row.default / scaleMax) * 100;
+
+                // Snap the range bar's edges the same way (not raw min%/width%) to avoid the same pixel inconsistency.
+                const rangeLeft = track.width > 0 ? snapX(minPct) : null;
+                const rangeRight = track.width > 0 ? snapX(maxPct) : null;
+
+                return (
+                  <div key={row.substat} className="substat-row">
+                    <span className="substat-roll-col">{formatStatValue(row.substat, row.roll)}</span>
+                    <span className="substat-label-col caps-label">{row.substat}</span>
+                    <span className="substat-track-col">
+                      <span className="bar-track" ref={idx === 0 ? trackRef : undefined}>
+                        <span
+                          className="bar-fill"
+                          style={
+                            rangeLeft !== null
+                              ? { left: `${rangeLeft}px`, width: `${rangeRight! - rangeLeft}px` }
+                              : { left: `${minPct}%`, width: `${maxPct - minPct}%` }
+                          }
+                        />
+                        <span
+                          className="substat-default-marker"
+                          style={
+                            track.width > 0
+                              ? { left: `${snapX(defPct, markerScreenPx / 2)}px`, width: `${markerScreenPx / track.dpr}px`, marginLeft: 0 }
+                              : { left: `${defPct}%` }
+                          }
+                          onMouseEnter={e =>
+                            TooltipManager.show(
+                              e.currentTarget,
+                              `<div class="tooltip-val">${formatPct(row.default)}</div><div style="margin-top:2px;">Default roll worth — ${row.substat}</div>`
+                            )
+                          }
+                          onMouseLeave={() => TooltipManager.hide()}
+                        />
+                      </span>
+                    </span>
+                    <span className="substat-col-value">{formatPct(row.min)}</span>
+                    <span className="substat-col-value text-gold">{formatPct(row.default)}</span>
+                    <span className="substat-col-value">{formatPct(row.max)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </>
       )}
     </div>

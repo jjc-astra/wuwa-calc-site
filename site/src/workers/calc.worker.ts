@@ -4,9 +4,8 @@
 import { TimelineEngine } from '../logic/TimelineEngine';
 import { buildRotationResults, buildRotationSummary, populateDamageInstances, previewEndingRotationTiming, type SharedExtendedRun } from '../logic/ResultsCalculator';
 import { DataLoader, type DataSeed } from '../utils/DataLoader';
-import { applyBuilderOverridesToDataLoader } from './builderOverridePayload';
+import { applyBuilderOverridesToDataLoader, overriddenEntities } from './builderOverridePayload';
 import { getTeamEntityRefs } from '../utils/TeamUtils';
-import { overriddenEntities } from './builderOverridePayload';
 
 let ready: Promise<void> | null = null;
 // A seed only counts on this worker's first message.
@@ -14,20 +13,54 @@ const getReady = (seed?: DataSeed) => ready ?? (ready = DataLoader.initDatabases
 // Entities the last request's Builder edits were applied to, undone before the next one.
 let editedEntities: string[] = [];
 
-// Drops function-valued properties (compiled trigger-rule functions) before a result crosses
-// back to the main thread -- structured clone handles the circular prevRow/nextRow links fine.
-function stripFunctions(value: any, seen = new WeakMap<object, any>()): any {
+// The last 'recalculate' run, which a Calculate press on the same inputs reuses instead of
+// simulating the table and Ending Rotation preview again.
+interface RecalcRun {
+  key: string;
+  // The table pass, before the Ending Rotation tail is spliced in (what the results pass reads).
+  baseRows: any[];
+  rows: any[];
+  loopStartIndex: number;
+  shared: SharedExtendedRun;
+}
+let lastRecalc: RecalcRun | null = null;
+
+// Everything a run's output depends on: the rotation, team, settings, Builder edits, and the
+// content versions of the data files it reads. Taken before the run, which mutates rows and team.
+function runKey(payload: any): string {
+  const files = [
+    ...DATABASE_FILES,
+    ...getTeamEntityRefs(payload.team, { includeSystem: true, dedupe: true }).map(ref => DataLoader.mechanicPath(ref.folder, ref.name))
+  ].map(path => DataLoader.currentHash(path) ?? '');
+  return JSON.stringify([
+    payload.rows, payload.team, payload.options, payload.enemy,
+    !!payload.endingRotationEnabled, !!payload.endRotationStartsEarlier, payload.builderOverrides, files
+  ]);
+}
+const DATABASE_FILES = ['db_characters.json', 'db_weapons.json', 'db_builds.json', 'db_echoes.json'];
+
+// Main-thread-only reply data: never read on the page, and each queued hit carries a full
+// state snapshot, so it would roughly double what crosses back.
+const WORKER_ONLY_KEYS = ['_pendingHits'];
+
+// Drops function-valued properties (compiled trigger-rule functions) and `omit` keys before a
+// result crosses back to the main thread -- structured clone handles the circular
+// prevRow/nextRow links fine.
+function stripForReply(value: any, omit: ReadonlySet<string>, seen = new WeakMap<object, any>()): any {
   if (value === null || typeof value !== 'object') return value;
   if (seen.has(value)) return seen.get(value);
   const clone: any = Array.isArray(value) ? [] : {};
   seen.set(value, clone);
   for (const key of Object.keys(value)) {
     const v = value[key];
-    if (typeof v === 'function') continue;
-    clone[key] = v && typeof v === 'object' ? stripFunctions(v, seen) : v;
+    if (typeof v === 'function' || omit.has(key)) continue;
+    clone[key] = v && typeof v === 'object' ? stripForReply(v, omit, seen) : v;
   }
   return clone;
 }
+const REPLY_OMIT = new Set(WORKER_ONLY_KEYS);
+// A plain recalculate's reply leaves damage out too; the page keeps the rows' last damage.
+const REPLY_OMIT_NO_DAMAGE = new Set([...WORKER_ONLY_KEYS, 'damageInstances']);
 
 const worker = self as any;
 
@@ -57,23 +90,29 @@ worker.onmessage = async (e: MessageEvent) => {
 
     if (type === 'recalculate') {
       const { rows, team, options, enemy } = payload;
-      let evaluatedRows = TimelineEngine.recalculateState(rows, team, options, enemy);
-      // Optional -- plain live-preview recalculate skips this to stay cheap; RotationBuilder's
-      // mount-effect refresh asks for it to populate the DMG column on load too.
-      if (payload.includeDamage) populateDamageInstances(evaluatedRows, enemy, team);
-      const { index: loopStartIndex, isOverride: loopStartIsOverride } = TimelineEngine.findLoopStart(evaluatedRows, team[0]?.character, payload.collapseMap);
-      const { errors: loopErrors, warnings: loopWarnings } = TimelineEngine.analyzeLoop(
-        evaluatedRows, team, options, enemy, loopStartIndex
-      );
+      const key = runKey(payload);
+      const baseRows = TimelineEngine.recalculateState(rows, team, options, enemy);
+      // Always priced (it's cheap) so a Calculate press can reuse this run; only sent back when
+      // asked for (the Timeline's hit dots, RotationBuilder's mount-effect refresh).
+      populateDamageInstances(baseRows, enemy, team);
+      const { index: loopStartIndex, isOverride: loopStartIsOverride } = TimelineEngine.findLoopStart(baseRows, team[0]?.character, payload.collapseMap);
       // A plain single pass shows the Ending Rotation's rows right after the one loop rep in
       // front of them -- re-time just that tail to reflect where it actually lands.
-      if (payload.endingRotationEnabled) {
-        evaluatedRows = previewEndingRotationTiming(evaluatedRows, team, options, enemy, loopStartIndex, !!payload.includeDamage, !!payload.endRotationStartsEarlier);
-      }
+      const shared: SharedExtendedRun = {};
+      const evaluatedRows = payload.endingRotationEnabled
+        ? previewEndingRotationTiming(baseRows, team, options, enemy, loopStartIndex, true, !!payload.endRotationStartsEarlier, shared)
+        : baseRows;
+      // The loop check reads a second loop rep: the preview already simulated one (opener + N
+      // reps + ending) when N >= 2, otherwise analyzeLoop runs opener + 2 reps itself.
+      const preview = shared.run;
+      const { errors: loopErrors, warnings: loopWarnings } = preview && preview.reps >= 2
+        ? TimelineEngine.loopIssues(preview.evaluatedRows, preview.openerLength + preview.loopLength, preview.openerLength + 2 * preview.loopLength)
+        : TimelineEngine.analyzeLoop(baseRows, team, options, enemy, loopStartIndex);
+      lastRecalc = { key, baseRows, rows: evaluatedRows, loopStartIndex, shared };
       worker.postMessage({
         id,
         ok: true,
-        evaluatedRows: stripFunctions(evaluatedRows),
+        evaluatedRows: stripForReply(evaluatedRows, payload.includeDamage ? REPLY_OMIT : REPLY_OMIT_NO_DAMAGE),
         loopStartIndex,
         loopStartIsOverride,
         loopErrors,
@@ -84,27 +123,42 @@ worker.onmessage = async (e: MessageEvent) => {
 
       // summaryOnly returns just DPS + contribution, skipping the per-row breakdown and timeline rows.
       const summaryOnly = !!payload.summaryOnly;
-      let evaluatedRows = TimelineEngine.recalculateState(rows, team, options, enemy);
-      if (!summaryOnly) populateDamageInstances(evaluatedRows, enemy, team);
-      // The live calculator passes the loop start it already has; one-shot callers omit it.
-      const loopStartIndex: number = typeof payload.loopStartIndex === 'number'
-        ? payload.loopStartIndex
-        : TimelineEngine.findLoopStart(evaluatedRows, team[0]?.character).index;
-      // Same re-timing as the 'recalculate' preview above, or Calculate would overwrite the
-      // Ending Rotation rows' columns with the plain single-pass evaluation.
-      const shared: SharedExtendedRun = {};
-      if (endingRotationEnabled) {
-        evaluatedRows = previewEndingRotationTiming(evaluatedRows, team, options, enemy, loopStartIndex, !summaryOnly, !!endRotationStartsEarlier, shared);
+      // The live calculator's last recalculate already ran these exact inputs (and the loop start
+      // it passes is that run's).
+      const reusable = !summaryOnly && lastRecalc?.key === runKey(payload) && payload.loopStartIndex === lastRecalc.loopStartIndex
+        ? lastRecalc
+        : null;
+      let baseRows: any[];
+      let evaluatedRows: any[];
+      let loopStartIndex: number;
+      let shared: SharedExtendedRun;
+      if (reusable) {
+        ({ baseRows, rows: evaluatedRows, loopStartIndex } = reusable);
+        // A copy: the results pass may record its own run here.
+        shared = { ...reusable.shared };
+      } else {
+        baseRows = TimelineEngine.recalculateState(rows, team, options, enemy);
+        if (!summaryOnly) populateDamageInstances(baseRows, enemy, team);
+        // The live calculator passes the loop start it already has; one-shot callers omit it.
+        loopStartIndex = typeof payload.loopStartIndex === 'number'
+          ? payload.loopStartIndex
+          : TimelineEngine.findLoopStart(baseRows, team[0]?.character).index;
+        // Same re-timing as the 'recalculate' preview above, or Calculate would overwrite the
+        // Ending Rotation rows' columns with the plain single-pass evaluation.
+        shared = {};
+        evaluatedRows = endingRotationEnabled
+          ? previewEndingRotationTiming(baseRows, team, options, enemy, loopStartIndex, !summaryOnly, !!endRotationStartsEarlier, shared)
+          : baseRows;
       }
 
       // Extended (opener + N-loop-repetition) pass -- feeds the Results panel. Reuses the Ending
       // Rotation preview's simulation when it ran the same timeline.
-      const args = [rows, team, options, enemy, loopStartIndex, endingRotationEnabled, !!endRotationStartsEarlier, shared] as const;
+      const args = [baseRows, team, options, enemy, loopStartIndex, endingRotationEnabled, !!endRotationStartsEarlier, shared] as const;
       if (summaryOnly) {
         worker.postMessage({ id, ok: true, results: buildRotationSummary(...args) });
       } else {
-        const results = buildRotationResults(...args);
-        worker.postMessage({ id, ok: true, evaluatedRows: stripFunctions(evaluatedRows), loopStartIndex, results });
+        const results = buildRotationResults(args, { withSubstatWorth: payload.substatWorth !== false });
+        worker.postMessage({ id, ok: true, evaluatedRows: stripForReply(evaluatedRows, REPLY_OMIT), loopStartIndex, results });
       }
     }
   } catch (err: any) {

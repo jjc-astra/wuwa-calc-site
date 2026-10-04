@@ -233,10 +233,13 @@ export const DIAGRAMS = {
     subgraph Run["run"]
       direction TB
       T{"type"}
-      T -->|"recalculate"| R1["recalculateState;<br/>includeDamage: +<br/>populateDamageInstances"]:::logic
-      R1 --> R2["findLoopStart<br/>(collapseMap),<br/>analyzeLoop"]:::logic
-      R2 --> R3["Ending Rotation on:<br/>previewEndingRotationTiming"]:::logic
-      T -->|"calculateDamage"| D1["recalculateState; unless<br/>summaryOnly: +<br/>populateDamageInstances"]:::logic
+      T -->|"recalculate"| R1["recalculateState +<br/>populateDamageInstances<br/>(sent only if includeDamage)"]:::logic
+      R1 --> R2["findLoopStart<br/>(collapseMap)"]:::logic
+      R2 --> R3["Ending Rotation on:<br/>previewEndingRotationTiming;<br/>run kept as lastRecalc"]:::logic
+      R3 --> R4["loop check: loopIssues on the<br/>preview's 2nd rep (2+ reps),<br/>else analyzeLoop"]:::logic
+      T -->|"calculateDamage"| D0{"same inputs as<br/>lastRecalc?"}
+      D0 -- yes --> D3
+      D0 -- no --> D1["recalculateState; unless<br/>summaryOnly: +<br/>populateDamageInstances"]:::logic
       D1 --> D2["loop start: the one sent,<br/>else findLoopStart"]:::logic
       D2 --> D3["Ending Rotation on:<br/>the preview, its run<br/>kept for reuse"]:::logic
       D3 --> D4{"summaryOnly?"}
@@ -245,7 +248,7 @@ export const DIAGRAMS = {
     end
     subgraph Reply["reply"]
       direction TB
-      Y1["stripFunctions (compiled rules<br/>can't be cloned); postMessage ok"]:::worker
+      Y1["stripForReply: no compiled rules<br/>(can't be cloned) or _pendingHits;<br/>postMessage ok"]:::worker
       Y2["anything throws:<br/>postMessage error"]:::alert
       Y1 ~~~ Y2
     end
@@ -268,7 +271,7 @@ export const DIAGRAMS = {
     subgraph Lanes["calcWorkerClient"]
       direction TB
       L1["postToWorker → main lane, shared with<br/>the Calculator: one at a time, queued;<br/>worker created on first use"]:::worker
-      L2["postToWorkerPool → shared queue: a free lane<br/>takes the job sharing most of its loaded<br/>entities; lanes pre-warmed on the Guide,<br/>up to min(16, cores − 1)"]:::worker
+      L2["postToWorkerPool → shared queue: a free lane<br/>takes the job sharing most of its loaded<br/>entities; lanes pre-warmed on the Guide,<br/>up to min(8, cores − 1)"]:::worker
       L2 --> L3{"still wanted when<br/>its turn comes?"}
       L3 -- no --> L4["CancelledError"]:::alert
       L3 -- yes --> L5["runs (summaryOnly)"]:::worker
@@ -558,7 +561,7 @@ export const DIAGRAMS = {
       O1["buildDpsStats: window damage / its length<br/>(loop windows null without a loop)"]:::logic
       O2["buildAllDmgOverTime: cumulative damage vs boss HP,<br/>kill time; Avg Loop folds its 3 reps per move"]:::logic
       O3["buildAllContribution: per unit (status ticks by name),<br/>per cast type, on-field time"]:::logic
-      O4["buildSubstatWorth: 2-min hits re-priced with one substat<br/>± a min / default / max roll (no re-simulation)"]:::logic
+      O4["buildSubstatWorth (Substat Worth toggle on):<br/>2-min hits re-priced with one substat<br/>± a min / default / max roll (no re-simulation)"]:::logic
       O5["buildEnergyRequirements: energyLog split at each Energy<br/>spend → ER needed, the bottleneck cast"]:::logic
       O1 ~~~ O2 ~~~ O3 ~~~ O4 ~~~ O5
     end
