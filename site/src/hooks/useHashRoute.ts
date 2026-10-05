@@ -79,7 +79,11 @@ export function useHashRoute(): [Route, (view: ViewId, step?: 1 | 2) => void] {
     // 'popstate' covers back/forward through the pushState-based landing entries below (which
     // never fire 'hashchange' on their own); 'hashchange' covers every other route. Both firing
     // for the same transition is harmless -- parseHash() is idempotent.
-    const onRouteChange = () => setRoute(parseHash());
+    // Kept as-is when the route didn't actually change: a new object re-renders the whole app.
+    const onRouteChange = () => setRoute(prev => {
+      const next = parseHash();
+      return next.view === prev.view && next.step === prev.step && next.guideCharacter === prev.guideCharacter ? prev : next;
+    });
     window.addEventListener('hashchange', onRouteChange);
     window.addEventListener('popstate', onRouteChange);
     return () => {
