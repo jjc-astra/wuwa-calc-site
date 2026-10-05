@@ -91,7 +91,7 @@ export interface EnemyStats {
 
 // --- MECHANICS & DSL TYPES ---
 export interface Effect {
-  type?: 'buff' | 'buffAction' | 'resource' | 'tracker' | 'time_scale' | 'cooldown' | 'procced_mechanic';
+  type?: 'buff' | 'buffAction' | 'resource' | 'tracker' | 'time_scale' | 'cooldown' | 'procced_mechanic' | 'alwaysCheck';
   name?: string;
   target?: string;
   stat?: string;

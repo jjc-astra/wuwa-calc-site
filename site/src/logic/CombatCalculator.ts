@@ -24,7 +24,7 @@ interface BuffValueScope {
 function resolveBuffValue(rawVal: any, selfStats: Record<string, number> | null, scope?: BuffValueScope): any {
   if (typeof rawVal !== 'string' || !rawVal.includes('@') || !selfStats) return rawVal;
   const getStat = (key: string) => selfStats[key] ?? 0;
-  const ctx = scope ? ContextManager.buildContext(scope.state, scope.provider, scope.team) : undefined;
+  const ctx = scope && !readsOnlyStats(rawVal) ? ContextManager.buildContext(scope.state, scope.provider, scope.team) : undefined;
   if (ctx) ctx.self.getStat = getStat;
   const isPctExpr = rawVal.includes('%');
   const evaluated = DSLParser.evaluateMath(rawVal, ctx ?? { self: { getStat } }, scope?.provider);
@@ -57,15 +57,52 @@ export function buffsReaching(state: any, unit: string): Effect[] {
   ) as Effect[];
 }
 
-// Stats per provider, computed once per call -- keyed by provider since "@Self" means the buff's
-// author, not its consumer. With `stateData` they include the provider's live buffs (an
-// "@Self.Stat(energyRegen)" value sees its full ER); '@' values among those buffs resolve against
+// A buff value that reads nothing but its provider's stats: needs no context, and is the same for
+// the same buffs.
+const readsOnlyStats = (expr: string): boolean => !expr.replace(/@Self\.Stat\([^()]*\)/g, '').includes('@');
+
+// A version per buff set (a row's activeBuffs), bumped by markBuffsChanged.
+const buffVersions = new WeakMap<object, number>();
+
+/** Marks `state`'s buffs changed (added, removed, restacked, revalued), so stats cached for them
+ * (providerStatsCache) are worked out again. */
+export function markBuffsChanged(state: any): void {
+  const buffs = state?.activeBuffs;
+  if (buffs) buffVersions.set(buffs, (buffVersions.get(buffs) ?? 0) + 1);
+}
+
+// Caches per buff set, emptied when it changes or another team reads it.
+const buffSetCaches = new WeakMap<object, { version: number; team: any[]; caches: Record<string, Record<string, any>> }>();
+
+// The `name` cache for `state`'s buffs and `team`: for results that depend only on those buffs.
+function cacheForBuffs<T>(state: any, team: any[], name: string): Record<string, T> | null {
+  const buffs = state?.activeBuffs;
+  if (!buffs) return null;
+  const version = buffVersions.get(buffs) ?? 0;
+  let entry = buffSetCaches.get(buffs);
+  if (!entry || entry.version !== version || entry.team !== team) buffSetCaches.set(buffs, entry = { version, team, caches: {} });
+  return (entry.caches[name] ??= {});
+}
+
+// Stats per provider -- keyed by provider since "@Self" means the buff's author, not its consumer.
+// With `stateData` they include the provider's live buffs (an "@Self.Stat(energyRegen)" value sees
+// its full ER), kept until those buffs change; '@' values among those buffs resolve against
 // unbuffed stats, so this stays one level deep rather than recursing.
 function providerStatsCache(team: any[], stateData?: any): (providerName: string) => Record<string, number> {
-  const cache: Record<string, Record<string, number>> = {};
-  return providerName => (cache[providerName] ??= CombatCalculator.calculateFinalStats(
+  const stats = cacheForBuffs<Record<string, number>>(stateData, team, 'providerStats') ?? {};
+  return providerName => (stats[providerName] ??= CombatCalculator.calculateFinalStats(
     providerName, stateData ? buffsReaching(stateData, providerName) : [], team
   ) as unknown as Record<string, number>);
+}
+
+/** `unit`'s stats with the buffs on `state` reaching it -- kept until those buffs change when
+ * they're all the buffs read (every '@' value reads only stats). */
+export function buffedStats(state: any, unit: string, team: any[]): CalculatedStats {
+  const buffs = buffsReaching(state, unit);
+  const pure = buffs.every(buff => typeof buff.value !== 'string' || !buff.value.includes('@') || readsOnlyStats(buff.value));
+  const cache = pure ? cacheForBuffs<CalculatedStats>(state, team, 'buffedStats') : null;
+  if (!cache) return CombatCalculator.calculateFinalStats(unit, buffs, team, state);
+  return (cache[unit] ??= CombatCalculator.calculateFinalStats(unit, buffs, team, state));
 }
 
 // A debuff on the target: it reaches every hit against it, whoever deals it.

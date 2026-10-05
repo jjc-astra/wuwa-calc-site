@@ -43,20 +43,51 @@ const DATABASE_FILES = ['db_characters.json', 'db_weapons.json', 'db_builds.json
 // state snapshot, so it would roughly double what crosses back.
 const WORKER_ONLY_KEYS = ['_pendingHits'];
 
-// Drops function-valued properties (compiled trigger-rule functions) and `omit` keys before a
-// result crosses back to the main thread -- structured clone handles the circular
-// prevRow/nextRow links fine.
-function stripForReply(value: any, omit: ReadonlySet<string>, seen = new WeakMap<object, any>()): any {
-  if (value === null || typeof value !== 'object') return value;
-  if (seen.has(value)) return seen.get(value);
-  const clone: any = Array.isArray(value) ? [] : {};
-  seen.set(value, clone);
-  for (const key of Object.keys(value)) {
-    const v = value[key];
-    if (typeof v === 'function' || omit.has(key)) continue;
-    clone[key] = v && typeof v === 'object' ? stripForReply(v, omit, seen) : v;
-  }
-  return clone;
+// Carried state the page never reads from a snapshot (it reads it off the row itself), and most of
+// what a reply would copy: each hit's state at the hit (its `data`) and each row's dropdown state
+// hold a full copy.
+const SNAPSHOT_OMIT = ['energyLog', 'availableTimings', 'offsetReasons', 'timelineEvents', 'damageInstances'];
+// The page reads a hit's buffs and breakdown figures, and a dropdown snapshot's buffs, cooldowns,
+// trackers, combos and links (ContextManager, the Timeline's Ending Rotation seed).
+const HIT_DATA_OMIT = new Set([...SNAPSHOT_OMIT, 'unitCombos', 'nextUnitActions', 'cooldowns', 'chargeCooldowns', 'unitStances', 'dropdownState', 'prevRow', 'nextRow']);
+const DROPDOWN_OMIT = new Set(SNAPSHOT_OMIT);
+
+// The extra keys left out of the object under `key` (held by `holderKey`'s value).
+const omitWithin = (key: string, holderKey: string): ReadonlySet<string> | null =>
+  key === 'data' && holderKey === 'damageInstances' ? HIT_DATA_OMIT : key === 'dropdownState' ? DROPDOWN_OMIT : null;
+
+// What the page reads off a row's neighbour (ContextManager's @Prev, @Next and combos): all a link
+// to a row outside the reply carries -- such as an Ending Rotation row's, into the separate run it
+// came from -- instead of that whole run.
+const linkStub = (row: any) => ({ unit: row.unit, action: row.action, moveName: row.moveName, castTypes: row.castTypes, unitCombos: row.unitCombos });
+
+// A copy of `rows` for the main thread: without function-valued properties (compiled trigger-rule
+// functions), `omit` keys or the snapshots' unread state, and with outside links cut down to stubs.
+// Structured clone handles the circular prevRow/nextRow links between them fine.
+function stripForReply(rows: any[], omit: ReadonlySet<string>): any[] {
+  const inReply = new Set(rows);
+  const seen = new WeakMap<object, any>();
+  const stubs = new WeakMap<object, any>();
+  const copy = (value: any, key: string, holderKey: string): any => {
+    if (value === null || typeof value !== 'object') return value;
+    if (seen.has(value)) return seen.get(value);
+    const clone: any = Array.isArray(value) ? [] : {};
+    seen.set(value, clone);
+    const extraOmit = omitWithin(key, holderKey);
+    // An array's items stand in its place: under its key, held by its holder.
+    const inArray = Array.isArray(value);
+    for (const k of Object.keys(value)) {
+      let v = value[k];
+      if (typeof v === 'function' || omit.has(k) || extraOmit?.has(k)) continue;
+      if ((k === 'prevRow' || k === 'nextRow') && v && typeof v === 'object' && !inReply.has(v)) {
+        if (!stubs.has(v)) stubs.set(v, linkStub(v));
+        v = stubs.get(v);
+      }
+      clone[k] = v && typeof v === 'object' ? copy(v, inArray ? key : k, inArray ? holderKey : key) : v;
+    }
+    return clone;
+  };
+  return copy(rows, '', '');
 }
 const REPLY_OMIT = new Set(WORKER_ONLY_KEYS);
 // A plain recalculate's reply leaves damage out too; the page keeps the rows' last damage.

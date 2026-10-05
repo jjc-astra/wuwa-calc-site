@@ -1,5 +1,6 @@
 import { DSLParser } from './dsl/dslParser';
 import { ContextManager } from './ContextManager';
+import { GAME_DEFAULTS } from '../data/db';
 import type { MechanicNode, Effect } from '../types';
 
 export interface RegisteredListener extends MechanicNode {
@@ -18,16 +19,88 @@ export interface RegisteredListener extends MechanicNode {
   // The entity it came from (a character, weapon, echo, echo set or System), stamped on its
   // effects as sourceOwner.
   ownerName?: string;
+  // When an ALWAYS listener is re-checked after combat start.
+  recheck?: AlwaysRecheck;
 }
 
 // Set on the effects an ALWAYS listener produces, naming that listener (see EventManagerClass.applying).
 export const ALWAYS_SOURCE = '_alwaysListener';
+// A queued re-check of an ALWAYS listener (EventManagerClass.checkAlways), run in its place in the
+// event's effect stream.
+export const ALWAYS_CHECK = 'alwaysCheck';
 
 // The trigger rule a node actually runs under: a passive with no rule of its own is always on.
 export const effectiveTriggerRule = (mechanic: MechanicNode): string | undefined => {
   const hasNoRule = !mechanic.triggerRule || mechanic.triggerRule.trim() === '';
   return hasNoRule && mechanic.isPassive ? 'ALWAYS' : mechanic.triggerRule;
 };
+
+// Buff events that mean a buff left (its own: re-checks an ALWAYS listener, so it returns).
+const BUFF_LEFT_EVENTS = new Set(['OnBuffRemove', 'OnBuffConsume', 'OnBuffExpire']);
+// Reads that can't change mid-run.
+const STATIC_READS = new Set(['Sequence']);
+// Words a condition can hold that read no state.
+const CONDITION_WORDS = new Set(['IF', 'ALWAYS', 'ANY', 'ALL', 'NOT', 'AND', 'OR', 'true', 'false']);
+
+/** When an ALWAYS listener is re-checked after combat start (EventManagerClass.emit). */
+export interface AlwaysRecheck {
+  // Events that re-check it whatever they carry; null: every event.
+  events: Set<string> | null;
+  // Its own buffs (lowercase, as buff events carry them): one leaving re-checks it.
+  ownBuffs: Set<string>;
+  // Its condition reads only what a context reads live (Sequence, HasBuff): one context per row
+  // serves all its checks (checkAlways).
+  live: boolean;
+}
+
+// The enemy's HP only drops as a hit is priced.
+const isEnemyHpRead = (object: string, prop: string): boolean => object === 'Enemy' && /^hp/i.test(prop);
+
+// A buff an ALWAYS rule keeps on by re-applying it on every event: one that runs out (a finite
+// duration) or builds up (more than one stack). Only a permanent single-stack buff holds without it.
+function needsEveryEvent(buff: Effect): boolean {
+  const duration = buff.duration;
+  const finite = duration !== undefined && duration !== '' && !String(duration).includes('PermanentDuration')
+    && !(Number(duration) >= GAME_DEFAULTS.permanentDuration);
+  const stacking = [buff.stacks, buff.maxStacks].some(n => n !== undefined && n !== '' && String(n) !== '1');
+  return finite || stacking;
+}
+
+/**
+ * When an ALWAYS listener with this rule and these effects is re-checked, by what its condition
+ * reads. Static (no condition, or only Sequence): only when its own buff leaves. HasBuff: also on
+ * any buff change. The enemy's HP: also on hits. Anything else, or a buff that runs out or stacks
+ * (needsEveryEvent): every event.
+ */
+export function alwaysRecheck(rule: string | undefined, effects: Effect[] = []): AlwaysRecheck {
+  const buffs = effects.filter(eff => eff.type === 'buff' || !eff.type);
+  const ownBuffs = new Set(buffs.map(eff => (eff.name || '').toLowerCase()));
+  const condition = (rule ?? '')
+    .replace(/@[\w ]+\([^()]*\)/g, '') // @Owner(Name) references
+    .replace(/(@\w+)\.HasBuff\([^()]*\)/g, '$1.HasBuff')
+    .replace(/(["'`]).*?\1/g, '');
+  const reads = [...condition.matchAll(/@(\w+)\.(\w+)/g)].map(m => ({ object: m[1], prop: m[2] }));
+  const rest = condition.replace(/@\w+\.\w+/g, '');
+  const hpReads = reads.filter(read => isEnemyHpRead(read.object, read.prop));
+  const unknown = rest.includes('@') || [...rest.matchAll(/[A-Za-z_]\w*/g)].some(m => !CONDITION_WORDS.has(m[0]))
+    || reads.some(read => read.prop !== 'HasBuff' && !STATIC_READS.has(read.prop) && !hpReads.includes(read));
+  if (unknown || buffs.some(needsEveryEvent)) return { events: null, ownBuffs, live: false };
+  const events = new Set<string>();
+  // A buff dropped on a swap leaves without an event: checked again on each cast.
+  if (reads.some(read => read.prop === 'HasBuff')) ['OnBuffAdd', ...BUFF_LEFT_EVENTS, 'OnCast'].forEach(e => events.add(e));
+  if (hpReads.length > 0) ['OnHit', 'AfterHit', 'OnCast'].forEach(e => events.add(e));
+  if (buffs.some(eff => eff.removeOnSwap)) events.add('OnCast');
+  return { events, ownBuffs, live: hpReads.length === 0 };
+}
+
+// Contexts for ALWAYS checks whose condition only reads Sequence and HasBuff, per row state and
+// unit: those read the row's buffs live, so one context serves every check on the row.
+const liveContexts = new WeakMap<object, { team: any[]; byUnit: Map<string, any> }>();
+
+/** Whether `eventType` (carrying `modifiers`) re-checks this ALWAYS listener. */
+const rechecks = (recheck: AlwaysRecheck | undefined, eventType: string, modifiers: Set<string> | null): boolean =>
+  !recheck || !recheck.events || recheck.events.has(eventType)
+  || (BUFF_LEFT_EVENTS.has(eventType) && !!modifiers && [...modifiers].some(m => recheck.ownBuffs.has(m)));
 
 // The event bus: compiled trigger rules registered per event, emitted as the simulation runs.
 export class EventManagerClass {
@@ -66,7 +139,8 @@ export class EventManagerClass {
         requiredModifiers: t.modifiers,
         eventArgs: t.args,
         listenerId: `${mechanicKey ?? mechanic.name}#${t.event}`,
-        ownerName
+        ownerName,
+        recheck: t.event === 'ALWAYS' ? alwaysRecheck(ruleToCompile, mechanic.effects) : undefined
       });
     });
   }
@@ -121,7 +195,8 @@ export class EventManagerClass {
   ): Effect[] {
     let bucket = this.listeners[eventType] || [];
     if (eventType !== 'ALWAYS' && eventType !== 'OnStart') {
-      const alwaysBucket = this.listeners['ALWAYS'] || [];
+      // Only the ALWAYS listeners this event could change.
+      const alwaysBucket = (this.listeners['ALWAYS'] || []).filter(l => rechecks(l.recheck, eventType, actionModifiers));
       bucket = [...bucket, ...alwaysBucket];
     }
     if (!bucket || bucket.length === 0) return [];
@@ -169,11 +244,18 @@ export class EventManagerClass {
         if (!hasAll) continue;
       }
 
-      const ctx = getCtx(listener.equipper || activeUnitName);
-      if (!ctx) continue;
-
       const isAlways = listener.triggerEvent === 'ALWAYS';
       if (isAlways && this.applying.has(listener.listenerId)) continue;
+      // During another event, an ALWAYS listener is checked when its turn in the effect stream
+      // comes, against the state the effects before it left -- not now, when an effect of this
+      // same event (a debuff its condition reads) could still flip it.
+      if (isAlways && eventType !== 'ALWAYS') {
+        triggeredEffects.push({ type: ALWAYS_CHECK, [ALWAYS_SOURCE]: listener.listenerId, listener, activeUnitName } as any);
+        continue;
+      }
+
+      const ctx = getCtx(listener.equipper || activeUnitName);
+      if (!ctx) continue;
       // Where this listener's effects start, for tagging them below.
       const effectsBefore = triggeredEffects.length;
 
@@ -263,6 +345,36 @@ export class EventManagerClass {
       }
     }
     return triggeredEffects;
+  }
+
+  /** An ALWAYS listener's effects for the state now: its buffs while its condition holds, their
+   * removal once it doesn't. */
+  checkAlways(listener: RegisteredListener, stateData: any, activeUnitName: string, team: any[] = []): Effect[] {
+    const unit = listener.equipper || activeUnitName || 'System';
+    let ctx;
+    if (listener.recheck?.live && stateData) {
+      let cached = liveContexts.get(stateData);
+      if (!cached || cached.team !== team) liveContexts.set(stateData, cached = { team, byUnit: new Map() });
+      // Its on-field unit decides which aura buffs count.
+      const key = `${unit}|${stateData.onFieldUnit || stateData.unit || unit}`;
+      ctx = cached.byUnit.get(key);
+      if (!ctx) cached.byUnit.set(key, ctx = ContextManager.buildContext(stateData, unit, team));
+    } else {
+      ctx = ContextManager.buildContext(stateData, unit, team);
+    }
+    if (!ctx) return [];
+    const holds = listener.evaluate(ctx, listener.equipper);
+    return (listener.effects || [])
+      .filter(eff => eff.type === 'buff' || !eff.type)
+      .map(eff => {
+        if (holds) return { ...this.resolveEffect(eff, listener, activeUnitName), [ALWAYS_SOURCE]: listener.listenerId };
+        const target = !eff.target ? '@Self' : eff.target === '@Equipper' ? listener.equipper : eff.target;
+        return {
+          type: 'buffAction', action: 'remove', value: 'ALL', name: eff.name, target,
+          provider: eff.provider || listener.equipper || activeUnitName,
+          [ALWAYS_SOURCE]: listener.listenerId
+        } as Effect;
+      });
   }
 }
 

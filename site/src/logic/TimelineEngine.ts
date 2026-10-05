@@ -14,7 +14,8 @@ import { CommonUtils } from '../utils/Common';
 import { teamCharacters } from '../utils/TeamUtils';
 import { DSLParser } from './dsl/dslParser';
 import { ContextManager } from './ContextManager';
-import { EventManager, ALWAYS_SOURCE } from './EventManager';
+import { markBuffsChanged } from './CombatCalculator';
+import { EventManager, ALWAYS_SOURCE, ALWAYS_CHECK } from './EventManager';
 import { calculateEchoStatsForSlot } from '../store/useRosterStore';
 import { CHARACTER_DEFAULTS, ENEMY_DEFAULTS, GAME_DEFAULTS, MECHANICS_NOTATION } from '../data/db';
 import type { Effect, MechanicNode, HoldConfig, MoveOrigin } from '../types';
@@ -688,6 +689,7 @@ export class TimelineEngineClass {
         const buff = currentData.activeBuffs[key];
         if (buff?.removeOnSwap && key.startsWith(swappedOutPrefix)) {
           delete currentData.activeBuffs[key];
+          markBuffsChanged(currentData);
         }
       }
     }
@@ -1141,6 +1143,7 @@ export class TimelineEngineClass {
       if (!buff.isPaused) {
         if (buff.stackBehavior === 'separate' && buff.durations) {
           buff.durations = buff.durations.map((d: number) => d - actualDecay).filter((d: number) => d > 0.001);
+          if (buff.stacks !== buff.durations.length) markBuffsChanged(currentData);
           buff.stacks = buff.durations.length;
         } else {
           if (buff.duration !== undefined) {
@@ -1162,6 +1165,7 @@ export class TimelineEngineClass {
       });
     }
 
+    if (expiringBuffs.length > 0) markBuffsChanged(currentData);
     expiringBuffs.forEach(buff => {
       if (buff.expireBehavior === 'drop_one') {
         buff.stacks = (buff.stacks || 1) - 1;
@@ -1179,6 +1183,7 @@ export class TimelineEngineClass {
       if ((buff.stacks || 0) <= 0 || (buff.stackBehavior !== 'separate' && (buff.duration ?? 0) <= 0.001)) {
         if (buff.linkedTracker && currentData.trackers) currentData.trackers[buff.linkedTracker] = 0;
         delete currentData.activeBuffs[key];
+        markBuffsChanged(currentData);
       }
     }
 
@@ -1588,6 +1593,13 @@ export class TimelineEngineClass {
   // events it fires (EventManager.applying), so it can't re-check, and flip, itself.
   _processEffect(effect: Effect, currentData: any, unitName: string, activeTeam: string[], activeRows: any[], currentIndex: number, team: any[]): void {
     const { [ALWAYS_SOURCE]: alwaysListener, ...plainEffect } = effect;
+    if (effect.type === ALWAYS_CHECK) {
+      if (EventManager.applying.has(alwaysListener)) return;
+      const { listener, activeUnitName } = effect as any;
+      EventManager.checkAlways(listener, currentData, activeUnitName, team)
+        .forEach(eff => this._processEffect(eff, currentData, eff.provider || unitName, activeTeam, activeRows, currentIndex, team));
+      return;
+    }
     if (!alwaysListener || EventManager.applying.has(alwaysListener)) {
       this._applyEffect(plainEffect, currentData, unitName, activeTeam, activeRows, currentIndex, team);
       return;
@@ -1669,6 +1681,7 @@ export class TimelineEngineClass {
       const buffKey = `${targetName}_${effect.name}`;
       const buff = currentData.activeBuffs?.[buffKey];
       if (buff) {
+        markBuffsChanged(currentData);
         if (effect.action === 'pause') buff.isPaused = true;
         else if (effect.action === 'resume') buff.isPaused = false;
         else if (effect.action === 'extend' && effect.value !== undefined) {
@@ -1975,7 +1988,10 @@ export class TimelineEngineClass {
         actuallyAddedStacks = addedStacks;
       }
 
-      if (changed) this._logTimeline(currentData);
+      if (changed) {
+        markBuffsChanged(currentData);
+        this._logTimeline(currentData);
+      }
       if (actuallyAddedStacks > 0) {
         this._fire('OnBuffAdd', eventModifier(buffDef.name), currentData, buffDef.provider || currentData.unit, activeTeam, activeRows, team);
       }
