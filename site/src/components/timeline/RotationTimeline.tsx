@@ -212,7 +212,8 @@ export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRow
     section('enemy', 'Enemy Effects', enemy.length, () => laneItems(enemy));
     const system = shown(effects.system);
     section('system', 'System Effects', system.length, () => laneItems(system));
-    section('trackers', 'Trackers', effects.trackers.length, () => laneItems(effects.trackers));
+    const trackers = shown(effects.trackers);
+    section('trackers', 'Trackers', trackers.length, () => laneItems(trackers));
   }
 
   // The name column: wider with effects, whose names run longer than a unit's. Rows read it as

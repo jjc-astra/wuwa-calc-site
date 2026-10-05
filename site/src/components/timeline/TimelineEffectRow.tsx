@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { TooltipManager, tip, escapeHtml, tooltipLine as line, formatNum as formatValue } from '../../utils/Common';
 import { formatFramesAsSeconds, framesToSeconds, secondsToFrames, toFrames } from '../../utils/Frames';
-import { EFFECT_BAR_INSET_PX, EFFECT_ROW_HEIGHT_PX, describeAppliesTo, rowsReceivingBar } from './effectLayout';
+import { EFFECT_BAR_INSET_PX, EFFECT_ROW_HEIGHT_PX, describeAppliesTo, pointLabelFits, rowsReceivingBar } from './effectLayout';
 import { useLinkedRowStore } from '../../store/useLinkedRowStore';
 import { nearestMarker, trackPointer, useActiveMarker, useFrameMove } from './trackPointer';
 import type { EffectBar, EffectLane, EffectPoint } from './effectLayout';
@@ -136,14 +136,18 @@ export const TimelineEffectRow = React.memo<TimelineEffectRowProps>(({ lane, nes
             style={{ left: bar.xPx, width: bar.widthPx, top: EFFECT_BAR_INSET_PX, bottom: EFFECT_BAR_INSET_PX }}
           />
         ))}
-        {lane.bars.flatMap((bar, b) => bar.points.map((point, i) => showsPoint(lane, bar, i) && (
-          <React.Fragment key={`pt-${b}-${i}`}>
-            {i > 0 && <div className="timeline-effect-point" data-marker={barMarkerStart[b] + i - 1} style={{ left: point.xPx, top: point.yPx }} />}
-            <span className="timeline-effect-point-label" style={{ left: point.xPx + (i > 0 ? 4 : 3), top: point.yPx }}>
-              {pointLabel(lane, bar, point.value)}
-            </span>
-          </React.Fragment>
-        )))}
+        {lane.bars.flatMap((bar, b) => bar.points.map((point, i) => {
+          if (!showsPoint(lane, bar, i)) return null;
+          const label = pointLabel(lane, bar, point.value);
+          return (
+            <React.Fragment key={`pt-${b}-${i}`}>
+              {i > 0 && <div className="timeline-effect-point" data-marker={barMarkerStart[b] + i - 1} style={{ left: point.xPx, top: point.yPx }} />}
+              {pointLabelFits(bar, i, label) && (
+                <span className="timeline-effect-point-label" style={{ left: point.xPx + (i > 0 ? 4 : 3), top: point.yPx }}>{label}</span>
+              )}
+            </React.Fragment>
+          );
+        }))}
         {lane.hits.map((hit, i) => (
           <div
             key={`hit-${i}`}

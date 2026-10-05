@@ -14,6 +14,8 @@ export const SECTION_ROW_HEIGHT_PX = 24;
 export const EFFECT_ROW_HEIGHT_PX = 24;
 // A bar's gap from the top and bottom of its row.
 export const EFFECT_BAR_INSET_PX = 4;
+// A point label's character width (9px bold digits, timeline.css's .timeline-effect-point-label).
+const POINT_LABEL_CHAR_PX = 5.5;
 // The row less its 1px bottom border and both insets.
 const EFFECT_BAR_HEIGHT_PX = EFFECT_ROW_HEIGHT_PX - 1 - EFFECT_BAR_INSET_PX * 2;
 const SYSTEM_COLOR = '#8a8a8a';
@@ -85,7 +87,7 @@ export interface EffectLane {
   bars: EffectBar[];
   hits: EffectHit[];
   // In effect the whole rotation, start to end with no gaps (hidden by the Permanent toggle) --
-  // not just permanent-duration, which can still switch on and off.
+  // not just permanent-duration, which can still switch on and off. A tracker also never changes value.
   alwaysOn: boolean;
   // Buffs: what kind of entity it came from.
   sourceKind?: EffectSourceKind;
@@ -164,17 +166,24 @@ class LaneBuilder {
     if (bar) bar.points.push({ frames, xPx: this.px(frames), yPx: barCenterY, value, remaining });
   }
 
-  end(laneId: string, frames: number): void {
+  // `dropEmpty`: a bar that didn't last a frame shows nothing -- always so for a tracker value (set
+  // and cleared at once).
+  end(laneId: string, frames: number, dropEmpty = false): void {
     const bar = this.open.get(laneId);
     if (!bar) return;
     this.open.delete(laneId);
+    const lane = this.lanes.get(laneId)!;
+    if ((dropEmpty || lane.kind === 'tracker') && frames <= bar.startFrames) {
+      lane.bars.splice(lane.bars.indexOf(bar), 1);
+      return;
+    }
     bar.endFrames = Math.max(bar.startFrames, frames);
     bar.xPx = this.px(bar.startFrames);
     bar.widthPx = Math.max(2, this.px(bar.endFrames) - bar.xPx);
   }
 
-  endAll(frames: number): void {
-    for (const id of [...this.open.keys()]) this.end(id, frames);
+  endAll(frames: number, dropEmpty = false): void {
+    for (const id of [...this.open.keys()]) this.end(id, frames, dropEmpty);
   }
 }
 
@@ -273,8 +282,11 @@ export function buildEffectTimeline(rows: any[], team: TeamSlot[], compression: 
     builder.start(id, frames, { name, maxStacks: 1, permanent: false }, value);
   };
 
-  const applyEvents = (from: any[]) => {
-    const events = from.flatMap(r => r?.timelineEvents || []);
+  // `shown` drops events inside the Ending Rotation's skip: the last loop's late hits land after it
+  // starts (hidden by it), and the Ending Rotation's first wait runs before it ends (already in the
+  // state it's seeded from).
+  const applyEvents = (from: any[], shown: (t: number) => boolean = () => true) => {
+    const events = from.flatMap(r => r?.timelineEvents || []).filter(ev => shown(ev.t));
     // Stable: same-time events keep the order they happened in.
     events.sort((a, b) => a.t - b.t);
     events.forEach(ev => {
@@ -289,9 +301,10 @@ export function buildEffectTimeline(rows: any[], team: TeamSlot[], compression: 
   // first Ending Rotation row's snapshot.
   const loopEndIndex = loopEndIndexOf(rows);
   const endingStart = compression && loopEndIndex !== -1 ? loopEndIndex + 1 : rows.length;
-  applyEvents(rows.slice(0, endingStart));
+  applyEvents(rows.slice(0, endingStart), compression && endingStart < rows.length ? t => t <= compression.gapStartFrames : undefined);
   if (compression && endingStart < rows.length) {
-    builder.endAll(compression.gapStartFrames);
+    // A bar that only just started at the skip picks up again after it.
+    builder.endAll(compression.gapStartFrames, true);
     lastValue.clear();
     const snapshot = rows[endingStart]?.dropdownState;
     const at = compression.gapEndFrames;
@@ -313,7 +326,7 @@ export function buildEffectTimeline(rows: any[], team: TeamSlot[], compression: 
       const num = Number(value);
       if (isTimelineTracker(name) && !isNaN(num)) applyTrackerValue(name, at, num);
     });
-    applyEvents(rows.slice(endingStart));
+    applyEvents(rows.slice(endingStart), t => t >= compression.gapEndFrames);
   }
   const endFrames = computeTotalDurationFrames(rows);
   builder.endAll(endFrames);
@@ -334,8 +347,11 @@ export function buildEffectTimeline(rows: any[], team: TeamSlot[], compression: 
   // In order of appearance, a section's cooldowns after its buffs.
   [...builder.lanes.values()]
     .sort((a, b) => Number(a.kind === 'cooldown') - Number(b.kind === 'cooldown') || a.firstFrames - b.firstFrames)
+    .filter(lane => lane.bars.length > 0 || lane.hits.length > 0)
     .forEach(({ section, ...lane }) => {
-      lane.alwaysOn = lane.kind === 'buff' && coversWholeRotation(lane.bars, endFrames, compression);
+      const unchanging = lane.kind === 'buff'
+        || (lane.kind === 'tracker' && new Set(lane.bars.map(bar => bar.points[0]?.value)).size === 1);
+      lane.alwaysOn = unchanging && coversWholeRotation(lane.bars, endFrames, compression);
       if (lane.kind === 'hits') stackDots(lane.hits.sort((a, b) => a.xPx - b.xPx), EFFECT_BAR_INSET_PX, EFFECT_BAR_HEIGHT_PX);
       if (section.startsWith('unit:')) (data.unitLanes[section.slice(5)] ||= []).push(lane);
       else if (section === 'enemy') data.enemy.push(lane);
@@ -343,6 +359,14 @@ export function buildEffectTimeline(rows: any[], team: TeamSlot[], compression: 
       else data.system.push(lane);
     });
   return data;
+}
+
+/** Whether a point's label fits before the next point, or the bar's end: a short bar's value is
+ * left to its tooltip rather than drawn over its neighbour (or the Ending Rotation's skip). */
+export function pointLabelFits(bar: EffectBar, index: number, label: string): boolean {
+  const start = bar.points[index].xPx + (index > 0 ? 4 : 3);
+  const end = bar.points[index + 1]?.xPx ?? bar.xPx + bar.widthPx;
+  return end - start >= label.length * POINT_LABEL_CHAR_PX;
 }
 
 // The same effect on both sides of a refresh: only its timer restarted.
