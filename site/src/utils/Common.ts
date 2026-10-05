@@ -34,61 +34,83 @@ export function getCharacterThemeColor(dbChar: Record<string, any> | undefined):
   return dbChar.themeColor || dbChar.color || ELEMENT_COLORS[dbChar.element] || '#555555';
 }
 
-/** The app's one hover tooltip: a single viewport-aware DOM node shared by every caller. */
+type TooltipSize = { width: number; height: number };
+// Where the tooltip goes for a given size of it.
+type TooltipPlacement = (size: TooltipSize) => { left: number; top: number };
+
+/** The app's one hover tooltip: a single viewport-aware DOM node shared by every caller.
+ * Hover moves stay cheap: content is written only when it changes, the size comes from a
+ * ResizeObserver (after the browser's own layout) instead of a forced measure, and it's moved
+ * with a transform, which needs no layout. */
 class TooltipManagerClass {
   private el: HTMLDivElement | null = null;
+  private html: string | null = null;
+  private size: TooltipSize = { width: 0, height: 0 };
+  private placement: TooltipPlacement | null = null;
 
   private ensureEl(): HTMLDivElement {
     if (!this.el) {
-      this.el = document.createElement('div');
-      this.el.className = 'global-tooltip';
-      document.body.appendChild(this.el);
+      const el = document.createElement('div');
+      el.className = 'global-tooltip';
+      document.body.appendChild(el);
+      // A new size (new content, or shown again) re-places it before it paints.
+      new ResizeObserver(([entry]) => {
+        const box = entry.borderBoxSize?.[0];
+        this.size = box ? { width: box.inlineSize, height: box.blockSize } : { width: el.offsetWidth, height: el.offsetHeight };
+        this.place();
+      }).observe(el);
+      this.el = el;
     }
     return this.el;
   }
 
+  private place(): void {
+    if (!this.el || !this.placement || this.el.style.display !== 'block') return;
+    const { left, top } = this.placement(this.size);
+    this.el.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
+  }
+
+  private open(html: string, placement: TooltipPlacement): void {
+    const el = this.ensureEl();
+    if (html !== this.html) {
+      el.innerHTML = html;
+      this.html = html;
+    }
+    el.style.display = 'block';
+    this.placement = placement;
+    this.place();
+  }
+
   show(target: Element, html: string | null): void {
     if (!html) return;
-    const el = this.ensureEl();
-    el.innerHTML = html;
-    el.style.display = 'block';
-
     const rect = target.getBoundingClientRect();
-    const tipRect = el.getBoundingClientRect();
-
-    let top = rect.top - tipRect.height - 8;
-    let left = rect.left + rect.width / 2 - tipRect.width / 2;
-
-    if (top < 0) top = rect.bottom + 8;
-    if (left < 10) left = 10;
-    if (left + tipRect.width > window.innerWidth - 10) left = window.innerWidth - tipRect.width - 10;
-
-    el.style.top = `${top}px`;
-    el.style.left = `${left}px`;
+    this.open(html, ({ width, height }) => {
+      let top = rect.top - height - 8;
+      let left = rect.left + rect.width / 2 - width / 2;
+      if (top < 0) top = rect.bottom + 8;
+      if (left < 10) left = 10;
+      if (left + width > window.innerWidth - 10) left = window.innerWidth - width - 10;
+      return { left, top };
+    });
   }
 
   /** Like show(), but anchored to raw cursor coords -- for crosshair-style hover on a chart. */
   showAtPoint(x: number, y: number, html: string | null): void {
     if (!html) return;
-    const el = this.ensureEl();
-    el.innerHTML = html;
-    el.style.display = 'block';
-
-    const tipRect = el.getBoundingClientRect();
-    let left = x + 16;
-    let top = y - tipRect.height / 2;
-
-    if (left + tipRect.width > window.innerWidth - 10) left = x - tipRect.width - 16;
-    if (left < 10) left = 10;
-    if (top < 10) top = 10;
-    if (top + tipRect.height > window.innerHeight - 10) top = window.innerHeight - tipRect.height - 10;
-
-    el.style.top = `${top}px`;
-    el.style.left = `${left}px`;
+    this.open(html, ({ width, height }) => {
+      let left = x + 16;
+      let top = y - height / 2;
+      if (left + width > window.innerWidth - 10) left = x - width - 16;
+      if (left < 10) left = 10;
+      if (top < 10) top = 10;
+      if (top + height > window.innerHeight - 10) top = window.innerHeight - height - 10;
+      return { left, top };
+    });
   }
 
   hide(): void {
     if (this.el) this.el.style.display = 'none';
+    this.placement = null;
   }
 }
 

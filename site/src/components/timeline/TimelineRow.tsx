@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { CommonUtils, TooltipManager } from '../../utils/Common';
 import { IMAGE_FOLDERS } from '../../data/db';
 import { TimelineClip, buildClipTooltipHtml } from './TimelineClip';
@@ -21,9 +21,20 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({ data, expander, linked
   const [activeDot, setActiveDot] = useState<number | null>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const hover = useLinkedRowStore(s => s.hover);
-  const rowIds = useLinkedRowStore(s => s.rowIds);
-  const linkedIds = useMemo(() => new Set(linked ? rowIds : []), [linked, rowIds]);
   const scrollId = useLinkedRowStore(s => (linked && s.source === 'table' ? s.rowIds[0] ?? null : null));
+
+  // Clips of the linked rows highlighted, toggled on the DOM rather than rendered: re-rendering the
+  // row (every clip and hit dot) on each hover change made hovering Timeline buffs stutter.
+  useLayoutEffect(() => {
+    const applyLinked = (rowIds: string[]) => {
+      const ids = new Set(linked ? rowIds : []);
+      trackRef.current?.querySelectorAll<HTMLElement>('.timeline-clip-hit').forEach(clip =>
+        clip.classList.toggle('is-linked', !!clip.dataset.rowId && ids.has(clip.dataset.rowId)));
+    };
+    // Now (a re-render rewrites the clips' className), then on every hover change.
+    applyLinked(useLinkedRowStore.getState().rowIds);
+    return useLinkedRowStore.subscribe((s, prev) => { if (s.rowIds !== prev.rowIds) applyLinked(s.rowIds); });
+  });
   const hoverRow = (row: any) => { if (linked) hover(row?.id ? [row.id] : [], 'timeline'); };
 
   // A table row hovered: bring its first clip into view.
@@ -93,7 +104,7 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({ data, expander, linked
       </div>
       <div className="timeline-row-track" ref={trackRef} onMouseMove={handleMove} onMouseLeave={handleLeave}>
         {data.segments.map((segment, i) => (
-          <TimelineClip key={i} segment={segment} isLinked={linkedIds.has(segment.row?.id)} />
+          <TimelineClip key={i} segment={segment} />
         ))}
         {data.simultaneousLines.map((line, i) => (
           <div

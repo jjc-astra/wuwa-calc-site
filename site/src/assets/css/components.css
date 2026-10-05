@@ -535,7 +535,9 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 
 /* --- Tooltip --- */
 .global-tooltip {
-    position: fixed; z-index: 100000;
+    /* Placed by transform (TooltipManager), on its own layer: moving it doesn't repaint what's under it. */
+    position: fixed; top: 0; left: 0; z-index: 100000;
+    will-change: transform;
     background-color: var(--tooltip-bg);
     border: 1px solid var(--accent); color: var(--text-main);
     padding: 0.375rem 0.625rem; border-radius: 0.25rem;

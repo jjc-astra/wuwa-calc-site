@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { TooltipManager, tip } from '../../utils/Common';
 import { formatFramesAsSeconds, framesToSeconds, secondsToFrames, toFrames } from '../../utils/Frames';
 import { EFFECT_BAR_INSET_PX, EFFECT_ROW_HEIGHT_PX, describeAppliesTo, rowsReceivingBar } from './effectLayout';
@@ -81,8 +81,12 @@ const framesAt = (bar: EffectBar, x: number): number =>
 export const TimelineEffectRow: React.FC<TimelineEffectRowProps> = ({ lane, nested = false, linkRows }) => {
   const [active, setActive] = useState<number | null>(null);
   const hover = useLinkedRowStore(s => s.hover);
+  // The bar last linked, so moving within it doesn't re-scan the rows.
+  const linkedBar = useRef<EffectBar | undefined>(undefined);
   const hoverBar = (bar: EffectBar | undefined) => {
-    if (linkRows) hover(bar ? rowsReceivingBar(linkRows, lane, bar) : [], 'timeline', false);
+    if (!linkRows || bar === linkedBar.current) return;
+    linkedBar.current = bar;
+    hover(bar ? rowsReceivingBar(linkRows, lane, bar) : [], 'timeline', false);
   };
 
   // Snap targets: stack/value changes after a bar's start, and hits.

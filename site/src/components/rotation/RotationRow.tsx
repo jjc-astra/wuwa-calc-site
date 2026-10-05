@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useRotationStore } from '../../store/useRotationStore';
 import { useRosterStore } from '../../store/useRosterStore';
 import { DataLoader } from '../../utils/DataLoader';
@@ -81,6 +81,12 @@ interface ActionGroup {
   options: ActionOption[];
 }
 
+type LinkedState = ReturnType<typeof useLinkedRowStore.getState>;
+// Hovered on the Timeline: its move, or a buff it got.
+const isLinkedIn = (s: LinkedState, rowId?: string) => s.source === 'timeline' && !!rowId && s.rowIds.includes(rowId);
+// Its move hovered on the Timeline (not a buff's rows): scrolled to.
+const isScrollTargetIn = (s: LinkedState, rowId?: string) => s.source === 'timeline' && s.scroll && !!rowId && s.rowIds[0] === rowId;
+
 /**
  * One rotation row: unit, action, timing, offset, damage and gauges, plus its open sub-panel.
  * Memoized: RotationBuilder passes stable handlers, so a row re-renders only when its own props do.
@@ -129,16 +135,23 @@ export const RotationRow = React.memo<RotationRowProps>(({
   const team = useRosterStore(s => s.team);
   const rowRef = useRef<HTMLDivElement>(null);
   const hoverLinked = useLinkedRowStore(s => s.hover);
-  // Its move (or a buff it got) hovered on the Timeline: highlighted -- and, for a move, scrolled to.
-  const isLinked = useLinkedRowStore(s => s.source === 'timeline' && !!row.id && s.rowIds.includes(row.id));
-  const isScrollTarget = useLinkedRowStore(s => s.source === 'timeline' && s.scroll && !!row.id && s.rowIds[0] === row.id);
   const [isDraggable, setIsDraggable] = useState(true);
   const [offsetDraft, setOffsetDraft] = useState<string | null>(null);
   const [repeatCountDraft, setRepeatCountDraft] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isScrollTarget && rowRef.current) scrollIntoContainer(rowRef.current, rowRef.current.closest<HTMLElement>('#rotation-builder'));
-  }, [isScrollTarget]);
+  // Its move (or a buff it got) hovered on the Timeline: highlighted -- and, for a move, scrolled to.
+  // The highlight is toggled on the DOM rather than rendered: re-rendering every reached row (all
+  // its inputs) on each hover change made hovering Timeline buffs stutter.
+  // Every render: React rewrites className, dropping the toggled class.
+  useLayoutEffect(() => {
+    rowRef.current?.classList.toggle('is-linked', isLinkedIn(useLinkedRowStore.getState(), row.id));
+  });
+  useEffect(() => useLinkedRowStore.subscribe((s, prev) => {
+    const el = rowRef.current;
+    if (!el) return;
+    el.classList.toggle('is-linked', isLinkedIn(s, row.id));
+    if (isScrollTargetIn(s, row.id) && !isScrollTargetIn(prev, row.id)) scrollIntoContainer(el, el.closest<HTMLElement>('#rotation-builder'));
+  }), [row.id]);
 
   const teamUnits = teamCharacters(team);
   const selectedUnit = row.unit || '';
@@ -372,7 +385,7 @@ export const RotationRow = React.memo<RotationRowProps>(({
   return (
     <div
       ref={rowRef}
-      className={`rotation-row ${isSelected ? 'selected' : ''} ${isLinked ? 'is-linked' : ''} ${dragClass}`}
+      className={`rotation-row ${isSelected ? 'selected' : ''} ${dragClass}`}
       style={{ '--char-theme-raw': themeColor } as React.CSSProperties}
       onMouseEnter={() => { if (row.unit && row.id) hoverLinked([row.id], 'table'); }}
       onMouseLeave={() => hoverLinked([], 'table')}
