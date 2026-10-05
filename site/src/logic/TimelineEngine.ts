@@ -2,7 +2,7 @@ import { DataLoader } from '../utils/DataLoader';
 import { getMechanicOwners } from './MechanicOwners';
 import {
   RESOURCE_KEYS, WAITABLE_RESOURCE_KEYS, addResource, readResource, resourceCap,
-  energyRegenMult, energyRegenPct, resourceLabel, resourceRequirement, capHitIndex
+  energyRegenMult, energyRegenPct, resourceLabel, resourceRequirement, capHitIndex, buildupRateMult
 } from './resources';
 import { deltaKey, forteKey, holdSlotNumber } from '../utils/ResourceKeys';
 import { backfillPools, cloneJson, dropdownSnapshot, hitState, inheritPools, plainCopy, ROW_LINK_KEYS } from './rowState';
@@ -1334,6 +1334,13 @@ export class TimelineEngineClass {
     addResource(currentData, 'energy', unit, base * (erPct / 100), resourceCap(unit, 'energy'));
   }
 
+  // A non-Energy resource change caused by `unit`: gains scale by its buildup rate for that
+  // resource (Off-Tune / Forte Buildup Rate), spends don't.
+  _changeResource(currentData: any, key: string, unit: string, amount: number, team: any[]): void {
+    const scaled = amount > 0 ? amount * buildupRateMult(currentData, unit, key, team) : amount;
+    addResource(currentData, key, unit, scaled, resourceCap(unit, key));
+  }
+
   _logEnergySpend(currentData: any, unit: string, amount: number): void {
     if (amount > 0) (currentData.energyLog ??= []).push({ unit, spend: amount });
   }
@@ -1351,8 +1358,12 @@ export class TimelineEngineClass {
         // spending it is the caster's alone.
         activeTeam.forEach(name => this._gainEnergy(currentData, name, amount, team));
       } else {
-        if (key === 'energy') this._logEnergySpend(currentData, unitName, -amount);
-        addResource(currentData, key, unitName, amount, resourceCap(unitName, key));
+        if (key === 'energy') {
+          this._logEnergySpend(currentData, unitName, -amount);
+          addResource(currentData, key, unitName, amount, resourceCap(unitName, key));
+        } else {
+          this._changeResource(currentData, key, unitName, amount, team);
+        }
       }
     }
   }
@@ -1593,7 +1604,14 @@ export class TimelineEngineClass {
     const resolvedEffect = { ...effect };
     const resolve = (val: any) => isDslExpr(val, true) ? this._resolveDynamicMath(val, currentData, unitName, team) : val;
     const isBuff = resolvedEffect.type === 'buff' || !resolvedEffect.type;
-    if (!isBuff) resolvedEffect.value = resolve(resolvedEffect.value);
+    if (!isBuff) {
+      // A per-rank list ("8/10/12/14/16") picks its provider's weapon rank first, like a buff's value.
+      const rankUnit = effect.provider || unitName;
+      const value = CommonUtils.isRankValue(resolvedEffect.value)
+        ? CommonUtils.parseRankValue(resolvedEffect.value, team.find(t => t.character === rankUnit)?.rank ?? CHARACTER_DEFAULTS.rank)
+        : resolvedEffect.value;
+      resolvedEffect.value = resolve(value);
+    }
     resolvedEffect.duration = resolve(resolvedEffect.duration) as number;
     if (resolvedEffect.maxStacks !== undefined) resolvedEffect.maxStacks = resolve(resolvedEffect.maxStacks) as number;
 
@@ -1629,15 +1647,20 @@ export class TimelineEngineClass {
     const resKey = resolvedEffect.name;
     if (!resKey) return;
     if (resKey === 'tune') {
-      addResource(currentData, resKey, currentData.unit, amt, resourceCap(currentData.unit, resKey));
+      // The enemy's pool, built up at the rate of whoever caused it.
+      this._changeResource(currentData, resKey, resolvedEffect.provider || currentData.unit, amt, team);
       return;
     }
     if (!currentData[resKey]) currentData[resKey] = {};
     targetUnits.forEach(tName => {
       // Only Energy a unit gains is scaled by its Energy Regen.
       if (resKey === 'energy' && amt > 0) return this._gainEnergy(currentData, tName, amt, team);
-      if (resKey === 'energy') this._logEnergySpend(currentData, tName, -amt);
-      addResource(currentData, resKey, tName, amt, resourceCap(tName, resKey));
+      if (resKey === 'energy') {
+        this._logEnergySpend(currentData, tName, -amt);
+        addResource(currentData, resKey, tName, amt, resourceCap(tName, resKey));
+      } else {
+        this._changeResource(currentData, resKey, tName, amt, team);
+      }
     });
   }
 
@@ -1894,7 +1917,7 @@ export class TimelineEngineClass {
       const weaponRank = providerSlot ? providerSlot.rank : CHARACTER_DEFAULTS.rank;
 
       let val = buffDef.value;
-      if (buffDef.value && typeof buffDef.value === 'string' && buffDef.value.includes('/')) {
+      if (CommonUtils.isRankValue(buffDef.value)) {
         val = CommonUtils.parseRankValue(buffDef.value, weaponRank);
       }
 

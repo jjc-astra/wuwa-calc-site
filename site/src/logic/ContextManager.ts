@@ -54,7 +54,7 @@ export const ContextManager = {
       // right away (or, like EventManager.emit, before any of the buffs change), so it's the same
       // result as computing it up front.
       let finalStatsMemo: ReturnType<typeof CombatCalculator.calculateFinalStats> | undefined;
-      const finalStats = () => (finalStatsMemo ??= CombatCalculator.calculateFinalStats(activeUnitName, validBuffs as any, team));
+      const finalStats = () => (finalStatsMemo ??= CombatCalculator.calculateFinalStats(activeUnitName, validBuffs as any, team, activeState));
       const comboDict = activeState.prevRow ? (activeState.prevRow.unitCombos || {}) : (activeState.unitCombos || {});
       const myCombo = comboDict[activeUnitName];
 

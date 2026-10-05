@@ -158,6 +158,10 @@ export const CommonUtils = {
   /**
    * Parses slash-delimited weapon/rank values (e.g. "12/15/18/21/24%") for a given rank (1-5).
    */
+  // True for a plain per-rank list ("8/10/12/14/16", "20%/25%/..."), as opposed to DSL math with a '/'.
+  isRankValue: (val: unknown): val is string =>
+    typeof val === 'string' && /^\s*-?[\d.]+%?(\s*\/\s*-?[\d.]+%?)+\s*$/.test(val),
+
   parseRankValue: (val: any, rank = 1): any => {
     if (typeof val !== 'string' || !val.includes('/')) return val;
     const rankIdx = Math.max(0, Math.min(4, (parseInt(rank as any, 10) || 1) - 1));

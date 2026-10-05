@@ -204,7 +204,7 @@ export interface BuffTotals {
   critDamage: number;
   dmgBonus: number;
   dmgAmp: number;
-  dmgBoost: number;
+  tuneBreakBoost: number;
   dmgTaken: number;
   multiplicativeMult: number;
   additiveMult: number;
@@ -282,5 +282,8 @@ export interface CalculatedStats extends Record<EchoStatKey, number> {
   hp: number;
   def: number;
   talentAtkPct?: number;
+  tuneBreakBoost: number;
+  offTuneBuildupRate: number;
+  forteBuildupRate: number;
   [key: string]: number | undefined;
 }

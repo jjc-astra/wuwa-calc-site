@@ -103,7 +103,17 @@ export const STAT_NAME_MAP: Record<string, string> = {
   'Basic DMG': 'basicDmgBonus',
   'Heavy DMG': 'heavyDmgBonus',
   'Lib DMG': 'libDmgBonus',
+  'Tune Break Boost': 'tuneBreakBoost',
+  'Off-Tune Buildup Rate': 'offTuneBuildupRate',
+  'Forte Buildup Rate': 'forteBuildupRate',
   ...Object.fromEntries(ELEMENTS.map(element => [`${element} DMG`, elementBonusKey(element)]))
+};
+
+// Buildup-rate sheet stats (percent, base CHARACTER_DEFAULTS.buildupRate), each scaling a unit's
+// gains of one resource -- 'forte' covers every Forte slot. Energy's equivalent is Energy Regen.
+export const BUILDUP_RATE_STATS: Record<string, string> = {
+  offTuneBuildupRate: 'tune',
+  forteBuildupRate: 'forte'
 };
 
 export const DEFAULT_SUBSTATS = ['CR Rate', 'CR DMG', 'ATK %', 'ER %', 'ATK'];
@@ -159,6 +169,7 @@ export const CHARACTER_DEFAULTS = {
   baseCritRate: 5,
   baseCritDmg: 150,
   energyRegen: 100,
+  buildupRate: 100,
   maxEnergy: 100,
   maxConcerto: 100,
   maxForte: 100,
@@ -215,7 +226,8 @@ const DMG_OPTIONS: string[] = [...DMG_CAST_TYPES, ...ELEMENTS, ...NEGATIVE_STATU
 
 const STAT_OPTIONS = [
   'HP', 'HP %', 'ATK', 'ATK %', 'DEF', 'DEF %',
-  'CR Rate', 'CR DMG', 'ER %', 'Healing Bonus'
+  'CR Rate', 'CR DMG', 'ER %', 'Healing Bonus', 'Tune Break Boost',
+  'Off-Tune Buildup Rate', 'Forte Buildup Rate'
 ];
 
 // Hover copy for the sheet stats offered by the 'eff-stat' autocomplete mode (Stat Modifier effect
@@ -231,7 +243,10 @@ export const SHEET_STAT_TOOLTIPS: Record<string, string> = {
   'CR Rate': 'Critical Rate — chance for a hit to crit.',
   'CR DMG': 'Critical DMG — bonus damage multiplier applied on a crit.',
   'ER %': 'Energy Regen — increases Resonance Energy generated per hit/action.',
-  'Healing Bonus': 'Increases the amount healed by healing effects.'
+  'Healing Bonus': 'Increases the amount healed by healing effects.',
+  'Tune Break Boost': "Flat Tune Break Boost, added to the character's base (read with @Self.Stat(tuneBreakBoost)).",
+  'Off-Tune Buildup Rate': 'Rate this unit builds up Off-Tune (Tune) on the enemy. Base 100%, like Energy Regen; a buff adds to it.',
+  'Forte Buildup Rate': 'Rate this unit gains every Forte resource. Base 100%, like Energy Regen; a buff adds to it.'
 };
 
 // actionDuration/freezeTime/motionStop are frames at 60fps; cooldown stays seconds.

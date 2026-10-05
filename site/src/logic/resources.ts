@@ -2,11 +2,11 @@
 // Forte slots (per-unit pools on a row) plus the enemy's Tune. Every place the simulation reads
 // or changes one goes through here, so a new resource key means editing one list.
 import { DataLoader } from '../utils/DataLoader';
-import { CombatCalculator } from './CombatCalculator';
-import { CHARACTER_DEFAULTS, ENEMY_DEFAULTS } from '../data/db';
+import { CombatCalculator, buffsReaching } from './CombatCalculator';
+import { CHARACTER_DEFAULTS, ENEMY_DEFAULTS, STAT_NAME_MAP, BUILDUP_RATE_STATS } from '../data/db';
 import { FORTE_KEYS, forteSlotOf, maxForteKey } from '../utils/ResourceKeys';
 import { forteLabel } from '../utils/ForteNames';
-import type { Effect, MechanicNode } from '../types';
+import type { MechanicNode } from '../types';
 
 // In the order they're validated, reported and diffed.
 export const RESOURCE_KEYS: readonly string[] = ['energy', 'concerto', 'tune', ...FORTE_KEYS];
@@ -57,15 +57,28 @@ export function addResource(state: any, key: string, unit: string, amount: numbe
 
 // The unit's Energy Regen % with the buffs currently reaching it.
 export function energyRegenPct(state: any, unit: string, team: any[]): number {
-  const validBuffs = Object.values(state.activeBuffs || {}).filter((b: any) =>
-    b.target === unit || b.target === '@Team' || (b.target === 'Active' && unit === state.unit)
-  );
-  const stats = CombatCalculator.calculateFinalStats(unit, validBuffs as Effect[], team);
+  const stats = CombatCalculator.calculateFinalStats(unit, buffsReaching(state, unit), team, state);
   return stats.energyRegen || 100;
 }
 
 // What Energy gained by this unit is multiplied by.
 export const energyRegenMult = (state: any, unit: string, team: any[]): number => energyRegenPct(state, unit, team) / 100;
+
+const buildupRateCovers = (rateResource: string, key: string): boolean =>
+  rateResource === key || (rateResource === 'forte' && forteSlotOf(key) !== null);
+
+// What `unit`'s gains of `key` are multiplied by: its buildup rate for that resource / 100
+// (BUILDUP_RATE_STATS, base 100%). 1 when nothing covers it -- Energy uses Energy Regen instead.
+export function buildupRateMult(state: any, unit: string, key: string, team: any[]): number {
+  const statKeys = Object.keys(BUILDUP_RATE_STATS).filter(statKey => buildupRateCovers(BUILDUP_RATE_STATS[statKey], key));
+  if (statKeys.length === 0) return 1;
+  const buffs = buffsReaching(state, unit);
+  // Most hits have no such buff; skip working out the unit's stats for them.
+  if (!buffs.some(b => b.stat && statKeys.includes(STAT_NAME_MAP[b.stat]))) return 1;
+  const stats = CombatCalculator.calculateFinalStats(unit, buffs, team, state);
+  // Each covering rate's bonus over the base adds up (e.g. a per-slot rate on top of the all-Forte one).
+  return 1 + statKeys.reduce((sum, statKey) => sum + (stats[statKey] ?? CHARACTER_DEFAULTS.buildupRate) - CHARACTER_DEFAULTS.buildupRate, 0) / 100;
+}
 
 // The user-facing name of a resource, as shown in warnings and wait reasons.
 export function resourceLabel(key: string, stats: Record<string, any> | undefined): string {

@@ -1,7 +1,8 @@
 import { DataLoader } from '../utils/DataLoader';
 import { CommonUtils } from '../utils/Common';
 import { DSLParser } from './dsl/dslParser';
-import { CHARACTER_DEFAULTS, SIM_CONSTANTS, ENEMY_DEFAULTS, STAT_NAME_MAP } from '../data/db';
+import { ContextManager } from './ContextManager';
+import { CHARACTER_DEFAULTS, SIM_CONSTANTS, ENEMY_DEFAULTS, STAT_NAME_MAP, BUILDUP_RATE_STATS } from '../data/db';
 import { SCOPE_HIT_TAGS } from './combat/combatRegistry';
 import { modifierSet } from './engineValues';
 import { ECHO_STAT_KEYS, emptyEchoStats } from '../data/gameVocab';
@@ -9,40 +10,66 @@ import { findScope, resolveMultiplierBucket, resolveSheetDmgBonusKey } from './c
 import { NEGATIVE_STATUS_MULTS, getNegativeStatusMult } from './combat/negativeStatus';
 import type { Effect, HitConfig, DamageInstanceResult, BuffTotals, CalculatedStats } from '../types';
 
-// Resolves '@' buff exprs against the provider's own unbuffed stats -- avoids recursive
-// buff-context re-derivation in calculateFinalStats.
-function resolveBuffValue(rawVal: any, selfStats: Record<string, number> | null): any {
+// Where a buff's '@' value is evaluated: the state at the hit being priced (enemy stacks,
+// trackers, buffs) for its provider. Absent, only @Self.Stat is readable.
+interface BuffValueScope {
+  state: any;
+  provider: string;
+  team: any[];
+}
+
+// Resolves an '@' buff value. @Self.Stat reads `selfStats` (the provider's stats, one level deep --
+// see providerStatsCache) rather than the context's own, which would re-derive the stats this buff
+// is part of and recurse.
+function resolveBuffValue(rawVal: any, selfStats: Record<string, number> | null, scope?: BuffValueScope): any {
   if (typeof rawVal !== 'string' || !rawVal.includes('@') || !selfStats) return rawVal;
-  const ctx = { self: { getStat: (key: string) => selfStats[key] ?? 0 } };
+  const getStat = (key: string) => selfStats[key] ?? 0;
+  const ctx = scope ? ContextManager.buildContext(scope.state, scope.provider, scope.team) : undefined;
+  if (ctx) ctx.self.getStat = getStat;
   const isPctExpr = rawVal.includes('%');
-  const evaluated = DSLParser.evaluateMath(rawVal, ctx);
+  const evaluated = DSLParser.evaluateMath(rawVal, ctx ?? { self: { getStat } }, scope?.provider);
   return isPctExpr ? `${evaluated * 100}%` : evaluated;
 }
 
 // A buff's value as a number: rank-scaled ("10/12/14%") for `rank`, then any '@' expression
-// resolved against the provider's own unbuffed stats (fetched only when needed).
-function readBuffValue(buff: Effect, rank: number | undefined, providerStats: () => Record<string, number>): { numVal: number; isPct: boolean } {
+// resolved for its provider (stats fetched only when needed).
+function readBuffValue(buff: Effect, rank: number | undefined, providerStats: () => Record<string, number>, scope?: BuffValueScope): { numVal: number; isPct: boolean } {
   let rawVal = buff.value;
-  if (typeof rawVal === 'string' && rawVal.includes('/')) rawVal = CommonUtils.parseRankValue(rawVal, rank);
-  if (typeof rawVal === 'string' && rawVal.includes('@')) rawVal = resolveBuffValue(rawVal, providerStats());
+  if (CommonUtils.isRankValue(rawVal)) rawVal = CommonUtils.parseRankValue(rawVal, rank);
+  if (typeof rawVal === 'string' && rawVal.includes('@')) rawVal = resolveBuffValue(rawVal, providerStats(), scope);
   const valStr = String(rawVal || '0');
   return { numVal: parseFloat(valStr) || 0, isPct: valStr.includes('%') };
 }
 
 // A buff's contribution to a damage bucket: its value as a fraction (if a percent) times its
 // stacks, ranked by its provider's weapon rank.
-function readBuffTotal(buff: Effect, providerUnit: string, team: any[], providerStats: (name: string) => Record<string, number>): { totalVal: number; isPct: boolean } {
+function readBuffTotal(buff: Effect, providerUnit: string, team: any[], providerStats: (name: string) => Record<string, number>, state?: any): { totalVal: number; isPct: boolean } {
   const providerSlot = team.find(t => t.character === providerUnit);
-  const { numVal, isPct } = readBuffValue(buff, providerSlot ? providerSlot.rank : 1, () => providerStats(providerUnit));
+  const scope = state ? { state, provider: providerUnit, team } : undefined;
+  const { numVal, isPct } = readBuffValue(buff, providerSlot ? providerSlot.rank : 1, () => providerStats(providerUnit), scope);
   return { totalVal: (isPct ? numVal / 100 : numVal) * (buff.stacks || 1), isPct };
 }
 
-// Unbuffed stats per provider, computed once per call -- keyed by provider since "@Self" means
-// the buff's author, not its consumer.
-function providerStatsCache(team: any[]): (providerName: string) => Record<string, number> {
-  const cache: Record<string, Record<string, number>> = {};
-  return providerName => (cache[providerName] ??= CombatCalculator.calculateFinalStats(providerName, [], team) as unknown as Record<string, number>);
+/** The buffs on `state` that reach `unit`: its own, team-wide ones, and on-field auras while it's the row's unit. */
+export function buffsReaching(state: any, unit: string): Effect[] {
+  return Object.values(state?.activeBuffs || {}).filter((b: any) =>
+    b.target === unit || b.target === '@Team' || (b.target === 'Active' && unit === state.unit)
+  ) as Effect[];
 }
+
+// Stats per provider, computed once per call -- keyed by provider since "@Self" means the buff's
+// author, not its consumer. With `stateData` they include the provider's live buffs (an
+// "@Self.Stat(energyRegen)" value sees its full ER); '@' values among those buffs resolve against
+// unbuffed stats, so this stays one level deep rather than recursing.
+function providerStatsCache(team: any[], stateData?: any): (providerName: string) => Record<string, number> {
+  const cache: Record<string, Record<string, number>> = {};
+  return providerName => (cache[providerName] ??= CombatCalculator.calculateFinalStats(
+    providerName, stateData ? buffsReaching(stateData, providerName) : [], team
+  ) as unknown as Record<string, number>);
+}
+
+// A debuff on the target: it reaches every hit against it, whoever deals it.
+const targetsEnemy = (buff: Effect): boolean => buff.target === '@Enemy' || buff.target === 'Enemy';
 
 // A buff still in effect that carries a stat, i.e. one that can contribute to a total.
 function isLiveStatBuff(buff: Effect | undefined): buff is Effect & { stat: string } {
@@ -53,7 +80,7 @@ function isLiveStatBuff(buff: Effect | undefined): buff is Effect & { stat: stri
 function emptyBuffTotals(): BuffTotals {
   return {
     percentAtk: 0, flatAtk: 0, percentHP: 0, flatHP: 0, percentDef: 0, flatDef: 0,
-    critRate: 0, critDamage: 0, dmgBonus: 0, dmgAmp: 0, dmgBoost: 0, dmgTaken: 0,
+    critRate: 0, critDamage: 0, dmgBonus: 0, dmgAmp: 0, tuneBreakBoost: 0, dmgTaken: 0,
     multiplicativeMult: 0, additiveMult: 0, reduceRes: 0, ignoreRes: 0, reduceDef: 0, ignoreDef: 0
   };
 }
@@ -93,9 +120,9 @@ export const CombatCalculator = {
   },
 
   calcTuneDmg: (
-    baseDmg: number, dmgBoost: number, dmgTaken: number, multiMult: number, resMult: number, defMult: number
+    baseDmg: number, tuneBreakBoost: number, dmgTaken: number, multiMult: number, resMult: number, defMult: number
   ): number => {
-    return SIM_CONSTANTS.TUNE_BASE_DMG * baseDmg * (1 + dmgBoost) * (1 + dmgTaken) * (1 + multiMult) * resMult * defMult;
+    return SIM_CONSTANTS.TUNE_BASE_DMG * baseDmg * (1 + tuneBreakBoost) * (1 + dmgTaken) * (1 + multiMult) * resMult * defMult;
   },
 
   formatDamageBreakdown: (
@@ -146,7 +173,7 @@ export const CombatCalculator = {
     }
 
     if (buffTotals.dmgAmp !== 0) breakdownParts.push(`${(1 + buffTotals.dmgAmp).toFixed(3)} (Amp)`);
-    if (buffTotals.dmgBoost !== 0) breakdownParts.push(`${(1 + buffTotals.dmgBoost).toFixed(3)} (Boost)`);
+    if (buffTotals.tuneBreakBoost !== 0) breakdownParts.push(`${(1 + buffTotals.tuneBreakBoost).toFixed(3)} (TBB)`);
     if (buffTotals.dmgTaken !== 0) breakdownParts.push(`${(1 + buffTotals.dmgTaken).toFixed(3)} (Taken)`);
     if (buffTotals.multiplicativeMult !== 0) breakdownParts.push(`${(1 + buffTotals.multiplicativeMult).toFixed(3)} (Multi)`);
 
@@ -157,7 +184,8 @@ export const CombatCalculator = {
     return { displayMult, calcBreakdown: `${Math.floor(calculatedTotal)} = ${breakdownParts.join(' * ')}${suffix}` };
   },
 
-  calculateFinalStats: (unitName: string, activeBuffs: Effect[] = [], team: any[] = []): CalculatedStats => {
+  // `stateData`, when given, lets '@' buff values read their provider's buffed stats.
+  calculateFinalStats: (unitName: string, activeBuffs: Effect[] = [], team: any[] = [], stateData?: any): CalculatedStats => {
     const slot = team.find(t => t.character === unitName) || {};
     const dbUnit = DataLoader.characterDB[unitName] || {};
     const dbWeapon = DataLoader.weaponDB[slot.weapon] || {};
@@ -173,6 +201,8 @@ export const CombatCalculator = {
     stats.critRate = (parseFloat(dbUnit.baseCritRate as any) || CHARACTER_DEFAULTS.baseCritRate) + stats.critRate;
     stats.critDamage = (parseFloat(dbUnit.baseCritDmg as any) || CHARACTER_DEFAULTS.baseCritDmg) + stats.critDamage;
     stats.energyRegen = CHARACTER_DEFAULTS.energyRegen + stats.energyRegen;
+    stats.tuneBreakBoost = parseFloat(dbUnit.tuneBreakBoost as any) || 0;
+    for (const key in BUILDUP_RATE_STATS) stats[key] = CHARACTER_DEFAULTS.buildupRate;
 
     let talentAtkPct = 0;
     const injectPassiveStat = (type?: string, val?: string | number) => {
@@ -189,7 +219,7 @@ export const CombatCalculator = {
     injectPassiveStat(dbUnit.talentStat1, dbUnit.talentVal1);
     injectPassiveStat(dbUnit.talentStat2, dbUnit.talentVal2);
 
-    const getProviderStats = providerStatsCache(team);
+    const getProviderStats = providerStatsCache(team, stateData);
 
     activeBuffs.forEach(buff => {
       if (buff.stat) {
@@ -198,8 +228,12 @@ export const CombatCalculator = {
           const resolved = resolveSheetDmgBonusKey(buff.stat.toLowerCase());
           if (resolved) baseStatKey = resolved;
         }
+        // Not a sheet stat (DMG Taken, Crit DMG...): it can't change these stats, so its value isn't read.
+        if (stats[baseStatKey] === undefined) return;
 
-        const { numVal, isPct } = readBuffValue(buff, slot.rank || 1, () => getProviderStats(buff.provider || unitName));
+        const provider = buff.provider || unitName;
+        const scope = stateData ? { state: stateData, provider, team } : undefined;
+        const { numVal, isPct } = readBuffValue(buff, slot.rank || 1, () => getProviderStats(provider), scope);
 
         if (isPct) {
           if (baseStatKey === 'flatAtk') baseStatKey = 'percentAtk';
@@ -234,7 +268,7 @@ export const CombatCalculator = {
     const activeBuffs = stateData.activeBuffs || {};
     const modsSet = new Set((hitModifiers || []).map(m => String(m).toLowerCase().trim()));
 
-    const getProviderStats = providerStatsCache(team);
+    const getProviderStats = providerStatsCache(team, stateData);
 
     for (const [key, buff] of Object.entries(activeBuffs) as [string, Effect][]) {
       if (!isLiveStatBuff(buff)) continue;
@@ -244,7 +278,7 @@ export const CombatCalculator = {
       const appliesToTeam = targetUnit === '@Team' || targetUnit === 'Team';
       const appliesToActive = targetUnit === 'Active' && stateData.unit === executingUnit;
 
-      if (!(appliesToSelf || appliesToTeam || appliesToActive)) continue;
+      if (!(appliesToSelf || appliesToTeam || appliesToActive || targetsEnemy(buff))) continue;
 
       // applyTo, when set, is authoritative and overrides the name-based inference below --
       // e.g. a stat named "Skill DMG Amp" can still be scoped to Basic Attacks.
@@ -264,7 +298,7 @@ export const CombatCalculator = {
 
       appliedBuffs[key] = buff;
 
-      const { totalVal, isPct } = readBuffTotal(buff, buff.provider || executingUnit, team, getProviderStats);
+      const { totalVal, isPct } = readBuffTotal(buff, buff.provider || executingUnit, team, getProviderStats, stateData);
       classifyBuffIntoTotals(sLower, totalVal, isPct, buffTotals);
     }
 
@@ -282,19 +316,18 @@ export const CombatCalculator = {
     const activeBuffs = stateData.activeBuffs || {};
     const statusLower = statusName.toLowerCase();
 
-    const getProviderStats = providerStatsCache(team);
+    const getProviderStats = providerStatsCache(team, stateData);
 
     for (const [key, buff] of Object.entries(activeBuffs) as [string, Effect][]) {
       if (!isLiveStatBuff(buff)) continue;
 
-      const targetsEnemy = buff.target === '@Enemy' || buff.target === 'Enemy';
       const sLower = buff.stat.toLowerCase().trim();
       const namesThisStatus = sLower.startsWith(statusLower);
-      if (!(targetsEnemy || namesThisStatus)) continue;
+      if (!(targetsEnemy(buff) || namesThisStatus)) continue;
 
       appliedBuffs[key] = buff;
 
-      const { totalVal, isPct } = readBuffTotal(buff, buff.provider || 'System', team, getProviderStats);
+      const { totalVal, isPct } = readBuffTotal(buff, buff.provider || 'System', team, getProviderStats, stateData);
       classifyBuffIntoTotals(sLower, totalVal, isPct, buffTotals);
     }
 
@@ -407,7 +440,9 @@ export const CombatCalculator = {
       nonCritDmg = calculatedTotal; critDmg = calculatedTotal;
     } else if (isTuneDmg) {
       formulaUsed = 'Tune';
-      calculatedTotal = CombatCalculator.calcTuneDmg(baseDmg, buffTotals.dmgBoost, buffTotals.dmgTaken, buffTotals.multiplicativeMult, resMultiplier, defMult);
+      // The unit's Tune Break Boost (base + buffs reaching it), as a percent.
+      buffTotals.tuneBreakBoost = CombatCalculator.calculateFinalStats(executingUnit, buffsReaching(stateData, executingUnit), team, stateData).tuneBreakBoost / 100;
+      calculatedTotal = CombatCalculator.calcTuneDmg(baseDmg, buffTotals.tuneBreakBoost, buffTotals.dmgTaken, buffTotals.multiplicativeMult, resMultiplier, defMult);
       nonCritDmg = calculatedTotal; critDmg = calculatedTotal;
     } else {
       const cr = Math.min(1.0, Math.max(0.0, finalCritRate));

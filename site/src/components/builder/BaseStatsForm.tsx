@@ -137,6 +137,7 @@ export const BaseStatsForm: React.FC = () => {
                   {makeInput('baseDef', 'Base DEF')}
                   {makeInput('baseCritRate', 'Base CR Rate', '5%')}
                   {makeInput('baseCritDmg', 'Base CR DMG', '150%')}
+                  {makeInput('tuneBreakBoost', 'Tune Break Boost', 0)}
                 </>
               ))}
 

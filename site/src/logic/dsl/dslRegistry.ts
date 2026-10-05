@@ -144,7 +144,7 @@ export const DSL_POINTERS: Record<string, DSLPointerDef> = {
       { propName: 'HasBuff()', type: 'method', isMethod: true, jsName: 'hasBuff', tooltip: 'Method — returns true if Self currently has the given buff, e.g. @Self.HasBuff(BuffName).' },
       { propName: 'Tracker()', type: 'method', isMethod: true, jsName: 'getTracker', tooltip: 'Method — returns the current value of a tracker/counter, e.g. @Self.Tracker(TrackerName).' },
       { propName: 'Cooldown()', type: 'method', isMethod: true, jsName: 'getCooldown', tooltip: 'Method — returns the remaining cooldown in seconds of a skill, e.g. @Self.Cooldown(Skill).' },
-      { propName: 'Stat()', type: 'method', isMethod: true, jsName: 'getStat', tooltip: 'Method — returns the current value of a sheet stat, e.g. @Self.Stat(CR Rate).' }
+      { propName: 'Stat()', type: 'method', isMethod: true, jsName: 'getStat', tooltip: 'Method — returns the current value of a sheet stat, e.g. @Self.Stat(energyRegen) or @Self.Stat(tuneBreakBoost).' }
     ]
   },
   Enemy: {

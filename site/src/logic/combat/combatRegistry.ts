@@ -26,7 +26,6 @@ type MultiplierBucket = keyof BuffTotals;
 // First match wins. Must precede bare atk/hp/def and DMG_BONUS_FALLBACK checks (e.g. DEF Shred -> reduceDef).
 export const MULTIPLIER_BUCKET_RULES: { aliases: string[]; bucket: MultiplierBucket }[] = [
   { aliases: ['amp', 'deepen'], bucket: 'dmgAmp' },
-  { aliases: ['dmg boost'], bucket: 'dmgBoost' },
   { aliases: ['taken'], bucket: 'dmgTaken' },
   { aliases: ['multiplicative'], bucket: 'multiplicativeMult' },
   { aliases: ['additive'], bucket: 'additiveMult' },
@@ -42,7 +41,7 @@ export const DMG_BONUS_FALLBACK_ALIASES = ['dmg bonus', 'dmg%', 'damage bonus', 
 
 // Builder autocomplete suggestions (eff-stat mode). Excludes crit and base stats.
 export const UNSCOPED_MOD_LABELS = [
-  'DMG Bonus', 'DMG Amp', 'Deepen', 'DMG Boost', 'DMG Taken', 'Reduce RES', 'RES Shred',
+  'DMG Bonus', 'DMG Amp', 'Deepen', 'DMG Taken', 'Reduce RES', 'RES Shred',
   'Ignore RES', 'RES Pen', 'Reduce DEF', 'DEF Shred', 'Ignore DEF', 'Additive Mult', 'Multiplicative Mult'
 ] as const;
 
@@ -55,12 +54,11 @@ export const SCOPEABLE_MOD_LABELS = [
 // Formula (CombatCalculator.ts): baseDmg * critMult * (1+DMG Bonus) * (1+DMG Amp/Deepen) *
 // (1+DMG Taken) * (1+Multiplicative Mult) * resMult * defMult.
 // Any cast type containing "tune" (TuneBreak/TuneRupture/TuneHack/...) routes to calcTuneDmg:
-// skips DMG Bonus/crit/scalar; uses DMG Boost instead of Amp/Deepen.
+// skips DMG Bonus/crit/scalar; uses the unit's Tune Break Boost instead of Amp/Deepen.
 export const MOD_LABEL_TOOLTIPS: Record<typeof UNSCOPED_MOD_LABELS[number], string> = {
   'DMG Bonus': 'Adds to the additive damage-bonus multiplier (1 + Base DMG Bonus + this), applied before crit.',
   'DMG Amp': 'Multiplies final damage by (1 + this). Shares the same multiplier bucket as Deepen.',
   Deepen: 'Multiplies final damage by (1 + this). Shares the same multiplier bucket as DMG Amp.',
-  'DMG Boost': 'Tune-only multiplier bucket (TuneBreak/TuneRupture/TuneHack/...): multiplies final Tune damage by (1 + this). Separate from DMG Amp/Deepen, which Tune damage does not use.',
   'DMG Taken': "Multiplies the target's final damage taken by (1 + this), a separate layer from DMG Amp/Deepen.",
   'Reduce RES': "Subtracted directly from the enemy's base Resistance before the resistance multiplier is computed.",
   'RES Shred': "Subtracted directly from the enemy's base Resistance, identically to Reduce RES.",
