@@ -139,9 +139,9 @@ export interface RotationFile extends CalcInput {
   author?: string;
 }
 
-// 'default': each unit on its recommended echo layout, main stats and substats (set, main echo
-// and weapon as submitted), against the default target -- what Rankings ranks. 'custom': the
-// submitted build and target, for sharing.
+// 'default': each unit on its recommended build's default substats and its weapon at R1 (everything
+// else as submitted), against the default target -- what Rankings ranks. 'custom': the submitted
+// build and target, for sharing.
 export type ResultsBuild = 'default' | 'custom';
 
 // results/<name>.json: one calculation of a rotation file.

@@ -82,35 +82,25 @@ export const calculateEchoStatsForSlot = (slot: TeamSlot) => {
   return echoStats;
 };
 
-// A character's recommended build from db_builds.json (its first listed role), if it has one.
-export const recommendedBuildFor = (character: string): any | undefined => {
+/**
+ * A character's recommended build from db_builds.json (its first listed role), if it has one. A
+ * dual-mode character's build can override any of its fields per mode, under `modes.mode1` /
+ * `modes.mode2`.
+ */
+export const recommendedBuildFor = (character: string, mode?: string): any | undefined => {
   const builds = DataLoader.buildDB[character];
   const roles = builds ? Object.keys(builds) : [];
-  return roles.length > 0 ? builds[roles[0]] : undefined;
+  if (roles.length === 0) return undefined;
+  const { modes, ...build } = builds[roles[0]];
+  const forMode = mode ? modes?.[mode] : undefined;
+  return forMode ? { ...build, ...forMode } : build;
 };
 
-// A recommended build's echo layout, main stats and default-roll substats, on this slot's five
-// echoes. Sets, main echo and weapon are left alone.
-export function recommendedEchoes(slot: TeamSlot, build: any): Pick<TeamSlot, 'layout' | 'echoes'> {
-  const layout = build.echoLayout || slot.layout;
-  const costs = costsForLayout(layout);
+/** A recommended build's default-roll substats, on this slot's echoes (layout and main stats kept). */
+export function defaultSubstats(slot: TeamSlot, build: any): TeamSlot['echoes'] {
   const remainingSubs = { ...(build.subStats || {}) };
   const subStatKeys = Object.keys(remainingSubs);
-  const statDataRaw = build.mainStats;
-
-  const echoes = slot.echoes.map((echo, i) => {
-    const cost = costs[i];
-    let targetMainStat = '';
-    const statData = statDataRaw ? statDataRaw[`cost${cost}`] : null;
-    if (statData) {
-      if (Array.isArray(statData)) {
-        const countSoFar = costs.slice(0, i).filter(c => c === cost).length;
-        targetMainStat = statData[countSoFar] || statData[0];
-      } else {
-        targetMainStat = statData;
-      }
-    }
-
+  return slot.echoes.map(echo => {
     const usedOnThisEcho = new Set<string>();
     const substats = echo.substats.map(() => {
       let targetSub = 'N/A';
@@ -129,11 +119,57 @@ export function recommendedEchoes(slot: TeamSlot, build: any): Pick<TeamSlot, 'l
       }
       return { name: targetSub, value: val };
     });
+    return { ...echo, substats };
+  });
+}
 
-    return { mainStat: targetMainStat || echo.mainStat, substats };
+// A recommended build's echo layout, main stats and default-roll substats, on this slot's five
+// echoes. Sets, main echo and weapon are left alone.
+export function recommendedEchoes(slot: TeamSlot, build: any): Pick<TeamSlot, 'layout' | 'echoes'> {
+  const layout = build.echoLayout || slot.layout;
+  const costs = costsForLayout(layout);
+  const statDataRaw = build.mainStats;
+
+  const withMainStats = slot.echoes.map((echo, i) => {
+    const cost = costs[i];
+    let targetMainStat = '';
+    const statData = statDataRaw ? statDataRaw[`cost${cost}`] : null;
+    if (statData) {
+      if (Array.isArray(statData)) {
+        const countSoFar = costs.slice(0, i).filter(c => c === cost).length;
+        targetMainStat = statData[countSoFar] || statData[0];
+      } else {
+        targetMainStat = statData;
+      }
+    }
+    return { ...echo, mainStat: targetMainStat || echo.mainStat };
   });
 
-  return { layout, echoes };
+  return { layout, echoes: defaultSubstats({ ...slot, echoes: withMainStats }, build) };
+}
+
+const GEAR_FIELDS = ['weapon', 'mainSet', 'subSet', 'mainEcho'] as const;
+const echoLayoutOf = (slot: Pick<TeamSlot, 'layout' | 'echoes'>) => JSON.stringify([slot.layout, slot.echoes.map(e => e.mainStat)]);
+const substatsOf = (echoes: TeamSlot['echoes']) => JSON.stringify(echoes.map(e => e.substats));
+
+// A dual-mode unit switching modes: each part of its build still on the old mode's recommendation
+// (each piece of gear, the echo layout and main stats, the substats) moves to the new mode's;
+// anything the user picked themselves stays.
+function withModeDefaults(slot: TeamSlot, prevMode: string): TeamSlot {
+  const before = recommendedBuildFor(slot.character, prevMode);
+  const after = recommendedBuildFor(slot.character, slot.mode);
+  if (!before || !after) return slot;
+  const next = { ...slot };
+  GEAR_FIELDS.forEach(field => {
+    if ((slot[field] || '') === (before[field] || '')) next[field] = after[field] || '';
+  });
+  if (echoLayoutOf(slot) === echoLayoutOf(recommendedEchoes(slot, before))) {
+    const { layout, echoes } = recommendedEchoes(slot, after);
+    next.layout = layout;
+    next.echoes = echoes.map((echo, i) => ({ ...echo, substats: slot.echoes[i].substats }));
+  }
+  if (substatsOf(slot.echoes) === substatsOf(defaultSubstats(slot, before))) next.echoes = defaultSubstats(next, after);
+  return next;
 }
 
 // Publishes a new team: the Builder edits for its members are replayed onto the DataLoader first.
@@ -170,10 +206,10 @@ export const useRosterStore = create<RosterState>()(
       enemy: defaultEnemyStats(),
 
       applyRecommendedBuild: async (slotIndex, charName) => {
-        const build = recommendedBuildFor(charName);
-        if (!build) return;
         const team = [...get().team];
         const slot = { ...team[slotIndex], character: charName };
+        const build = recommendedBuildFor(charName, slot.mode);
+        if (!build) return;
 
         if (build.weapon) slot.weapon = build.weapon;
         if (build.mainSet) slot.mainSet = build.mainSet;
@@ -189,7 +225,7 @@ export const useRosterStore = create<RosterState>()(
 
       setSlotField: async (slotIndex, field, value) => {
         const team = [...get().team];
-        const slot = { ...team[slotIndex], [field]: value };
+        let slot = { ...team[slotIndex], [field]: value };
 
         if (field === 'layout') {
           const costs = costsForLayout(value);
@@ -200,6 +236,9 @@ export const useRosterStore = create<RosterState>()(
               mainStat: validOptions.includes(echo.mainStat) ? echo.mainStat : validOptions[0] || ''
             };
           });
+        } else if (field === 'mode' && slot.character) {
+          slot = withModeDefaults(slot, team[slotIndex].mode);
+          await DataLoader.loadTeamMechanics([slot]);
         } else if (field === 'character' && value) {
           slot.weapon = '';
           slot.mode = 'None';

@@ -63,7 +63,7 @@ export const ExportRotationDialog: React.FC<ExportRotationDialogProps> = ({ sour
               value={build}
               onChange={setBuild}
               options={[
-                { value: 'default', label: 'Default', tooltip: 'Recommended echo layout, main stats and substats. Used for Rotation Rankings.' },
+                { value: 'default', label: 'Default', tooltip: 'Recommended substats and weapon at R1; everything else as entered. Used for Rotation Rankings.' },
                 { value: 'custom', label: 'Custom', tooltip: 'Your echoes as entered, for sharing or saving.' }
               ]}
             />

@@ -1,10 +1,10 @@
 // Builds the two exported files: the rotation file (the rotation, roster and target as submitted)
 // and a results file calculated from it, on either the default build and target or the submitted ones.
 import { runSummaryCalculation } from '../workers/runFullCalculation';
-import { calculateEchoStatsForSlot, recommendedBuildFor, recommendedEchoes } from '../store/useRosterStore';
+import { calculateEchoStatsForSlot, defaultSubstats, recommendedBuildFor } from '../store/useRosterStore';
 import type { TeamSlot } from '../types';
 import type { RotationFile, ResultsFile, ResultsBuild, RotationSummary, CalcInput } from '../types/results';
-import { defaultEnemyStats } from '../data/db';
+import { CHARACTER_DEFAULTS, defaultEnemyStats } from '../data/db';
 import { sha256Hex } from './Common';
 
 export interface ExportSource extends CalcInput {
@@ -24,13 +24,15 @@ async function hashRotationInputs({ rotation, team, settings, enemy }: CalcInput
   return (await sha256Hex(JSON.stringify({ rotation, team, settings, enemy }))).slice(0, 16);
 }
 
-// Each unit on its recommended echo layout, main stats and substats. Set, main echo and weapon stay
-// as submitted: the rotation can depend on them (e.g. casting the main echo's skill).
+// Each unit on its recommended build's default substats (for its mode) and its weapon at R1. The
+// rest stays as submitted -- sequence, weapon, sets, main echo, echo layout and main stats are all
+// differences Rankings compares.
 function withDefaultBuild(team: TeamSlot[]): TeamSlot[] {
   return team.map(slot => {
-    const build = slot.character ? recommendedBuildFor(slot.character) : undefined;
-    if (!build) return slot;
-    const next = { ...slot, ...recommendedEchoes(slot, build) };
+    if (!slot.character) return slot;
+    const build = recommendedBuildFor(slot.character, slot.mode);
+    const next = { ...slot, rank: CHARACTER_DEFAULTS.rank };
+    if (build) next.echoes = defaultSubstats(slot, build);
     next.echoStats = calculateEchoStatsForSlot(next);
     return next;
   });
