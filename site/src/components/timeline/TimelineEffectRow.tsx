@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { TooltipManager, tip } from '../../utils/Common';
 import { formatFramesAsSeconds, framesToSeconds, secondsToFrames, toFrames } from '../../utils/Frames';
-import { EFFECT_BAR_INSET_PX, EFFECT_ROW_HEIGHT_PX, describeAppliesTo } from './effectLayout';
+import { EFFECT_BAR_INSET_PX, EFFECT_ROW_HEIGHT_PX, describeAppliesTo, rowsReceivingBar } from './effectLayout';
+import { useLinkedRowStore } from '../../store/useLinkedRowStore';
 import { nearestMarker, trackPointer } from './trackPointer';
 import type { EffectBar, EffectLane, EffectPoint } from './effectLayout';
 
@@ -9,6 +10,8 @@ interface TimelineEffectRowProps {
   lane: EffectLane;
   // Inside a unit's effect group (Weapon, Echo Sets): indented one more step.
   nested?: boolean;
+  // The timeline's rows, when linked to the rotation table: hovering a buff highlights the rows it reached.
+  linkRows?: any[];
 }
 
 const escapeHtml = (text: unknown): string =>
@@ -75,8 +78,12 @@ const framesAt = (bar: EffectBar, x: number): number =>
 /** One effect's row: a bar per stretch it held steady (a refresh or value change starts a new
  * one), stack/value changes marked inside it -- the same for a cooldown ticking -- or a System
  * mechanic's hits. */
-export const TimelineEffectRow: React.FC<TimelineEffectRowProps> = ({ lane, nested = false }) => {
+export const TimelineEffectRow: React.FC<TimelineEffectRowProps> = ({ lane, nested = false, linkRows }) => {
   const [active, setActive] = useState<number | null>(null);
+  const hover = useLinkedRowStore(s => s.hover);
+  const hoverBar = (bar: EffectBar | undefined) => {
+    if (linkRows) hover(bar ? rowsReceivingBar(linkRows, lane, bar) : [], 'timeline', false);
+  };
 
   // Snap targets: stack/value changes after a bar's start, and hits.
   const markers = [
@@ -92,6 +99,7 @@ export const TimelineEffectRow: React.FC<TimelineEffectRowProps> = ({ lane, nest
       const marker: any = markers[nearest];
       const at = pointer.toClient(marker.xPx, marker.yPx);
       setActive(nearest);
+      hoverBar(marker.bar);
       const html = marker.hit
         ? `<div>${escapeHtml(marker.hit.moveName)}</div>` + line('Hit', `${Math.floor(marker.hit.total).toLocaleString()} dmg`) + line('Time', formatFramesAsSeconds(toFrames(marker.hit.frames)))
         : barTooltipHtml(lane, marker.bar, marker.point, marker.point.frames);
@@ -100,6 +108,7 @@ export const TimelineEffectRow: React.FC<TimelineEffectRowProps> = ({ lane, nest
     }
     setActive(null);
     const bar = [...lane.bars].reverse().find(b => pointer.x >= b.xPx && pointer.x < b.xPx + b.widthPx);
+    hoverBar(bar);
     if (!bar) return TooltipManager.hide();
     // The stack count under the cursor.
     const point = [...bar.points].reverse().find(p => p.xPx <= pointer.x) ?? bar.points[0];
@@ -108,6 +117,7 @@ export const TimelineEffectRow: React.FC<TimelineEffectRowProps> = ({ lane, nest
 
   const handleLeave = () => {
     setActive(null);
+    hoverBar(undefined);
     TooltipManager.hide();
   };
 

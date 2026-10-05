@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRotationStore } from '../../store/useRotationStore';
 import { useRosterStore } from '../../store/useRosterStore';
 import { DataLoader } from '../../utils/DataLoader';
@@ -17,6 +17,7 @@ import { TooltipManager, getCharacterThemeColor } from '../../utils/Common';
 import { teamCharacters } from '../../utils/TeamUtils';
 import { toFrames, secondsToFrames, framesToSeconds, formatFramesAsSeconds } from '../../utils/Frames';
 import { applyBuilderOverridesFor } from '../../workers/builderOverridePayload';
+import { useLinkedRowStore, scrollIntoContainer } from '../../store/useLinkedRowStore';
 
 interface RotationRowProps {
   index: number;
@@ -126,9 +127,18 @@ export const RotationRow = React.memo<RotationRowProps>(({
   const setRowUnit = useRotationStore(s => s.setRowUnit);
   const isStale = useRotationStore(s => s.isStale);
   const team = useRosterStore(s => s.team);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const hoverLinked = useLinkedRowStore(s => s.hover);
+  // Its move (or a buff it got) hovered on the Timeline: highlighted -- and, for a move, scrolled to.
+  const isLinked = useLinkedRowStore(s => s.source === 'timeline' && !!row.id && s.rowIds.includes(row.id));
+  const isScrollTarget = useLinkedRowStore(s => s.source === 'timeline' && s.scroll && !!row.id && s.rowIds[0] === row.id);
   const [isDraggable, setIsDraggable] = useState(true);
   const [offsetDraft, setOffsetDraft] = useState<string | null>(null);
   const [repeatCountDraft, setRepeatCountDraft] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isScrollTarget && rowRef.current) scrollIntoContainer(rowRef.current, rowRef.current.closest<HTMLElement>('#rotation-builder'));
+  }, [isScrollTarget]);
 
   const teamUnits = teamCharacters(team);
   const selectedUnit = row.unit || '';
@@ -361,8 +371,11 @@ export const RotationRow = React.memo<RotationRowProps>(({
 
   return (
     <div
-      className={`rotation-row ${isSelected ? 'selected' : ''} ${dragClass}`}
+      ref={rowRef}
+      className={`rotation-row ${isSelected ? 'selected' : ''} ${isLinked ? 'is-linked' : ''} ${dragClass}`}
       style={{ '--char-theme-raw': themeColor } as React.CSSProperties}
+      onMouseEnter={() => { if (row.unit && row.id) hoverLinked([row.id], 'table'); }}
+      onMouseLeave={() => hoverLinked([], 'table')}
       draggable={!isLastRow && isDraggable}
       onDragStart={e => onDragStart(e, index)}
       onDragOver={e => onDragOver(e, index)}

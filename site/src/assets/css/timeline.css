@@ -167,6 +167,11 @@
     background: var(--danger-tint);
     border: 1px dashed var(--danger);
 }
+/* Its rotation row is hovered (here or in the table). */
+.timeline-clip-hit.is-linked .timeline-clip {
+    box-shadow: 0 0 0 1.5px var(--text-main);
+    filter: brightness(1.2);
+}
 /* Paused by another unit's motion stop -- the wait bar's look, in grey. */
 .timeline-clip-motionstop {
     background: color-mix(in srgb, var(--text-disabled) 25%, var(--surface-card-flat));

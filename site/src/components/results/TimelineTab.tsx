@@ -38,6 +38,7 @@ export const TimelineTab: React.FC = () => {
         loopStartIndex={loopStartIndex}
         showInputs={false}
         withEffects
+        linkToTable
         className="results-timeline-view"
       />
     </div>

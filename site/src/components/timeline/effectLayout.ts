@@ -364,6 +364,47 @@ export function buildEffectTimeline(rows: any[], team: TeamSlot[], compression: 
   return data;
 }
 
+// The same effect on both sides of a refresh: only its timer restarted.
+const sameEffect = (a: EffectInfo, b: EffectInfo) =>
+  a.stat === b.stat && a.value === b.value && a.label === b.label && a.target === b.target;
+
+// The stretch `bar` belongs to, through refreshes: back-to-back bars of the same effect.
+function refreshSpan(lane: EffectLane, bar: EffectBar): { start: number; end: number } {
+  const bars = [...lane.bars].sort((a, b) => a.startFrames - b.startFrames);
+  const i = bars.indexOf(bar);
+  let first = i;
+  let last = i;
+  const joins = (a: EffectBar, b: EffectBar) => b.startFrames <= a.endFrames + 1 && sameEffect(a.info, b.info);
+  while (first > 0 && joins(bars[first - 1], bars[first])) first--;
+  while (last < bars.length - 1 && joins(bars[last], bars[last + 1])) last++;
+  return { start: bars[first].startFrames, end: Math.max(...bars.slice(first, last + 1).map(b => b.endFrames)) };
+}
+
+/**
+ * The rotation rows (ids, in order) a buff bar reached, through refreshes: those whose hits during
+ * it used the buff. A buff no hit used (not a damage stat) falls back to its target's moves cast during
+ * it -- anyone's, on the Enemy.
+ */
+export function rowsReceivingBar(rows: any[], lane: EffectLane, bar: EffectBar): string[] {
+  if (lane.kind !== 'buff') return [];
+  const ids = new Set<string>();
+  const span = refreshSpan(lane, bar);
+  const during = (frames: number) => frames >= span.start && frames <= span.end;
+  rows.forEach(row => {
+    if (row?.id && (row.damageInstances || []).some((hit: any) =>
+      during(hit.gameTime ?? row.gameTimeStart) && hit.data?.activeBuffs?.[lane.id])) ids.add(row.id);
+  });
+  if (ids.size > 0) return [...ids];
+  const target = bar.info.target;
+  rows.forEach(row => {
+    if (!row?.id || !row.unit || (target !== 'Enemy' && row.unit !== target)) return;
+    // Cast while it was up -- a move's full animation can run on past the next move's start.
+    const start = row.gameTimeStart ?? 0;
+    if (start >= span.start && start < span.end) ids.add(row.id);
+  });
+  return [...ids];
+}
+
 // "Self" / "Team -> Sanhua" / "Next -> Lumi": the selector a buff was applied with, and where it
 // landed when that isn't obvious from the selector.
 export function describeAppliesTo(info: EffectInfo): string {

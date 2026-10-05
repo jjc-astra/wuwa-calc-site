@@ -5,6 +5,8 @@ import type { TimelineSegment } from './timelineLayout';
 
 interface TimelineClipProps {
   segment: TimelineSegment;
+  // Its rotation row is hovered (in the table or here).
+  isLinked?: boolean;
 }
 
 // "Hit #n: x dmg" per hit, with `activeHit` (1-based) highlighted.
@@ -54,7 +56,7 @@ export function buildClipTooltipHtml(
 }
 
 /** One segment of a unit's row (on-field, off-field or wait). Hover is handled by TimelineRow. */
-export const TimelineClip: React.FC<TimelineClipProps> = ({ segment }) => {
+export const TimelineClip: React.FC<TimelineClipProps> = ({ segment, isLinked = false }) => {
   // Outer box is the true, unmodified hit target. The fill's gap from its neighbor (same idea as
   // StackedContributionBar's .ranking-bar-fill gap) is computed here, not a static CSS inset, so
   // it uses the same device-pixel-snapped hairline as every other edge.
@@ -62,7 +64,11 @@ export const TimelineClip: React.FC<TimelineClipProps> = ({ segment }) => {
   const fillWidth = Math.max(0, segment.widthPx - hairline * 2);
 
   return (
-    <div className="timeline-clip-hit" style={{ left: segment.xPx, width: segment.widthPx, top: CLIP_INSET_PX, bottom: CLIP_INSET_PX }}>
+    <div
+      className={`timeline-clip-hit${isLinked ? ' is-linked' : ''}`}
+      data-row-id={segment.row?.id}
+      style={{ left: segment.xPx, width: segment.widthPx, top: CLIP_INSET_PX, bottom: CLIP_INSET_PX }}
+    >
       <div className={`timeline-clip timeline-clip-${segment.type}`} style={{ left: hairline, width: fillWidth }} />
     </div>
   );

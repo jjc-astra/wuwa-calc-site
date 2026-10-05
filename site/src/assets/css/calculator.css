@@ -482,6 +482,13 @@
     background: var(--bg-panel);
 }
 
+/* Its move is hovered on the Timeline. */
+.rotation-row.is-linked {
+    --row-bg-mixed: color-mix(in srgb, var(--row-accent) 30%, var(--row-theme-base));
+    border-top-color: var(--row-accent);
+    border-bottom-color: var(--row-accent);
+}
+
 .rotation-row.selected {
     background: var(--accent-row-selected) !important;
     border-bottom: 1px solid var(--accent);

@@ -40,6 +40,9 @@ interface RotationTimelineProps {
   // System Effects (with System hits, taken off the unit rows) and Trackers -- each collapsible,
   // with the view choices in useTimelineViewStore.
   withEffects?: boolean;
+  // Hovering a move highlights its row in the rotation table (and the other way around); hovering a
+  // buff, the rows it reached.
+  linkToTable?: boolean;
 }
 
 interface TimelineSectionRowProps {
@@ -88,7 +91,7 @@ const TimelineMarkerLine: React.FC<MarkerLineProps> = ({ left, top, height, widt
   </>
 );
 
-export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRows, team, loopStartIndex, className = '', showInputs = true, withEffects = false }) => {
+export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRows, team, loopStartIndex, className = '', showInputs = true, withEffects = false, linkToTable = false }) => {
   // All timeline geometry is laid out in fixed design px (timelineLayout), so the content is
   // zoomed by the UI scale as a whole -- boxes and text shrink together, instead of rem text
   // shrinking inside px boxes.
@@ -109,12 +112,12 @@ export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRow
   // Every row under the flag track, top to bottom, with its height (the markers below span them).
   const items: TimelineItem[] = [];
   if (!effects) {
-    unitRows.forEach(row => items.push({ key: row.unit, height: ROW_HEIGHT_PX, node: <TimelineRow data={row} /> }));
+    unitRows.forEach(row => items.push({ key: row.unit, height: ROW_HEIGHT_PX, node: <TimelineRow data={row} linked={linkToTable} /> }));
   } else {
     const shown = (lanes: EffectLane[] = []) => (showPermanent ? lanes : lanes.filter(lane => !lane.alwaysOn));
     const isOpen = (id: string) => !collapsed.includes(id);
     const laneItems = (lanes: EffectLane[], nested = false) => lanes.forEach(lane =>
-      items.push({ key: lane.id, height: EFFECT_ROW_HEIGHT_PX, node: <TimelineEffectRow lane={lane} nested={nested} /> }));
+      items.push({ key: lane.id, height: EFFECT_ROW_HEIGHT_PX, node: <TimelineEffectRow lane={lane} nested={nested} linkRows={linkToTable ? evaluatedRows : undefined} /> }));
     const section = (id: string, title: string, count: number, body: () => void, nested = false) => {
       items.push({
         key: `section:${id}`,
@@ -132,7 +135,7 @@ export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRow
       items.push({
         key: row.unit,
         height: ROW_HEIGHT_PX,
-        node: <TimelineRow data={row} expander={{ open: isOpen(id), count: lanes.length, onToggle: () => toggleCollapsed(id) }} />
+        node: <TimelineRow data={row} linked={linkToTable} expander={{ open: isOpen(id), count: lanes.length, onToggle: () => toggleCollapsed(id) }} />
       });
       if (!isOpen(id)) return;
       const buffs = lanes.filter(lane => lane.kind !== 'cooldown');
