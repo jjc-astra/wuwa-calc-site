@@ -166,7 +166,7 @@ export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRow
   const effects = useMemo(() => (withEffects ? buildEffectTimeline(evaluatedRows, team, compression) : null), [evaluatedRows, team, compression, withEffects]);
   const totalFrames = useMemo(() => computeTotalDurationFrames(evaluatedRows), [evaluatedRows]);
   const ticks = useMemo(() => generateTicks(totalFrames, compression), [totalFrames, compression]);
-  const { showPermanent, collapsed, toggleCollapsed } = useTimelineViewStore();
+  const { showPermanent, collapsed, toggleCollapsed, expandedUnits, toggleUnitExpanded } = useTimelineViewStore();
 
   // Every row under the flag track, top to bottom, with its height (the markers below span them).
   const items: TimelineItem[] = [];
@@ -191,13 +191,14 @@ export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRow
     section('units', 'Unit Effects', unitRows.length, () => unitRows.forEach(row => {
       const lanes = shown(effects.unitLanes[row.unit]);
       const id = `unit:${row.unit}`;
+      const unitOpen = expandedUnits.includes(id);
       items.push({
         key: row.unit,
         height: ROW_HEIGHT_PX,
         pinned: true,
-        node: <TimelineRow data={row} linked={linkToTable} expander={{ open: isOpen(id), count: lanes.length, onToggle: () => toggleCollapsed(id) }} />
+        node: <TimelineRow data={row} linked={linkToTable} expander={{ open: unitOpen, count: lanes.length, onToggle: () => toggleUnitExpanded(id) }} />
       });
-      if (!isOpen(id)) return;
+      if (!unitOpen) return;
       const buffs = lanes.filter(lane => lane.kind !== 'cooldown');
       const grouped = new Set<EffectSourceKind>(UNIT_EFFECT_GROUPS.flatMap(group => group.kinds));
       laneItems(buffs.filter(lane => !grouped.has(lane.sourceKind ?? 'character')));
