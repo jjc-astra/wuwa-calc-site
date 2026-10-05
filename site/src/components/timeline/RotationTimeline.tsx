@@ -1,6 +1,6 @@
 // "Video editor" style rotation timeline -- pure/presentational (evaluated rows + team in, JSX
 // out), no fetching/page knowledge, so reuse elsewhere is just a thin wrapper, not a rewrite.
-import React, { useMemo } from 'react';
+import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { TimelineFlagTrack } from './TimelineFlagTrack';
 import { useUiScale } from '../../hooks/useUiScale';
 import { TimelineRow } from './TimelineRow';
@@ -72,6 +72,59 @@ interface TimelineItem {
   key: string;
   height: number;
   node: React.ReactNode;
+  // Rendered even when scrolled out of view (a unit row: a table hover scrolls to its clips).
+  pinned?: boolean;
+}
+
+// Only rows within this much (design px) of the view are rendered; the rest are spacers. The
+// window moves in steps of WINDOW_STEP_PX, so scrolling re-renders once per step, not per frame.
+const WINDOW_OVERSCAN_PX = 240;
+const WINDOW_STEP_PX = 120;
+
+// The scrolled view, in steps of WINDOW_STEP_PX of design px.
+function useViewSteps(scrollRef: React.RefObject<HTMLDivElement | null>, scale: number) {
+  const [steps, setSteps] = useState({ first: 0, last: 0 });
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const update = () => {
+      const first = Math.floor(el.scrollTop / scale / WINDOW_STEP_PX);
+      const last = Math.ceil((el.scrollTop + el.clientHeight) / scale / WINDOW_STEP_PX);
+      setSteps(prev => (prev.first === first && prev.last === last ? prev : { first, last }));
+    };
+    update();
+    el.addEventListener('scroll', update, { passive: true });
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener('scroll', update);
+      ro.disconnect();
+    };
+  }, [scrollRef, scale]);
+  return steps;
+}
+
+// The items to render: those near [top, bottom] (design px, from the first item) or pinned, with
+// each run of skipped items collapsed into one spacer of their total height.
+function windowItems(items: TimelineItem[], top: number, bottom: number): React.ReactNode[] {
+  const out: React.ReactNode[] = [];
+  let y = 0;
+  let skipped = 0;
+  const flushSpacer = (key: string) => {
+    if (skipped > 0) out.push(<div key={`spacer:${key}`} className="timeline-spacer" style={{ height: skipped }} />);
+    skipped = 0;
+  };
+  for (const item of items) {
+    if (item.pinned || (y + item.height > top && y < bottom)) {
+      flushSpacer(item.key);
+      out.push(<React.Fragment key={item.key}>{item.node}</React.Fragment>);
+    } else {
+      skipped += item.height;
+    }
+    y += item.height;
+  }
+  flushSpacer('end');
+  return out;
 }
 
 // Loop/ending-rotation marker: a line spanning just the unit rows (not through the ruler), plus
@@ -96,6 +149,8 @@ export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRow
   // zoomed by the UI scale as a whole -- boxes and text shrink together, instead of rem text
   // shrinking inside px boxes.
   const scale = useUiScale();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const view = useViewSteps(scrollRef, scale);
   // Squeezes the Ending Rotation's silently-simulated gap down to a small fixed width. All
   // x/width math below routes through compressedTimeToPx so clips/flags/ticks/width all agree.
   const compression = useMemo(() => buildTimeCompression(evaluatedRows), [evaluatedRows]);
@@ -112,7 +167,7 @@ export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRow
   // Every row under the flag track, top to bottom, with its height (the markers below span them).
   const items: TimelineItem[] = [];
   if (!effects) {
-    unitRows.forEach(row => items.push({ key: row.unit, height: ROW_HEIGHT_PX, node: <TimelineRow data={row} linked={linkToTable} /> }));
+    unitRows.forEach(row => items.push({ key: row.unit, height: ROW_HEIGHT_PX, pinned: true, node: <TimelineRow data={row} linked={linkToTable} /> }));
   } else {
     const shown = (lanes: EffectLane[] = []) => (showPermanent ? lanes : lanes.filter(lane => !lane.alwaysOn));
     const isOpen = (id: string) => !collapsed.includes(id);
@@ -135,6 +190,7 @@ export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRow
       items.push({
         key: row.unit,
         height: ROW_HEIGHT_PX,
+        pinned: true,
         node: <TimelineRow data={row} linked={linkToTable} expander={{ open: isOpen(id), count: lanes.length, onToggle: () => toggleCollapsed(id) }} />
       });
       if (!isOpen(id)) return;
@@ -180,16 +236,21 @@ export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRow
   const flagTrackHeight = showInputs ? Math.max(FLAG_TRACK_MIN_HEIGHT_PX, (maxLane + 1) * LANE_HEIGHT_PX) : 0;
   const rowsBottom = flagTrackHeight + items.reduce((sum, item) => sum + item.height, 0);
   const hairline = hairlinePx();
+  const shownItems = windowItems(
+    items,
+    view.first * WINDOW_STEP_PX - flagTrackHeight - WINDOW_OVERSCAN_PX,
+    view.last * WINDOW_STEP_PX - flagTrackHeight + WINDOW_OVERSCAN_PX
+  );
 
   return (
     <div className={`timeline-root ${className}`}>
-      <div className="timeline-scroll">
+      <div className="timeline-scroll" ref={scrollRef}>
         <div
           className="timeline-content"
           style={{ width: contentWidth, zoom: scale, '--timeline-header-width': `${headerWidth}px` } as React.CSSProperties}
         >
           {showInputs && <TimelineFlagTrack flags={flags} />}
-          {items.map(item => <React.Fragment key={item.key}>{item.node}</React.Fragment>)}
+          {shownItems}
           <TimelineRuler ticks={ticks} />
 
           {/* Vertical bar per flag -- starts at the bottom of its own label (not the full lane

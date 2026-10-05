@@ -162,13 +162,24 @@ export interface ResultsFile {
 export type RosterSlot = Pick<TeamSlot, 'character' | 'sequence' | 'weapon' | 'rank' | 'mainSet' | 'subSet' | 'subSet2a' | 'subSet2b' | 'mainEcho' | 'layout'>;
 
 // One row of the generated index.json: a default-build results file, trimmed for Rankings.
+// What a ranked rotation's damage leaned on, over its 2-minute window: the element its team
+// members dealt the most as, and the DMG Type category they dealt the most of. Null when none.
+export interface RankingMajority {
+  element: string | null;
+  category: string | null;
+}
+
+// One rankings index entry: only what search, filters and sort read. The rest (team details,
+// author, contribution) is in its results file, loaded per visible row.
 export interface RankingIndexEntry {
   // The results file's name.
   id: string;
   rotationFile: string;
   hash: string;
   rotationType: RotationType;
-  author?: string;
-  team: RosterSlot[];
-  results: RotationSummary;
+  // Slot order: [main DPS, sub DPS, support], '' and 0 for an empty slot.
+  characters: string[];
+  sequences: number[];
+  dpsStats: DpsStats;
+  majority: RankingMajority;
 }

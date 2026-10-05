@@ -12,6 +12,8 @@ import type { ExportSource } from '../../utils/rotationExport';
 import { findBlocks } from '../../logic/RepeatBlocks';
 import { toSavedRow } from '../../store/useRotationStore';
 import { useLatestCallback } from '../../hooks/useLatestCallback';
+import { useLinkedRowStore } from '../../store/useLinkedRowStore';
+import { useVirtualizer } from '@tanstack/react-virtual';
 
 interface RotationBuilderProps {
   isOpen: boolean;
@@ -62,6 +64,11 @@ function buildRotationScrollbarSegments(rows: any[], loopStartIndex: number, loo
 
   return segments;
 }
+
+// A row's height before it's measured (a plain row, no markers or sub-panel).
+const ROW_ESTIMATE_PX = 32;
+// Space kept between a scrolled-to row and the table's edge.
+const SCROLL_MARGIN_PX = 8;
 
 // Module-level, not component state -- this component remounts on every navigation to this
 // route, but the backfill below should only run once per page load.
@@ -125,6 +132,32 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     [liveRows, liveLoopStartIndex, liveLoopStartIsOverride, liveLoopErrors, liveLoopWarnings]
   ));
   const { rows, loopStartIndex, loopStartIsOverride, loopErrors, loopWarnings } = table;
+
+  // Only the rows in or near view are rendered: with every row in the page, each hover's layout
+  // pass walked all of them. Heights vary (markers, sub-panels), so rows are measured once shown.
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => rotationBuilderRef.current,
+    estimateSize: () => ROW_ESTIMATE_PX,
+    getItemKey: i => rows[i].id,
+    overscan: 8,
+    scrollPaddingStart: SCROLL_MARGIN_PX,
+    scrollPaddingEnd: SCROLL_MARGIN_PX
+  });
+  const windowRows = virtualizer.getVirtualItems();
+  const padTop = windowRows[0]?.start ?? 0;
+  const padBottom = Math.max(0, virtualizer.getTotalSize() - (windowRows[windowRows.length - 1]?.end ?? 0));
+
+  // A move hovered on the Timeline: its row scrolled into view (it may not be rendered yet).
+  const scrollToRow = useLatestCallback((id: string) => {
+    const index = rows.findIndex(r => r.id === id);
+    if (index !== -1) virtualizer.scrollToIndex(index, { align: 'auto', behavior: 'smooth' });
+  });
+  useEffect(() => useLinkedRowStore.subscribe((s, prev) => {
+    const target = (state: typeof s) => (state.source === 'timeline' && state.scroll ? state.rowIds[0] : undefined);
+    const id = target(s);
+    if (id && id !== target(prev)) scrollToRow(id);
+  }), [scrollToRow]);
 
   // Backfills damageInstances (not persisted) once per page load, without flagging isStale.
   // checkBuilderStaleness then dims the results if a Builder edit since the last Calculate
@@ -527,46 +560,52 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
             </div>
           )}
           <div id="rotation-builder" ref={rotationBuilderRef} className="flex-col gap-sm" style={{ padding: 0 }}>
-            {rows.map((row, i) => (
-              <RotationRow
-                key={row.id}
-                index={i}
-                row={row}
-                isSelected={selectedIndices.includes(i)}
-                activeTrigger={activeSubPanel?.rowIndex === i ? activeSubPanel.trigger : null}
-                onSelectRow={rowHandlers.onSelectRow}
-                onTriggerClick={rowHandlers.onTriggerClick}
-                onDragStart={rowHandlers.onDragStart}
-                onDragOver={rowHandlers.onDragOver}
-                onDragLeave={rowHandlers.onDragLeave}
-                onDrop={rowHandlers.onDrop}
-                dragOverPosition={dragOverInfo?.index === i ? dragOverInfo.position : null}
-                isLastRow={i === rows.length - 1}
-                isLoopStart={i === loopStartIndex && rows.some(r => r.unit)}
-                isLoopStartOverride={loopStartIsOverride && i === loopStartIndex}
-                loopErrors={i === loopStartIndex ? loopErrors : undefined}
-                loopWarnings={i === loopStartIndex ? loopWarnings : undefined}
-                onLoopMarkerDragStart={rowHandlers.onLoopMarkerDragStart}
-                onLoopMarkerDragEnd={rowHandlers.onLoopMarkerDragEnd}
-                onResetLoopStart={resetLoopStart}
-                isLoopEnd={i === loopEndIndex}
-                onLoopEndMarkerDragStart={rowHandlers.onLoopEndMarkerDragStart}
-                onLoopEndMarkerDragEnd={rowHandlers.onLoopMarkerDragEnd}
-                onResetLoopEnd={resetLoopEnd}
-                isEndRotationStart={i === loopEndIndex + 1 && hasEndRotationContent}
-                endRotationStartsEarlier={endRotationStartsEarlier}
-                onToggleEndRotationStartsEarlier={setEndRotationStartsEarlier}
-                isRepeatStart={!!row.repeatBlockStart}
-                repeatCount={row.repeatBlockStart ? repeatBlocksByGroup.get(row.repeatBlockStart)?.count : undefined}
-                onRepeatCountChange={setRepeatCount}
-                onRepeatMarkerDragStart={rowHandlers.onRepeatMarkerDragStart}
-                onRepeatMarkerDragEnd={rowHandlers.onRepeatMarkerDragEnd}
-                onRemoveRepeatBlock={removeRepeatBlock}
-                isRepeatEnd={!!row.repeatBlockEnd}
-                repeatFinalTiming={row.repeatFinalTiming}
-                onRepeatFinalTimingChange={setRepeatFinalTiming}
-              />
-            ))}
+            <div style={{ flexShrink: 0, paddingTop: padTop, paddingBottom: padBottom }}>
+              {windowRows.map(({ index: i }) => {
+                const row = rows[i];
+                return (
+                  <div key={row.id} data-index={i} ref={virtualizer.measureElement}>
+                    <RotationRow
+                      index={i}
+                      row={row}
+                      isSelected={selectedIndices.includes(i)}
+                      activeTrigger={activeSubPanel?.rowIndex === i ? activeSubPanel.trigger : null}
+                      onSelectRow={rowHandlers.onSelectRow}
+                      onTriggerClick={rowHandlers.onTriggerClick}
+                      onDragStart={rowHandlers.onDragStart}
+                      onDragOver={rowHandlers.onDragOver}
+                      onDragLeave={rowHandlers.onDragLeave}
+                      onDrop={rowHandlers.onDrop}
+                      dragOverPosition={dragOverInfo?.index === i ? dragOverInfo.position : null}
+                      isLastRow={i === rows.length - 1}
+                      isLoopStart={i === loopStartIndex && rows.some(r => r.unit)}
+                      isLoopStartOverride={loopStartIsOverride && i === loopStartIndex}
+                      loopErrors={i === loopStartIndex ? loopErrors : undefined}
+                      loopWarnings={i === loopStartIndex ? loopWarnings : undefined}
+                      onLoopMarkerDragStart={rowHandlers.onLoopMarkerDragStart}
+                      onLoopMarkerDragEnd={rowHandlers.onLoopMarkerDragEnd}
+                      onResetLoopStart={resetLoopStart}
+                      isLoopEnd={i === loopEndIndex}
+                      onLoopEndMarkerDragStart={rowHandlers.onLoopEndMarkerDragStart}
+                      onLoopEndMarkerDragEnd={rowHandlers.onLoopMarkerDragEnd}
+                      onResetLoopEnd={resetLoopEnd}
+                      isEndRotationStart={i === loopEndIndex + 1 && hasEndRotationContent}
+                      endRotationStartsEarlier={endRotationStartsEarlier}
+                      onToggleEndRotationStartsEarlier={setEndRotationStartsEarlier}
+                      isRepeatStart={!!row.repeatBlockStart}
+                      repeatCount={row.repeatBlockStart ? repeatBlocksByGroup.get(row.repeatBlockStart)?.count : undefined}
+                      onRepeatCountChange={setRepeatCount}
+                      onRepeatMarkerDragStart={rowHandlers.onRepeatMarkerDragStart}
+                      onRepeatMarkerDragEnd={rowHandlers.onRepeatMarkerDragEnd}
+                      onRemoveRepeatBlock={removeRepeatBlock}
+                      isRepeatEnd={!!row.repeatBlockEnd}
+                      repeatFinalTiming={row.repeatFinalTiming}
+                      onRepeatFinalTimingChange={setRepeatFinalTiming}
+                    />
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
     </CollapsibleSection>

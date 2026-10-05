@@ -49,7 +49,7 @@ export const CharacterGuidePage: React.FC<CharacterGuidePageProps> = ({ characte
 
   const rankedCharacters = useMemo(() => {
     const names = new Set<string>();
-    entries.forEach(e => e.team.forEach(s => { if (s.character) names.add(s.character); }));
+    entries.forEach(e => e.characters.forEach(character => { if (character) names.add(character); }));
     return names;
   }, [entries]);
 
@@ -183,8 +183,10 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
     setPicked({ ...config, slots: config.slots.map((s, i) => (i === slotIdx ? { ...s, ...patch } : s)) });
 
   const showEntry = (entry: RankingEntry) => {
+    // Its loaded run carries the weapons and sets the config is read from.
+    const guideEntry = guideEntries.find(e => e.id === entry.id);
     const entryGroup = findGroupFor(groups, entry);
-    if (entryGroup) setPicked(configFromEntry(entryGroup, entry));
+    if (entryGroup && guideEntry) setPicked(configFromEntry(entryGroup, guideEntry));
     document.querySelector('.guide-page-body')?.scrollTo({ top: 0, behavior: 'smooth' });
   };
 

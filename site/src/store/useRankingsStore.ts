@@ -2,25 +2,15 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { persistStorage } from '../utils/safeLocalStorage';
 import { DataLoader } from '../utils/DataLoader';
-import { teamCharacters } from '../utils/TeamUtils';
 import { checkResultsFreshness } from '../utils/dataFreshness';
-import type { RotationResults, RotationType, RosterSlot, DpsWindowKey } from '../types/results';
+import type { RankingIndexEntry, DpsWindowKey } from '../types/results';
 import { dpsFieldOf } from '../data/dpsWindows';
 import { DEFAULT_RANKING_FILTERS, RANKING_ELEMENTS, RANKING_DMG_CATEGORIES } from '../components/rankings/RankingFilterToolbar';
 import type { RankingFilters, RankingElement, RankingDmgCategory } from '../components/rankings/RankingFilterToolbar';
 
-export interface RankingEntry {
-  // The results file's name; DataLoader.loadRankedRun fetches it with its rotation file.
-  id: string;
-  rotationFile: string;
-  team: RosterSlot[];
-  // [main DPS, sub DPS, support] sequence, i.e. team[0..2].sequence -- 0 when a slot is empty.
-  sequences: number[];
-  rotationType: RotationType;
-  author?: string;
-  dpsStats: RotationResults['dpsStats'];
-  contribution: RotationResults['contribution'];
-}
+// A ranked rotation as the index has it -- what search, filters and sort read. Rows load the rest
+// (team details, author, contribution) from its results file (useRankedResults).
+export type RankingEntry = RankingIndexEntry;
 
 const ROTATION_TYPE_LABELS = { linear: 'Linear', quickswap: 'Quickswap', unclassified: 'Unclassified' } as const;
 export const rotationTypeLabel = (type: RankingEntry['rotationType']): string => ROTATION_TYPE_LABELS[type ?? 'unclassified'];
@@ -28,45 +18,7 @@ export const rotationTypeLabel = (type: RankingEntry['rotationType']): string =>
 // "Same rotation" for Best Only: same characters, same slots, same sequence.
 // Gear/echoes and button order don't factor in.
 function rotationGroupKey(entry: RankingEntry): string {
-  return entry.team.map((slot, i) => `${slot.character || ''}@S${entry.sequences[i] ?? 0}`).join('|');
-}
-
-// Element/category this team dealt the most damage as, for the DMG Type filter. Element is
-// attributed per-unit by contribution (a Fusion main + Aero sub reads as "Fusion team");
-// category sums each unit's per-castType breakdown, since one character mixes several.
-function majorityDmgTypes(entry: RankingEntry, window: DpsWindowKey): { element: string | null; category: RankingDmgCategory | null } {
-  const c = entry.contribution[window];
-  const teamNames = new Set(teamCharacters(entry.team));
-
-  const elementTotals: Record<string, number> = {};
-  c.team.forEach(slice => {
-    if (!teamNames.has(slice.label)) return; // a status-effect tick's label, not a team member
-    const element = DataLoader.characterDB[slice.label]?.element;
-    if (!element) return;
-    elementTotals[element] = (elementTotals[element] || 0) + slice.dmg;
-  });
-
-  const categoryTotals: Record<string, number> = {};
-  teamNames.forEach(unit => {
-    (c.units[unit] || []).forEach(slice => {
-      if (!(RANKING_DMG_CATEGORIES as readonly string[]).includes(slice.castType)) return;
-      categoryTotals[slice.castType] = (categoryTotals[slice.castType] || 0) + slice.dmg;
-    });
-  });
-
-  const pickMax = (totals: Record<string, number>): string | null => {
-    let best: string | null = null;
-    let bestDmg = 0;
-    for (const [key, dmg] of Object.entries(totals)) {
-      if (dmg > bestDmg) { best = key; bestDmg = dmg; }
-    }
-    return best;
-  };
-
-  return {
-    element: pickMax(elementTotals),
-    category: pickMax(categoryTotals) as RankingDmgCategory | null
-  };
+  return entry.characters.map((character, i) => `${character}@S${entry.sequences[i] ?? 0}`).join('|');
 }
 
 /** Applies sequence/style/search filters, then Best Only dedupe and DPS-descending sort.
@@ -78,7 +30,7 @@ export function filterRankingEntries(
   activeWindow: DpsWindowKey
 ): RankingEntry[] {
   const searchLower = search.trim().toLowerCase();
-  // All boxes checked = facet inactive -- skip majorityDmgTypes per entry when nothing's narrowed.
+  // All boxes checked = facet inactive.
   const elementFilterActive = filters.elements.length < RANKING_ELEMENTS.length;
   const categoryFilterActive = filters.dmgCategories.length < RANKING_DMG_CATEGORIES.length;
 
@@ -86,7 +38,7 @@ export function filterRankingEntries(
   // within what survives, so a group's best isn't hidden by an already-filtered duplicate.
   let candidates = entries.filter(entry => {
     for (let i = 0; i < 3; i++) {
-      const slotChar = entry.team[i]?.character;
+      const slotChar = entry.characters[i];
       // 4-star units are effectively always S6, so a 5-star-meaningful sequence range doesn't apply.
       const rarity = slotChar ? DataLoader.characterDB[slotChar]?.rarity : undefined;
       if (rarity === 4) continue;
@@ -96,14 +48,12 @@ export function filterRankingEntries(
     }
     if (filters.rotationStyle !== 'any' && entry.rotationType !== filters.rotationStyle) return false;
     if (searchLower) {
-      const label = teamCharacters(entry.team).join(' · ').toLowerCase();
+      const label = entry.characters.filter(Boolean).join(' · ').toLowerCase();
       if (!label.includes(searchLower)) return false;
     }
-    if (elementFilterActive || categoryFilterActive) {
-      const { element, category } = majorityDmgTypes(entry, activeWindow);
-      if (elementFilterActive && (!element || !filters.elements.includes(element as RankingElement))) return false;
-      if (categoryFilterActive && (!category || !filters.dmgCategories.includes(category))) return false;
-    }
+    const { element, category } = entry.majority;
+    if (elementFilterActive && (!element || !filters.elements.includes(element as RankingElement))) return false;
+    if (categoryFilterActive && (!category || !filters.dmgCategories.includes(category as RankingDmgCategory))) return false;
     return true;
   });
 
@@ -183,16 +133,7 @@ export const useRankingsStore = create<RankingsState>()(
 
     try {
       const index = await DataLoader.loadRankingIndex();
-      const entries: RankingEntry[] = index.map(item => ({
-        id: item.id,
-        rotationFile: item.rotationFile,
-        team: item.team,
-        sequences: [0, 1, 2].map(i => Number(item.team[i]?.sequence) || 0),
-        rotationType: item.rotationType ?? null,
-        author: item.author,
-        dpsStats: item.results.dpsStats,
-        contribution: item.results.contribution
-      }));
+      const entries: RankingEntry[] = index;
       set({ entries });
       set({ status: 'ready' });
     } catch (err: any) {

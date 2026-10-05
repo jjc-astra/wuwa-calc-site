@@ -2,7 +2,7 @@
 // dmg source, reusing TeamContributionPanel's pie chart data/colors/hover-dim rule (hover = full
 // opacity, rest fade to 0.45, see PieChart.tsx). Hovering a *unit* segment shows its cast-type
 // breakdown (same as that unit's tab there); non-unit sources just show their own value.
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { DataLoader } from '../../utils/DataLoader';
 import { getCharacterThemeColor, TooltipManager } from '../../utils/Common';
 import { colorForLabel, OTHER_SLICE_COLOR } from '../results/chartPalette';
@@ -19,8 +19,9 @@ interface StackedContributionBarProps {
    * icon order; non-unit/general sources are appended after. */
   unitNames: string[];
   /** Per-unit cast-type breakdown for this window, keyed by character name -- same shape the
-   * DMG Contribution panel's per-unit tab uses. */
-  unitBreakdowns: Record<string, CastTypeSlice[]>;
+   * DMG Contribution panel's per-unit tab uses. Null while a ranked row's results file is still
+   * loading: the tooltip says so, and updates when it arrives. */
+  unitBreakdowns: Record<string, CastTypeSlice[]> | null;
   /** This row's bar length as a % of the top-ranked entry's, e.g. 100 for the #1 row. */
   widthPct: number;
   dpsValue: number;
@@ -42,6 +43,8 @@ export const StackedContributionBar: React.FC<StackedContributionBarProps> = ({
   segments, unitNames, unitBreakdowns, widthPct, dpsValue, showPercentage = true, percentLabel
 }) => {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  // The cursor and segment of the open tooltip, to refresh it when the breakdowns arrive.
+  const hovered = useRef<{ x: number; y: number; seg: ContributionSlice } | null>(null);
   const slices = segments.filter(s => s.dmg > 0);
   const total = slices.reduce((sum, s) => sum + s.dmg, 0);
   const clampedWidth = Math.max(0, Math.min(100, widthPct));
@@ -59,7 +62,10 @@ export const StackedContributionBar: React.FC<StackedContributionBarProps> = ({
   ];
 
   const buildTooltipHtml = (seg: ContributionSlice): string => {
-    if (unitNames.includes(seg.label)) {
+    if (unitNames.includes(seg.label) && !unitBreakdowns) {
+      return `<div class="tooltip-val">${formatValue(seg.dmg)}</div><div class="ranking-tooltip-unit-label caps-tag">${seg.label} DMG</div><div>Loading breakdown...</div>`;
+    }
+    if (unitNames.includes(seg.label) && unitBreakdowns) {
       const castSlices = (unitBreakdowns[seg.label] || []).filter(c => c.dmg > 0);
       const unitTotal = castSlices.reduce((sum, c) => sum + c.dmg, 0);
       const rows = castSlices
@@ -83,8 +89,17 @@ export const StackedContributionBar: React.FC<StackedContributionBarProps> = ({
 
   // Follows the cursor (not pinned to the segment) while over the bar; disappears on leave.
   const handleMove = (e: React.MouseEvent, seg: ContributionSlice) => {
+    hovered.current = { x: e.clientX, y: e.clientY, seg };
     TooltipManager.showAtPoint(e.clientX, e.clientY, buildTooltipHtml(seg));
   };
+
+  // Breakdowns arriving while a unit's tooltip is open: show them without waiting for a move.
+  // Runs only on their arrival, not on every render's new buildTooltipHtml.
+  useEffect(() => {
+    const h = hovered.current;
+    if (h && unitBreakdowns) TooltipManager.showAtPoint(h.x, h.y, buildTooltipHtml(h.seg));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unitBreakdowns]);
 
   const pctInside = clampedWidth >= PCT_INSIDE_THRESHOLD;
 
@@ -107,6 +122,7 @@ export const StackedContributionBar: React.FC<StackedContributionBarProps> = ({
             onMouseMove={e => handleMove(e, seg)}
             onMouseLeave={() => {
               setHoverIdx(null);
+              hovered.current = null;
               TooltipManager.hide();
             }}
           />

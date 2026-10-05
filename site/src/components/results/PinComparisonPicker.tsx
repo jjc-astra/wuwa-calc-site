@@ -2,7 +2,7 @@
 // every action except picking a row (no favorite, menu, or tooltips). Click a row to pin
 // and close. Reuses each source's own row markup/CSS and, for Rankings, its exact
 // search/filter logic -- a shell around the same data, not a reimplementation.
-import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useComparisonStore } from '../../store/useComparisonStore';
 import { useRotationHistoryStore } from '../../store/useRotationHistoryStore';
@@ -15,9 +15,56 @@ import { TeamPreview } from '../common/TeamPreview';
 import { teamCharacters } from '../../utils/TeamUtils';
 import { StackedContributionBar } from '../rankings/StackedContributionBar';
 import { RotationTypeBadge } from '../rankings/RankingRow';
+import { useRankedResults, rosterOf } from '../rankings/useRankedResults';
 import { RankingFilterToolbar } from '../rankings/RankingFilterToolbar';
 import { ChromeTabs } from './ChromeTabs';
 import type { DpsWindowKey } from '../../types/results';
+
+interface PickerRankingRowProps {
+  rank: number;
+  entry: RankingEntry;
+  activeWindow: DpsWindowKey;
+  maxDps: number;
+  onPick: (entry: RankingEntry) => void;
+}
+
+// A Rankings row, pick-only. This list isn't paged, so its results file (team details,
+// contribution) loads once the row scrolls into view.
+const PickerRankingRow: React.FC<PickerRankingRowProps> = ({ rank, entry, activeWindow, maxDps, onPick }) => {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const results = useRankedResults(entry, rowRef);
+  const forWindow = results?.results.contribution[activeWindow];
+  const dps = entry.dpsStats[dpsFieldOf(activeWindow)] ?? 0;
+  const unitNames = entry.characters.filter(Boolean);
+  return (
+    <div
+      ref={rowRef}
+      className="ranking-row pin-picker-row"
+      role="button"
+      tabIndex={0}
+      onClick={() => onPick(entry)}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') onPick(entry); }}
+    >
+      <div className="ranking-row-rank">{rank}</div>
+      <div className="ranking-row-icons">
+        <TeamPreview team={rosterOf(entry, results)} />
+      </div>
+      <div className="ranking-row-main">
+        <div className="ranking-row-label-line">
+          <span className="ranking-row-label">{unitNames.join(' · ') || 'Empty Team'}</span>
+          <RotationTypeBadge type={entry.rotationType} />
+        </div>
+        <StackedContributionBar
+          segments={forWindow?.team ?? []}
+          unitNames={unitNames}
+          unitBreakdowns={results ? forWindow?.units ?? {} : null}
+          widthPct={maxDps > 0 ? (dps / maxDps) * 100 : 0}
+          dpsValue={dps}
+        />
+      </div>
+    </div>
+  );
+};
 
 interface PinComparisonPickerProps {
   source: 'history' | 'rankings';
@@ -187,42 +234,9 @@ const RankingsPickerBody: React.FC<{ onClose: () => void }> = ({ onClose }) => {
               {status === 'ready' && visibleEntries.length === 0 && (
                 <div className="results-empty">No rotations match these filters.</div>
               )}
-              {visibleEntries.map((entry, i) => {
-                const dps = entry.dpsStats[dpsFieldOf(activeWindow)] ?? 0;
-                const widthPct = maxDps > 0 ? (dps / maxDps) * 100 : 0;
-                const unitNames = teamCharacters(entry.team);
-                const label = unitNames.join(' · ');
-                const segments = entry.contribution[activeWindow]?.team ?? [];
-                const unitBreakdowns = entry.contribution[activeWindow]?.units ?? {};
-                return (
-                  <div
-                    key={entry.id}
-                    className="ranking-row pin-picker-row"
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => pick(entry)}
-                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') pick(entry); }}
-                  >
-                    <div className="ranking-row-rank">{i + 1}</div>
-                    <div className="ranking-row-icons">
-                      <TeamPreview team={entry.team} />
-                    </div>
-                    <div className="ranking-row-main">
-                      <div className="ranking-row-label-line">
-                        <span className="ranking-row-label">{label || 'Empty Team'}</span>
-                        <RotationTypeBadge type={entry.rotationType} />
-                      </div>
-                      <StackedContributionBar
-                        segments={segments}
-                        unitNames={unitNames}
-                        unitBreakdowns={unitBreakdowns}
-                        widthPct={widthPct}
-                        dpsValue={dps}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+              {visibleEntries.map((entry, i) => (
+                <PickerRankingRow key={entry.id} rank={i + 1} entry={entry} activeWindow={activeWindow} maxDps={maxDps} onPick={pick} />
+              ))}
             </div>
           </div>
         </div>

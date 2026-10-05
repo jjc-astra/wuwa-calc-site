@@ -103,12 +103,14 @@ export async function checkResultsFreshness(): Promise<boolean> {
   if (changedSinceLoad(`${RANKINGS_DIR}/index.json`)) {
     DataLoader.rankingIndex = null;
     DataLoader.rankedRuns = {};
+    DataLoader.rankedResults = {};
     return true;
   }
   // A run is two files; either changing means refetching both.
   (DataLoader.rankingIndex || []).forEach(entry => {
     if (changedSinceLoad(`${RANKINGS_DIR}/results/${entry.id}`) || changedSinceLoad(`${RANKINGS_DIR}/rotations/${entry.rotationFile}`)) {
       delete DataLoader.rankedRuns[entry.id];
+      delete DataLoader.rankedResults[entry.id];
     }
   });
   return false;

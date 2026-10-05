@@ -20,8 +20,9 @@ const isFourStar = (character: string): boolean => DataLoader.characterDB[charac
 // --- Team groups ---------------------------------------------------------------------------
 
 // A ranking entry with its run loaded -- the rotation and the full team (echoes included) it was
-// calculated with, which the guide's calcs start from.
-export type GuideEntry = RankingEntry & { run: RankedRun };
+// calculated with, which the guide's calcs start from. `team` is that run's team, for the guide's
+// set/weapon grouping (the rankings index carries only characters).
+export type GuideEntry = RankingEntry & { run: RankedRun; team: TeamSlot[] };
 
 // One team composition + rotation style, submitted at one or more sequences.
 export interface GuideTeamGroup {
@@ -33,7 +34,7 @@ export interface GuideTeamGroup {
 }
 
 const groupKeyOf = (entry: RankingEntry): string =>
-  `${entry.team.map(s => s.character || '').join('|')}#${entry.rotationType ?? 'unclassified'}`;
+  `${entry.characters.join('|')}#${entry.rotationType ?? 'unclassified'}`;
 
 // Every team with `character`, grouped by composition + rotation style.
 export function groupTeams(entries: GuideEntry[], character: string): GuideTeamGroup[] {
@@ -122,7 +123,7 @@ export function defaultConfig(groups: GuideTeamGroup[]): GuideConfig | null {
 }
 
 // A ranking entry's own investment, for jumping the selectors to a specific submission.
-export const configFromEntry = (group: GuideTeamGroup, entry: RankingEntry): GuideConfig => ({
+export const configFromEntry = (group: GuideTeamGroup, entry: GuideEntry): GuideConfig => ({
   groupKey: group.key,
   slots: entry.team.map(slot => ({
     sequence: Number(slot.sequence) || 0,

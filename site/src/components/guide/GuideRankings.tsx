@@ -28,7 +28,7 @@ export const GuideRankings: React.FC<GuideRankingsProps> = ({ unit, entries, bas
   const [shown, setShown] = useState(PAGE_SIZE);
 
   const visible = useMemo(
-    () => filterRankingEntries(entries.filter(e => e.team.some(s => s.character === unit)), filters, '', activeWindow),
+    () => filterRankingEntries(entries.filter(e => e.characters.includes(unit)), filters, '', activeWindow),
     [entries, unit, filters, activeWindow]
   );
   const maxDps = visible[0]?.dpsStats[dpsFieldOf(activeWindow)] ?? 0;

@@ -1,9 +1,9 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import { CommonUtils, TooltipManager } from '../../utils/Common';
 import { IMAGE_FOLDERS } from '../../data/db';
 import { TimelineClip, buildClipTooltipHtml } from './TimelineClip';
 import { ROW_HEIGHT_PX, CLIP_INSET_PX, simultaneousLineHeightPx } from './timelineLayout';
-import { nearestMarker, trackPointer } from './trackPointer';
+import { nearestMarker, trackPointer, useActiveMarker, useFrameMove } from './trackPointer';
 import type { UnitRowData } from './timelineLayout';
 import { useLinkedRowStore, scrollIntoContainer } from '../../store/useLinkedRowStore';
 
@@ -18,7 +18,7 @@ interface TimelineRowProps {
 
 /** One unit's row: icon, name, clips and hit dots. Hovering near a dot snaps the tooltip to that hit. */
 export const TimelineRow: React.FC<TimelineRowProps> = ({ data, expander, linked = false }) => {
-  const [activeDot, setActiveDot] = useState<number | null>(null);
+  const markActive = useActiveMarker();
   const trackRef = useRef<HTMLDivElement>(null);
   const hover = useLinkedRowStore(s => s.hover);
   const scrollId = useLinkedRowStore(s => (linked && s.source === 'table' ? s.rowIds[0] ?? null : null));
@@ -46,29 +46,30 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({ data, expander, linked
     if (clip) scrollIntoContainer(clip, clip.closest<HTMLElement>('.timeline-scroll'), { insetLeft: names });
   }, [scrollId]);
 
-  const handleMove = (e: React.MouseEvent<HTMLDivElement>) => {
+  const move = useFrameMove(e => {
     const pointer = trackPointer(e);
     const nearest = nearestMarker(data.hitDots, pointer);
     if (nearest !== -1) {
       const dot = data.hitDots[nearest];
       const at = pointer.toClient(dot.xPx, dot.yPx);
-      setActiveDot(nearest);
+      markActive(e.currentTarget.querySelector(`[data-dot="${nearest}"]`));
       hoverRow(dot.row);
       TooltipManager.showAtPoint(at.x, at.y, buildClipTooltipHtml({ type: 'onfield', row: dot.row }, dot.hitNumber, data.withSystemHits));
       return;
     }
 
-    setActiveDot(null);
+    markActive(null);
     // Later segments draw on top, so the last one under the cursor wins.
     const inClipBand = pointer.y >= CLIP_INSET_PX && pointer.y <= ROW_HEIGHT_PX - CLIP_INSET_PX;
     const segment = inClipBand ? [...data.segments].reverse().find(s => pointer.x >= s.xPx && pointer.x < s.xPx + s.widthPx) : undefined;
     hoverRow(segment?.row);
     if (segment) TooltipManager.showAtPoint(e.clientX, e.clientY, buildClipTooltipHtml(segment, undefined, data.withSystemHits));
     else TooltipManager.hide();
-  };
+   });
 
   const handleLeave = () => {
-    setActiveDot(null);
+    move.cancel();
+    markActive(null);
     hoverRow(null);
     TooltipManager.hide();
   };
@@ -102,7 +103,7 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({ data, expander, linked
           </button>
         ) : pill}
       </div>
-      <div className="timeline-row-track" ref={trackRef} onMouseMove={handleMove} onMouseLeave={handleLeave}>
+      <div className="timeline-row-track" ref={trackRef} onMouseMove={move.onMove} onMouseLeave={handleLeave}>
         {data.segments.map((segment, i) => (
           <TimelineClip key={i} segment={segment} />
         ))}
@@ -116,7 +117,8 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({ data, expander, linked
         {data.hitDots.map((dot, i) => (
           <div
             key={`hit-${i}`}
-            className={`timeline-hit-dot${i === activeDot ? ' is-active' : ''}`}
+            className="timeline-hit-dot"
+            data-dot={i}
             style={{ left: dot.xPx, top: dot.yPx }}
           />
         ))}

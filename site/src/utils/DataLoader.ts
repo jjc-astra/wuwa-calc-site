@@ -82,6 +82,8 @@ export class DataLoaderClass {
   // Rankings: the index (every ranked row), and full runs fetched per entry only when needed.
   rankingIndex: RankingIndexEntry[] | null = null;
   rankedRuns: Record<string, Promise<RankedRun>> = {};
+  // An entry's results file on its own -- its per-unit breakdowns, which the index leaves out.
+  rankedResults: Record<string, Promise<ResultsFile>> = {};
   weaponsByType: Record<string, string[]> = {
     Broadblade: [], Sword: [], Rectifier: [], Gauntlets: [], Pistols: []
   };
@@ -509,11 +511,24 @@ export class DataLoaderClass {
     return this.rankingIndex;
   }
 
+  // An entry's results file: its calculated team, and the per-unit breakdowns the index leaves out.
+  loadRankedResults(entry: { id: string }): Promise<ResultsFile> {
+    this.rankedResults[entry.id] ??= (async () => {
+      const results = await this.loadJSON<ResultsFile>(CommonUtils.getData(`${RANKINGS_DIR}/results/${entry.id}`));
+      if (!results) {
+        delete this.rankedResults[entry.id];
+        throw new Error('This rotation is no longer available.');
+      }
+      return results;
+    })();
+    return this.rankedResults[entry.id];
+  }
+
   // An entry's results file (for its calculated team) and rotation file (for the rotation itself).
   loadRankedRun(entry: { id: string; rotationFile: string }): Promise<RankedRun> {
     this.rankedRuns[entry.id] ??= (async () => {
       const [results, rotation] = await Promise.all([
-        this.loadJSON<ResultsFile>(CommonUtils.getData(`${RANKINGS_DIR}/results/${entry.id}`)),
+        this.loadRankedResults(entry).catch(() => null),
         this.loadJSON<RotationFile>(CommonUtils.getData(`${RANKINGS_DIR}/rotations/${entry.rotationFile}`))
       ]);
       if (!results || !rotation) {

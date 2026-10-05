@@ -248,12 +248,12 @@ export function useGuideEntries(entries: RankingEntry[], character: string): Gui
   useEffect(() => {
     let alive = true;
     setState({ status: 'loading', entries: [] });
-    const withUnit = entries.filter(e => e.team.some(s => s.character === character));
+    const withUnit = entries.filter(e => e.characters.includes(character));
     Promise.allSettled(withUnit.map(e => DataLoader.loadRankedRun(e))).then(results => {
       if (!alive) return;
       const loaded = withUnit.flatMap((entry, i) => {
         const result = results[i];
-        return result.status === 'fulfilled' ? [{ ...entry, run: result.value }] : [];
+        return result.status === 'fulfilled' ? [{ ...entry, run: result.value, team: result.value.team }] : [];
       });
       setState({ status: 'ready', entries: loaded });
     });

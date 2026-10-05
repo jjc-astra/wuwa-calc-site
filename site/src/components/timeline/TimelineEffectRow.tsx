@@ -1,9 +1,9 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef } from 'react';
 import { TooltipManager, tip } from '../../utils/Common';
 import { formatFramesAsSeconds, framesToSeconds, secondsToFrames, toFrames } from '../../utils/Frames';
 import { EFFECT_BAR_INSET_PX, EFFECT_ROW_HEIGHT_PX, describeAppliesTo, rowsReceivingBar } from './effectLayout';
 import { useLinkedRowStore } from '../../store/useLinkedRowStore';
-import { nearestMarker, trackPointer } from './trackPointer';
+import { nearestMarker, trackPointer, useActiveMarker, useFrameMove } from './trackPointer';
 import type { EffectBar, EffectLane, EffectPoint } from './effectLayout';
 
 interface TimelineEffectRowProps {
@@ -77,9 +77,9 @@ const framesAt = (bar: EffectBar, x: number): number =>
 
 /** One effect's row: a bar per stretch it held steady (a refresh or value change starts a new
  * one), stack/value changes marked inside it -- the same for a cooldown ticking -- or a System
- * mechanic's hits. */
-export const TimelineEffectRow: React.FC<TimelineEffectRowProps> = ({ lane, nested = false, linkRows }) => {
-  const [active, setActive] = useState<number | null>(null);
+ * mechanic's hits. Memoized: the timeline re-renders as its row window scrolls. */
+export const TimelineEffectRow = React.memo<TimelineEffectRowProps>(({ lane, nested = false, linkRows }) => {
+  const markActive = useActiveMarker();
   const hover = useLinkedRowStore(s => s.hover);
   // The bar last linked, so moving within it doesn't re-scan the rows.
   const linkedBar = useRef<EffectBar | undefined>(undefined);
@@ -95,14 +95,16 @@ export const TimelineEffectRow: React.FC<TimelineEffectRowProps> = ({ lane, nest
     ...lane.hits.map(hit => ({ xPx: hit.xPx, yPx: hit.yPx, hit }))
   ];
   const firstHitMarker = markers.length - lane.hits.length;
+  // Each bar's first marker index (its points after the first are markers).
+  const barMarkerStart = lane.bars.map((_, b) => lane.bars.slice(0, b).reduce((n, bar) => n + bar.points.length - 1, 0));
 
-  const handleMove = (e: React.MouseEvent<HTMLDivElement>) => {
+  const move = useFrameMove(e => {
     const pointer = trackPointer(e);
     const nearest = nearestMarker(markers, pointer);
     if (nearest !== -1) {
       const marker: any = markers[nearest];
       const at = pointer.toClient(marker.xPx, marker.yPx);
-      setActive(nearest);
+      markActive(e.currentTarget.querySelector(`[data-marker="${nearest}"]`));
       hoverBar(marker.bar);
       const html = marker.hit
         ? `<div>${escapeHtml(marker.hit.moveName)}</div>` + line('Hit', `${Math.floor(marker.hit.total).toLocaleString()} dmg`) + line('Time', formatFramesAsSeconds(toFrames(marker.hit.frames)))
@@ -110,17 +112,18 @@ export const TimelineEffectRow: React.FC<TimelineEffectRowProps> = ({ lane, nest
       TooltipManager.showAtPoint(at.x, at.y, html);
       return;
     }
-    setActive(null);
+    markActive(null);
     const bar = [...lane.bars].reverse().find(b => pointer.x >= b.xPx && pointer.x < b.xPx + b.widthPx);
     hoverBar(bar);
     if (!bar) return TooltipManager.hide();
     // The stack count under the cursor.
     const point = [...bar.points].reverse().find(p => p.xPx <= pointer.x) ?? bar.points[0];
     TooltipManager.showAtPoint(e.clientX, e.clientY, barTooltipHtml(lane, bar, point, framesAt(bar, pointer.x)));
-  };
+   });
 
   const handleLeave = () => {
-    setActive(null);
+    move.cancel();
+    markActive(null);
     hoverBar(undefined);
     TooltipManager.hide();
   };
@@ -133,7 +136,7 @@ export const TimelineEffectRow: React.FC<TimelineEffectRowProps> = ({ lane, nest
       <div className="timeline-row-header" style={{ width: 'var(--timeline-header-width)' }}>
         <span className="timeline-effect-label" {...tip(escapeHtml(lane.fullName))}>{lane.label}</span>
       </div>
-      <div className="timeline-row-track" onMouseMove={handleMove} onMouseLeave={handleLeave}>
+      <div className="timeline-row-track" onMouseMove={move.onMove} onMouseLeave={handleLeave}>
         {lane.bars.map((bar, i) => (
           <div
             key={`bar-${i}`}
@@ -143,23 +146,21 @@ export const TimelineEffectRow: React.FC<TimelineEffectRowProps> = ({ lane, nest
         ))}
         {lane.bars.flatMap((bar, b) => bar.points.map((point, i) => showsPoint(lane, bar, i) && (
           <React.Fragment key={`pt-${b}-${i}`}>
-            {i > 0 && <div className="timeline-effect-point" style={{ left: point.xPx, top: point.yPx }} />}
+            {i > 0 && <div className="timeline-effect-point" data-marker={barMarkerStart[b] + i - 1} style={{ left: point.xPx, top: point.yPx }} />}
             <span className="timeline-effect-point-label" style={{ left: point.xPx + (i > 0 ? 4 : 3), top: point.yPx }}>
               {pointLabel(lane, bar, point.value)}
             </span>
           </React.Fragment>
         )))}
-        {markers.map((marker: any, i) => i === active && marker.point && (
-          <div key="active" className="timeline-effect-point is-active" style={{ left: marker.xPx, top: marker.yPx }} />
-        ))}
         {lane.hits.map((hit, i) => (
           <div
             key={`hit-${i}`}
-            className={`timeline-hit-dot${active === firstHitMarker + i ? ' is-active' : ''}`}
+            className="timeline-hit-dot"
+            data-marker={firstHitMarker + i}
             style={{ left: hit.xPx, top: hit.yPx }}
           />
         ))}
       </div>
     </div>
   );
-};
+});

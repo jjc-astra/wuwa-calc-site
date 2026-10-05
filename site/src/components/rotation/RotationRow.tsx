@@ -17,7 +17,7 @@ import { TooltipManager, getCharacterThemeColor } from '../../utils/Common';
 import { teamCharacters } from '../../utils/TeamUtils';
 import { toFrames, secondsToFrames, framesToSeconds, formatFramesAsSeconds } from '../../utils/Frames';
 import { applyBuilderOverridesFor } from '../../workers/builderOverridePayload';
-import { useLinkedRowStore, scrollIntoContainer } from '../../store/useLinkedRowStore';
+import { useLinkedRowStore } from '../../store/useLinkedRowStore';
 
 interface RotationRowProps {
   index: number;
@@ -84,8 +84,6 @@ interface ActionGroup {
 type LinkedState = ReturnType<typeof useLinkedRowStore.getState>;
 // Hovered on the Timeline: its move, or a buff it got.
 const isLinkedIn = (s: LinkedState, rowId?: string) => s.source === 'timeline' && !!rowId && s.rowIds.includes(rowId);
-// Its move hovered on the Timeline (not a buff's rows): scrolled to.
-const isScrollTargetIn = (s: LinkedState, rowId?: string) => s.source === 'timeline' && s.scroll && !!rowId && s.rowIds[0] === rowId;
 
 /**
  * One rotation row: unit, action, timing, offset, damage and gauges, plus its open sub-panel.
@@ -139,18 +137,15 @@ export const RotationRow = React.memo<RotationRowProps>(({
   const [offsetDraft, setOffsetDraft] = useState<string | null>(null);
   const [repeatCountDraft, setRepeatCountDraft] = useState<string | null>(null);
 
-  // Its move (or a buff it got) hovered on the Timeline: highlighted -- and, for a move, scrolled to.
+  // Its move (or a buff it got) hovered on the Timeline: highlighted (RotationBuilder scrolls to it).
   // The highlight is toggled on the DOM rather than rendered: re-rendering every reached row (all
   // its inputs) on each hover change made hovering Timeline buffs stutter.
   // Every render: React rewrites className, dropping the toggled class.
   useLayoutEffect(() => {
     rowRef.current?.classList.toggle('is-linked', isLinkedIn(useLinkedRowStore.getState(), row.id));
   });
-  useEffect(() => useLinkedRowStore.subscribe((s, prev) => {
-    const el = rowRef.current;
-    if (!el) return;
-    el.classList.toggle('is-linked', isLinkedIn(s, row.id));
-    if (isScrollTargetIn(s, row.id) && !isScrollTargetIn(prev, row.id)) scrollIntoContainer(el, el.closest<HTMLElement>('#rotation-builder'));
+  useEffect(() => useLinkedRowStore.subscribe(s => {
+    rowRef.current?.classList.toggle('is-linked', isLinkedIn(s, row.id));
   }), [row.id]);
 
   const teamUnits = teamCharacters(team);

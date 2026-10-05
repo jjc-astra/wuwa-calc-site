@@ -3,8 +3,8 @@ import { TeamPreview } from '../common/TeamPreview';
 import { StackedContributionBar } from './StackedContributionBar';
 import { ActionsMenuButton } from '../common/ActionsMenuButton';
 import { RankingTimelinePanel } from './RankingTimelinePanel';
+import { useRankedResults, rosterOf } from './useRankedResults';
 import { loadSavedRotation } from '../../store/loadSavedRotation';
-import { teamCharacters } from '../../utils/TeamUtils';
 import { useComparisonStore } from '../../store/useComparisonStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { rotationTypeLabel } from '../../store/useRankingsStore';
@@ -34,10 +34,13 @@ export const RankingRow: React.FC<RankingRowProps> = ({ rank, entry, activeWindo
   const [isExpanded, setIsExpanded] = useState(false);
   const dps = entry.dpsStats[dpsFieldOf(activeWindow)] ?? 0;
   const widthPct = maxDps > 0 ? (dps / maxDps) * 100 : 0;
-  const unitNames = teamCharacters(entry.team);
+  const unitNames = entry.characters.filter(Boolean);
   const label = unitNames.join(' · ');
-  const segments = entry.contribution[activeWindow]?.team ?? [];
-  const unitBreakdowns = entry.contribution[activeWindow]?.units ?? {};
+  // Team details, author and contribution aren't in the index: they come with the row's results file.
+  const results = useRankedResults(entry);
+  const forWindow = results?.results.contribution[activeWindow];
+  const segments = forWindow?.team ?? [];
+  const unitBreakdowns = results ? forWindow?.units ?? {} : null;
 
   // Opens the ranked run: its rotation, on the team its ranked results were calculated with.
   const handleOpenInCalculator = async () => {
@@ -63,19 +66,22 @@ export const RankingRow: React.FC<RankingRowProps> = ({ rank, entry, activeWindo
 
 return (
     <>
-      <div className={`ranking-row ${isExpanded ? 'is-expanded' : ''}`} onClick={() => setIsExpanded(v => !v)}>
+      <div
+        className={`ranking-row ${isExpanded ? 'is-expanded' : ''}`}
+        onClick={() => setIsExpanded(v => !v)}
+      >
         <span className={`ranking-row-expand-icon ${isExpanded ? 'is-open' : ''}`}>▶</span>
         <div className="ranking-row-rank">{rank}</div>
         <div className="ranking-row-icons">
-          <TeamPreview team={entry.team} />
+          <TeamPreview team={rosterOf(entry, results)} />
         </div>
         <div className="ranking-row-main">
           <div className="ranking-row-label-line">
             <span className="ranking-row-label">{label || 'Empty Team'}</span>
             <div className="ranking-row-badges">
               <RotationTypeBadge type={entry.rotationType} />
-              {entry.author && (
-                <span className="ranking-row-author-badge caps-tag pill-badge outline-badge">By: {entry.author}</span>
+              {results?.author && (
+                <span className="ranking-row-author-badge caps-tag pill-badge outline-badge">By: {results.author}</span>
               )}
             </div>
           </div>
