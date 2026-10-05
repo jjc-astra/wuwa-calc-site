@@ -7,7 +7,7 @@ import {
 import { deltaKey, forteKey, holdSlotNumber } from '../utils/ResourceKeys';
 import { backfillPools, cloneJson, dropdownSnapshot, hitState, inheritPools, plainCopy, ROW_LINK_KEYS } from './rowState';
 import { toRunInput, timingLabel, splitLoopSegments, loopTiming } from './rotationRows';
-import { scopedKey, eventModifier, isBuffEffect, isDslExpr, isPlaceholderProvider, modifierSet, stacksAfterSpending } from './engineValues';
+import { asDslResult, scopedKey, eventModifier, isBuffEffect, isDslExpr, isPlaceholderProvider, modifierSet, readsSelfStats, stacksAfterSpending } from './engineValues';
 import { isElement } from '../data/gameVocab';
 import { MechanicKey, SYSTEM_NAMESPACE } from '../utils/MechanicKey';
 import { CommonUtils } from '../utils/Common';
@@ -1064,7 +1064,8 @@ export class TimelineEngineClass {
             moveName: nextHit.originMoveData.name,
             moveRef: nextHit.origin.ref,
             gameTime: hitGameTime,
-            hitIndex: nextHit.hitIndex
+            hitIndex: nextHit.hitIndex,
+            ...(readsSelfStats(rawMult) && { statScaledMult: rawMult })
           },
           context: plainCopy(currentData, [...ROW_LINK_KEYS, '_pendingHits'])
         });
@@ -1533,9 +1534,7 @@ export class TimelineEngineClass {
     // the same against just those, without building the row's full context.
     const ctx = readsOnlyDefaults(mathStr) ? DEFAULTS_ONLY_CTX : ContextManager.buildContext(currentData, unitName, team);
     if (!ctx) return 0;
-    const isPct = typeof mathStr === 'string' && mathStr.includes('%');
-    const result = DSLParser.evaluateMath(mathStr, ctx, unitName);
-    return isPct ? parseFloat((result * 100).toFixed(6)) + '%' : result;
+    return asDslResult(String(mathStr), DSLParser.evaluateMath(mathStr, ctx, unitName));
   }
 
   // Applies one effect. An ALWAYS listener's effect is applied with that listener sitting out the

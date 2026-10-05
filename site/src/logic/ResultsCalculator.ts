@@ -1,7 +1,7 @@
 // Turns one Calculate press into the Results panel's data -- builds one flat, time-ordered hit
 // list from an extended opener+N-loop simulation. Every output below just filters/aggregates it.
 import { TimelineEngine } from './TimelineEngine';
-import { CombatCalculator } from './CombatCalculator';
+import { CombatCalculator, carriesStatScaledBuffFrom } from './CombatCalculator';
 import { resourceCap } from './resources';
 import { CHARACTER_DEFAULTS, STAT_DB, STAT_NAME_MAP } from '../data/db';
 import { PRIMARY_DMG_TYPES } from '../data/gameVocab';
@@ -432,18 +432,25 @@ function buildAllContribution(
 // Basis: 2-min total damage. Each roll's worth = "team" (% of rotation total) and "personal"
 // (% of that unit's own total).
 //
-// Avoids re-running the full sim 78x (13 substats x 3 rolls x 2 dirs): a stat change only
-// affects that unit's own hits (calculateFinalStats is pure, hits don't read each other), so
-// this just re-calls calculateDamageInstance on cached hit/context pairs with a patched team.
+// Avoids re-running the full sim 78x (13 substats x 3 rolls x 2 dirs): a unit's stats only reach
+// its own hits and the hits carrying a buff of its whose value reads its stats (e.g. DMG Bonus
+// from its ER), so those cached hit/context pairs are just re-priced with a patched team -- along
+// with any multiplier reading the caster's stats. Rotation timing isn't re-simulated.
 function buildSubstatWorth(twoMinHits: RotationHit[], team: TeamSlot[]): Record<string, SubstatWorthRow[]> {
   const baselineTotal = sumTotal(twoMinHits);
   const out: Record<string, SubstatWorthRow[]> = {};
   if (baselineTotal <= 0) return out;
 
   team.forEach(slot => {
-    if (!slot.character) return;
-    const unitHits = twoMinHits.filter(h => h.provider === slot.character);
-    const unitBaseline = sumTotal(unitHits);
+    const unit = slot.character;
+    if (!unit) return;
+    const unitBaseline = sumTotal(twoMinHits.filter(h => h.provider === unit));
+    const reached = twoMinHits.filter(h => h.provider === unit || carriesStatScaledBuffFrom(h.context, unit));
+    // A copy of each context: pricing writes the enemy's HP onto it.
+    const price = (forTeam: TeamSlot[]) =>
+      reached.map(h => CombatCalculator.calculateDamageInstance(h.config, { ...h.context }, forTeam, { restat: true }).total);
+    // Re-priced the same way, so only the stat change moves the difference.
+    const baseline = price(team);
 
     const rows: SubstatWorthRow[] = Object.keys(STAT_DB).map(substat => {
       const { values, defaultIndex } = STAT_DB[substat];
@@ -454,18 +461,19 @@ function buildSubstatWorth(twoMinHits: RotationHit[], team: TeamSlot[]): Record<
 
       // { team, personal } % this roll is worth -- of the rotation's total, of this unit's own.
       const worthFor = (rollValue: number, sign: 1 | -1): { team: number; personal: number } => {
-        if (unitHits.length === 0) return { team: 0, personal: 0 };
+        if (reached.length === 0) return { team: 0, personal: 0 };
         const modifiedTeam = team.map(s =>
-          s.character === slot.character
+          s.character === unit
             ? { ...s, echoStats: { ...s.echoStats, [statKey]: (s.echoStats[statKey] || 0) + sign * rollValue } }
             : s
         );
-        const modifiedTotal = unitHits.reduce(
-          (sum, h) => sum + CombatCalculator.calculateDamageInstance(h.config, h.context, modifiedTeam).total,
-          0
-        );
-        const delta = modifiedTotal - unitBaseline;
-        return { team: (delta / baselineTotal) * 100, personal: unitBaseline > 0 ? (delta / unitBaseline) * 100 : 0 };
+        let delta = 0;
+        let ownDelta = 0;
+        price(modifiedTeam).forEach((total, i) => {
+          delta += total - baseline[i];
+          if (reached[i].provider === unit) ownDelta += total - baseline[i];
+        });
+        return { team: (delta / baselineTotal) * 100, personal: unitBaseline > 0 ? (ownDelta / unitBaseline) * 100 : 0 };
       };
       // Each worth of a min, max and default roll, removed (sign -1) or added (+1), as `scale` reads it.
       const worthsFor = (sign: 1 | -1, scale: (v: number) => number) => {
@@ -486,7 +494,7 @@ function buildSubstatWorth(twoMinHits: RotationHit[], team: TeamSlot[]): Record<
       };
     });
 
-    out[slot.character] = rows;
+    out[unit] = rows;
   });
 
   return out;

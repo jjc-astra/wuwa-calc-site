@@ -235,6 +235,9 @@ export interface HitConfig {
   // "@Owner(Move Name)" pointer for this hit's move, as built by MechanicKey.ref.
   moveRef?: string;
   gameTime?: Frames;
+  // The DSL multiplier hitMult was resolved from, when it reads the caster's stats -- worked out
+  // again for another team's stats by a `restat` pricing (substat worth).
+  statScaledMult?: string;
   // Sub-hit index within actionId (0 for single-hit, 0/1/2... for multi-hit).
   // actionId+hitIndex together ID "the same move slot" across an Avg Loop's repeats.
   hitIndex?: number;

@@ -4,7 +4,7 @@ import { DSLParser } from './dsl/dslParser';
 import { ContextManager } from './ContextManager';
 import { CHARACTER_DEFAULTS, SIM_CONSTANTS, ENEMY_DEFAULTS, STAT_NAME_MAP, BUILDUP_RATE_STATS } from '../data/db';
 import { SCOPE_HIT_TAGS, sheetDmgBonusKeyForType } from './combat/combatRegistry';
-import { modifierSet } from './engineValues';
+import { asDslResult, modifierSet, readsSelfStats } from './engineValues';
 import { SYSTEM_NAMESPACE } from '../utils/MechanicKey';
 import { ECHO_STAT_KEYS, emptyEchoStats } from '../data/gameVocab';
 import { findScope, resolveMultiplierBucket, resolveSheetDmgBonusKey } from './combat/statParser';
@@ -50,6 +50,11 @@ function readBuffTotal(buff: Effect, providerUnit: string, team: any[], provider
   const { numVal, isPct } = readBuffValue(buff, rank, () => providerStats(providerUnit), scope);
   return { totalVal: (isPct ? numVal / 100 : numVal) * (buff.stacks || 1), isPct };
 }
+
+/** Whether `unit`'s own stats can change a hit priced on `state`: one of the buffs there is its, with a
+ * value reading its stats. */
+export const carriesStatScaledBuffFrom = (state: any, unit: string): boolean =>
+  Object.values(state?.activeBuffs || {}).some((b: any) => b.provider === unit && readsSelfStats(b.value));
 
 /** The buffs on `state` that reach `unit`: its own, team-wide ones, and on-field auras while it's the row's unit. */
 export function buffsReaching(state: any, unit: string): Effect[] {
@@ -370,11 +375,16 @@ export const CombatCalculator = {
     return { buffTotals, appliedBuffs };
   },
 
-  calculateDamageInstance: (hitConfig: HitConfig, stateData: any, team: any[] = []): DamageInstanceResult => {
+  // `restat`: a multiplier that reads the caster's stats is worked out again for `team`'s (substat
+  // worth re-pricing a hit with one unit's stats changed).
+  calculateDamageInstance: (hitConfig: HitConfig, stateData: any, team: any[] = [], { restat = false } = {}): DamageInstanceResult => {
     let pctMult = 0;
     let flatMult = 0;
 
-    const rawMult = hitConfig.hitMult ?? 0;
+    const executingUnit = hitConfig.provider || stateData.unit;
+    const rawMult = restat && hitConfig.statScaledMult
+      ? asDslResult(hitConfig.statScaledMult, DSLParser.evaluateMath(hitConfig.statScaledMult, ContextManager.buildContext(stateData, executingUnit, team), executingUnit))
+      : hitConfig.hitMult ?? 0;
     const strVal = String(rawMult).trim();
     const num = parseFloat(strVal) || 0;
 
@@ -384,7 +394,6 @@ export const CombatCalculator = {
       flatMult += num;
     }
 
-    const executingUnit = hitConfig.provider || stateData.unit;
     const dmgTypes = hitConfig.dmgTypes || [];
     const castTypes = hitConfig.castTypes || [];
     const titleStr = hitConfig.title || 'Active Hit';

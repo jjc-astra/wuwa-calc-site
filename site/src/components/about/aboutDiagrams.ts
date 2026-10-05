@@ -561,7 +561,7 @@ export const DIAGRAMS = {
       O1["buildDpsStats: window damage / its length<br/>(loop windows null without a loop)"]:::logic
       O2["buildAllDmgOverTime: cumulative damage vs boss HP,<br/>kill time; Avg Loop folds its 3 reps per move"]:::logic
       O3["buildAllContribution: per unit (status ticks by name),<br/>per cast type, on-field time"]:::logic
-      O4["buildSubstatWorth (Substat Worth toggle on):<br/>2-min hits re-priced with one substat<br/>± a min / default / max roll (no re-simulation)"]:::logic
+      O4["buildSubstatWorth (Substat Worth toggle on): the unit's<br/>2-min hits, and those with its stat-scaled buffs, re-priced<br/>with one substat ± a min / default / max roll (no re-simulation)"]:::logic
       O5["buildEnergyRequirements: energyLog split at each Energy<br/>spend → ER needed, the bottleneck cast"]:::logic
       O1 ~~~ O2 ~~~ O3 ~~~ O4 ~~~ O5
     end
@@ -798,7 +798,7 @@ export const DIAGRAMS = {
     subgraph Jobs["guideView → jobs"]
       direction TB
       J1["jobForConfig: the chosen set build's submissions;<br/>pickRotationEntry: highest sequence ≤ the selection<br/>(else the lowest); buildTeam applies sequence,<br/>weapon, rank, echo build"]:::logic
-      J1 --> J2["selected + comparison rows: S0–S6; echo builds<br/>43311 ×3, 44111, 41111 (+ submitted); set builds<br/>(if 2+); weapons (team's, added, selected) at<br/>each end of the rank range"]:::logic
+      J1 --> J2["selected + comparison rows: S0–S6; echo builds<br/>43311 (each 3-cost pair of Ele, scalar and stats<br/>the kit scales with, e.g. ER), 44111, 41111<br/>(+ submitted); set builds<br/>(if 2+); weapons (team's, added, selected) at<br/>each end of the rank range"]:::logic
       J2 --> J3["+ the default view's jobs; a job key =<br/>what would calculate differently"]:::logic
     end
     Page --> Cfg --> Jobs

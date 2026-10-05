@@ -4,7 +4,8 @@ import { DataLoader } from '../../utils/DataLoader';
 import { isSelectableContent } from '../../utils/selectableContent';
 import { slotSets, teamCharacters } from '../../utils/TeamUtils';
 import { dpsFieldOf } from '../../data/dpsWindows';
-import { SIM_CONSTANTS, costsForLayout, mainStatOptionsFor } from '../../data/db';
+import { SIM_CONSTANTS, STAT_NAME_MAP, costsForLayout, mainStatOptionsFor } from '../../data/db';
+import { selfStatsReadBy } from '../../logic/MechanicOwners';
 import { calculateEchoStatsForSlot } from '../../store/useRosterStore';
 import type { RankingEntry } from '../../store/useRankingsStore';
 import type { RankedRun } from '../../utils/DataLoader';
@@ -205,8 +206,16 @@ export interface EchoVariant extends EchoBuild {
   label: string;
 }
 
+// The 3-cost main stats the unit's kit reads off its own stats (e.g. ER % when a buff scales
+// with its Energy Regen). Needs the character's mechanics loaded.
+function kitScaledMainStats(character: string): string[] {
+  const read = selfStatsReadBy(character);
+  return mainStatOptionsFor(3).filter(stat => read.has(STAT_NAME_MAP[stat]));
+}
+
 // The standard echo builds to compare:
-// - 43311 with each 3-cost pair (Ele/Ele, Ele/scalar, scalar/scalar)
+// - 43311 with each 3-cost pair of the element, the scalar and any stat the kit scales with
+//   (Ele/Ele, Ele/scalar, scalar/scalar, Ele/ER...)
 // - 44111 with the second 4-cost as the other crit stat
 // - 41111
 // The scalar (ATK/HP/DEF %) comes from the submitted 1-cost echoes; the first 4-cost keeps its
@@ -218,11 +227,10 @@ function echoVariants(slot: TeamSlot): EchoVariant[] {
   const scalar = slot.echoes.find((_, i) => costs[i] === 1)?.mainStat || 'ATK %';
   const first4 = slot.echoes[0]?.mainStat || 'CR DMG';
   const otherCrit = first4 === 'CR Rate' ? 'CR DMG' : 'CR Rate';
+  const threeCost = [...new Set([elementStat, scalar, ...kitScaledMainStats(slot.character)])];
 
   const variants: Array<[string, string[]]> = [
-    ['4 3 3 1 1', [first4, elementStat, elementStat, scalar, scalar]],
-    ['4 3 3 1 1', [first4, elementStat, scalar, scalar, scalar]],
-    ['4 3 3 1 1', [first4, scalar, scalar, scalar, scalar]],
+    ...threeCost.flatMap((a, i) => threeCost.slice(i).map(b => ['4 3 3 1 1', [first4, a, b, scalar, scalar]] as [string, string[]])),
     ['4 4 1 1 1', [first4, otherCrit, scalar, scalar, scalar]],
     ['4 1 1 1 1', [first4, scalar, scalar, scalar, scalar]]
   ];

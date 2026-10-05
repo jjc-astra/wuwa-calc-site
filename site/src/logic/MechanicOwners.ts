@@ -71,6 +71,20 @@ export function getMechanicOwners(team: TeamSlot[]): MechanicOwner[] {
   return owners;
 }
 
+// The sheet stats (e.g. energyRegen) an owner's mechanics read off their own unit with
+// @Self.Stat(...), in buff values or hit multipliers.
+export function selfStatsReadBy(ownerName: string): Set<string> {
+  const stats = new Set<string>();
+  (DataLoader.mechanicsIndex[ownerName] || []).forEach(key => {
+    const mech = DataLoader.mechanicsDB[key];
+    const values = [...(mech?.effects || []).map(eff => eff.value), ...(mech?.hitMults || [])];
+    values.forEach(value => {
+      for (const match of String(value ?? '').matchAll(/@Self\.Stat\((\w+)\)/g)) stats.add(match[1]);
+    });
+  });
+  return stats;
+}
+
 // The moves an owner contributes to a row's action dropdown, in index order.
 export function getCastableMechanics(owner: MechanicOwner): Array<{ key: string; mech: MechanicNode }> {
   return (DataLoader.mechanicsIndex[owner.name] || []).flatMap(key => {

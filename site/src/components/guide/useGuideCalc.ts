@@ -6,6 +6,7 @@ import { CancelledError } from '../../workers/calcWorkerClient';
 import type { RotationSummary, PanelResults } from '../../types/results';
 import type { TeamSlot } from '../../types';
 import { DataLoader } from '../../utils/DataLoader';
+import { applyBuilderOverridesFor } from '../../workers/builderOverridePayload';
 import type { RankingEntry } from '../../store/useRankingsStore';
 import type { GuideJob, GuideEntry } from './guideModel';
 import { depsOf, readDeps, changedDeps, loadGuideCache, saveGuideCache } from './guideCache';
@@ -235,7 +236,8 @@ export interface GuideEntries {
   entries: GuideEntry[];
 }
 
-// Loads the run (rotation + calculated team) of every ranked entry with this character. An entry
+// Loads the run (rotation + calculated team) of every ranked entry with this character, and the
+// character's own mechanics (its echo variants read what stats the kit scales with). An entry
 // whose files fail to load is left out rather than blocking the rest.
 export function useGuideEntries(entries: RankingEntry[], character: string): GuideEntries {
   const [state, setState] = useState<GuideEntries>({ status: 'loading', entries: [] });
@@ -244,7 +246,8 @@ export function useGuideEntries(entries: RankingEntry[], character: string): Gui
     let alive = true;
     setState({ status: 'loading', entries: [] });
     const withUnit = entries.filter(e => e.characters.includes(character));
-    Promise.allSettled(withUnit.map(e => DataLoader.loadRankedRun(e))).then(results => {
+    const kit = DataLoader.loadMechanic('characters', character).then(() => applyBuilderOverridesFor([character]));
+    Promise.all([Promise.allSettled(withUnit.map(e => DataLoader.loadRankedRun(e))), kit]).then(([results]) => {
       if (!alive) return;
       const loaded = withUnit.flatMap((entry, i) => {
         const result = results[i];

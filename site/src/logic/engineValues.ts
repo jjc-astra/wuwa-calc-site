@@ -29,6 +29,13 @@ export const modifierSet = (parts: unknown[]): Set<string> => new Set(parts.map(
 // are lowercased when the DSL is parsed (dslParser.ts).
 export const eventModifier = (name: string | undefined): Set<string> => new Set([(name || '').toLowerCase()]);
 
+// A DSL math result in its expression's form: a "%" expression gives back a percent string ("12.5%").
+export const asDslResult = (expr: string, result: number): number | string =>
+  expr.includes('%') ? parseFloat((result * 100).toFixed(6)) + '%' : result;
+
+// A DSL value reading a unit's own sheet stats (@Self.Stat(...)).
+export const readsSelfStats = (value: unknown): value is string => typeof value === 'string' && value.includes('@Self.Stat(');
+
 // A buff effect (an effect with no type is one).
 export const isBuffEffect = (effect: Effect): boolean => !effect.type || effect.type === 'buff';
 
