@@ -1,12 +1,13 @@
 // Layout for the Calculator Timeline's effect rows: buffs/debuffs, System hits and trackers, read
 // off the engine's change log (TimelineEngine._logTimeline -> row.timelineEvents). Pure, no DOM.
-import { ELEMENT_COLORS, getCharacterThemeColor } from '../../utils/Common';
+import { elementColorOf, getCharacterThemeColor } from '../../utils/Common';
 import { DataLoader } from '../../utils/DataLoader';
-import { GAME_DEFAULTS } from '../../data/db';
-import { isTimelineTracker } from '../../logic/TimelineEngine';
-import { MechanicKey, SYSTEM_NAMESPACE } from '../../utils/MechanicKey';
+import { isTimelineTracker, timelineBuffInfo, timelineCooldownInfo } from '../../logic/TimelineEngine';
+import { loopEndIndexOf } from '../../logic/rotationRows';
+import { SYSTEM_NAMESPACE } from '../../utils/MechanicKey';
 import { compressedTimeToPx, computeTotalDurationFrames, isSystemHit, stackDots } from './timelineLayout';
 import type { TimeCompression } from './timelineLayout';
+import { slotSets } from '../../utils/TeamUtils';
 import type { TeamSlot } from '../../types';
 
 export const SECTION_ROW_HEIGHT_PX = 24;
@@ -100,26 +101,12 @@ export interface EffectTimelineData {
 
 const barCenterY = EFFECT_BAR_INSET_PX + EFFECT_BAR_HEIGHT_PX / 2;
 
-const infoFromBuff = (buff: any): EffectInfo => ({
-  name: buff.name,
-  provider: buff.provider,
-  target: buff.target,
-  appliesTo: buff.appliesTo,
-  stat: buff.stat,
-  value: buff.value,
-  label: buff.label,
-  maxStacks: Number(buff.maxStacks) || 1,
-  permanent: (buff.maxDuration ?? 0) >= GAME_DEFAULTS.permanentDuration,
-  source: buff.source,
-  sourceOwner: buff.sourceOwner
-});
-
 // Every entity the team brings, by name: its characters, weapons, main echoes, echo sets, System.
 function teamEntityKinds(team: TeamSlot[]): Map<string, EffectSourceKind> {
   const kinds = new Map<string, EffectSourceKind>([[SYSTEM_NAMESPACE, 'system']]);
   team.forEach(slot => {
     if (!slot.character) return;
-    [slot.mainSet, slot.subSet, slot.subSet2a, slot.subSet2b].forEach(set => set && kinds.set(set, 'set'));
+    slotSets(slot).forEach(set => kinds.set(set, 'set'));
     if (slot.mainEcho) kinds.set(slot.mainEcho, 'echo');
     if (slot.weapon) kinds.set(slot.weapon, 'weapon');
     kinds.set(slot.character, 'character');
@@ -135,7 +122,7 @@ function labelWithoutOwner(name: string, entityNames: string[]): string {
 }
 
 const providerColor = (provider: string | undefined): string =>
-  !provider || provider === 'System' ? SYSTEM_COLOR : getCharacterThemeColor(DataLoader.characterDB[provider]);
+  !provider || provider === SYSTEM_NAMESPACE ? SYSTEM_COLOR : getCharacterThemeColor(DataLoader.characterDB[provider]);
 
 // One open bar per buff key / tracker name; closing it fixes its px geometry.
 class LaneBuilder {
@@ -214,7 +201,7 @@ export function buildEffectTimeline(rows: any[], team: TeamSlot[], compression: 
   const buffLane = (key: string, info: EffectInfo, frames: number) => builder.lane(key, () => {
     const target = info.target ?? '';
     const section = target === 'Enemy' ? 'enemy'
-      : info.provider === 'System' ? 'system'
+      : info.provider === SYSTEM_NAMESPACE ? 'system'
       : units.has(target) ? `unit:${target}`
       : 'system';
     // Off in System Effects, a buff on something other than a unit or the enemy names what it's on.
@@ -240,7 +227,7 @@ export function buildEffectTimeline(rows: any[], team: TeamSlot[], compression: 
       builder.end(ev.key, ev.t);
       return;
     }
-    const info: EffectInfo = infoFromBuff({ ...ev, maxDuration: ev.permanent ? GAME_DEFAULTS.permanentDuration : 0 });
+    const info: EffectInfo = ev.info;
     buffLane(ev.key, info, ev.t);
     const remaining = info.permanent ? undefined : ev.remaining;
     if (ev.change === 'stacks' && builder.isOpen(ev.key)) builder.point(ev.key, ev.t, ev.stacks, remaining);
@@ -300,7 +287,7 @@ export function buildEffectTimeline(rows: any[], team: TeamSlot[], compression: 
   // An Ending Rotation's rows come from a separate run, after loops that have no rows of their
   // own (the compressed gap): close everything at the gap, and pick its state back up from the
   // first Ending Rotation row's snapshot.
-  const loopEndIndex = rows.findIndex(r => r && r.unit && r.loopEndOverride === true);
+  const loopEndIndex = loopEndIndexOf(rows);
   const endingStart = compression && loopEndIndex !== -1 ? loopEndIndex + 1 : rows.length;
   applyEvents(rows.slice(0, endingStart));
   if (compression && endingStart < rows.length) {
@@ -309,18 +296,13 @@ export function buildEffectTimeline(rows: any[], team: TeamSlot[], compression: 
     const snapshot = rows[endingStart]?.dropdownState;
     const at = compression.gapEndFrames;
     Object.entries(snapshot?.activeBuffs || {}).forEach(([key, buff]: [string, any]) => {
-      const info = infoFromBuff(buff);
+      const info = timelineBuffInfo(buff);
       buffLane(key, info, at);
       builder.start(key, at, info, buff.stacks || 0, info.permanent ? undefined : buff.duration);
     });
     const seedCooldown = (key: string, remaining: number, charges?: number) => {
       const unit = [...units].find(u => key.startsWith(`${u}_`)) ?? key.split('_')[0];
-      const name = key.slice(unit.length + 1);
-      applyCooldownEvent({
-        t: at, key, unit, name, remaining, charges,
-        isSystem: unit === SYSTEM_NAMESPACE || !!DataLoader.mechanicsDB[MechanicKey.build(SYSTEM_NAMESPACE, name)],
-        maxCharges: Number(DataLoader.mechanicsDB[key]?.maxCharges) || 1
-      });
+      applyCooldownEvent({ t: at, ...timelineCooldownInfo(key, unit, key.slice(unit.length + 1)), remaining, charges });
     };
     Object.entries(snapshot?.cooldowns || {}).forEach(([key, left]) => seedCooldown(key, Number(left)));
     Object.entries(snapshot?.chargeCooldowns || {}).forEach(([key, pending]) => {
@@ -339,12 +321,11 @@ export function buildEffectTimeline(rows: any[], team: TeamSlot[], compression: 
   // System hits: one row per mechanic, in its element's color.
   rows.forEach(row => (row?.damageInstances || []).filter(isSystemHit).forEach((hit: any) => {
     const frames = hit.gameTime ?? row.gameTimeStart;
-    const moveName = hit.moveName || hit.title || 'System';
-    // "Glacio Chafe" -> Glacio.
-    const dmgTypes: string[] = hit.dmgTypeList || [];
-    const element = Object.keys(ELEMENT_COLORS).find(el => dmgTypes.some(t => t.includes(el)));
+    const moveName = hit.moveName || hit.title || SYSTEM_NAMESPACE;
+    // "Glacio Chafe" -> Glacio's.
+    const color = (hit.dmgTypeList || []).map(elementColorOf).find(Boolean) ?? SYSTEM_COLOR;
     const lane = builder.lane(`hits:${moveName}`, () => ({
-      section: 'system', label: moveName, fullName: moveName, color: element ? ELEMENT_COLORS[element] : SYSTEM_COLOR, kind: 'hits' as const
+      section: 'system', label: moveName, fullName: moveName, color, kind: 'hits' as const
     }), frames);
     lane.hits.push({ frames, xPx: compressedTimeToPx(frames, compression), yPx: 0, total: hit.total || 0, moveName });
   }));
@@ -353,7 +334,7 @@ export function buildEffectTimeline(rows: any[], team: TeamSlot[], compression: 
   // In order of appearance, a section's cooldowns after its buffs.
   [...builder.lanes.values()]
     .sort((a, b) => Number(a.kind === 'cooldown') - Number(b.kind === 'cooldown') || a.firstFrames - b.firstFrames)
-    .forEach(({ section, firstFrames: _first, ...lane }) => {
+    .forEach(({ section, ...lane }) => {
       lane.alwaysOn = lane.kind === 'buff' && coversWholeRotation(lane.bars, endFrames, compression);
       if (lane.kind === 'hits') stackDots(lane.hits.sort((a, b) => a.xPx - b.xPx), EFFECT_BAR_INSET_PX, EFFECT_BAR_HEIGHT_PX);
       if (section.startsWith('unit:')) (data.unitLanes[section.slice(5)] ||= []).push(lane);

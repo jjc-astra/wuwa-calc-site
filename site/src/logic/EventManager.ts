@@ -1,6 +1,8 @@
 import { DSLParser } from './dsl/dslParser';
 import { ContextManager } from './ContextManager';
 import { GAME_DEFAULTS } from '../data/db';
+import { isBuffEffect, isPlaceholderProvider } from './engineValues';
+import { SYSTEM_NAMESPACE } from '../utils/MechanicKey';
 import type { MechanicNode, Effect } from '../types';
 
 export interface RegisteredListener extends MechanicNode {
@@ -73,7 +75,7 @@ function needsEveryEvent(buff: Effect): boolean {
  * (needsEveryEvent): every event.
  */
 export function alwaysRecheck(rule: string | undefined, effects: Effect[] = []): AlwaysRecheck {
-  const buffs = effects.filter(eff => eff.type === 'buff' || !eff.type);
+  const buffs = effects.filter(isBuffEffect);
   const ownBuffs = new Set(buffs.map(eff => (eff.name || '').toLowerCase()));
   const condition = (rule ?? '')
     .replace(/@[\w ]+\([^()]*\)/g, '') // @Owner(Name) references
@@ -101,6 +103,16 @@ const liveContexts = new WeakMap<object, { team: any[]; byUnit: Map<string, any>
 const rechecks = (recheck: AlwaysRecheck | undefined, eventType: string, modifiers: Set<string> | null): boolean =>
   !recheck || !recheck.events || recheck.events.has(eventType)
   || (BUFF_LEFT_EVENTS.has(eventType) && !!modifiers && [...modifiers].some(m => recheck.ownBuffs.has(m)));
+
+// The unit a listener acts as: its equipper, or (System's) whoever is acting.
+const ownerOf = (listener: RegisteredListener, activeUnitName: string): string => listener.equipper || activeUnitName;
+
+// Taking an ALWAYS listener's buff off once its condition stops holding.
+const alwaysBuffRemoval = (eff: Effect, listener: RegisteredListener, activeUnitName: string): Effect => ({
+  type: 'buffAction', action: 'remove', value: 'ALL', name: eff.name,
+  target: !eff.target ? '@Self' : eff.target === '@Equipper' ? listener.equipper : eff.target,
+  provider: eff.provider || ownerOf(listener, activeUnitName)
+});
 
 // The event bus: compiled trigger rules registered per event, emitted as the simulation runs.
 export class EventManagerClass {
@@ -152,8 +164,8 @@ export class EventManagerClass {
     if (!resolved.sourceOwner && listener.ownerName) resolved.sourceOwner = listener.ownerName;
     if (resolved.target === '@Equipper') resolved.target = listener.equipper;
     const provider = resolved.provider;
-    if (!provider || provider === 'System' || provider === '@Equipper' || provider === listener.name || provider === listener.provider) {
-      resolved.provider = listener.equipper || activeUnitName;
+    if (isPlaceholderProvider(provider) || provider === listener.name || provider === listener.provider) {
+      resolved.provider = ownerOf(listener, activeUnitName);
     }
     return resolved;
   }
@@ -164,25 +176,28 @@ export class EventManagerClass {
     return {
       type: 'procced_mechanic',
       source: listener.name,
-      provider: listener.equipper || activeUnitName,
+      provider: ownerOf(listener, activeUnitName),
       mechanicData: { ...listener }
     } as any;
   }
 
-  private cooldownOwner(listener: RegisteredListener, activeUnitName: string): string {
-    return listener.equipper || activeUnitName;
-  }
-
   // A triggered listener's cooldown, in seconds, starting when it fires.
   private cooldownEffect(listener: RegisteredListener, activeUnitName: string): Effect {
-    return { type: 'cooldown', name: listener.name, target: this.cooldownOwner(listener, activeUnitName), value: parseFloat(String(listener.cooldown)) || 0 };
+    return { type: 'cooldown', name: listener.name, target: ownerOf(listener, activeUnitName), value: parseFloat(String(listener.cooldown)) || 0 };
   }
 
   // A listener still on its own cooldown can't trigger again. ALWAYS listeners are continuous
   // state, not triggers, so a cooldown doesn't apply to them.
   private isOnCooldown(listener: RegisteredListener, stateData: any, activeUnitName: string): boolean {
     if (!listener.cooldown || listener.triggerEvent === 'ALWAYS') return false;
-    return ContextManager.cooldownRemaining(stateData, this.cooldownOwner(listener, activeUnitName), listener.name) > 0.001;
+    return ContextManager.cooldownRemaining(stateData, ownerOf(listener, activeUnitName), listener.name) > 0.001;
+  }
+
+  // What a triggered listener produces: its hits (as a proc), its effects, its cooldown.
+  private fireListener(listener: RegisteredListener, activeUnitName: string, out: Effect[], withHits = true): void {
+    if (withHits && listener.hitMults && listener.hitMults.length > 0) out.push(this.resolveProc(listener, activeUnitName));
+    (listener.effects || []).forEach(eff => out.push(this.resolveEffect(eff, listener, activeUnitName)));
+    if (listener.cooldown) out.push(this.cooldownEffect(listener, activeUnitName));
   }
 
   emit(
@@ -205,7 +220,7 @@ export class EventManagerClass {
     const ctxCache: Record<string, any> = {};
 
     const getCtx = (unit: string) => {
-      const key = unit || 'System';
+      const key = unit || SYSTEM_NAMESPACE;
       if (!ctxCache[key]) {
         ctxCache[key] = ContextManager.buildContext(stateData, key, team);
       }
@@ -215,7 +230,7 @@ export class EventManagerClass {
     const getPrio = (item: RegisteredListener) => {
       if (typeof item.priority === 'number') return item.priority;
       if (typeof item.priority === 'string') {
-        const itemCtx = getCtx(item.equipper || activeUnitName);
+        const itemCtx = getCtx(ownerOf(item, activeUnitName));
         return DSLParser.evaluateMath(item.priority, itemCtx, item.equipper);
       }
       return 0;
@@ -229,20 +244,9 @@ export class EventManagerClass {
       const tickParams = eventType === 'OnTick' ? (listener.eventArgs.length > 0 ? listener.eventArgs : (listener.requiredModifiers ?? [])) : [];
       const requiredTags = eventType === 'OnTick' && listener.eventArgs.length === 0 ? [] : (listener.requiredModifiers ?? []);
 
-      if (requiredTags.includes('self')) {
-        if (activeUnitName !== listener.equipper) continue;
-      }
-      if (requiredTags.length > 0) {
-        let hasAll = true;
-        for (const mod of requiredTags) {
-          if (mod === 'self') continue;
-          if (!actionModifiers || !actionModifiers.has(mod)) {
-            hasAll = false;
-            break;
-          }
-        }
-        if (!hasAll) continue;
-      }
+      // [Self]: only this listener's own unit acting. Every other tag must be on the event.
+      if (requiredTags.includes('self') && activeUnitName !== listener.equipper) continue;
+      if (!requiredTags.every(mod => mod === 'self' || actionModifiers?.has(mod))) continue;
 
       const isAlways = listener.triggerEvent === 'ALWAYS';
       if (isAlways && this.applying.has(listener.listenerId)) continue;
@@ -254,7 +258,7 @@ export class EventManagerClass {
         continue;
       }
 
-      const ctx = getCtx(listener.equipper || activeUnitName);
+      const ctx = getCtx(ownerOf(listener, activeUnitName));
       if (!ctx) continue;
       // Where this listener's effects start, for tagging them below.
       const effectsBefore = triggeredEffects.length;
@@ -267,8 +271,8 @@ export class EventManagerClass {
         const timerKey = `__sys_timer_${listener.name}`;
         const countKey = `__sys_count_${listener.name}`;
 
-        let currentTimer = (stateData && stateData.trackers?.[timerKey]) ? stateData.trackers[timerKey] : 0;
-        let currentCount = (stateData && stateData.trackers?.[countKey]) ? stateData.trackers[countKey] : 0;
+        let currentTimer = stateData?.trackers?.[timerKey] || 0;
+        let currentCount = stateData?.trackers?.[countKey] || 0;
 
         const speedMult = getTimeScale ? getTimeScale(listener.name) : 1.0;
         currentTimer += (timePassed * speedMult);
@@ -285,11 +289,7 @@ export class EventManagerClass {
           currentTimer -= interval;
           currentCount++;
           if (!this.isOnCooldown(listener, stateData, activeUnitName) && listener.evaluate(ctx, listener.equipper)) {
-            if (listener.hitMults && listener.hitMults.length > 0) {
-              triggeredEffects.push(this.resolveProc(listener, activeUnitName));
-            }
-            (listener.effects || []).forEach(eff => triggeredEffects.push(this.resolveEffect(eff, listener, activeUnitName)));
-            if (listener.cooldown) triggeredEffects.push(this.cooldownEffect(listener, activeUnitName));
+            this.fireListener(listener, activeUnitName, triggeredEffects);
           }
         }
 
@@ -308,36 +308,13 @@ export class EventManagerClass {
           || (String(which).toLowerCase() === 'all' ? hitIndex === totalHits : hitIndex === Number(which));
 
         if (matchesHit && !this.isOnCooldown(listener, stateData, activeUnitName) && listener.evaluate(ctx, listener.equipper)) {
-          (listener.effects || []).forEach(eff => triggeredEffects.push(this.resolveEffect(eff, listener, activeUnitName)));
-          if (listener.cooldown) triggeredEffects.push(this.cooldownEffect(listener, activeUnitName));
+          this.fireListener(listener, activeUnitName, triggeredEffects, false);
         }
-      } else {
-        if (!this.isOnCooldown(listener, stateData, activeUnitName) && listener.evaluate(ctx, listener.equipper)) {
-          if ((listener.hitMults && listener.hitMults.length > 0) && (!isAlways || eventType === 'ALWAYS')) {
-            triggeredEffects.push(this.resolveProc(listener, activeUnitName));
-          }
-          (listener.effects || []).forEach(eff => {
-            if (isAlways && eventType !== 'ALWAYS' && eff.type && eff.type !== 'buff') return;
-            triggeredEffects.push(this.resolveEffect(eff, listener, activeUnitName));
-          });
-          if (listener.cooldown && (!isAlways || eventType === 'ALWAYS')) triggeredEffects.push(this.cooldownEffect(listener, activeUnitName));
-        } else if (isAlways) {
-          (listener.effects || []).forEach(eff => {
-            if (eff.type === 'buff' || !eff.type) {
-              const p = eff.provider || listener.equipper || activeUnitName;
-              let t = eff.target || '@Self';
-              if (t === '@Equipper') t = listener.equipper;
-              triggeredEffects.push({
-                type: 'buffAction',
-                action: 'remove',
-                value: 'ALL',
-                name: eff.name,
-                target: t,
-                provider: p
-              });
-            }
-          });
-        }
+      } else if (!this.isOnCooldown(listener, stateData, activeUnitName) && listener.evaluate(ctx, listener.equipper)) {
+        this.fireListener(listener, activeUnitName, triggeredEffects);
+      } else if (isAlways) {
+        // Only reached on the ALWAYS event itself (combat start): elsewhere ALWAYS listeners queue a check above.
+        (listener.effects || []).filter(isBuffEffect).forEach(eff => triggeredEffects.push(alwaysBuffRemoval(eff, listener, activeUnitName)));
       }
 
       if (isAlways) {
@@ -350,7 +327,7 @@ export class EventManagerClass {
   /** An ALWAYS listener's effects for the state now: its buffs while its condition holds, their
    * removal once it doesn't. */
   checkAlways(listener: RegisteredListener, stateData: any, activeUnitName: string, team: any[] = []): Effect[] {
-    const unit = listener.equipper || activeUnitName || 'System';
+    const unit = ownerOf(listener, activeUnitName) || SYSTEM_NAMESPACE;
     let ctx;
     if (listener.recheck?.live && stateData) {
       let cached = liveContexts.get(stateData);
@@ -365,16 +342,11 @@ export class EventManagerClass {
     if (!ctx) return [];
     const holds = listener.evaluate(ctx, listener.equipper);
     return (listener.effects || [])
-      .filter(eff => eff.type === 'buff' || !eff.type)
-      .map(eff => {
-        if (holds) return { ...this.resolveEffect(eff, listener, activeUnitName), [ALWAYS_SOURCE]: listener.listenerId };
-        const target = !eff.target ? '@Self' : eff.target === '@Equipper' ? listener.equipper : eff.target;
-        return {
-          type: 'buffAction', action: 'remove', value: 'ALL', name: eff.name, target,
-          provider: eff.provider || listener.equipper || activeUnitName,
-          [ALWAYS_SOURCE]: listener.listenerId
-        } as Effect;
-      });
+      .filter(isBuffEffect)
+      .map(eff => ({
+        ...(holds ? this.resolveEffect(eff, listener, activeUnitName) : alwaysBuffRemoval(eff, listener, activeUnitName)),
+        [ALWAYS_SOURCE]: listener.listenerId
+      }));
   }
 }
 

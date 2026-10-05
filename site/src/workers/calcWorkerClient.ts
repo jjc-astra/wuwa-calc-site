@@ -4,7 +4,7 @@ import { buildBuilderPayload } from './builderOverridePayload';
 import { getTeamEntityRefs } from '../utils/TeamUtils';
 import { DataLoader } from '../utils/DataLoader';
 import { toPersistedRow } from '../logic/rotationRows';
-import type { TeamSlot } from '../types';
+import type { TeamSlot, EnemyStats } from '../types';
 
 // One worker and its request queue. Requests run one at a time: the worker's TimelineEngine and
 // DataLoader share stateful caches that concurrent calls could leave half-populated. The worker
@@ -170,7 +170,7 @@ export interface WorkerRequest {
   rows: any[];
   team: TeamSlot[];
   options: Record<string, unknown>;
-  enemy: { level: number; res: number; hp: number };
+  enemy: EnemyStats;
   endingRotationEnabled?: boolean;
   endRotationStartsEarlier?: boolean;
   // 'recalculate' only: also fill each row's damage breakdown, and how to fold the expanded rows back.

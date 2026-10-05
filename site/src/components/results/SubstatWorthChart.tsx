@@ -5,6 +5,7 @@ import { useRotationStore } from '../../store/useRotationStore';
 import { SegmentedToggle } from '../common/SegmentedToggle';
 import { UnitTabs } from '../common/UnitTabs';
 import { formatStatValue } from '../../data/db';
+import { teamCharacters } from '../../utils/TeamUtils';
 
 const formatPct = (v: number) => `${v.toFixed(1)}%`;
 
@@ -15,7 +16,7 @@ type Mode = 'team' | 'personal';
 export const SubstatWorthChart: React.FC = () => {
   const source = useResultsSource();
   const { team, results } = source;
-  const units = team.filter(s => s.character).map(s => s.character);
+  const units = teamCharacters(team);
   const [activeUnit, setActiveUnit] = useState(units[0] || '');
   const [direction, setDirection] = useState<Direction>('plus');
   const [ownMode, setMode] = useState<Mode>('team');

@@ -3,7 +3,8 @@ import { useBuilderStore, mechFolderFor } from '../../store/useBuilderStore';
 import { checkBuilderItemFreshness } from '../../utils/dataFreshness';
 import { DataLoader, type ImplementedContentKind } from '../../utils/DataLoader';
 import { BuilderUtils } from '../../utils/BuilderUtils';
-import { MechanicKey } from '../../utils/MechanicKey';
+import { MechanicKey, SYSTEM_NAMESPACE } from '../../utils/MechanicKey';
+import { tip } from '../../utils/Common';
 import { BaseStatsForm } from './BaseStatsForm';
 import { MechanicNodeCard } from './MechanicNodeCard';
 import { JsonOutputPane } from './JsonOutputPane';
@@ -11,7 +12,6 @@ import { BuilderState, IMAGE_FOLDERS } from '../../data/db';
 import { isElement } from '../../data/gameVocab';
 import type { MechanicNode } from '../../types';
 import type { ImageFolder } from '../../data/db';
-import { tip } from './mechanicNodeHelpers';
 import { Dropdown } from '../common/Dropdown';
 import { LibraryCard, LibrarySection, LibrarySearchInput, matchesLibrarySearch } from '../common/LibraryGrid';
 
@@ -190,7 +190,7 @@ export const MechanicsBuilder: React.FC = () => {
           {buildSection('Weapons', Object.keys(DataLoader.weaponDB), DataLoader.weaponDB, IMAGE_FOLDERS.WEAPONS)}
           {buildSection('Main Echoes', DataLoader.allMainEchoes, undefined, IMAGE_FOLDERS.ECHOES)}
           {buildSection('Echo Sets', DataLoader.sonataSets, undefined, IMAGE_FOLDERS.ECHO_SETS)}
-          {buildSection('System', ['System'], undefined, IMAGE_FOLDERS.SYSTEM)}
+          {buildSection('System', [SYSTEM_NAMESPACE], undefined, IMAGE_FOLDERS.SYSTEM)}
         </div>
       </div>
     );
@@ -203,7 +203,7 @@ export const MechanicsBuilder: React.FC = () => {
   const isOnePcSet = DataLoader.onePcSets.includes(activeChar);
 
   let targetCategories: string[] = [];
-  if (activeChar === 'System') {
+  if (activeChar === SYSTEM_NAMESPACE) {
     targetCategories = ['System Mechanics'];
   } else if (isCharacter) {
     targetCategories = BuilderState.categories;
@@ -224,14 +224,8 @@ export const MechanicsBuilder: React.FC = () => {
 
   const handleAddNode = (category: string) => {
     const tmplKey = selectedTemplates[category] || getDefaultTemplateKey(category);
-    const template: MechanicNode = JSON.parse(
-      JSON.stringify(
-        (BuilderState.templates as Record<string, any>)[tmplKey] || {
-          name: 'New Mechanic',
-          triggerRule: '',
-          isPassive: false
-        }
-      )
+    const template: MechanicNode = structuredClone(
+      BuilderState.templates[tmplKey] || { name: 'New Mechanic', triggerRule: '', isPassive: false }
     );
 
     if (isCharacter && DataLoader.characterDB[activeChar]?.element) {
@@ -243,7 +237,7 @@ export const MechanicsBuilder: React.FC = () => {
       }
     }
 
-    const provider = activeChar || 'System';
+    const provider = MechanicKey.toNamespace(activeChar);
     let nodeId = MechanicKey.build(provider, template.name);
     if (mechanics[nodeId]) {
       let suffix = 2;
@@ -268,7 +262,7 @@ export const MechanicsBuilder: React.FC = () => {
             const catMechs = (Object.entries(mechanics) as [string, MechanicNode][]).filter(([id, m]) => {
               if (holdGroupSkipIds.has(id)) return false;
               if (m.category && targetCategories.includes(m.category)) return m.category === cat;
-              if (activeChar === 'System') return cat === 'System Mechanics';
+              if (activeChar === SYSTEM_NAMESPACE) return cat === 'System Mechanics';
               if (!isCharacter) {
                 if (targetCategories.includes('Echo Skill')) {
                   const isPassive = !!m.isPassive || id.toLowerCase().includes('passive') || (m.name || '').toLowerCase().includes('passive') ||
@@ -308,7 +302,7 @@ export const MechanicsBuilder: React.FC = () => {
                       onChange={v => setSelectedTemplates({ ...selectedTemplates, [cat]: v })}
                       options={Object.keys(BuilderState.templates).map(k => ({
                         value: k,
-                        label: (BuilderState.templates as any)[k].name
+                        label: BuilderState.templates[k].name
                       }))}
                     />
                     <button type="button" className="base-btn text-xs add-node-btn" onClick={() => handleAddNode(cat)}>

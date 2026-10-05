@@ -3,8 +3,9 @@ import { CommonUtils } from '../utils/Common';
 import { DSLParser } from './dsl/dslParser';
 import { ContextManager } from './ContextManager';
 import { CHARACTER_DEFAULTS, SIM_CONSTANTS, ENEMY_DEFAULTS, STAT_NAME_MAP, BUILDUP_RATE_STATS } from '../data/db';
-import { SCOPE_HIT_TAGS } from './combat/combatRegistry';
+import { SCOPE_HIT_TAGS, sheetDmgBonusKeyForType } from './combat/combatRegistry';
 import { modifierSet } from './engineValues';
+import { SYSTEM_NAMESPACE } from '../utils/MechanicKey';
 import { ECHO_STAT_KEYS, emptyEchoStats } from '../data/gameVocab';
 import { findScope, resolveMultiplierBucket, resolveSheetDmgBonusKey } from './combat/statParser';
 import { NEGATIVE_STATUS_MULTS, getNegativeStatusMult } from './combat/negativeStatus';
@@ -44,9 +45,9 @@ function readBuffValue(buff: Effect, rank: number | undefined, providerStats: ()
 // A buff's contribution to a damage bucket: its value as a fraction (if a percent) times its
 // stacks, ranked by its provider's weapon rank.
 function readBuffTotal(buff: Effect, providerUnit: string, team: any[], providerStats: (name: string) => Record<string, number>, state?: any): { totalVal: number; isPct: boolean } {
-  const providerSlot = team.find(t => t.character === providerUnit);
+  const rank = team.find(t => t.character === providerUnit)?.rank ?? CHARACTER_DEFAULTS.rank;
   const scope = state ? { state, provider: providerUnit, team } : undefined;
-  const { numVal, isPct } = readBuffValue(buff, providerSlot ? providerSlot.rank : 1, () => providerStats(providerUnit), scope);
+  const { numVal, isPct } = readBuffValue(buff, rank, () => providerStats(providerUnit), scope);
   return { totalVal: (isPct ? numVal / 100 : numVal) * (buff.stacks || 1), isPct };
 }
 
@@ -113,6 +114,16 @@ function isLiveStatBuff(buff: Effect | undefined): buff is Effect & { stat: stri
   if (!buff || !buff.stat) return false;
   return !(buff.duration !== undefined && Number(buff.duration) <= 0 && buff.stacks !== undefined && buff.stacks <= 0);
 }
+
+// A %-valued ATK/HP/DEF buff adds to the % stat, a flat one to the flat stat, whichever it names.
+const PERCENT_TWIN: Record<string, string> = { flatAtk: 'percentAtk', flatHP: 'percentHP', flatDef: 'percentDef' };
+const FLAT_TWIN: Record<string, string> = Object.fromEntries(Object.entries(PERCENT_TWIN).map(([flat, pct]) => [pct, flat]));
+
+// The average-hit multiplier from crit: (1 - rate) + rate x crit damage, the rate clamped to [0, 1].
+const critMultiplier = (critRate: number, critDamage: number): number => {
+  const cr = Math.min(1, Math.max(0, critRate));
+  return (1 - cr) + cr * critDamage;
+};
 
 function emptyBuffTotals(): BuffTotals {
   return {
@@ -200,8 +211,7 @@ export const CombatCalculator = {
                           : formulaUsed === 'NegativeStatus' ? [`${Math.floor(statusBaseDmg)}`]
                           : [baseDmgStr];
     if (formulaUsed === 'Standard') {
-      const cr = Math.min(1.0, Math.max(0.0, finalCritRate));
-      const critMult = (1 - cr) * 1 + cr * finalCritDamage;
+      const critMult = critMultiplier(finalCritRate, finalCritDamage);
       const dmgBonusTotal = 1 + baseDmgBonus + buffTotals.dmgBonus;
       if (dmgBonusTotal !== 1) breakdownParts.push(`${dmgBonusTotal.toFixed(3)} (DMG%)`);
       if (critMult !== 1) breakdownParts.push(`${critMult.toFixed(3)} (Crit)`);
@@ -272,19 +282,8 @@ export const CombatCalculator = {
         const scope = stateData ? { state: stateData, provider, team } : undefined;
         const { numVal, isPct } = readBuffValue(buff, slot.rank || 1, () => getProviderStats(provider), scope);
 
-        if (isPct) {
-          if (baseStatKey === 'flatAtk') baseStatKey = 'percentAtk';
-          else if (baseStatKey === 'flatHP') baseStatKey = 'percentHP';
-          else if (baseStatKey === 'flatDef') baseStatKey = 'percentDef';
-        } else {
-          if (baseStatKey === 'percentAtk') baseStatKey = 'flatAtk';
-          else if (baseStatKey === 'percentHP') baseStatKey = 'flatHP';
-          else if (baseStatKey === 'percentDef') baseStatKey = 'flatDef';
-        }
-
-        if (stats[baseStatKey] !== undefined) {
-          stats[baseStatKey] += numVal * (buff.stacks || 1);
-        }
+        baseStatKey = (isPct ? PERCENT_TWIN : FLAT_TWIN)[baseStatKey] ?? baseStatKey;
+        stats[baseStatKey] += numVal * (buff.stacks || 1);
       }
     });
 
@@ -311,7 +310,7 @@ export const CombatCalculator = {
       if (!isLiveStatBuff(buff)) continue;
       const targetUnit = buff.target || '@Self';
       const appliesToSelf = (targetUnit === '@Self' || targetUnit === '@Equipper' || targetUnit === executingUnit) &&
-                            (buff.provider === executingUnit || buff.provider === 'System' || buff.target === executingUnit);
+                            (buff.provider === executingUnit || buff.provider === SYSTEM_NAMESPACE || buff.target === executingUnit);
       const appliesToTeam = targetUnit === '@Team' || targetUnit === 'Team';
       const appliesToActive = targetUnit === 'Active' && stateData.unit === executingUnit;
 
@@ -364,7 +363,7 @@ export const CombatCalculator = {
 
       appliedBuffs[key] = buff;
 
-      const { totalVal, isPct } = readBuffTotal(buff, buff.provider || 'System', team, getProviderStats, stateData);
+      const { totalVal, isPct } = readBuffTotal(buff, buff.provider || SYSTEM_NAMESPACE, team, getProviderStats, stateData);
       classifyBuffIntoTotals(sLower, totalVal, isPct, buffTotals);
     }
 
@@ -396,10 +395,9 @@ export const CombatCalculator = {
 
     const hitModifiers = Array.from(modifierSet([...dmgTypes, ...castTypes, actionId, moveName, formattedPointer]));
 
-    const titleLower = titleStr.toLowerCase();
-    // Tune Break/Rupture never scales off ATK/HP/DEF -- forced here since some Tune movesets
+    // Tune Break/Rupture/Hack never scales off ATK/HP/DEF -- forced here since some Tune movesets
     // have no scalar field (would otherwise default to ATK).
-    const isTuneDmg = castTypes.some(c => c.toLowerCase().includes('tune')) || titleLower.includes('tune');
+    const isTuneDmg = castTypes.some(c => c.toLowerCase().includes('tune'));
     // A move is negative-status dmg only when dmgTypes names JUST a known status -- mixed in
     // with other dmgTypes (e.g. ["Heavy","Spectro Frazzle","Spectro"]) means the name is
     // cosmetic and Standard formula still applies.
@@ -415,9 +413,8 @@ export const CombatCalculator = {
     // (e.g. castType "Heavy" + dmgType "Basic" should only pick up basicDmgBonus).
     let baseDmgBonus = 0;
     dmgTypes.forEach(type => {
-      const key = String(type).toLowerCase();
-      const statKey = (key === 'liberation' ? 'lib' : key) + 'DmgBonus';
-      if (getBaseStat(statKey)) baseDmgBonus += (getBaseStat(statKey) / 100);
+      const statKey = sheetDmgBonusKeyForType(type);
+      if (statKey) baseDmgBonus += getBaseStat(statKey) / 100;
     });
 
     const rawBaseAtk = getBaseStat('baseAtk');
@@ -429,13 +426,16 @@ export const CombatCalculator = {
     const totalHP = getBaseStat('baseHP') * (1 + (getBaseStat('percentHP') / 100) + buffTotals.percentHP) + getBaseStat('flatHP') + buffTotals.flatHP;
     const totalDef = getBaseStat('baseDef') * (1 + (getBaseStat('percentDef') / 100) + buffTotals.percentDef) + getBaseStat('flatDef') + buffTotals.flatDef;
 
+    // Per scaling stat: its total, the % buffs on it, and its breakdown (base x (1 + %) + flat).
+    const scalars: Record<string, { total: number; buffPct: number; base: number; pct: number; flat: number }> = {
+      atk: { total: totalAtk, buffPct: buffTotals.percentAtk, base: rawBaseAtk, pct: generalAtkPctDecimal + talentPctDecimal, flat: getBaseStat('flatAtk') + buffTotals.flatAtk },
+      hp: { total: totalHP, buffPct: buffTotals.percentHP, base: getBaseStat('baseHP'), pct: getBaseStat('percentHP') / 100 + buffTotals.percentHP, flat: getBaseStat('flatHP') + buffTotals.flatHP },
+      def: { total: totalDef, buffPct: buffTotals.percentDef, base: getBaseStat('baseDef'), pct: getBaseStat('percentDef') / 100 + buffTotals.percentDef, flat: getBaseStat('flatDef') + buffTotals.flatDef }
+    };
+    const scalar = scalars[scalarType];
     // 1, not 0 -- a "None" scalar means hitMult already IS the damage, not zero times a stat.
-    let scalingStatVal = 1;
-    let scalarBonusPct = 0;
-
-    if (scalarType === 'atk') { scalingStatVal = totalAtk; scalarBonusPct = buffTotals.percentAtk; }
-    else if (scalarType === 'hp') { scalingStatVal = totalHP; scalarBonusPct = buffTotals.percentHP; }
-    else if (scalarType === 'def') { scalingStatVal = totalDef; scalarBonusPct = buffTotals.percentDef; }
+    const scalingStatVal = scalar?.total ?? 1;
+    const scalarBonusPct = scalar?.buffPct ?? 0;
 
     const finalCritRate = (getBaseStat('critRate') / 100) + buffTotals.critRate;
     const finalCritDamage = (getBaseStat('critDamage') / 100) + buffTotals.critDamage;
@@ -449,9 +449,9 @@ export const CombatCalculator = {
 
     const baseDmg = ((pctMult + buffTotals.additiveMult) * scalingStatVal) + flatMult;
 
-    let calculatedTotal = 0;
-    let nonCritDmg = 0;
-    let critDmg = 0;
+    let calculatedTotal: number;
+    let nonCritDmg: number;
+    let critDmg: number;
     let formulaUsed: 'Standard' | 'Tune' | 'NegativeStatus' = 'Standard';
 
     // Standard/Tune use the unit-scoped buffTotals/resMultiplier/defMult computed above as-is.
@@ -482,22 +482,14 @@ export const CombatCalculator = {
       calculatedTotal = CombatCalculator.calcTuneDmg(baseDmg, buffTotals.tuneBreakBoost, buffTotals.dmgTaken, buffTotals.multiplicativeMult, resMultiplier, defMult);
       nonCritDmg = calculatedTotal; critDmg = calculatedTotal;
     } else {
-      const cr = Math.min(1.0, Math.max(0.0, finalCritRate));
-      const critMult = (1 - cr) * 1 + cr * finalCritDamage;
+      const critMult = critMultiplier(finalCritRate, finalCritDamage);
       const dmgBonusTotal = 1 + baseDmgBonus + buffTotals.dmgBonus;
       calculatedTotal = CombatCalculator.calcStandardDmg(baseDmg, critMult, dmgBonusTotal, buffTotals.dmgAmp, buffTotals.dmgTaken, buffTotals.multiplicativeMult, resMultiplier, defMult);
       nonCritDmg = CombatCalculator.calcStandardDmg(baseDmg, 1.0, dmgBonusTotal, buffTotals.dmgAmp, buffTotals.dmgTaken, buffTotals.multiplicativeMult, resMultiplier, defMult);
       critDmg = CombatCalculator.calcStandardDmg(baseDmg, finalCritDamage, dmgBonusTotal, buffTotals.dmgAmp, buffTotals.dmgTaken, buffTotals.multiplicativeMult, resMultiplier, defMult);
     }
 
-    let statBreakdown: any = { label: scalarType.toUpperCase() };
-    if (scalarType === 'atk') {
-      statBreakdown = { ...statBreakdown, base: rawBaseAtk, pct: generalAtkPctDecimal + talentPctDecimal, flat: getBaseStat('flatAtk') + buffTotals.flatAtk };
-    } else if (scalarType === 'hp') {
-      statBreakdown = { ...statBreakdown, base: getBaseStat('baseHP'), pct: (getBaseStat('percentHP') / 100) + buffTotals.percentHP, flat: getBaseStat('flatHP') + buffTotals.flatHP };
-    } else if (scalarType === 'def') {
-      statBreakdown = { ...statBreakdown, base: getBaseStat('baseDef'), pct: (getBaseStat('percentDef') / 100) + buffTotals.percentDef, flat: getBaseStat('flatDef') + buffTotals.flatDef };
-    }
+    const statBreakdown = { label: scalarType.toUpperCase(), ...(scalar && { base: scalar.base, pct: scalar.pct, flat: scalar.flat }) };
 
     const { displayMult, calcBreakdown } = CombatCalculator.formatDamageBreakdown(
       calculatedTotal, formulaUsed, pctMult, flatMult, scalingStatVal,
@@ -509,7 +501,6 @@ export const CombatCalculator = {
     return {
       title: titleStr,
       total: Math.floor(calculatedTotal),
-      avg: Math.floor(calculatedTotal),
       nonCrit: Math.floor(nonCritDmg),
       crit: Math.floor(critDmg),
       isOpen: hitConfig.isOpen ?? false,

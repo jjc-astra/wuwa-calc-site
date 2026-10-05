@@ -15,7 +15,8 @@ export const RESOURCE_KEYS: readonly string[] = ['energy', 'concerto', 'tune', .
 // nothing waits on it.
 export const WAITABLE_RESOURCE_KEYS: readonly string[] = RESOURCE_KEYS.filter(key => key !== 'energy');
 
-const isEnemyResource = (key: string): boolean => key === 'tune';
+// The enemy's pool rather than a unit's.
+export const isEnemyResource = (key: string): boolean => key === 'tune';
 
 // A timed 'Enemy_TuneImmune' buff (e.g. applied by Tune Break) blocks tune gain entirely.
 const isTuneImmune = (state: any): boolean => !!state.activeBuffs?.['Enemy_TuneImmune'];
@@ -57,7 +58,7 @@ export function addResource(state: any, key: string, unit: string, amount: numbe
 
 // The unit's Energy Regen % with the buffs currently reaching it.
 export function energyRegenPct(state: any, unit: string, team: any[]): number {
-  return buffedStats(state, unit, team).energyRegen || 100;
+  return buffedStats(state, unit, team).energyRegen || CHARACTER_DEFAULTS.energyRegen;
 }
 
 // What Energy gained by this unit is multiplied by.

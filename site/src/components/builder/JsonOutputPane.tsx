@@ -103,8 +103,8 @@ function applyFieldHighlight(
 // - Summing the DOM's text instead would drift: lines are separate divs with no '\n' between them.
 function getFlatCaretOffset(container: HTMLElement, sourceText: string, x: number, y: number): number | null {
   const doc = document as any;
-  let node: Node | null = null;
-  let offset = 0;
+  let node: Node | null;
+  let offset: number;
   if (doc.caretPositionFromPoint) {
     const pos = doc.caretPositionFromPoint(x, y);
     if (!pos) return null;

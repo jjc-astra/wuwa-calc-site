@@ -3,7 +3,11 @@ import { useRotationStore } from '../../store/useRotationStore';
 import { useRosterStore } from '../../store/useRosterStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { BuilderUtils } from '../../utils/BuilderUtils';
-import { BUILDER_CATEGORIES } from '../../data/db';
+import { BUILDER_CATEGORIES, ENEMY_DEFAULTS } from '../../data/db';
+import { resourceCap } from '../../logic/resources';
+import { DEFAULT_REPEAT_COUNT } from '../../logic/rotationRows';
+import { SYSTEM_NAMESPACE } from '../../utils/MechanicKey';
+import { FastForwardIcon } from '../common/icons';
 import { ContextManager } from '../../logic/ContextManager';
 import { getMechanicOwners, getCastableMechanics, OWNER_KIND_ORDER } from '../../logic/MechanicOwners';
 import type { MechanicOwner } from '../../logic/MechanicOwners';
@@ -13,7 +17,7 @@ import { DialGauge, VerticalGauge, MultiForteGauge } from './Gauge';
 import { SubPanel } from './SubPanel';
 import { Dropdown } from '../common/Dropdown';
 import type { DropdownGroup } from '../common/Dropdown';
-import { TooltipManager, getCharacterThemeColor } from '../../utils/Common';
+import { TooltipManager, getCharacterThemeColor, tip } from '../../utils/Common';
 import { teamCharacters } from '../../utils/TeamUtils';
 import { toFrames, secondsToFrames, framesToSeconds, formatFramesAsSeconds } from '../../utils/Frames';
 import { applyBuilderOverridesFor } from '../../workers/builderOverridePayload';
@@ -36,32 +40,30 @@ interface RotationRowProps {
   isLoopStartOverride?: boolean;
   loopErrors?: string[];
   loopWarnings?: string[];
-  onLoopMarkerDragStart?: (e: React.DragEvent) => void;
-  onLoopMarkerDragEnd?: (e: React.DragEvent) => void;
   onResetLoopStart?: () => void;
   isLoopEnd?: boolean;
-  onLoopEndMarkerDragStart?: (e: React.DragEvent) => void;
-  onLoopEndMarkerDragEnd?: (e: React.DragEvent) => void;
   onResetLoopEnd?: () => void;
   // Derived by RotationBuilder (loopEndIndex + 1, when that row has content), not a persisted flag.
   isEndRotationStart?: boolean;
   endRotationStartsEarlier?: boolean;
   onToggleEndRotationStartsEarlier?: (val: boolean) => void;
-  // A Hold Repeat block's boundary rows -- unlike Loop Start/End, several independent blocks can
-  // exist, so each carries its own groupId (row.repeatBlockStart/repeatBlockEnd) rather than a
-  // single rotation-wide flag.
-  isRepeatStart?: boolean;
-  repeatCount?: number;
-  // Repeat-block handlers take the block's groupId, so one stable handler serves every row.
+  // Dragging a loop or Hold Repeat marker (a tag on this row) to another row.
+  onMarkerDragStart?: (e: React.DragEvent, marker: DraggedMarker) => void;
+  onMarkerDragEnd?: () => void;
+  // A Hold Repeat block's boundary rows carry its groupId (row.repeatBlockStart/repeatBlockEnd):
+  // unlike Loop Start/End, several blocks can exist. These handlers take that groupId, so one
+  // stable handler serves every row.
   onRepeatCountChange?: (groupId: string, n: number) => void;
-  onRepeatMarkerDragStart?: (e: React.DragEvent, groupId: string, role: 'start' | 'end') => void;
-  onRepeatMarkerDragEnd?: (e: React.DragEvent) => void;
   onRemoveRepeatBlock?: (groupId: string) => void;
-  isRepeatEnd?: boolean;
-  // Overrides `timing` on just the block's last repetition (e.g. it needs "Full" instead of
-  // "Auto" to not get cut short before what comes right after the block ends).
-  repeatFinalTiming?: string;
+  // row.repeatFinalTiming overrides `timing` on just the block's last repetition (e.g. "Full"
+  // instead of "Auto", so it isn't cut short before what comes right after the block).
   onRepeatFinalTimingChange?: (groupId: string, val: string | undefined) => void;
+}
+
+/** A marker being dragged to another row: the loop's start/end, or (with its groupId) a Hold Repeat block's. */
+export interface DraggedMarker {
+  role: 'start' | 'end';
+  groupId?: string;
 }
 
 interface TimingOption {
@@ -106,24 +108,16 @@ export const RotationRow = React.memo<RotationRowProps>(({
   isLoopStartOverride,
   loopErrors,
   loopWarnings,
-  onLoopMarkerDragStart,
-  onLoopMarkerDragEnd,
   onResetLoopStart,
   isLoopEnd,
-  onLoopEndMarkerDragStart,
-  onLoopEndMarkerDragEnd,
   onResetLoopEnd,
   isEndRotationStart,
   endRotationStartsEarlier,
   onToggleEndRotationStartsEarlier,
-  isRepeatStart,
-  repeatCount,
+  onMarkerDragStart,
+  onMarkerDragEnd,
   onRepeatCountChange,
-  onRepeatMarkerDragStart,
-  onRepeatMarkerDragEnd,
   onRemoveRepeatBlock,
-  isRepeatEnd,
-  repeatFinalTiming,
   onRepeatFinalTimingChange
 }) => {
   const updateRowField = useRotationStore(s => s.updateRowField);
@@ -150,6 +144,7 @@ export const RotationRow = React.memo<RotationRowProps>(({
 
   const teamUnits = teamCharacters(team);
   const selectedUnit = row.unit || '';
+  const repeatCount: number = row.repeatCount || DEFAULT_REPEAT_COUNT;
 
   const dbChar: Record<string, any> = selectedUnit ? DataLoader.characterDB[selectedUnit] || {} : {};
   const themeColor = getCharacterThemeColor(dbChar);
@@ -190,8 +185,8 @@ export const RotationRow = React.memo<RotationRowProps>(({
       return true;
     };
 
-    const resolvePriority = (m: any) =>
-      typeof m.priority === 'number' ? m.priority : (m.priority ? DSLParser.evaluateMath(String(m.priority), ctx, selectedUnit) : 0);
+    const resolvePriority = (priority: number | string | undefined): number =>
+      typeof priority === 'number' ? priority : (priority ? DSLParser.evaluateMath(String(priority), ctx, selectedUnit) : 0);
 
     interface Candidate { id: string; m: any; groupLabel: string; isValid: boolean }
     const candidates: Candidate[] = [];
@@ -201,7 +196,7 @@ export const RotationRow = React.memo<RotationRowProps>(({
     const owners = getMechanicOwners([slot ?? ({ character: selectedUnit } as TeamSlot)])
       .sort((a, b) => OWNER_KIND_ORDER.indexOf(a.kind) - OWNER_KIND_ORDER.indexOf(b.kind));
     const groupLabelFor = (owner: MechanicOwner, m: any): string => {
-      if (owner.kind === 'system') return 'System';
+      if (owner.kind === 'system') return SYSTEM_NAMESPACE;
       if (owner.kind === 'echo') return 'Echo Skill';
       if (owner.kind !== 'character') return owner.name;
       const cat = m.category || BuilderUtils.guessCategory(m);
@@ -234,7 +229,7 @@ export const RotationRow = React.memo<RotationRowProps>(({
       if (group.length === 1) { finalCandidates.push(group[0]); return; }
       const validMembers = group.filter(c => c.isValid);
       const winnerPool = validMembers.length > 0 ? validMembers : group;
-      const winner = winnerPool.reduce((best, cur) => (resolvePriority(cur.m) > resolvePriority(best.m) ? cur : best));
+      const winner = winnerPool.reduce((best, cur) => (resolvePriority(cur.m.priority) > resolvePriority(best.m.priority) ? cur : best));
       finalCandidates.push(winner);
       const current = group.find(c => c.id === row.action && c.id !== winner.id);
       if (current) finalCandidates.push(current);
@@ -257,20 +252,14 @@ export const RotationRow = React.memo<RotationRowProps>(({
     });
 
     // --- SORT OPTIONS WITHIN EACH GROUP BY PRIORITY (Highest First) ---
-    Object.keys(groupsMap).forEach(label => {
-      groupsMap[label].sort((a, b) => {
-        const prioA = typeof a.priority === 'number' ? a.priority : (a.priority ? DSLParser.evaluateMath(String(a.priority), ctx, selectedUnit) : 0);
-        const prioB = typeof b.priority === 'number' ? b.priority : (b.priority ? DSLParser.evaluateMath(String(b.priority), ctx, selectedUnit) : 0);
-        return prioB - prioA;
-      });
-    });
+    Object.values(groupsMap).forEach(options => options.sort((a, b) => resolvePriority(b.priority) - resolvePriority(a.priority)));
 
     // --- ORDER GROUPS TO MATCH THE UNIT PAGE ---
     // groupLabel may be '<category>: <skillGroupName>' -- strip the suffix before matching
     // BUILDER_CATEGORIES. Echo Skill sorts right after the unit's own categories; System sorts last.
     const groupOrder = [...BUILDER_CATEGORIES, 'Echo Skill'];
     const groupRank = (label: string): number => {
-      if (label === 'System') return groupOrder.length;
+      if (label === SYSTEM_NAMESPACE) return groupOrder.length;
       const category = label.includes(': ') ? label.slice(0, label.indexOf(': ')) : label;
       const idx = groupOrder.indexOf(category);
       return idx === -1 ? groupOrder.length - 1 : idx;
@@ -318,13 +307,10 @@ export const RotationRow = React.memo<RotationRowProps>(({
     updateRowFields(index, { offset: num, manualOffset: num });
   };
 
-  const handleOffsetKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.currentTarget.blur();
-    } else if (e.key === 'Escape') {
-      setOffsetDraft(null);
-      e.currentTarget.blur();
-    }
+  // Enter commits a draft field (on its blur); Escape drops it first.
+  const draftKeyDown = (dropDraft: () => void) => (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') dropDraft();
+    if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur();
   };
 
   // Buffers local input and commits on blur to prevent intermediate store dispatches or recalculations while typing.
@@ -335,18 +321,9 @@ export const RotationRow = React.memo<RotationRowProps>(({
     if (row.repeatBlockStart) onRepeatCountChange?.(row.repeatBlockStart, parseInt(draft, 10) || 1);
   };
 
-  const handleRepeatCountKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.currentTarget.blur();
-    } else if (e.key === 'Escape') {
-      setRepeatCountDraft(null);
-      e.currentTarget.blur();
-    }
-  };
-
   const stepRepeatCount = (delta: number) => {
     setRepeatCountDraft(null);
-    if (row.repeatBlockStart) onRepeatCountChange?.(row.repeatBlockStart, Math.max(1, (repeatCount ?? 2) + delta));
+    if (row.repeatBlockStart) onRepeatCountChange?.(row.repeatBlockStart, Math.max(1, repeatCount + delta));
   };
 
   const timeStart = row.gameTimeStart !== undefined ? formatFramesAsSeconds(toFrames(row.gameTimeStart)) : '0.00s';
@@ -392,28 +369,18 @@ export const RotationRow = React.memo<RotationRowProps>(({
     >
       {isEndRotationStart && (
         <>
-          <div
-            className="ending-rotation-cut"
-          >
+          <div className="ending-rotation-cut">
             <div className="ending-rotation-cut-track">
-              <svg className="ending-rotation-cut-ff" viewBox="0 0 24 24" fill="currentColor">
-                <polygon points="1,4 11,12 1,20" />
-                <polygon points="12,4 22,12 12,20" />
-              </svg>
+              <FastForwardIcon className="ending-rotation-cut-ff" />
             </div>
           </div>
-          <div
-            className="end-rotation-tag"
-            onMouseEnter={e => TooltipManager.show(e.currentTarget, '<div>The tail of the 2-Minute window.</div>')}
-            onMouseLeave={() => TooltipManager.hide()}
-          >
+          <div className="end-rotation-tag" {...tip('The tail of the 2-Minute window.')}>
             <span className="loop-tag-icon">⟳</span>
             <span className="loop-tag-label">END ROTATION</span>
             <label
               className="end-rotation-check-wrap"
               onClick={e => e.stopPropagation()}
-              onMouseEnter={e => { e.stopPropagation(); TooltipManager.show(e.currentTarget, '<div>Cuts one loop cycle so the Ending Rotation replaces the final loop instead of appending after it.</div>'); }}
-              onMouseLeave={() => TooltipManager.hide()}
+              {...tip('Cuts one loop cycle so the Ending Rotation replaces the final loop instead of appending after it.')}
             >
               <span>Extend Last Loop</span>
               <input
@@ -432,10 +399,9 @@ export const RotationRow = React.memo<RotationRowProps>(({
           <div
             className="loop-start-tag"
             draggable
-            onDragStart={onLoopMarkerDragStart}
-            onDragEnd={onLoopMarkerDragEnd}
-            onMouseEnter={e => { if (loopIssues.length === 0) TooltipManager.show(e.currentTarget, '<div>Loop begins here — drag to move</div>'); }}
-            onMouseLeave={() => TooltipManager.hide()}
+            onDragStart={e => onMarkerDragStart?.(e, { role: 'start' })}
+            onDragEnd={onMarkerDragEnd}
+            {...(loopIssues.length === 0 ? tip('Loop begins here — drag to move') : {})}
           >
             <span className="loop-tag-icon">⟳</span>
             <span className="loop-tag-label">LOOP START</span>
@@ -443,8 +409,7 @@ export const RotationRow = React.memo<RotationRowProps>(({
               <button
                 className="loop-tag-reset"
                 onClick={e => { e.stopPropagation(); onResetLoopStart?.(); }}
-                onMouseEnter={e => { e.stopPropagation(); TooltipManager.show(e.currentTarget, '<div>Reset to auto-detected position</div>'); }}
-                onMouseLeave={() => TooltipManager.hide()}
+                {...tip('Reset to auto-detected position')}
               >
                 ↺
               </button>
@@ -458,14 +423,13 @@ export const RotationRow = React.memo<RotationRowProps>(({
         </>
       )}
 
-      {isRepeatStart && (
+      {row.repeatBlockStart && (
         <div
           className="repeat-start-tag"
           draggable
-          onDragStart={e => onRepeatMarkerDragStart?.(e, row.repeatBlockStart, 'start')}
-          onDragEnd={onRepeatMarkerDragEnd}
-          onMouseEnter={e => TooltipManager.show(e.currentTarget, '<div>Repeat block begins here — drag to move</div>')}
-          onMouseLeave={() => TooltipManager.hide()}
+          onDragStart={e => onMarkerDragStart?.(e, { role: 'start', groupId: row.repeatBlockStart })}
+          onDragEnd={onMarkerDragEnd}
+          {...tip('Repeat block begins here — drag to move')}
         >
           <span className="loop-tag-icon">↻</span>
           <span className="loop-tag-label">REPEAT START</span>
@@ -480,13 +444,13 @@ export const RotationRow = React.memo<RotationRowProps>(({
               type="text"
               inputMode="numeric"
               className="repeat-count-input"
-              style={{ width: `${String(repeatCountDraft !== null ? repeatCountDraft : (repeatCount ?? 2)).length}ch` }}
-              value={repeatCountDraft !== null ? repeatCountDraft : (repeatCount ?? 2)}
+              style={{ width: `${String(repeatCountDraft ?? repeatCount).length}ch` }}
+              value={repeatCountDraft ?? repeatCount}
               onClick={e => e.stopPropagation()}
-              onFocus={() => setRepeatCountDraft(String(repeatCount ?? 2))}
+              onFocus={() => setRepeatCountDraft(String(repeatCount))}
               onChange={e => setRepeatCountDraft(e.target.value.replace(/[^0-9]/g, ''))}
               onBlur={commitRepeatCountDraft}
-              onKeyDown={handleRepeatCountKeyDown}
+              onKeyDown={draftKeyDown(() => setRepeatCountDraft(null))}
             />
             <span className="repeat-count-steppers">
               <button
@@ -510,8 +474,7 @@ export const RotationRow = React.memo<RotationRowProps>(({
           <button
             className="loop-tag-reset"
             onClick={e => { e.stopPropagation(); onRemoveRepeatBlock?.(row.repeatBlockStart); }}
-            onMouseEnter={e => { e.stopPropagation(); TooltipManager.show(e.currentTarget, '<div>Remove this repeat block</div>'); }}
-            onMouseLeave={() => TooltipManager.hide()}
+            {...tip('Remove this repeat block')}
           >
             ✕
           </button>
@@ -583,7 +546,7 @@ export const RotationRow = React.memo<RotationRowProps>(({
           className={`col-time center-content sub-panel-trigger ${activeTrigger === 'time' ? 'is-active' : ''}`}
           onClick={() => onTriggerClick(index, 'time')}
         >
-          <div className="base-num-box" style={{ width: '100%', padding: '2px 0.3125rem' }}>
+          <div className="base-num-box">
             <input type="text" className="num-input text-xs" value={timeStart} readOnly />
           </div>
         </div>
@@ -602,7 +565,7 @@ export const RotationRow = React.memo<RotationRowProps>(({
           className={`sub-panel-trigger ${activeTrigger === 'offset' ? 'is-active' : ''}`}
           onClick={() => { if (!isOffsetEditable) onTriggerClick(index, 'offset'); }}
         >
-          <div className={`base-num-box ${offsetVal > 0 ? 'offset-pos' : offsetVal < 0 ? 'offset-neg' : ''}`} style={{ width: '100%', padding: '2px 0.3125rem' }}>
+          <div className={`base-num-box ${offsetVal > 0 ? 'offset-pos' : offsetVal < 0 ? 'offset-neg' : ''}`}>
             <input
               type="text"
               className="num-input text-xs offset-input"
@@ -611,7 +574,7 @@ export const RotationRow = React.memo<RotationRowProps>(({
               onChange={handleOffsetInput}
               onFocus={() => setOffsetDraft(offsetStr)}
               onBlur={commitOffsetDraft}
-              onKeyDown={handleOffsetKeyDown}
+              onKeyDown={draftKeyDown(() => setOffsetDraft(null))}
             />
           </div>
         </div>
@@ -621,7 +584,7 @@ export const RotationRow = React.memo<RotationRowProps>(({
           className={`sub-panel-trigger ${activeTrigger === 'dmg' ? 'is-active' : ''}`}
           onClick={() => { if ((row.damageInstances || []).length > 0) onTriggerClick(index, 'dmg'); }}
         >
-          <div className="base-num-box" style={{ width: '100%', padding: '2px 0.3125rem' }}>
+          <div className="base-num-box">
             <input
               type="text"
               className={`num-input text-xs ${totalDmg === 0 ? 'text-dim' : ''} ${isStale && totalDmg > 0 ? 'dmg-dimmed' : ''}`}
@@ -641,17 +604,17 @@ export const RotationRow = React.memo<RotationRowProps>(({
 
         {/* Concerto Gauge */}
         <div className={`sub-panel-trigger ${activeTrigger === 'concerto' ? 'is-active' : ''}`} onClick={() => onTriggerClick(index, 'concerto')}>
-          <DialGauge name="Concerto" value={row.concerto?.[selectedUnit] || 0} max={100} />
+          <DialGauge name="Concerto" value={row.concerto?.[selectedUnit] || 0} max={resourceCap(selectedUnit, 'concerto')} />
         </div>
 
         {/* Energy Gauge */}
         <div className={`sub-panel-trigger ${activeTrigger === 'energy' ? 'is-active' : ''}`} onClick={() => onTriggerClick(index, 'energy')}>
-          <VerticalGauge name="Energy" value={row.energy?.[selectedUnit] || 0} max={DataLoader.characterDB[selectedUnit]?.maxEnergy || 100} />
+          <VerticalGauge name="Energy" value={row.energy?.[selectedUnit] || 0} max={resourceCap(selectedUnit, 'energy')} />
         </div>
 
         {/* Tune Gauge */}
         <div className={`sub-panel-trigger ${activeTrigger === 'tune' ? 'is-active' : ''}`} onClick={() => onTriggerClick(index, 'tune')}>
-          <DialGauge name="Tune" value={row.enemyTune || 0} max={row.enemyMaxTune || 40} />
+          <DialGauge name="Tune" value={row.enemyTune || 0} max={row.enemyMaxTune || ENEMY_DEFAULTS.maxTune} />
         </div>
       </div>
 
@@ -659,32 +622,29 @@ export const RotationRow = React.memo<RotationRowProps>(({
         <div
           className="loop-end-tag"
           draggable
-          onDragStart={onLoopEndMarkerDragStart}
-          onDragEnd={onLoopEndMarkerDragEnd}
-          onMouseEnter={e => TooltipManager.show(e.currentTarget, '<div>Loop ends here — drag to move</div>')}
-          onMouseLeave={() => TooltipManager.hide()}
+          onDragStart={e => onMarkerDragStart?.(e, { role: 'end' })}
+          onDragEnd={onMarkerDragEnd}
+          {...tip('Loop ends here — drag to move')}
         >
           <span className="loop-tag-icon">⟳</span>
           <span className="loop-tag-label">LOOP END</span>
           <button
             className="loop-tag-reset"
             onClick={e => { e.stopPropagation(); onResetLoopEnd?.(); }}
-            onMouseEnter={e => { e.stopPropagation(); TooltipManager.show(e.currentTarget, '<div>Remove the Ending Rotation split</div>'); }}
-            onMouseLeave={() => TooltipManager.hide()}
+            {...tip('Remove the Ending Rotation split')}
           >
             ↺
           </button>
         </div>
       )}
 
-      {isRepeatEnd && (
+      {row.repeatBlockEnd && (
         <div
           className="repeat-end-tag"
           draggable
-          onDragStart={e => onRepeatMarkerDragStart?.(e, row.repeatBlockEnd, 'end')}
-          onDragEnd={onRepeatMarkerDragEnd}
-          onMouseEnter={e => TooltipManager.show(e.currentTarget, '<div>Repeat block ends here — drag to move</div>')}
-          onMouseLeave={() => TooltipManager.hide()}
+          onDragStart={e => onMarkerDragStart?.(e, { role: 'end', groupId: row.repeatBlockEnd })}
+          onDragEnd={onMarkerDragEnd}
+          {...tip('Repeat block ends here — drag to move')}
         >
           <span className="loop-tag-icon">↻</span>
           <span className="loop-tag-label">REPEAT END</span>
@@ -693,13 +653,12 @@ export const RotationRow = React.memo<RotationRowProps>(({
             draggable={false}
             onMouseDown={e => e.stopPropagation()}
             onDragStart={e => { e.preventDefault(); e.stopPropagation(); }}
-            onMouseEnter={e => { e.stopPropagation(); }}
             onMouseLeave={() => TooltipManager.hide()}
           >
             <span className="repeat-final-timing-label">Final rep timing</span>
             <Dropdown
               className="base-select text-xs has-value"
-              value={repeatFinalTiming || ''}
+              value={row.repeatFinalTiming || ''}
               onChange={(v: string) => onRepeatFinalTimingChange?.(row.repeatBlockEnd, v === '' ? undefined : v)}
               options={[{ value: '', label: 'Same' }, ...availableTimings.map((t: TimingOption) => ({ value: t.val, label: t.label, tooltip: t.title }))]}
             />

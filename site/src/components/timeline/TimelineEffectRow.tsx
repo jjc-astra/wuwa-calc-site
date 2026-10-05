@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { TooltipManager, tip } from '../../utils/Common';
+import { TooltipManager, tip, escapeHtml, tooltipLine as line, formatNum as formatValue } from '../../utils/Common';
 import { formatFramesAsSeconds, framesToSeconds, secondsToFrames, toFrames } from '../../utils/Frames';
 import { EFFECT_BAR_INSET_PX, EFFECT_ROW_HEIGHT_PX, describeAppliesTo, rowsReceivingBar } from './effectLayout';
 import { useLinkedRowStore } from '../../store/useLinkedRowStore';
@@ -14,16 +14,8 @@ interface TimelineEffectRowProps {
   linkRows?: any[];
 }
 
-const escapeHtml = (text: unknown): string =>
-  String(text ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
-
-const line = (key: string, value: unknown) =>
-  `<div><span class="tooltip-key">${key}:</span> <span class="tooltip-val">${escapeHtml(value)}</span></div>`;
-
 const timeRange = (start: number, end: number) =>
   `${formatFramesAsSeconds(toFrames(start))} – ${formatFramesAsSeconds(toFrames(end))}`;
-
-const formatValue = (value: number) => (Number.isInteger(value) ? String(value) : value.toFixed(2));
 
 // What a marker shows: "x4" for stacks, "1/2" charges in use for a cooldown, a tracker's value.
 const pointLabel = (lane: EffectLane, bar: EffectBar, value: number) =>

@@ -1,32 +1,8 @@
-// The numbers behind the per-row damage breakdown panel (DamageBreakdownPanel): what a hit's
-// crit/non-crit values are, and which card each active buff belongs on.
+// The per-row damage breakdown panel's buff cards (DamageBreakdownPanel): which card each active
+// buff belongs on, and what its row says.
 import type { TeamSlot } from '../../types';
 import { CommonUtils } from '../../utils/Common';
-
-/** A hit's average damage, however the worker happened to store it. */
-export function hitAverage(inst: any): number {
-  if (typeof inst.avg === 'number') return inst.avg;
-  if (typeof inst.total === 'number') return inst.total;
-  return parseFloat(String(inst.total || 0).replace(/,/g, '')) || 0;
-}
-
-/** The non-crit and crit damage of one hit: the recorded values, or derived from its average
- * and the crit stats it was priced with (average = nonCrit * ((1 - cr) + cr * cd)). */
-export function critSplit(inst: any, instData: any, avgVal: number): { nonCritVal: number; critVal: number } {
-  if (inst.nonCrit !== undefined && inst.crit !== undefined) return { nonCritVal: inst.nonCrit, critVal: inst.crit };
-
-  let cr = instData.critRate !== undefined ? instData.critRate : 0;
-  let cd = instData.critDmg !== undefined ? instData.critDmg : 150;
-  if (typeof cr === 'string') cr = parseFloat(cr) || 0;
-  if (cr > 1) cr = cr / 100;
-  cr = Math.min(1.0, Math.max(0.0, cr));
-  if (typeof cd === 'string') cd = parseFloat(cd) || 150;
-  if (cd > 10) cd = cd / 100;
-  const critMult = (1 - cr) + cr * cd;
-  if (critMult <= 0) return { nonCritVal: avgVal, critVal: avgVal };
-  const nonCritVal = avgVal / critMult;
-  return { nonCritVal, critVal: nonCritVal * cd };
-}
+import { SYSTEM_NAMESPACE } from '../../utils/MechanicKey';
 
 export interface BuffRow {
   label: string;
@@ -148,7 +124,7 @@ export function groupBuffsBySource(
   const grouped: Record<string, { effects: BuffRow[] }> = {};
 
   unitBuffs.forEach(b => {
-    const sourceMech = (b.source || 'System').replace(/_/g, ' ').trim();
+    const sourceMech = (b.source || SYSTEM_NAMESPACE).replace(/_/g, ' ').trim();
     const cardHeader = cardHeaderFor(b, sourceMech, slot, weaponNames);
     if (!grouped[cardHeader]) grouped[cardHeader] = { effects: [] };
 

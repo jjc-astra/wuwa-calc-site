@@ -4,15 +4,16 @@ import { DataLoader } from '../../utils/DataLoader';
 import type { DpsWindowKey } from '../../types/results';
 import { PieChart } from './PieChart';
 import { colorForLabel, OTHER_SLICE_COLOR } from './chartPalette';
-import { DPS_WINDOWS, DEFAULT_BREAKDOWN_WINDOW, shownWindow } from '../../data/dpsWindows';
+import { DEFAULT_BREAKDOWN_WINDOW, shownWindow } from '../../data/dpsWindows';
 import { getCharacterThemeColor } from '../../utils/Common';
-import { Dropdown } from '../common/Dropdown';
+import { teamCharacters } from '../../utils/TeamUtils';
+import { DpsWindowSelect } from './DpsWindowSelect';
 import { UnitTabs } from '../common/UnitTabs';
 
 /** DMG Contribution: the team's damage by unit, or one unit's by cast type, for a window. */
 export const TeamContributionPanel: React.FC = () => {
   const { team, results, isStale } = useResultsSource();
-  const units = team.filter(s => s.character).map(s => s.character);
+  const units = teamCharacters(team);
   const tabs = ['Team', ...units];
   const [activeTab, setActiveTab] = useState('Team');
   const [pickedWindow, setDpsType] = useState<DpsWindowKey>(DEFAULT_BREAKDOWN_WINDOW);
@@ -43,12 +44,7 @@ export const TeamContributionPanel: React.FC = () => {
     <div className={`results-card ${isStale ? 'is-stale' : ''}`}>
       <div className="results-card-header">
         <span>DMG Contribution</span>
-        <Dropdown
-          className="base-select text-xs results-dps-type-select"
-          value={dpsType}
-          onChange={v => setDpsType(v as DpsWindowKey)}
-          options={DPS_WINDOWS.map(window => ({ value: window.key, label: window.label }))}
-        />
+        <DpsWindowSelect value={dpsType} onChange={setDpsType} />
       </div>
       {!results || units.length === 0 ? (
         <div className="results-empty">Add characters to the team to see contribution.</div>

@@ -24,10 +24,10 @@ import {
   SetEndingRotationFlagsCommand,
   CompositeCommand
 } from '../systems/HistoryManager';
-import type { Command, SerializedCommand } from '../systems/HistoryManager';
+import type { Command, SerializedCommand, EndingRotationFlags } from '../systems/HistoryManager';
 import {
   REPEAT_FIELDS, DEFAULT_REPEAT_COUNT, makeRow, makeBlankRow, pickFields, createGroupIdRemapper,
-  toClipboardRow, toSavedRow, toPersistedRow
+  withRemappedGroupIds, toClipboardRow, toSavedRow, toPersistedRow, loopEndIndexOf
 } from '../logic/rotationRows';
 import type { RotationRow, RotationRowFields } from '../logic/rotationRows';
 // Row shapes and views live in logic/rotationRows.ts; components import them from here.
@@ -210,15 +210,18 @@ interface RotationState {
   calculateDamage: () => Promise<void>;
   undo: () => void;
   redo: () => void;
-  importRotation: (rows: RotationRowFields[], settings?: { startEnergy?: boolean; startConcerto?: boolean; endingRotationEnabled?: boolean; endRotationStartsEarlier?: boolean }) => void;
+  importRotation: (rows: RotationRowFields[], settings?: RotationSettingsInput) => void;
 }
+
+// A saved rotation's settings, any of which may be missing.
+type RotationSettingsInput = { startEnergy?: boolean; startConcerto?: boolean } & Partial<EndingRotationFlags>;
 
 const historyManager = new HistoryManager();
 
 interface RevivalContext {
   getRows: () => RotationRow[];
   setRows: (rows: RotationRow[]) => void;
-  setFlags: (vals: { endingRotationEnabled: boolean; endRotationStartsEarlier: boolean }) => void;
+  setFlags: (vals: EndingRotationFlags) => void;
   onComplete: () => void;
 }
 
@@ -305,7 +308,14 @@ export const useRotationStore = create<RotationState>()(
 
       // One undo step: the lone command itself, or several bundled together.
       const runCommands = (commands: Command[]) => {
+        if (commands.length === 0) return;
         historyManager.execute(commands.length === 1 ? commands[0] : new CompositeCommand(commands));
+      };
+
+      // A delete's onComplete: the deleted rows were the selection.
+      const clearSelectionAndRecalc = () => {
+        set({ selectedIndices: [] });
+        triggerRecalc();
       };
 
       // One worker round trip over the current rows: freshness check, Hold Repeat expansion, the
@@ -355,11 +365,8 @@ export const useRotationStore = create<RotationState>()(
 
       // Shared by addRepeatBlock/setRepeatBlockStartIndex/setRepeatBlockEndIndex -- same check
       // against the CURRENT loop, just from three different call sites moving different edges.
-      const repeatBlockCrossesCurrentLoop = (startIndex: number, endIndex: number): boolean => {
-        const rows = get().rows;
-        const loopEndIdx = rows.findIndex(r => r.loopEndOverride === true);
-        return repeatCrossesLoopBoundary(startIndex, endIndex, get().loopStartIndex, loopEndIdx === -1 ? null : loopEndIdx);
-      };
+      const repeatBlockCrossesCurrentLoop = (startIndex: number, endIndex: number): boolean =>
+        repeatCrossesLoopBoundary(startIndex, endIndex, get().loopStartIndex, SetLoopEndCommand.findPrevIndex(get().rows));
 
       return {
         rows: [makeBlankRow()],
@@ -445,10 +452,7 @@ export const useRotationStore = create<RotationState>()(
         deleteRows: (indices: number[]) => {
           const rows = get().rows;
           const commands: Command[] = computeRepeatBlockRebalanceOnDelete(rows, indices).map(e => cmd.editFields(e.index, e.oldValues, e.newValues));
-          commands.push(cmd.remove(DeleteRowsCommand.computeDeletedData(rows, indices), () => {
-            set({ selectedIndices: [] });
-            triggerRecalc();
-          }));
+          commands.push(cmd.remove(DeleteRowsCommand.computeDeletedData(rows, indices), clearSelectionAndRecalc));
           runCommands(commands);
         },
 
@@ -458,11 +462,10 @@ export const useRotationStore = create<RotationState>()(
           // regardless. This snapshot sits in the persisted undo stack indefinitely (until
           // MAX_HISTORY_SIZE evicts it), so keeping it light matters for localStorage quota.
           const previousRowsSnapshot = get().rows.map(r => ({ id: r.id, ...toPersistedRow(r) }));
-          const cmd = new MoveRowsCommand(getRawRows, setRawRows, indicesToMove, targetIndex, previousRowsSnapshot, (newIndices?: number[]) => {
+          historyManager.execute(new MoveRowsCommand(getRawRows, setRawRows, indicesToMove, targetIndex, previousRowsSnapshot, (newIndices?: number[]) => {
             set({ selectedIndices: newIndices || [] });
             triggerRecalc();
-          });
-          historyManager.execute(cmd);
+          }));
         },
 
         // 1-to-1 overwrite of selected rows; extra clipboard rows insert; leftover selected
@@ -479,18 +482,13 @@ export const useRotationStore = create<RotationState>()(
 
           // A pasted repeat block gets group id(s) of its own -- one remapper across every clipboard row.
           const remapGroupId = createGroupIdRemapper();
-          const repeatFieldsFor = (data: RotationRowFields) => ({
-            repeatBlockStart: remapGroupId(data.repeatBlockStart),
-            repeatBlockEnd: remapGroupId(data.repeatBlockEnd),
-            repeatCount: data.repeatCount,
-            repeatFinalTiming: data.repeatFinalTiming
-          });
+          const pasted = clipboard.map(row => withRemappedGroupIds(row, remapGroupId));
 
           const commands: Command[] = [];
 
           for (let i = 0; i < maxEdits; i++) {
             const rowIdx = selectedIndices[i];
-            const data: RotationRowFields = { ...clipboard[i], ...repeatFieldsFor(clipboard[i]) };
+            const data = pasted[i];
             const existing = rows[rowIdx];
             (['unit', 'action', 'timing', ...REPEAT_FIELDS] as const).forEach(field => {
               if (existing[field] !== data[field]) {
@@ -502,23 +500,16 @@ export const useRotationStore = create<RotationState>()(
           if (clipboard.length > maxEdits) {
             const insertBase = startIndex + maxEdits;
             for (let i = maxEdits; i < clipboard.length; i++) {
-              const data = clipboard[i];
-              const targetIndex = insertBase + (i - maxEdits);
-              commands.push(cmd.add(makeRow({ unit: data.unit, action: data.action, timing: data.timing, ...repeatFieldsFor(data) }), targetIndex));
+              commands.push(cmd.add(makeRow(pasted[i]), insertBase + (i - maxEdits)));
             }
           }
 
           if (hasSelection && selectedIndices.length > maxEdits) {
             const rowsToDelete = selectedIndices.slice(maxEdits);
-            commands.push(cmd.remove(DeleteRowsCommand.computeDeletedData(rows, rowsToDelete), () => {
-              set({ selectedIndices: [] });
-              triggerRecalc();
-            }));
+            commands.push(cmd.remove(DeleteRowsCommand.computeDeletedData(rows, rowsToDelete), clearSelectionAndRecalc));
           }
 
-          if (commands.length > 0) {
-            historyManager.execute(new CompositeCommand(commands));
-          }
+          runCommands(commands);
         },
 
         updateRowField: (index: number, field: string, value: any) => {
@@ -566,8 +557,6 @@ export const useRotationStore = create<RotationState>()(
           const commands: Command[] = [];
           if (Object.keys(newValues).length > 0) commands.push(cmd.editFields(index, oldValues, newValues));
           if (newUnit && index === get().rows.length - 1) commands.push(cmd.add(makeBlankRow()));
-
-          if (commands.length === 0) return;
           runCommands(commands);
         },
 
@@ -596,10 +585,7 @@ export const useRotationStore = create<RotationState>()(
           if (!rows[startIndex]?.unit || !rows[endIndex]?.unit || endIndex < startIndex) return;
           if (repeatBlockCrossesCurrentLoop(startIndex, endIndex)) return;
           const groupId = crypto.randomUUID();
-          historyManager.execute(new CompositeCommand([
-            cmd.setRepeatStart(groupId, startIndex, null),
-            cmd.setRepeatEnd(groupId, endIndex, null)
-          ]));
+          runCommands([cmd.setRepeatStart(groupId, startIndex, null), cmd.setRepeatEnd(groupId, endIndex, null)]);
         },
 
         removeRepeatBlock: (groupId: string) => {
@@ -609,14 +595,13 @@ export const useRotationStore = create<RotationState>()(
           const commands: Command[] = [];
           if (startIdx !== null) commands.push(cmd.setRepeatStart(groupId, null, startIdx));
           if (endIdx !== null) commands.push(cmd.setRepeatEnd(groupId, null, endIdx));
-          if (commands.length === 0) return;
           runCommands(commands);
         },
 
         setRepeatCount: (groupId: string, count: number) => {
           const rows = get().rows;
-          const idx = rows.findIndex(r => r.repeatBlockStart === groupId);
-          if (idx === -1) return;
+          const idx = SetRepeatBlockStartCommand.findIndexForGroup(rows, groupId);
+          if (idx === null) return;
           const clamped = Math.max(1, Math.floor(count) || 1);
           if (rows[idx].repeatCount === clamped) return;
           historyManager.execute(cmd.editValue(idx, 'repeatCount', rows[idx].repeatCount ?? DEFAULT_REPEAT_COUNT, clamped));
@@ -624,8 +609,8 @@ export const useRotationStore = create<RotationState>()(
 
         setRepeatFinalTiming: (groupId: string, timing: string | undefined) => {
           const rows = get().rows;
-          const idx = rows.findIndex(r => r.repeatBlockEnd === groupId);
-          if (idx === -1) return;
+          const idx = SetRepeatBlockEndCommand.findIndexForGroup(rows, groupId);
+          if (idx === null) return;
           if (rows[idx].repeatFinalTiming === timing) return;
           historyManager.execute(cmd.editValue(idx, 'repeatFinalTiming', rows[idx].repeatFinalTiming, timing));
         },
@@ -659,14 +644,12 @@ export const useRotationStore = create<RotationState>()(
         // Removes the whole Ending Rotation split (tag + appended rows), not just the tag.
         // Shared by the row marker's reset button and unchecking the toolbar checkbox.
         resetLoopEnd: () => {
-          const rows = get().rows;
-          const endIdx = rows.findIndex(r => r.loopEndOverride === true);
-          const wasEnabled = get().endingRotationEnabled;
-          const wasStartingEarlier = get().endRotationStartsEarlier;
+          const { rows, endingRotationEnabled, endRotationStartsEarlier } = get();
+          const endIdx = loopEndIndexOf(rows);
           // Flag flip rides in the same CompositeCommand, so undo restores both together.
           const flagCommand = new SetEndingRotationFlagsCommand(
             vals => set(vals),
-            { endingRotationEnabled: wasEnabled, endRotationStartsEarlier: wasStartingEarlier },
+            { endingRotationEnabled, endRotationStartsEarlier },
             { endingRotationEnabled: false, endRotationStartsEarlier: false }
           );
 
@@ -684,9 +667,8 @@ export const useRotationStore = create<RotationState>()(
 
           const commands: Command[] = [];
           if (toDelete.length > 0) commands.push(cmd.remove(DeleteRowsCommand.computeDeletedData(rows, toDelete)));
-          commands.push(cmd.setLoopEnd(null, endIdx));
-          commands.push(flagCommand);
-          historyManager.execute(new CompositeCommand(commands));
+          commands.push(cmd.setLoopEnd(null, endIdx), flagCommand);
+          runCommands(commands);
         },
 
         setEndingRotationEnabled: (val: boolean) => {
@@ -696,8 +678,7 @@ export const useRotationStore = create<RotationState>()(
           }
 
           const rows = get().rows;
-          const alreadyTagged = rows.some(r => r.loopEndOverride === true);
-          if (alreadyTagged) {
+          if (loopEndIndexOf(rows) !== -1) {
             set({ endingRotationEnabled: true });
             return;
           }
@@ -716,15 +697,9 @@ export const useRotationStore = create<RotationState>()(
           const remapGroupId = createGroupIdRemapper();
           loopRows.forEach((r, i) => {
             // Only the authored fields carry over -- `r` also carries TimelineEngine's runtime state.
-            const authored = toClipboardRow(r) as RotationRowFields;
-            const newRow = makeRow({
-              ...authored,
-              ...(authored.repeatBlockStart !== undefined && { repeatBlockStart: remapGroupId(authored.repeatBlockStart) }),
-              ...(authored.repeatBlockEnd !== undefined && { repeatBlockEnd: remapGroupId(authored.repeatBlockEnd) })
-            });
-            commands.push(cmd.add(newRow, lastContentIdx + 1 + i));
+            commands.push(cmd.add(makeRow(withRemappedGroupIds(toClipboardRow(r), remapGroupId)), lastContentIdx + 1 + i));
           });
-          historyManager.execute(new CompositeCommand(commands));
+          runCommands(commands);
           set({ endingRotationEnabled: true });
         },
 
@@ -804,7 +779,7 @@ export const useRotationStore = create<RotationState>()(
           historyManager.redo();
         },
 
-        importRotation: (rows: RotationRowFields[], settings?: { startEnergy?: boolean; startConcerto?: boolean; endingRotationEnabled?: boolean; endRotationStartsEarlier?: boolean }) => {
+        importRotation: (rows: RotationRowFields[], settings?: RotationSettingsInput) => {
           historyManager.clear();
           const idedRows: RotationRow[] = rows.map(r => ({ ...r, id: crypto.randomUUID() }));
           const trailingEmpty = makeBlankRow();

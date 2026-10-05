@@ -2,18 +2,15 @@
 // character and builds sequence / weapon / echo variants on top of them.
 import { DataLoader } from '../../utils/DataLoader';
 import { isSelectableContent } from '../../utils/selectableContent';
-import { teamCharacters } from '../../utils/TeamUtils';
+import { slotSets, teamCharacters } from '../../utils/TeamUtils';
 import { dpsFieldOf } from '../../data/dpsWindows';
-import { costsForLayout, mainStatOptionsFor } from '../../data/db';
+import { SIM_CONSTANTS, costsForLayout, mainStatOptionsFor } from '../../data/db';
 import { calculateEchoStatsForSlot } from '../../store/useRosterStore';
 import type { RankingEntry } from '../../store/useRankingsStore';
 import type { RankedRun } from '../../utils/DataLoader';
 import type { RotationSummary, RosterSlot } from '../../types/results';
 import type { TeamSlot } from '../../types';
 import type { RangeValue } from '../common/RangeSlider';
-
-export const MAX_SEQUENCE = 6;
-export const MAX_RANK = 5;
 
 const isFourStar = (character: string): boolean => DataLoader.characterDB[character]?.rarity === 4;
 
@@ -77,7 +74,7 @@ function pickRotationEntry(group: GuideTeamGroup, sequences: number[]): GuideEnt
   });
 }
 
-const pickS0Entry = (group: GuideTeamGroup): GuideEntry => pickRotationEntry(group, [0, 0, 0]);
+const pickS0Entry = (group: GuideTeamGroup): GuideEntry => pickRotationEntry(group, []);
 
 // --- Config (what the selectors pick) -----------------------------------------------------
 
@@ -289,7 +286,7 @@ export interface SequenceDef {
 
 // One comparison row per sequence S0-S6 for the unit.
 function sequenceDefs(group: GuideTeamGroup, config: GuideConfig, unitIdx: number): SequenceDef[] {
-  return Array.from({ length: MAX_SEQUENCE + 1 }, (_, sequence) => {
+  return Array.from({ length: SIM_CONSTANTS.MAX_SEQUENCE + 1 }, (_, sequence) => {
     const job = jobForConfig(group, withSlot(config, unitIdx, { sequence }));
     return { sequence, job, rotationSequence: job.entry.sequences[unitIdx] ?? 0 };
   });
@@ -347,8 +344,7 @@ function echoDefs(group: GuideTeamGroup, config: GuideConfig, unitIdx: number, s
 
 // --- Echo set variants --------------------------------------------------------------------
 
-const setNameOf = (slot: RosterSlot): string =>
-  [slot.mainSet, slot.subSet, slot.subSet2a, slot.subSet2b].filter(Boolean).join(' + ') || 'No set';
+const setNameOf = (slot: RosterSlot): string => slotSets(slot).join(' + ') || 'No set';
 
 export interface EchoSetDef {
   key: string;
@@ -397,7 +393,7 @@ function echoSetDefs(group: GuideTeamGroup, config: GuideConfig, unitIdx: number
 
 // --- Views --------------------------------------------------------------------------------
 
-export const FULL_RANK_RANGE: RangeValue = { min: 1, max: MAX_RANK };
+export const FULL_RANK_RANGE: RangeValue = { min: 1, max: SIM_CONSTANTS.MAX_RANK };
 
 // Everything one guide view calculates: the selected config and its comparison rows.
 export interface GuideView {

@@ -3,7 +3,8 @@ import type { MechanicNode, StanceChange } from '../../../types';
 import { AutocompleteInput } from '../../common/AutocompleteInput';
 import { Dropdown, type DropdownOption } from '../../common/Dropdown';
 import { MECHANICS_NOTATION } from '../../../data/db';
-import { displayTimeVal, tip } from '../mechanicNodeHelpers';
+import { displayTimeVal } from '../mechanicNodeHelpers';
+import { tip } from '../../../utils/Common';
 import { parseTimeInput, toFrames } from '../../../utils/Frames';
 import { getStanceChanges, stanceChangeFrames } from '../../../utils/Stance';
 

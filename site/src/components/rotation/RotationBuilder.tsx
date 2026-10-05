@@ -2,15 +2,15 @@ import React, { useRef, useState, useEffect, useMemo, useDeferredValue } from 'r
 import { useRotationStore } from '../../store/useRotationStore';
 import { useRosterStore } from '../../store/useRosterStore';
 import { RotationToolbar } from './RotationToolbar';
-import { RotationRow } from './RotationRow';
+import { RotationRow, type DraggedMarker } from './RotationRow';
 import { CollapsibleSection } from '../common/CollapsibleSection';
 import { CommonUtils, getCharacterThemeColor } from '../../utils/Common';
 import { DataLoader } from '../../utils/DataLoader';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { ExportRotationDialog } from '../common/ExportRotationDialog';
 import type { ExportSource } from '../../utils/rotationExport';
-import { findBlocks } from '../../logic/RepeatBlocks';
 import { toSavedRow } from '../../store/useRotationStore';
+import { loopEndIndexOf } from '../../logic/rotationRows';
 import { useLatestCallback } from '../../hooks/useLatestCallback';
 import { useLinkedRowStore } from '../../store/useLinkedRowStore';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -212,13 +212,9 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
   const [draggedIndices, setDraggedIndices] = useState<number[]>([]);
   const [dragOverInfo, setDragOverInfo] = useState<{ index: number; position: 'top' | 'bottom' } | null>(null);
 
-  // Loop marker drag: separate gesture from row reordering -- relocates the loop start/end
-  // flag, not rows. Reuses dragOverInfo for the placement indicator.
-  const [draggedMarker, setDraggedMarker] = useState<'start' | 'end' | null>(null);
-
-  // Same idea for a Hold Repeat block's own start/end markers -- unlike the loop markers there
-  // can be several independent blocks, so the dragged one is identified by groupId+role.
-  const [draggedRepeatMarker, setDraggedRepeatMarker] = useState<{ groupId: string; role: 'start' | 'end' } | null>(null);
+  // Marker drag (a loop or Hold Repeat block's start/end): a separate gesture from row
+  // reordering -- relocates the marker, not rows. Reuses dragOverInfo for the placement indicator.
+  const [draggedMarker, setDraggedMarker] = useState<DraggedMarker | null>(null);
 
   // Global keyboard shortcuts (Delete, Undo/Redo, Copy/Paste, Insert Above/Below).
   useEffect(() => {
@@ -316,7 +312,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
 
-    if (!draggedMarker && !draggedRepeatMarker && draggedIndices.includes(targetIndex)) return;
+    if (!draggedMarker && draggedIndices.includes(targetIndex)) return;
 
     // Measures the row's own content area, not the full wrapper -- a row already carrying a
     // loop/repeat marker band (or loop issue strips) renders extra height above its content, which
@@ -337,24 +333,13 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     e.preventDefault();
 
     if (draggedMarker) {
-      const adjustedTarget = markerDropTarget(targetIndex, draggedMarker);
+      const { role, groupId } = draggedMarker;
+      const adjustedTarget = markerDropTarget(targetIndex, role);
       if (rows[adjustedTarget]?.unit) {
-        if (draggedMarker === 'start') setLoopStartOverride(adjustedTarget);
-        else setLoopEndOverride(adjustedTarget);
+        if (groupId) (role === 'start' ? setRepeatBlockStartIndex : setRepeatBlockEndIndex)(groupId, adjustedTarget);
+        else (role === 'start' ? setLoopStartOverride : setLoopEndOverride)(adjustedTarget);
       }
-      setDraggedMarker(null);
-      setDragOverInfo(null);
-      return;
-    }
-
-    if (draggedRepeatMarker) {
-      const adjustedTarget = markerDropTarget(targetIndex, draggedRepeatMarker.role);
-      if (rows[adjustedTarget]?.unit) {
-        if (draggedRepeatMarker.role === 'start') setRepeatBlockStartIndex(draggedRepeatMarker.groupId, adjustedTarget);
-        else setRepeatBlockEndIndex(draggedRepeatMarker.groupId, adjustedTarget);
-      }
-      setDraggedRepeatMarker(null);
-      setDragOverInfo(null);
+      handleMarkerDragEnd();
       return;
     }
 
@@ -372,31 +357,14 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     setDraggedIndices([]);
   };
 
-  const handleLoopMarkerDragStart = (e: React.DragEvent) => {
+  const handleMarkerDragStart = (e: React.DragEvent, marker: DraggedMarker) => {
     e.stopPropagation();
     e.dataTransfer.effectAllowed = 'move';
-    setDraggedMarker('start');
+    setDraggedMarker(marker);
   };
 
-  const handleLoopEndMarkerDragStart = (e: React.DragEvent) => {
-    e.stopPropagation();
-    e.dataTransfer.effectAllowed = 'move';
-    setDraggedMarker('end');
-  };
-
-  const handleLoopMarkerDragEnd = () => {
+  const handleMarkerDragEnd = () => {
     setDraggedMarker(null);
-    setDragOverInfo(null);
-  };
-
-  const handleRepeatMarkerDragStart = (e: React.DragEvent, groupId: string, role: 'start' | 'end') => {
-    e.stopPropagation();
-    e.dataTransfer.effectAllowed = 'move';
-    setDraggedRepeatMarker({ groupId, role });
-  };
-
-  const handleRepeatMarkerDragEnd = () => {
-    setDraggedRepeatMarker(null);
     setDragOverInfo(null);
   };
 
@@ -408,11 +376,8 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     onDragOver: useLatestCallback(handleDragOver),
     onDragLeave: useLatestCallback(handleDragLeave),
     onDrop: useLatestCallback(handleDrop),
-    onLoopMarkerDragStart: useLatestCallback(handleLoopMarkerDragStart),
-    onLoopEndMarkerDragStart: useLatestCallback(handleLoopEndMarkerDragStart),
-    onLoopMarkerDragEnd: useLatestCallback(handleLoopMarkerDragEnd),
-    onRepeatMarkerDragStart: useLatestCallback(handleRepeatMarkerDragStart),
-    onRepeatMarkerDragEnd: useLatestCallback(handleRepeatMarkerDragEnd)
+    onMarkerDragStart: useLatestCallback(handleMarkerDragStart),
+    onMarkerDragEnd: useLatestCallback(handleMarkerDragEnd)
   };
 
   // Snapshot handed to the export dialog, which names, calculates and downloads the files.
@@ -476,12 +441,9 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     }
   };
 
-  // Hold Repeat blocks, unlike Loop Start/End, are never singletons -- several can coexist, each
-  // identified by its own groupId shared between its repeatBlockStart/repeatBlockEnd rows.
-  const repeatBlocksByGroup = useMemo(() => findBlocks(rows), [rows]);
-
   // No auto-detection for loop end (unlike loop start) -- always an explicit tag, or absent.
-  const loopEndIndex = rows.findIndex(r => r.loopEndOverride === true);
+  const loopEndIndex = loopEndIndexOf(rows);
+  const hasContent = rows.some(r => r.unit);
   // Derived from loopEndIndex rather than its own flag, to avoid drifting out of sync with it.
   const hasEndRotationContent = loopEndIndex !== -1 && !!rows[loopEndIndex + 1]?.unit;
   const scrollbarSegments = useMemo(
@@ -578,28 +540,20 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
                       onDrop={rowHandlers.onDrop}
                       dragOverPosition={dragOverInfo?.index === i ? dragOverInfo.position : null}
                       isLastRow={i === rows.length - 1}
-                      isLoopStart={i === loopStartIndex && rows.some(r => r.unit)}
+                      isLoopStart={i === loopStartIndex && hasContent}
                       isLoopStartOverride={loopStartIsOverride && i === loopStartIndex}
                       loopErrors={i === loopStartIndex ? loopErrors : undefined}
                       loopWarnings={i === loopStartIndex ? loopWarnings : undefined}
-                      onLoopMarkerDragStart={rowHandlers.onLoopMarkerDragStart}
-                      onLoopMarkerDragEnd={rowHandlers.onLoopMarkerDragEnd}
                       onResetLoopStart={resetLoopStart}
                       isLoopEnd={i === loopEndIndex}
-                      onLoopEndMarkerDragStart={rowHandlers.onLoopEndMarkerDragStart}
-                      onLoopEndMarkerDragEnd={rowHandlers.onLoopMarkerDragEnd}
                       onResetLoopEnd={resetLoopEnd}
                       isEndRotationStart={i === loopEndIndex + 1 && hasEndRotationContent}
                       endRotationStartsEarlier={endRotationStartsEarlier}
                       onToggleEndRotationStartsEarlier={setEndRotationStartsEarlier}
-                      isRepeatStart={!!row.repeatBlockStart}
-                      repeatCount={row.repeatBlockStart ? repeatBlocksByGroup.get(row.repeatBlockStart)?.count : undefined}
+                      onMarkerDragStart={rowHandlers.onMarkerDragStart}
+                      onMarkerDragEnd={rowHandlers.onMarkerDragEnd}
                       onRepeatCountChange={setRepeatCount}
-                      onRepeatMarkerDragStart={rowHandlers.onRepeatMarkerDragStart}
-                      onRepeatMarkerDragEnd={rowHandlers.onRepeatMarkerDragEnd}
                       onRemoveRepeatBlock={removeRepeatBlock}
-                      isRepeatEnd={!!row.repeatBlockEnd}
-                      repeatFinalTiming={row.repeatFinalTiming}
                       onRepeatFinalTimingChange={setRepeatFinalTiming}
                     />
                   </div>

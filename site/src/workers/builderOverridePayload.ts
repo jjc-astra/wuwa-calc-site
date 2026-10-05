@@ -5,9 +5,12 @@ import { getTeamEntityRefs } from '../utils/TeamUtils';
 import { MechanicKey } from '../utils/MechanicKey';
 import type { TeamSlot, BaseStats, MechanicNode } from '../types';
 
+// Every entity a team equips, by name (System included).
+const teamEntityNames = (team: TeamSlot[]): string[] => getTeamEntityRefs(team).map(r => r.name);
+
 // The team's Builder edits, for a worker request.
 export function buildBuilderPayload(team: TeamSlot[]) {
-  return { builderOverrides: useBuilderStore.getState().getTeamOverrides(getTeamEntityRefs(team).map(r => r.name)) };
+  return { builderOverrides: useBuilderStore.getState().getTeamOverrides(teamEntityNames(team)) };
 }
 
 export interface BuilderOverrides {
@@ -43,5 +46,5 @@ export function applyBuilderOverridesFor(names: string[]): void {
 
 // applyBuilderOverridesFor every entity a team equips.
 export function applyBuilderOverridesForTeam(team: TeamSlot[]): void {
-  applyBuilderOverridesFor(getTeamEntityRefs(team).map(r => r.name));
+  applyBuilderOverridesFor(teamEntityNames(team));
 }

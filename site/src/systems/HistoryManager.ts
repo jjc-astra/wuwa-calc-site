@@ -5,6 +5,18 @@ import { makeBlankRow, toPersistedRow } from '../logic/rotationRows';
 
 const MAX_HISTORY_SIZE = 50;
 
+// The Ending Rotation toggles, flipped together as one undo step.
+export interface EndingRotationFlags {
+  endingRotationEnabled: boolean;
+  endRotationStartsEarlier: boolean;
+}
+
+// The first row matching `test`, or null.
+export const findRowIndex = (rows: any[], test: (row: any) => boolean): number | null => {
+  const idx = rows.findIndex(test);
+  return idx === -1 ? null : idx;
+};
+
 export interface Command {
   execute: () => void;
   undo: () => void;
@@ -23,11 +35,7 @@ export type SerializedCommand =
   | { type: 'setRepeatBlockStart'; groupId: string; newIndex: number | null; prevIndex: number | null; initialCount: number }
   | { type: 'setRepeatBlockEnd'; groupId: string; newIndex: number | null; prevIndex: number | null }
   | { type: 'move'; indicesToMove: number[]; targetIndex: number; previousRowsSnapshot: any[] }
-  | {
-      type: 'endingRotationFlags';
-      oldValues: { endingRotationEnabled: boolean; endRotationStartsEarlier: boolean };
-      newValues: { endingRotationEnabled: boolean; endRotationStartsEarlier: boolean };
-    }
+  | { type: 'endingRotationFlags'; oldValues: EndingRotationFlags; newValues: EndingRotationFlags }
   | { type: 'composite'; commands: SerializedCommand[] };
 
 // A detached copy of rows, minus the circular prevRow/nextRow links (recalculate rebuilds them).
@@ -344,20 +352,16 @@ abstract class MoveMarkerCommand extends BaseRowsCommand {
   // What a row looks like carrying the marker (`carried` is whatever travelled with it).
   protected abstract markerValues(carried: any): Record<string, any>;
   // What travels with the marker to its next row, read off the row it leaves (undefined: nothing).
-  protected carriedFrom(_row: any): any {
-    return undefined;
-  }
+  protected carriedFrom?(row: any): any;
   // Stands in for `carried` when the marker isn't coming off another row (a brand-new one).
-  protected initialCarried(): any {
-    return undefined;
-  }
+  protected initialCarried?(): any;
 
   private apply(clearIndex: number | null, setIndex: number | null) {
     const current = [...this.getRows()];
-    let carried = this.initialCarried();
+    let carried = this.initialCarried?.();
     if (clearIndex !== null && clearIndex >= 0 && clearIndex < current.length) {
       const row = current[clearIndex];
-      const leaving = this.carriedFrom(row);
+      const leaving = this.carriedFrom?.(row);
       if (leaving !== undefined) carried = leaving;
       const rest = { ...row };
       this.markerFields().forEach(field => delete rest[field]);
@@ -418,8 +422,7 @@ export class SetLoopStartCommand extends SetRowFlagCommandBase {
   }
 
   static findPrevIndex(rows: any[]): number | null {
-    const idx = rows.findIndex(r => r.loopStartOverride === true);
-    return idx === -1 ? null : idx;
+    return findRowIndex(rows, r => r.loopStartOverride === true);
   }
 
   serialize(): SerializedCommand {
@@ -442,8 +445,7 @@ export class SetLoopEndCommand extends SetRowFlagCommandBase {
   }
 
   static findPrevIndex(rows: any[]): number | null {
-    const idx = rows.findIndex(r => r.loopEndOverride === true);
-    return idx === -1 ? null : idx;
+    return findRowIndex(rows, r => r.loopEndOverride === true);
   }
 
   serialize(): SerializedCommand {
@@ -471,8 +473,7 @@ export class SetRepeatBlockStartCommand extends MoveMarkerCommand {
   }
 
   static findIndexForGroup(rows: any[], groupId: string): number | null {
-    const idx = rows.findIndex(r => r.repeatBlockStart === groupId);
-    return idx === -1 ? null : idx;
+    return findRowIndex(rows, r => r.repeatBlockStart === groupId);
   }
 
   protected markerFields() {
@@ -514,8 +515,7 @@ export class SetRepeatBlockEndCommand extends MoveMarkerCommand {
   }
 
   static findIndexForGroup(rows: any[], groupId: string): number | null {
-    const idx = rows.findIndex(r => r.repeatBlockEnd === groupId);
-    return idx === -1 ? null : idx;
+    return findRowIndex(rows, r => r.repeatBlockEnd === groupId);
   }
 
   protected markerFields() {
@@ -605,15 +605,11 @@ export class MoveRowsCommand extends BaseRowsCommand {
 // resetLoopEnd (bundled into a CompositeCommand alongside the row deletion/tag removal it
 // accompanies) and any other all-or-nothing flag change.
 export class SetEndingRotationFlagsCommand implements Command {
-  private setFlags: (vals: { endingRotationEnabled: boolean; endRotationStartsEarlier: boolean }) => void;
-  private oldValues: { endingRotationEnabled: boolean; endRotationStartsEarlier: boolean };
-  private newValues: { endingRotationEnabled: boolean; endRotationStartsEarlier: boolean };
+  private setFlags: (vals: EndingRotationFlags) => void;
+  private oldValues: EndingRotationFlags;
+  private newValues: EndingRotationFlags;
 
-  constructor(
-    setFlags: (vals: { endingRotationEnabled: boolean; endRotationStartsEarlier: boolean }) => void,
-    oldValues: { endingRotationEnabled: boolean; endRotationStartsEarlier: boolean },
-    newValues: { endingRotationEnabled: boolean; endRotationStartsEarlier: boolean }
-  ) {
+  constructor(setFlags: (vals: EndingRotationFlags) => void, oldValues: EndingRotationFlags, newValues: EndingRotationFlags) {
     this.setFlags = setFlags;
     this.oldValues = oldValues;
     this.newValues = newValues;

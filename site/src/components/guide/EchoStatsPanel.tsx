@@ -16,9 +16,9 @@ export const EchoStatsPanel: React.FC<EchoStatsPanelProps> = ({ slot }) => {
   const totals: Record<string, number> = {};
   slot.echoes.forEach(echo => echo.substats.forEach(sub => {
     const value = parseFloat(String(sub.value));
-    if (sub.name !== 'N/A' && !isNaN(value)) totals[sub.name] = (totals[sub.name] || 0) + value;
+    if (!isNaN(value)) totals[sub.name] = (totals[sub.name] || 0) + value;
   }));
-  // STAT_DB order, and only substats the build actually rolls.
+  // STAT_DB order (no empty slots), and only substats the build actually rolls.
   const substats = Object.keys(STAT_DB).filter(stat => totals[stat] > 0);
   const { results, isStale } = useResultsSource();
   const energy = results?.energyRequirements?.[slot.character];

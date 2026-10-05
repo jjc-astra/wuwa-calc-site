@@ -203,11 +203,6 @@ button, input, select, textarea { font-family: inherit; }
 .brand-patreon { color: #ff424d; }
 .brand-kofi    { color: #72a5f2; }
 
-.coming-soon-badge {
-    background: var(--border);
-    color: var(--text-dim);
-}
-
 /* =========================================
    5. FORM ELEMENTS
    ========================================= */

@@ -242,8 +242,8 @@ export interface HitConfig {
 
 export interface DamageInstanceResult {
   title: string;
+  // The average hit (crit chance included); nonCrit/crit are the two outcomes.
   total: number;
-  avg: number;
   nonCrit: number;
   crit: number;
   isOpen: boolean;

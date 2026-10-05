@@ -10,9 +10,20 @@ import type { MatchRule, SuggestionItem } from './dslTypes';
 import { BuilderState, CAST_TYPE_COLORS } from '../../data/db';
 import { UNSCOPED_MOD_LABELS, SCOPEABLE_MOD_LABELS } from '../combat/combatRegistry';
 import { DataLoader } from '../../utils/DataLoader';
-import { MechanicKey } from '../../utils/MechanicKey';
+import { MechanicKey, SYSTEM_NAMESPACE } from '../../utils/MechanicKey';
 import { forteAliases } from '../../utils/ForteNames';
 import type { MechanicNode, BaseStats } from '../../types';
+
+// Every node the loaded data and the Builder's working copy define (the Builder's last, so its
+// edits win), with its key's namespace.
+function forEachMechanic(builderMechanics: Record<string, MechanicNode>, visit: (key: string, mech: MechanicNode, namespace: string) => void): void {
+  [DataLoader.mechanicsDB, builderMechanics].forEach(byKey =>
+    Object.entries(byKey).forEach(([key, mech]) => visit(key, mech, MechanicKey.parse(key).namespace)));
+}
+
+// System's, and the current unit's: what a node may reference.
+const isVisibleNamespace = (namespace: string, currentNamespace: string | null): boolean =>
+  namespace === SYSTEM_NAMESPACE || namespace === currentNamespace;
 
 // Every mechanic node as an @Namespace(Move Name) ref, scoped to System + the current unit. Uses
 // `.name`, not the raw key, since that's what CombatCalculator's hitModifiers carries as
@@ -20,17 +31,11 @@ import type { MechanicNode, BaseStats } from '../../types';
 function collectMechanicReferences(mechanics: Record<string, MechanicNode>, currentNamespace: string | null): SuggestionItem[] {
   const seen = new Set<string>();
   const results: SuggestionItem[] = [];
-  const addFrom = (mechanicsByKey: Record<string, MechanicNode>) => {
-    Object.entries(mechanicsByKey).forEach(([key, mech]) => {
-      if (seen.has(key) || !mech.name) return;
-      const namespace = MechanicKey.parse(key).namespace;
-      if (namespace !== 'System' && namespace !== currentNamespace) return;
-      seen.add(key);
-      results.push({ val: `@${namespace}(${mech.name})`, group: namespace === 'System' ? 'System Mechanics' : `${namespace} Mechanics` });
-    });
-  };
-  addFrom(DataLoader.mechanicsDB);
-  addFrom(mechanics);
+  forEachMechanic(mechanics, (key, mech, namespace) => {
+    if (seen.has(key) || !mech.name || !isVisibleNamespace(namespace, currentNamespace)) return;
+    seen.add(key);
+    results.push({ val: `@${namespace}(${mech.name})`, group: `${namespace} Mechanics` });
+  });
   return results;
 }
 
@@ -38,24 +43,17 @@ function collectMechanicReferences(mechanics: Record<string, MechanicNode>, curr
 // "Lumi_Outro..."; some don't). Deriving namespace from the defining node covers both.
 function collectEffectNamesByNamespace(builderMechanics: Record<string, MechanicNode>): Record<string, Set<string>> {
   const byNamespace: Record<string, Set<string>> = {};
-  const addFrom = (mechanicsByKey: Record<string, MechanicNode>) => {
-    Object.entries(mechanicsByKey).forEach(([key, mech]) => {
-      const namespace = MechanicKey.parse(key).namespace;
-      (mech.effects || []).forEach(e => {
-        if (!e.name) return;
-        // Buff and tracker effects both define a reusable name -- resource/time_scale/etc.
-        // effects reuse `name` for something else entirely (e.g. a resource effect's `name` is
-        // a pool key like "energy"/"forte1", not an identifier meant to be referenced elsewhere).
-        if (e.type && e.type !== 'buff' && e.type !== 'tracker') return;
-        if (!byNamespace[namespace]) byNamespace[namespace] = new Set();
-        // As written ("Lumi_Red Light Form"): that's the name the engine matches. Inside a
-        // "@Namespace(" ref the namespace is stripped where it's suggested (namespacedEffectNames).
-        byNamespace[namespace].add(e.name);
-      });
+  forEachMechanic(builderMechanics, (_key, mech, namespace) => {
+    (mech.effects || []).forEach(e => {
+      // Buff and tracker effects both define a reusable name -- resource/time_scale/etc.
+      // effects reuse `name` for something else entirely (e.g. a resource effect's `name` is
+      // a pool key like "energy"/"forte1", not an identifier meant to be referenced elsewhere).
+      if (!e.name || (e.type && e.type !== 'buff' && e.type !== 'tracker')) return;
+      // As written ("Lumi_Red Light Form"): that's the name the engine matches. Inside a
+      // "@Namespace(" ref the namespace is stripped where it's suggested (namespacedEffectNames).
+      (byNamespace[namespace] ??= new Set()).add(e.name);
     });
-  };
-  addFrom(DataLoader.mechanicsDB);
-  addFrom(builderMechanics);
+  });
   return byNamespace;
 }
 
@@ -72,17 +70,11 @@ function namespacedEffectNames(builderMechanics: Record<string, MechanicNode>, n
 function collectCooldownReferences(builderMechanics: Record<string, MechanicNode>, currentNamespace: string | null): SuggestionItem[] {
   const seen = new Set<string>();
   const results: SuggestionItem[] = [];
-  const addFrom = (mechanicsByKey: Record<string, MechanicNode>) => {
-    Object.entries(mechanicsByKey).forEach(([key, mech]) => {
-      if (!mech.name || mech.cooldown === undefined || seen.has(mech.name)) return;
-      const namespace = MechanicKey.parse(key).namespace;
-      if (namespace !== 'System' && namespace !== currentNamespace) return;
-      seen.add(mech.name);
-      results.push({ val: mech.name, group: namespace === 'System' ? 'System Cooldowns' : `${namespace} Cooldowns` });
-    });
-  };
-  addFrom(DataLoader.mechanicsDB);
-  addFrom(builderMechanics);
+  forEachMechanic(builderMechanics, (_key, mech, namespace) => {
+    if (!mech.name || mech.cooldown === undefined || seen.has(mech.name) || !isVisibleNamespace(namespace, currentNamespace)) return;
+    seen.add(mech.name);
+    results.push({ val: mech.name, group: `${namespace} Cooldowns` });
+  });
   return results;
 }
 
@@ -268,27 +260,13 @@ export function makeNamespaceRefRule(mechanics: Record<string, MechanicNode>): M
     matchGroup: 2,
     options: (match) => {
       const namespace = match[1];
-      const mechKeys = new Set<string>();
-      Object.keys(DataLoader.mechanicsDB).forEach(k => mechKeys.add(k));
-      Object.keys(mechanics).forEach(k => mechKeys.add(k));
-
-      const results: SuggestionItem[] = [];
-      mechKeys.forEach(k => {
-        if (k.startsWith(namespace + '_')) {
-          results.push({
-            val: k.replace(namespace + '_', ''),
-            group: namespace === 'System' ? 'System Mechanics' : `${namespace} Mechanics`
-          });
-        }
-      });
-
-      namespacedEffectNames(mechanics, namespace).forEach(name => {
-        results.push({
-          val: name,
-          group: namespace === 'System' ? 'System Effects' : `${namespace} Effects`
-        });
-      });
-      return results;
+      const mechKeys = new Set([...Object.keys(DataLoader.mechanicsDB), ...Object.keys(mechanics)]);
+      return [
+        ...[...mechKeys]
+          .filter(k => MechanicKey.belongsTo(k, namespace))
+          .map(k => ({ val: MechanicKey.stripNamespace(k, namespace), group: `${namespace} Mechanics` })),
+        ...namespacedEffectNames(mechanics, namespace).map(name => ({ val: name, group: `${namespace} Effects` }))
+      ];
     },
     prefix: '',
     append: ')'
@@ -307,10 +285,7 @@ export function makeEffectNameRules(activeChar: string | null, mechanics: Record
       matchGroup: 2,
       options: (match) => {
         const namespace = match[1];
-        return namespacedEffectNames(mechanics, namespace).map(name => ({
-          val: name,
-          group: namespace === 'System' ? 'System Effects' : `${namespace} Effects`
-        }));
+        return namespacedEffectNames(mechanics, namespace).map(name => ({ val: name, group: `${namespace} Effects` }));
       },
       prefix: '',
       append: ')'
@@ -321,12 +296,8 @@ export function makeEffectNameRules(activeChar: string | null, mechanics: Record
       trigger: /^([a-zA-Z0-9_ ]*)$/,
       options: () => {
         const byNamespace = collectEffectNamesByNamespace(mechanics);
-        const ownNames = (byNamespace[currentNamespace] ? Array.from(byNamespace[currentNamespace]) : [])
-          .map(name => ({ val: name, group: `${currentNamespace} Effects` }));
-        const systemNames = currentNamespace !== 'System'
-          ? (byNamespace['System'] ? Array.from(byNamespace['System']) : []).map(name => ({ val: name, group: 'System Effects' }))
-          : [];
-        return [...ownNames, ...systemNames];
+        const namesIn = (namespace: string) => [...(byNamespace[namespace] ?? [])].map(name => ({ val: name, group: `${namespace} Effects` }));
+        return [...namesIn(currentNamespace), ...(currentNamespace !== SYSTEM_NAMESPACE ? namesIn(SYSTEM_NAMESPACE) : [])];
       },
       prefix: ''
     },
@@ -335,7 +306,7 @@ export function makeEffectNameRules(activeChar: string | null, mechanics: Record
       // turns into the "Namespace_Name" convention some effects use -- not the default suggestion.
       trigger: /^@([a-zA-Z]*)$/,
       options: () => {
-        const base = [{ val: 'System(', group: 'Namespaces' }];
+        const base = [{ val: `${SYSTEM_NAMESPACE}(`, group: 'Namespaces' }];
         const chars = Object.keys(DataLoader.characterDB).map(c => ({
           val: c.replace(/[^a-zA-Z0-9]/g, '') + '(',
           group: 'Namespaces'
@@ -373,15 +344,9 @@ export function makeStatRule(statOptions: string[], dmgOptions: string[]): Match
     });
   });
 
-  const combined = [...sheetStats, ...combatMods, ...specificMods];
-  const uniqueStats: SuggestionItem[] = [];
+  // First of each value wins.
   const seen = new Set<string>();
-  combined.forEach(obj => {
-    if (!seen.has(obj.val)) {
-      seen.add(obj.val);
-      uniqueStats.push(obj);
-    }
-  });
+  const uniqueStats = [...sheetStats, ...combatMods, ...specificMods].filter(item => !seen.has(item.val) && !!seen.add(item.val));
   return { trigger: /(.*)/, options: uniqueStats, prefix: '' };
 }
 

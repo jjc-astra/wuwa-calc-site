@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import type { Frames } from '../../../utils/Frames';
 import type { MechanicNode } from '../../../types';
 import { CommonUtils } from '../../../utils/Common';
-import { displayTimeVal, tip } from '../mechanicNodeHelpers';
+import { displayTimeVal } from '../mechanicNodeHelpers';
+import { tip } from '../../../utils/Common';
 import { Dropdown, type DropdownOption } from '../../common/Dropdown';
 import { parseTimeInput } from '../../../utils/Frames';
 

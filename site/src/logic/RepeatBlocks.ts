@@ -1,5 +1,6 @@
 // Virtualizes Hold Repeat blocks by expanding rows before worker calc and collapsing results back, keeping the table layout fixed.
-import type { RotationRow } from '../store/useRotationStore';
+import type { RotationRow } from './rotationRows';
+import { DEFAULT_REPEAT_COUNT, REPEAT_FIELDS, pickFields, withoutRepeatFields } from './rotationRows';
 
 export interface Block {
   startIdx: number;
@@ -18,13 +19,13 @@ export function findBlocks(rows: RotationRow[]): Map<string, Block> {
   const blocks = new Map<string, Block>();
   rows.forEach((r, i) => {
     if (r.repeatBlockStart) {
-      const b = blocks.get(r.repeatBlockStart) || { startIdx: -1, endIdx: -1, count: 2 };
+      const b = blocks.get(r.repeatBlockStart) || { startIdx: -1, endIdx: -1, count: DEFAULT_REPEAT_COUNT };
       b.startIdx = i;
-      b.count = r.repeatCount || 2;
+      b.count = r.repeatCount || DEFAULT_REPEAT_COUNT;
       blocks.set(r.repeatBlockStart, b);
     }
     if (r.repeatBlockEnd) {
-      const b = blocks.get(r.repeatBlockEnd) || { startIdx: -1, endIdx: -1, count: 2 };
+      const b = blocks.get(r.repeatBlockEnd) || { startIdx: -1, endIdx: -1, count: DEFAULT_REPEAT_COUNT };
       b.endIdx = i;
       blocks.set(r.repeatBlockEnd, b);
     }
@@ -52,9 +53,9 @@ export function expandRepeatBlocks(rows: RotationRow[]): { expanded: RotationRow
           // Clones don't carry the block flags -- only the ORIGINAL authored row represents the
           // block boundary; a clone claiming to also be a boundary would confuse a second
           // expansion pass (e.g. a stale re-run) and serves no purpose downstream.
-          const { repeatBlockStart, repeatBlockEnd, repeatCount, repeatFinalTiming, ...clean } = rows[j];
+          const clean = withoutRepeatFields(rows[j]);
           const isFinalRepEndRow = rep === block.count - 1 && j === block.endIdx;
-          expanded.push(isFinalRepEndRow && endRow.repeatFinalTiming ? { ...clean, timing: endRow.repeatFinalTiming } : { ...clean });
+          expanded.push(isFinalRepEndRow && endRow.repeatFinalTiming ? { ...clean, timing: endRow.repeatFinalTiming } : clean);
           collapseMap.push(j);
         }
       }
@@ -86,7 +87,7 @@ export function collapseRepeatResults(evaluatedExpandedRows: RotationRow[], coll
       // override applied (it's simultaneously the first AND final rep at count 1), which belongs
       // to the runtime clone, not to the row the user edits.
       return orig.repeatBlockStart || orig.repeatBlockEnd
-        ? { ...reps[0], timing: orig.timing, repeatBlockStart: orig.repeatBlockStart, repeatBlockEnd: orig.repeatBlockEnd, repeatCount: orig.repeatCount, repeatFinalTiming: orig.repeatFinalTiming }
+        ? { ...reps[0], timing: orig.timing, ...pickFields(orig, REPEAT_FIELDS) }
         : reps[0];
     }
     const first = reps[0];
@@ -111,10 +112,7 @@ export function collapseRepeatResults(evaluatedExpandedRows: RotationRow[], coll
       warningMsgs: Array.from(new Set(reps.flatMap(r => r.warningMsgs || []))),
       trackers,
       // The clones had these stripped (see expandRepeatBlocks) -- restore the real flags.
-      repeatBlockStart: orig.repeatBlockStart,
-      repeatBlockEnd: orig.repeatBlockEnd,
-      repeatCount: orig.repeatCount,
-      repeatFinalTiming: orig.repeatFinalTiming
+      ...pickFields(orig, REPEAT_FIELDS)
     };
   });
 }

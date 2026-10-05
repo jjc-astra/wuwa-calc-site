@@ -85,3 +85,11 @@ export const PatreonIcon: React.FC<IconProps> = ({ size = 18, className }) => (
     <path d="M1033.05,324.45c-0.19-137.9-107.59-250.92-233.6-291.7c-156.48-50.64-362.86-43.3-512.28,27.2C106.07,145.41,49.18,332.61,47.06,519.31c-1.74,153.5,13.58,557.79,241.62,560.67c169.44,2.15,194.67-216.18,273.07-321.33c55.78-74.81,127.6-95.94,216.01-117.82C929.71,603.22,1033.27,483.3,1033.05,324.45z" />
   </svg>
 );
+
+/** Two filled right triangles: the Ending Rotation's skipped stretch. Sized by CSS. */
+export const FastForwardIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <polygon points="1,4 11,12 1,20" />
+    <polygon points="12,4 22,12 12,20" />
+  </svg>
+);

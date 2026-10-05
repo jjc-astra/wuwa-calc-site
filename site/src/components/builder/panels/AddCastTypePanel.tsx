@@ -3,7 +3,8 @@ import type { MechanicNode } from '../../../types';
 import { BuilderState } from '../../../data/db';
 import { Dropdown } from '../../common/Dropdown';
 import { TypeTag } from '../../common/TypeTag';
-import { castTagColor, tip } from '../mechanicNodeHelpers';
+import { castTagColor } from '../mechanicNodeHelpers';
+import { tip } from '../../../utils/Common';
 
 interface AddCastTypePanelProps {
   data: MechanicNode;

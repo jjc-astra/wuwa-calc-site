@@ -3,11 +3,12 @@
 import { TimelineEngine } from './TimelineEngine';
 import { CombatCalculator } from './CombatCalculator';
 import { resourceCap } from './resources';
-import { STAT_DB, STAT_NAME_MAP } from '../data/db';
+import { CHARACTER_DEFAULTS, STAT_DB, STAT_NAME_MAP } from '../data/db';
 import { PRIMARY_DMG_TYPES } from '../data/gameVocab';
 import { DPS_WINDOWS } from '../data/dpsWindows';
-import { toRunInput } from './rotationRows';
-import type { HitConfig, TeamSlot, DamageInstanceResult } from '../types';
+import { toRunInput, splitLoopSegments, loopTiming, repeatLoop, rowGameEnd } from './rotationRows';
+import { teamCharacters } from '../utils/TeamUtils';
+import type { HitConfig, TeamSlot, DamageInstanceResult, EnemyStats } from '../types';
 import { type Frames, toFrames, roundFrames, framesToSeconds } from '../utils/Frames';
 import type {
   DpsStats,
@@ -44,35 +45,13 @@ function hitLabel(h: RotationHit): string {
   return h.formulaUsed !== 'Standard' ? (h.dmgTypes[0] || 'Status Effect') : h.provider;
 }
 
-// Splits content rows into opener / loop-template / optional Ending Rotation tail. Shared by
-// buildExtendedTimeline and previewEndingRotationTiming so both agree on segments.
-function splitLoopSegments(
-  contentRows: any[],
-  loopStartIndex: number,
-  endingRotationEnabled: boolean
-): { openerRows: any[]; loopTemplate: any[]; endingRows: any[] } {
-  const clampedStart = Math.max(0, Math.min(loopStartIndex, contentRows.length));
-  const openerRows = contentRows.slice(0, clampedStart);
-  let loopTemplate = contentRows.slice(clampedStart);
-
-  let endingRows: any[] = [];
-  if (endingRotationEnabled) {
-    const endRel = loopTemplate.findIndex(r => r.loopEndOverride === true);
-    if (endRel !== -1 && endRel < loopTemplate.length - 1) {
-      endingRows = loopTemplate.slice(endRel + 1);
-      loopTemplate = loopTemplate.slice(0, endRel + 1);
-    }
-  }
-  return { openerRows, loopTemplate, endingRows };
-}
-
 // Opener + N loop reps run through the real engine once. N is at least AVG_LOOP_REPS and
 // enough to cross 120s; each per-window series below clips to its own window.
 function buildExtendedTimeline(
   rows: any[],
   team: any[],
   options: { startEnergy?: boolean; startConcerto?: boolean },
-  enemyConfig: { level: number; res: number; hp: number },
+  enemyConfig: EnemyStats,
   loopStartIndex: number,
   endingRotationEnabled: boolean,
   endRotationStartsEarlier: boolean = false,
@@ -82,8 +61,8 @@ function buildExtendedTimeline(
   const { openerRows, loopTemplate, endingRows } = splitLoopSegments(contentRows, loopStartIndex, endingRotationEnabled);
 
   // `rows` is already-recalculated, so its timing fields can be read directly.
-  const openerEndRow = openerRows.length > 0 ? openerRows[openerRows.length - 1] : null;
-  const openerEndTime = toFrames(openerEndRow ? (openerEndRow.gameTimeStart || 0) + (openerEndRow.gameTimePassed || 0) : 0);
+  const { openerEnd, loopDuration } = loopTiming(openerRows, loopTemplate);
+  const openerEndTime = toFrames(openerEnd);
 
   const runSimple = (contentToRun: any[]) =>
     TimelineEngine.recalculateState(toRunInput(contentToRun), team, { ...options, mode: 'full' }, enemyConfig);
@@ -91,10 +70,6 @@ function buildExtendedTimeline(
   if (loopTemplate.length === 0) {
     return { evaluatedRows: runSimple(openerRows), openerEndTime, loopEnds: null };
   }
-
-  const loopEndRow = loopTemplate[loopTemplate.length - 1];
-  const loopEndTime = (loopEndRow.gameTimeStart || 0) + (loopEndRow.gameTimePassed || 0);
-  const loopDuration = toFrames(loopEndTime - openerEndTime);
 
   if (loopDuration === 0) {
     return { evaluatedRows: runSimple([...openerRows, ...loopTemplate, ...endingRows]), openerEndTime, loopEnds: null };
@@ -106,9 +81,7 @@ function buildExtendedTimeline(
   const repsToSimulate = endingRows.length > 0
     ? Math.max(AVG_LOOP_REPS, Math.max(0, Math.floor((TWO_MIN - openerEndTime) / loopDuration) - (endRotationStartsEarlier ? 1 : 0)))
     : Math.max(AVG_LOOP_REPS, Math.ceil((TWO_MIN - openerEndTime) / loopDuration));
-  const extendedContent: any[] = [...openerRows];
-  for (let i = 0; i < repsToSimulate; i++) extendedContent.push(...loopTemplate);
-  extendedContent.push(...endingRows);
+  const extendedContent = repeatLoop(openerRows, loopTemplate, repsToSimulate, endingRows);
 
   const previewRun = shared?.run;
   const reusable = previewRun && previewRun.reps === repsToSimulate && previewRun.contentLength === extendedContent.length;
@@ -118,10 +91,8 @@ function buildExtendedTimeline(
   // one (e.g. waiting on a cooldown the opener's timing didn't), so the loop windows can't
   // assume every rep matches loopDuration.
   const simulatedRows = evaluatedRows.filter(r => r && r.unit);
-  const loopEnds = Array.from({ length: repsToSimulate }, (_, rep) => {
-    const row = simulatedRows[openerRows.length + (rep + 1) * loopTemplate.length - 1];
-    return toFrames((row?.gameTimeStart || 0) + (row?.gameTimePassed || 0));
-  });
+  const loopEnds = Array.from({ length: repsToSimulate }, (_, rep) =>
+    toFrames(rowGameEnd(simulatedRows[openerRows.length + (rep + 1) * loopTemplate.length - 1])));
   return { evaluatedRows, openerEndTime, loopEnds };
 }
 
@@ -171,7 +142,7 @@ export function previewEndingRotationTiming(
   evaluatedRows: any[],
   team: any[],
   options: { startEnergy?: boolean; startConcerto?: boolean },
-  enemyConfig: { level: number; res: number; hp: number },
+  enemyConfig: EnemyStats,
   loopStartIndex: number,
   populateDamage: boolean = false,
   endRotationStartsEarlier: boolean = false,
@@ -181,17 +152,11 @@ export function previewEndingRotationTiming(
   const { openerRows, loopTemplate, endingRows } = splitLoopSegments(contentRows, loopStartIndex, true);
   if (endingRows.length === 0) return evaluatedRows;
 
-  const openerEndRow = openerRows.length > 0 ? openerRows[openerRows.length - 1] : null;
-  const openerEndTime = toFrames(openerEndRow ? (openerEndRow.gameTimeStart || 0) + (openerEndRow.gameTimePassed || 0) : 0);
-  const loopEndRow = loopTemplate[loopTemplate.length - 1];
-  const loopEndTime = (loopEndRow.gameTimeStart || 0) + (loopEndRow.gameTimePassed || 0);
-  const loopDuration = toFrames(loopEndTime - openerEndTime);
+  const { openerEnd, loopDuration } = loopTiming(openerRows, loopTemplate);
   if (loopDuration <= 0) return evaluatedRows;
 
-  const repsToSimulate = Math.max(1, Math.floor((TWO_MIN - openerEndTime) / loopDuration) - (endRotationStartsEarlier ? 1 : 0));
-  const extendedContent: any[] = [...openerRows];
-  for (let i = 0; i < repsToSimulate; i++) extendedContent.push(...loopTemplate);
-  extendedContent.push(...endingRows);
+  const repsToSimulate = Math.max(1, Math.floor((TWO_MIN - openerEnd) / loopDuration) - (endRotationStartsEarlier ? 1 : 0));
+  const extendedContent = repeatLoop(openerRows, loopTemplate, repsToSimulate, endingRows);
 
   const previewEvaluated = TimelineEngine.recalculateState(toRunInput(extendedContent), team, { ...options, mode: 'full' }, enemyConfig);
   if (shared) shared.run = { reps: repsToSimulate, contentLength: extendedContent.length, evaluatedRows: previewEvaluated, openerLength: openerRows.length, loopLength: loopTemplate.length };
@@ -215,7 +180,7 @@ export function previewEndingRotationTiming(
 }
 
 // Prices every queued hit over the extended timeline (rather than the literal authored rows).
-function buildHitList(evaluatedRows: any[], team: any[], enemyConfig: { level: number; res: number; hp: number }): RotationHit[] {
+function buildHitList(evaluatedRows: any[], team: any[], enemyConfig: EnemyStats): RotationHit[] {
   const hits: RotationHit[] = [];
   priceHits(evaluatedRows, team, enemyConfig, (_row, hit, result) => {
     hits.push({
@@ -288,7 +253,7 @@ function buildDpsStats(hits: RotationHit[], openerEndTime: Frames, loopEnds: Loo
 }
 
 // Builds one window's cumulative dmg-over-time series from hits already shifted to
-// window-relative time and already divided down for averaging where that applies.
+// window-relative time and already divided down for averaging where that applies, in time order.
 function buildDmgOverTimeForWindow(
   relativeHits: Array<{ t: Frames; total: number; label: string }>,
   bossMaxHp: number,
@@ -311,6 +276,15 @@ function buildDmgOverTimeForWindow(
 
   return { label, points, bossMaxHp, killTime, windowEnd };
 }
+
+// What each window's chart series is called. It's a separate name from the tab's, since the
+// full-rotation window reads as the current rotation on its own chart.
+const SERIES_LABELS: Record<DpsWindowKey, string> = {
+  opener: 'Opener',
+  firstLoop: 'First Loop',
+  avgLoop: 'Avg Loop',
+  twoMin: 'Current Rotation'
+};
 
 // Folds AVG_LOOP_REPS reps into one loop-length window, averaging damage and timing per move
 // so rep-to-rep jitter doesn't scatter "the same" hit into near-duplicate points. Bar mode
@@ -353,41 +327,19 @@ function buildAvgLoopDmgOverTime(hits: RotationHit[], openerEndTime: Frames, loo
       // Averages damage and time across whichever reps had this hit -- e.g. a move at 12.0s
       // in one rep and 12.2s in another folds into one point at 12.1s, not two near-duplicates.
       const avgRel = matched.reduce((sum, h) => sum + foldedRel(h), 0) / matched.length;
+      // Summed across the reps here, so divided back down to one loop's worth.
       folded.push({
         t: toFrames(avgRel),
-        total: matched.reduce((sum, h) => sum + h.total, 0),
+        total: matched.reduce((sum, h) => sum + h.total, 0) / AVG_LOOP_REPS,
         label: hitLabel(matched[0])
       });
     }
   }
   folded.sort((a, b) => a.t - b.t);
 
-  const points: DmgOverTimePoint[] = [{ t: toFrames(0), dmg: 0 }];
-  let cumulative = 0;
-  let killTime: Frames | null = null;
-
-  for (const h of folded) {
-    cumulative += h.total;
-    const avgDmg = cumulative / AVG_LOOP_REPS;
-    points.push({ t: h.t, dmg: avgDmg, label: h.label });
-    if (killTime === null && avgDmg >= bossMaxHp) {
-      const prev = points[points.length - 2];
-      const frac = avgDmg === prev.dmg ? 0 : (bossMaxHp - prev.dmg) / (avgDmg - prev.dmg);
-      killTime = roundFrames(prev.t + frac * (h.t - prev.t));
-    }
-  }
-
-  return { label: 'Avg Loop', points, bossMaxHp, killTime, windowEnd: toFrames((loopEnds[AVG_LOOP_REPS - 1] - openerEndTime) / AVG_LOOP_REPS) };
+  const windowEnd = toFrames((loopEnds[AVG_LOOP_REPS - 1] - openerEndTime) / AVG_LOOP_REPS);
+  return buildDmgOverTimeForWindow(folded, bossMaxHp, SERIES_LABELS.avgLoop, windowEnd);
 }
-
-// What each window's chart series is called. It's a separate name from the tab's, since the
-// full-rotation window reads as the current rotation on its own chart.
-const SERIES_LABELS: Record<DpsWindowKey, string> = {
-  opener: 'Opener',
-  firstLoop: 'First Loop',
-  avgLoop: 'Avg Loop',
-  twoMin: 'Current Rotation'
-};
 
 function buildAllDmgOverTime(
   hits: RotationHit[],
@@ -500,9 +452,9 @@ function buildSubstatWorth(twoMinHits: RotationHit[], team: TeamSlot[]): Record<
       const def = values[defaultIndex];
       const statKey = STAT_NAME_MAP[substat];
 
-      // Returns [team%, personal%] share of this roll -- vs rotation total, vs this unit's total.
-      const worthFor = (rollValue: number, sign: 1 | -1): [number, number] => {
-        if (unitHits.length === 0) return [0, 0];
+      // { team, personal } % this roll is worth -- of the rotation's total, of this unit's own.
+      const worthFor = (rollValue: number, sign: 1 | -1): { team: number; personal: number } => {
+        if (unitHits.length === 0) return { team: 0, personal: 0 };
         const modifiedTeam = team.map(s =>
           s.character === slot.character
             ? { ...s, echoStats: { ...s.echoStats, [statKey]: (s.echoStats[statKey] || 0) + sign * rollValue } }
@@ -513,15 +465,14 @@ function buildSubstatWorth(twoMinHits: RotationHit[], team: TeamSlot[]): Record<
           0
         );
         const delta = modifiedTotal - unitBaseline;
-        return [(delta / baselineTotal) * 100, unitBaseline > 0 ? (delta / unitBaseline) * 100 : 0];
+        return { team: (delta / baselineTotal) * 100, personal: unitBaseline > 0 ? (delta / unitBaseline) * 100 : 0 };
       };
-
-      const [minusTeamMin, minusPersonalMin] = worthFor(min, -1);
-      const [minusTeamMax, minusPersonalMax] = worthFor(max, -1);
-      const [minusTeamDef, minusPersonalDef] = worthFor(def, -1);
-      const [plusTeamMin, plusPersonalMin] = worthFor(min, 1);
-      const [plusTeamMax, plusPersonalMax] = worthFor(max, 1);
-      const [plusTeamDef, plusPersonalDef] = worthFor(def, 1);
+      // Each worth of a min, max and default roll, removed (sign -1) or added (+1), as `scale` reads it.
+      const worthsFor = (sign: 1 | -1, scale: (v: number) => number) => {
+        const [lo, hi, mid] = [min, max, def].map(roll => worthFor(roll, sign));
+        const pick = (part: 'team' | 'personal') => ({ min: scale(lo[part]), max: scale(hi[part]), default: scale(mid[part]) });
+        return { team: pick('team'), personal: pick('personal') };
+      };
 
       return {
         substat,
@@ -529,15 +480,9 @@ function buildSubstatWorth(twoMinHits: RotationHit[], team: TeamSlot[]): Record<
         max,
         default: def,
         // What you'd give up without this roll, shown as a magnitude.
-        minus: {
-          team: { min: Math.abs(minusTeamMin), max: Math.abs(minusTeamMax), default: Math.abs(minusTeamDef) },
-          personal: { min: Math.abs(minusPersonalMin), max: Math.abs(minusPersonalMax), default: Math.abs(minusPersonalDef) }
-        },
+        minus: worthsFor(-1, Math.abs),
         // What an extra roll would add; near-zero if the stat is already overcapped.
-        plus: {
-          team: { min: plusTeamMin, max: plusTeamMax, default: plusTeamDef },
-          personal: { min: plusPersonalMin, max: plusPersonalMax, default: plusPersonalDef }
-        }
+        plus: worthsFor(1, v => v)
       };
     });
 
@@ -551,7 +496,7 @@ type ResultsArgs = [
   rows: any[],
   team: TeamSlot[],
   options: { startEnergy?: boolean; startConcerto?: boolean },
-  enemyConfig: { level: number; res: number; hp: number },
+  enemyConfig: EnemyStats,
   loopStartIndex: number,
   endingRotationEnabled?: boolean,
   endRotationStartsEarlier?: boolean,
@@ -561,7 +506,7 @@ type ResultsArgs = [
 function simulateHits(...[rows, team, options, enemyConfig, loopStartIndex, endingRotationEnabled = false, endRotationStartsEarlier = false, shared]: ResultsArgs) {
   const { evaluatedRows, openerEndTime, loopEnds } = buildExtendedTimeline(rows, team, options, enemyConfig, loopStartIndex, endingRotationEnabled, endRotationStartsEarlier, shared);
   const hits = buildHitList(evaluatedRows, team, enemyConfig);
-  const teamNames = team.filter(s => s.character).map(s => s.character);
+  const teamNames = teamCharacters(team);
   return { hits, evaluatedRows, openerEndTime, loopEnds, teamNames };
 }
 
@@ -594,7 +539,7 @@ function buildEnergyRequirements(
   team.forEach(slot => {
     const unit = slot.character;
     if (!unit) return;
-    const current = CombatCalculator.calculateFinalStats(unit, [], team).energyRegen || 100;
+    const current = CombatCalculator.calculateFinalStats(unit, [], team).energyRegen || CHARACTER_DEFAULTS.energyRegen;
     let base = 0;          // sum of this window's gains before Energy Regen
     let buffWeighted = 0;  // sum of base x the Energy Regen buffs on top of gear when each landed
     let have = startEnergy ? resourceCap(unit, 'energy') : 0;

@@ -5,6 +5,7 @@ import { runFullCalculation } from '../workers/runFullCalculation';
 import { DataLoader } from '../utils/DataLoader';
 import type { DpsStats, DmgOverTimeSeries, DpsWindowKey, RotationResults, CalcInput } from '../types/results';
 import { defaultEnemyStats } from '../data/db';
+import { teamCharacters } from '../utils/TeamUtils';
 
 export interface PinnedRotation {
   label: string;
@@ -29,7 +30,7 @@ interface ComparisonState {
 // fixed-width chip and runs out of room fast with "Name-WI" pairs for 3 units.
 function labelFromTeam(team: Array<{ character?: string }> | undefined): string {
   if (!team) return 'Imported Rotation';
-  const names = team.filter(s => s.character).map(s => s.character as string);
+  const names = teamCharacters(team);
   return names.length > 0 ? names.join(' / ') : 'Imported Rotation';
 }
 

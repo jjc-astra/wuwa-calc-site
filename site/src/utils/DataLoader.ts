@@ -84,9 +84,8 @@ export class DataLoaderClass {
   rankedRuns: Record<string, Promise<RankedRun>> = {};
   // An entry's results file on its own -- its per-unit breakdowns, which the index leaves out.
   rankedResults: Record<string, Promise<ResultsFile>> = {};
-  weaponsByType: Record<string, string[]> = {
-    Broadblade: [], Sword: [], Rectifier: [], Gauntlets: [], Pistols: []
-  };
+  // Weapon names by weapon type.
+  weaponsByType: Record<string, string[]> = {};
 
   sonataSets: string[] = [];
   setEchoMapping: Record<string, string[]> = {};
@@ -189,7 +188,7 @@ export class DataLoaderClass {
   // On-disk filename for a mechanic entity. The rest of the app calls this entity 'System', but
   // the data repo's real file is lowercase system.json -- this is the one place that translates.
   private mechanicFileName(itemName: string): string {
-    return itemName === 'System' ? 'system' : itemName.replace(/\s+/g, '_');
+    return itemName === SYSTEM_NAMESPACE ? 'system' : itemName.replace(/\s+/g, '_');
   }
 
   // Same relPath convention loadMechanic uses internally, exposed for dataFreshness.ts.
@@ -357,12 +356,8 @@ export class DataLoaderClass {
     this.buildDB = await this.loadMergedDB<Record<string, any>>('db_builds.json');
 
     this.charList = Object.keys(this.characterDB);
-    this.weaponsByType = { Broadblade: [], Sword: [], Rectifier: [], Gauntlets: [], Pistols: [] };
-
-    Object.keys(this.weaponDB).forEach(weaponName => {
-      const type = this.weaponDB[weaponName].weaponType;
-      if (this.weaponsByType[type]) this.weaponsByType[type].push(weaponName);
-    });
+    this.weaponsByType = {};
+    Object.entries(this.weaponDB).forEach(([weaponName, weapon]) => (this.weaponsByType[weapon.weaponType] ??= []).push(weaponName));
 
     // Note: loadMergedDB only merges top-level keys, so a WIP db_echoes.json's own
     // SET_ECHO_MAPPING replaces the real one wholesale rather than merging per-set -- fine for
@@ -485,22 +480,14 @@ export class DataLoaderClass {
     return this.characterDB[name] || this.weaponDB[name];
   }
 
-  // Locates a character's Hold Release mechanic (optionally input-scoped) to keep TimelineEngine and Gauge lookup logic unified.
+  // A character's Hold Release cursor config (for one input, if given), shared by TimelineEngine
+  // and Gauge. null for a Repeat-style hold, which has no cursor.
   findHoldReleaseConfig(charName: string, matchInput?: string): HoldConfig | null {
-    const hasRepeatForInput = Object.keys(this.mechanicsDB).some(k => {
-      const m = this.mechanicsDB[k];
-      if (!MechanicKey.belongsTo(k, charName) || m.inputType !== 'Repeat') return false;
-      return matchInput === undefined || m.input === matchInput;
-    });
-    if (hasRepeatForInput) return null;
-
-    const releaseKey = Object.keys(this.mechanicsDB).find(k => {
-      const m = this.mechanicsDB[k];
-      if (!MechanicKey.belongsTo(k, charName) || m.inputType !== 'Release' || !m.holdConfig) return false;
-      if (matchInput !== undefined && m.input !== matchInput) return false;
-      return true;
-    });
-    return releaseKey ? (this.mechanicsDB[releaseKey].holdConfig as HoldConfig) : null;
+    const moves = (this.mechanicsIndex[charName] || [])
+      .map(key => this.mechanicsDB[key])
+      .filter(m => m && (matchInput === undefined || m.input === matchInput));
+    if (moves.some(m => m.inputType === 'Repeat')) return null;
+    return moves.find(m => m.inputType === 'Release' && m.holdConfig)?.holdConfig ?? null;
   }
 
   // Every ranked row, from the generated index.json (one small file instead of one per entry).

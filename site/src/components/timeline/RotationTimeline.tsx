@@ -10,6 +10,8 @@ import { buildEffectTimeline, EFFECT_ROW_HEIGHT_PX, SECTION_ROW_HEIGHT_PX, UNIT_
 import type { EffectLane, EffectSourceKind } from './effectLayout';
 import { useTimelineViewStore } from '../../store/useTimelineViewStore';
 import { TooltipManager } from '../../utils/Common';
+import { FastForwardIcon } from '../common/icons';
+import { loopEndIndexOf, rowGameEnd } from '../../logic/rotationRows';
 import {
   buildUnitRows,
   buildFlags,
@@ -19,11 +21,11 @@ import {
   buildTimeCompression,
   compressedTimeToPx,
   snapToDevicePixel,
+  flagTrackHeightPx,
   HEADER_COL_WIDTH_PX,
   EFFECTS_HEADER_COL_WIDTH_PX,
   LANE_HEIGHT_PX,
   FLAG_LABEL_HEIGHT_PX,
-  FLAG_TRACK_MIN_HEIGHT_PX,
   ROW_HEIGHT_PX,
   hairlinePx
 } from './timelineLayout';
@@ -80,6 +82,8 @@ interface TimelineItem {
 // window moves in steps of WINDOW_STEP_PX, so scrolling re-renders once per step, not per frame.
 const WINDOW_OVERSCAN_PX = 240;
 const WINDOW_STEP_PX = 120;
+
+const ENDING_CUT_TIP = 'The loop repeats silently here before the Ending Rotation begins.';
 
 // The scrolled view, in steps of WINDOW_STEP_PX of design px.
 function useViewSteps(scrollRef: React.RefObject<HTMLDivElement | null>, scale: number) {
@@ -222,19 +226,20 @@ export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRow
   // ROTATION marks custom replacement content when the loop-end row is followed by real content.
   // Both derived from loopEndOverride/row-adjacency (mirrors RotationBuilder.tsx's
   // hasEndRotationContent) rather than persisted flags, so this view can't disagree with that one.
-  const loopEndIndex = evaluatedRows.findIndex(r => r && r.unit && r.loopEndOverride === true);
+  const loopEndIndex = loopEndIndexOf(evaluatedRows);
   const loopEndRow = loopEndIndex !== -1 ? evaluatedRows[loopEndIndex] : null;
-  const loopEndLeft = loopEndRow ? headerWidth + compressedTimeToPx(loopEndRow.gameTimeStart + loopEndRow.gameTimePassed, compression) : null;
+  const loopEndLeft = loopEndRow ? headerWidth + compressedTimeToPx(rowGameEnd(loopEndRow), compression) : null;
   const hasEndRotationContent = loopEndIndex !== -1 && !!evaluatedRows[loopEndIndex + 1]?.unit;
   const endRotationRow = hasEndRotationContent ? evaluatedRows[loopEndIndex + 1] : null;
   const endRotationLeft = endRotationRow ? headerWidth + compressedTimeToPx(endRotationRow.gameTimeStart, compression) : null;
 
   // Poles stop at the bottom of the rows (never cross into the ruler below), and start right at
   // their own flag's label -- not above it, where they'd cross through lower-lane flags' labels.
-  const maxLane = flags.reduce((max, f) => Math.max(max, f.lane), -1);
   // Hidden inputs drop the whole track, so the rows start at the top.
-  const flagTrackHeight = showInputs ? Math.max(FLAG_TRACK_MIN_HEIGHT_PX, (maxLane + 1) * LANE_HEIGHT_PX) : 0;
+  const flagTrackHeight = showInputs ? flagTrackHeightPx(flags) : 0;
   const rowsBottom = flagTrackHeight + items.reduce((sum, item) => sum + item.height, 0);
+  // The loop/ending markers span the rows, below the flag track.
+  const markerSpan = { top: flagTrackHeight, height: Math.max(0, rowsBottom - flagTrackHeight), width: snapToDevicePixel(2) };
   const hairline = hairlinePx();
   const shownItems = windowItems(
     items,
@@ -275,13 +280,7 @@ export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRow
           {/* Starts at the top of the first unit row (not the flag track) and stops at the last
               row -- the ruler gets its own arrow marker instead of a line crossing its ticks. */}
           {loopStartLeft !== null && (
-            <TimelineMarkerLine
-              lineClassName="timeline-loop-start-line"
-              left={loopStartLeft}
-              top={flagTrackHeight}
-              height={Math.max(0, rowsBottom - flagTrackHeight)}
-              width={snapToDevicePixel(2)}
-            />
+            <TimelineMarkerLine lineClassName="timeline-loop-start-line" left={loopStartLeft} {...markerSpan} />
           )}
 
           {/* Ending Rotation: gap between the loop-end row and Ending Rotation's first row
@@ -291,36 +290,21 @@ export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRow
               Striped fill is scoped to unit rows only -- the ruler already shows the skip via
               generateTicks omitting ticks inside the gap. */}
           {loopEndLeft !== null && (
-            <TimelineMarkerLine
-              lineClassName="timeline-loop-end-line"
-              left={loopEndLeft}
-              top={flagTrackHeight}
-              height={Math.max(0, rowsBottom - flagTrackHeight)}
-              width={snapToDevicePixel(2)}
-            />
+            <TimelineMarkerLine lineClassName="timeline-loop-end-line" left={loopEndLeft} {...markerSpan} />
           )}
           {loopEndLeft !== null && endRotationLeft !== null && endRotationLeft > loopEndLeft && (
             <div
               className="timeline-ending-rotation-cut"
-              style={{ left: loopEndLeft, top: flagTrackHeight, width: endRotationLeft - loopEndLeft, height: Math.max(0, rowsBottom - flagTrackHeight) }}
-              onMouseEnter={e => TooltipManager.showAtPoint(e.clientX, e.clientY, 'The loop repeats silently here before the Ending Rotation begins.')}
-              onMouseMove={e => TooltipManager.showAtPoint(e.clientX, e.clientY, 'The loop repeats silently here before the Ending Rotation begins.')}
+              style={{ left: loopEndLeft, top: markerSpan.top, width: endRotationLeft - loopEndLeft, height: markerSpan.height }}
+              onMouseEnter={e => TooltipManager.showAtPoint(e.clientX, e.clientY, ENDING_CUT_TIP)}
+              onMouseMove={e => TooltipManager.showAtPoint(e.clientX, e.clientY, ENDING_CUT_TIP)}
               onMouseLeave={() => TooltipManager.hide()}
             >
-              <svg className="timeline-ending-rotation-cut-ff" viewBox="0 0 24 24" fill="currentColor">
-                <polygon points="1,4 11,12 1,20" />
-                <polygon points="12,4 22,12 12,20" />
-              </svg>
+              <FastForwardIcon className="timeline-ending-rotation-cut-ff" />
             </div>
           )}
           {endRotationLeft !== null && (
-            <TimelineMarkerLine
-              lineClassName="timeline-end-rotation-line"
-              left={endRotationLeft}
-              top={flagTrackHeight}
-              height={Math.max(0, rowsBottom - flagTrackHeight)}
-              width={snapToDevicePixel(2)}
-            />
+            <TimelineMarkerLine lineClassName="timeline-end-rotation-line" left={endRotationLeft} {...markerSpan} />
           )}
         </div>
       </div>

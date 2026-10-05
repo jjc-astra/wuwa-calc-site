@@ -48,11 +48,10 @@ export const INPUT_KEY_MAP: Record<string, string> = {
   Jump: 'Space'
 };
 
-export const SET_LAYOUTS = ['4 3 3 1 1', '4 4 1 1 1','4 1 1 1 1'];
-const MAIN_STATS_4_COST = ['CR Rate', 'CR DMG', 'ATK %', 'HP %', 'DEF %', 'Healing Bonus'];
-const MAIN_STATS_3_COST = ['Fusion DMG', 'Electro DMG', 'Aero DMG', 'Spectro DMG', 'Havoc DMG', 'Glacio DMG', 'ATK %', 'HP %', 'DEF %', 'ER %'];
-const MAIN_STATS_1_COST = ['ATK %', 'HP %', 'DEF %'];
+// Echo layouts: each slot's cost, slot by slot.
+export const SET_LAYOUTS = ['4 3 3 1 1', '4 4 1 1 1', '4 1 1 1 1'];
 
+// The main stats an echo of each cost can roll, in dropdown order, with their values.
 export const MAIN_STAT_VALUES: Record<number, Record<string, number>> = {
   4: { 'CR Rate': 22.0, 'CR DMG': 44.0, 'ATK %': 33.0, 'HP %': 33.0, 'DEF %': 41.8, 'Healing Bonus': 26.4 },
   3: { 'Fusion DMG': 30.0, 'Electro DMG': 30.0, 'Aero DMG': 30.0, 'Spectro DMG': 30.0, 'Havoc DMG': 30.0, 'Glacio DMG': 30.0, 'ATK %': 30.0, 'HP %': 30.0, 'DEF %': 38.0, 'ER %': 32.0 },
@@ -118,25 +117,29 @@ export const BUILDUP_RATE_STATS: Record<string, string> = {
 
 export const DEFAULT_SUBSTATS = ['CR Rate', 'CR DMG', 'ATK %', 'ER %', 'ATK'];
 
-const COST_DISTRIBUTION: Record<string, number[]> = {
-  '4 3 3 1 1': [4, 3, 3, 1, 1],
-  '4 4 1 1 1': [4, 4, 1, 1, 1],
-  '4 1 1 1 1': [4, 1, 1, 1, 1]
+// An empty substat slot's name.
+export const EMPTY_SUBSTAT = 'N/A';
+
+// A substat's default roll value ('' for an empty or unknown one).
+export const defaultRoll = (stat: string): number | '' => {
+  const entry = STAT_DB[stat];
+  return entry ? entry.values[entry.defaultIndex] : '';
 };
 
 // What a slot uses until told otherwise, and for a layout name nobody recognizes.
-export const DEFAULT_ECHO_LAYOUT = '4 3 3 1 1';
+export const DEFAULT_ECHO_LAYOUT = SET_LAYOUTS[0];
 
 // The five echo costs of a layout, slot by slot.
 export const costsForLayout = (layout?: string): number[] =>
-  COST_DISTRIBUTION[layout || DEFAULT_ECHO_LAYOUT] || COST_DISTRIBUTION[DEFAULT_ECHO_LAYOUT];
+  (layout && SET_LAYOUTS.includes(layout) ? layout : DEFAULT_ECHO_LAYOUT).split(' ').map(Number);
 
 // The main stats an echo of this cost can roll.
-export const mainStatOptionsFor = (cost: number): string[] =>
-  cost === 4 ? MAIN_STATS_4_COST : cost === 3 ? MAIN_STATS_3_COST : MAIN_STATS_1_COST;
+export const mainStatOptionsFor = (cost: number): string[] => Object.keys(MAIN_STAT_VALUES[cost] ?? MAIN_STAT_VALUES[1]);
 
 export const SIM_CONSTANTS = {
   MAX_SEQUENCE: 6,
+  // Weapon ranks run R1..R5.
+  MAX_RANK: 5,
   LEVEL_CAP: 90,
   // Tune Break/Rupture dmg = hitMults% * this base (calcTuneDmg). Also read by formatDamageBreakdown.
   TUNE_BASE_DMG: 10027,
@@ -224,12 +227,6 @@ const DMG_CAST_TYPES = ['Basic', 'Heavy', 'Skill', 'Liberation', 'Intro', 'Outro
 const DMG_EXTRA_TYPES = ['Echo', 'TuneBreak', 'TuneRupture', 'TuneHack'] as const satisfies readonly CastType[];
 const DMG_OPTIONS: string[] = [...DMG_CAST_TYPES, ...ELEMENTS, ...NEGATIVE_STATUSES, ...DMG_EXTRA_TYPES];
 
-const STAT_OPTIONS = [
-  'HP', 'HP %', 'ATK', 'ATK %', 'DEF', 'DEF %',
-  'CR Rate', 'CR DMG', 'ER %', 'Healing Bonus', 'Tune Break Boost',
-  'Off-Tune Buildup Rate', 'Forte Buildup Rate'
-];
-
 // Hover copy for the sheet stats offered by the 'eff-stat' autocomplete mode (Stat Modifier effect
 // target field). The combat-modifier tooltips are beside their labels in logic/combat/combatRegistry.ts;
 // the DSL pointer/event/modifier/property vocabulary's live in logic/dsl/dslRegistry.ts.
@@ -248,6 +245,9 @@ export const SHEET_STAT_TOOLTIPS: Record<string, string> = {
   'Off-Tune Buildup Rate': 'Rate this unit builds up Off-Tune (Tune) on the enemy. Base 100%, like Energy Regen; a buff adds to it.',
   'Forte Buildup Rate': 'Rate this unit gains every Forte resource. Base 100%, like Energy Regen; a buff adds to it.'
 };
+
+// The sheet stats a Stat Modifier effect offers, in the order above.
+const STAT_OPTIONS = Object.keys(SHEET_STAT_TOOLTIPS);
 
 // actionDuration/freezeTime/motionStop are frames at 60fps; cooldown stays seconds.
 const BUILDER_TEMPLATES: Record<string, MechanicNode> = {
@@ -360,7 +360,7 @@ const BUILDER_TEMPLATES: Record<string, MechanicNode> = {
     isPassive: true,
     triggerRule: 'ALWAYS',
     effects: [
-      { type: 'buff', name: 'Inherent Buff', target: '@Self', duration: 9999, stat: 'ATK %', value: '10%' }
+      { type: 'buff', name: 'Inherent Buff', target: '@Self', duration: '@Default.PermanentDuration', stat: 'ATK %', value: '10%' }
     ]
   },
   // Keep castTypes/dmgTypes as ['TuneBreak']/['TuneRupture'] -- CombatCalculator routes on this to calcTuneDmg.
@@ -381,7 +381,7 @@ const BUILDER_TEMPLATES: Record<string, MechanicNode> = {
     isPassive: true,
     triggerRule: 'IF (@Self.Sequence >= 1)',
     effects: [
-      { type: 'buff', name: 'S1 Buff', target: '@Self', duration: 9999, stat: 'CR Rate', value: '10%' }
+      { type: 'buff', name: 'S1 Buff', target: '@Self', duration: '@Default.PermanentDuration', stat: 'CR Rate', value: '10%' }
     ]
   }
 };

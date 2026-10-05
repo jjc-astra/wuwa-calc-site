@@ -4,8 +4,7 @@ import type { DmgOverTimeSeries, DpsWindowKey } from '../../types/results';
 import { PinRotationControl } from './PinRotationControl';
 import { ResultsLegend } from './ResultsLegend';
 import { CATEGORICAL_PALETTE, colorForProvider } from './chartPalette';
-import { DPS_WINDOWS } from '../../data/dpsWindows';
-import { Dropdown } from '../common/Dropdown';
+import { DpsWindowSelect } from './DpsWindowSelect';
 import { TooltipManager, uiScale } from '../../utils/Common';
 import { SegmentedToggle } from '../common/SegmentedToggle';
 import { framesToSeconds } from '../../utils/Frames';
@@ -490,12 +489,7 @@ export const DmgOverTimeChart: React.FC = () => {
           </div>
         )}
         <div className="dmg-time-window-col-right">
-          <Dropdown
-            className="base-select text-xs results-dps-type-select"
-            value={dpsType}
-            onChange={v => setDpsType(v as DpsWindowKey)}
-            options={DPS_WINDOWS.map(window => ({ value: window.key, label: window.label }))}
-          />
+          <DpsWindowSelect value={dpsType} onChange={setDpsType} />
         </div>
       </div>
     </div>

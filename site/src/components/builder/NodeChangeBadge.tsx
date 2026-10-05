@@ -5,8 +5,7 @@ import { createPortal } from 'react-dom';
 import { useBuilderStore, nodeChangeKind } from '../../store/useBuilderStore';
 import type { NodeChangeKind } from '../../store/useBuilderStore';
 import { MechanicKey } from '../../utils/MechanicKey';
-import { TooltipManager } from '../../utils/Common';
-import { tip } from './mechanicNodeHelpers';
+import { TooltipManager, tip } from '../../utils/Common';
 import { usePopupDismiss } from '../../hooks/usePopupDismiss';
 
 interface NodeChangeBadgeProps {

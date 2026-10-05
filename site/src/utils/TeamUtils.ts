@@ -4,13 +4,17 @@
 import type { TeamSlot, EntityRef, EntityFolder } from '../types';
 import { SYSTEM_NAMESPACE } from './MechanicKey';
 
+// A slot's echo set fields: the main set and the extra sets a 3pc/1pc main set leaves room for.
+export const SLOT_SET_FIELDS = ['mainSet', 'subSet', 'subSet2a', 'subSet2b'] as const;
+
+// The echo sets a slot wears.
+export const slotSets = (slot: Pick<TeamSlot, typeof SLOT_SET_FIELDS[number]>): string[] =>
+  SLOT_SET_FIELDS.map(field => slot[field]).filter(Boolean);
+
 const SLOT_ENTITY_MAPPINGS: { field: keyof TeamSlot; folder: EntityFolder }[] = [
   { field: 'character', folder: 'characters' },
   { field: 'weapon', folder: 'weapons' },
-  { field: 'mainSet', folder: 'sets' },
-  { field: 'subSet', folder: 'sets' },
-  { field: 'subSet2a', folder: 'sets' },
-  { field: 'subSet2b', folder: 'sets' },
+  ...SLOT_SET_FIELDS.map(field => ({ field, folder: 'sets' as const })),
   { field: 'mainEcho', folder: 'echoes' }
 ];
 

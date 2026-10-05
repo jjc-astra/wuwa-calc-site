@@ -1,6 +1,6 @@
 import React from 'react';
 import { useRosterStore } from '../../store/useRosterStore';
-import { STAT_DB, costsForLayout, mainStatOptionsFor } from '../../data/db';
+import { STAT_DB, EMPTY_SUBSTAT, costsForLayout, defaultRoll, mainStatOptionsFor } from '../../data/db';
 import { Dropdown } from '../common/Dropdown';
 
 interface EchoCardProps {
@@ -25,17 +25,12 @@ export const EchoCard: React.FC<EchoCardProps> = ({ slotIndex, echoIndex }) => {
   };
 
   const handleSubstatNameChange = (subIndex: number, newName: string) => {
-    let newVal: string | number = '';
-    if (newName !== 'N/A' && STAT_DB[newName]) {
-      const entry = STAT_DB[newName];
-      newVal = entry.values[entry.defaultIndex !== undefined ? entry.defaultIndex : 0];
-    }
-    setSubstat(slotIndex, echoIndex, subIndex, newName, newVal);
+    setSubstat(slotIndex, echoIndex, subIndex, newName, defaultRoll(newName));
   };
 
   const handleSliderChange = (subIndex: number, sliderIdx: number) => {
     const name = echo.substats[subIndex].name;
-    if (name === 'N/A' || !STAT_DB[name]) return;
+    if (!STAT_DB[name]) return;
     const val = STAT_DB[name].values[sliderIdx];
     setSubstat(slotIndex, echoIndex, subIndex, name, val);
   };
@@ -53,7 +48,7 @@ export const EchoCard: React.FC<EchoCardProps> = ({ slotIndex, echoIndex }) => {
       </div>
       <ul className="echo-list">
         {echo.substats.map((sub, subIdx) => {
-          const isNA = sub.name === 'N/A' || !sub.name;
+          const isNA = sub.name === EMPTY_SUBSTAT || !sub.name;
           const statData = STAT_DB[sub.name];
           const maxSlider = statData ? statData.values.length - 1 : 0;
           let currentSliderVal = 0;
@@ -67,9 +62,9 @@ export const EchoCard: React.FC<EchoCardProps> = ({ slotIndex, echoIndex }) => {
             <li key={subIdx} className="stat-row">
               <Dropdown
                 className={`base-select stat-select ${!isNA ? 'has-value' : ''}`}
-                value={sub.name || 'N/A'}
+                value={sub.name || EMPTY_SUBSTAT}
                 onChange={v => handleSubstatNameChange(subIdx, v)}
-                options={[{ value: 'N/A', label: 'N/A' }, ...statKeys.map(k => ({ value: k, label: k }))]}
+                options={[EMPTY_SUBSTAT, ...statKeys].map(k => ({ value: k, label: k }))}
               />
               <input
                 type="range"

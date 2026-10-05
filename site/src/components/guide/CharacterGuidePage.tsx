@@ -6,7 +6,7 @@ import { RotationTypeBadge } from '../rankings/RankingRow';
 import type { RankingEntry } from '../../store/useRankingsStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { getCharacterThemeColor, tip } from '../../utils/Common';
-import { IMAGE_FOLDERS } from '../../data/db';
+import { IMAGE_FOLDERS, SIM_CONSTANTS } from '../../data/db';
 import { guideHash } from '../../hooks/useHashRoute';
 import { AvatarIcon } from '../common/AvatarIcon';
 import { LibraryCard, LibrarySection, LibrarySearchInput, matchesLibrarySearch } from '../common/LibraryGrid';
@@ -24,7 +24,7 @@ import { GuideRankings } from './GuideRankings';
 import { EchoStatsPanel } from './EchoStatsPanel';
 import { SequenceComparison, WeaponComparison, EchoComparison } from './GuideComparisons';
 import {
-  MAX_SEQUENCE, MAX_RANK, FULL_RANK_RANGE, groupTeams, defaultConfig, configFromEntry, findGroupFor, weaponsForUnit,
+  FULL_RANK_RANGE, groupTeams, defaultConfig, configFromEntry, findGroupFor, weaponsForUnit,
   guideView, isValidConfig
 } from './guideModel';
 import { useGuideSelectionStore } from '../../store/useGuideSelectionStore';
@@ -337,8 +337,8 @@ interface GuideConfigPanelProps {
   onReset: () => void;
 }
 
-const SEQUENCE_OPTIONS = Array.from({ length: MAX_SEQUENCE + 1 }, (_, s) => ({ value: String(s), label: `S${s}` }));
-const RANK_OPTIONS = Array.from({ length: MAX_RANK }, (_, r) => ({ value: String(r + 1), label: `R${r + 1}` }));
+const SEQUENCE_OPTIONS = Array.from({ length: SIM_CONSTANTS.MAX_SEQUENCE + 1 }, (_, s) => ({ value: String(s), label: `S${s}` }));
+const RANK_OPTIONS = Array.from({ length: SIM_CONSTANTS.MAX_RANK }, (_, r) => ({ value: String(r + 1), label: `R${r + 1}` }));
 
 // The selected team's investment. Other teams are picked from the Rankings below (Show in Guide).
 const GuideConfigPanel: React.FC<GuideConfigPanelProps> = ({ group, config, isDefault, onSlotChange, onReset }) => {

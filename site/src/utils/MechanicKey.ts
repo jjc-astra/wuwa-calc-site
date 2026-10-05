@@ -13,9 +13,9 @@ export const MechanicKey = {
   toNamespace: (entityName: string | null | undefined): string => entityName || SYSTEM_NAMESPACE,
 
   // Generates the `${namespace}_` key prefix for an entity.
-  prefix: (entityName: string): string => `${MechanicKey.toNamespace(entityName)}_`,
+  prefix: (entityName: string | null | undefined): string => `${MechanicKey.toNamespace(entityName)}_`,
 
-  build: (entityName: string, name: string): string => `${MechanicKey.prefix(entityName)}${name.trim()}`,
+  build: (entityName: string | null | undefined, name: string): string => `${MechanicKey.prefix(entityName)}${name.trim()}`,
 
   // Splits on the first underscore only to preserve underscores within the name itself.
   parse: (key: string): { namespace: string; name: string } => {

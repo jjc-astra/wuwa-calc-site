@@ -3,7 +3,8 @@ import type { MechanicNode } from '../../../types';
 import { BuilderState } from '../../../data/db';
 import { Dropdown } from '../../common/Dropdown';
 import { TypeTag } from '../../common/TypeTag';
-import { dmgTagColor, tip } from '../mechanicNodeHelpers';
+import { dmgTagColor } from '../mechanicNodeHelpers';
+import { tip } from '../../../utils/Common';
 
 interface AddDmgTypePanelProps {
   data: MechanicNode;

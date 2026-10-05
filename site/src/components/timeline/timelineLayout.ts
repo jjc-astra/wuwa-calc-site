@@ -3,7 +3,9 @@
 import { getCharacterThemeColor, uiScale } from '../../utils/Common';
 import { DataLoader } from '../../utils/DataLoader';
 import { INPUT_KEY_MAP } from '../../data/db';
-import { toFrames, framesToSeconds } from '../../utils/Frames';
+import { FPS, toFrames, framesToSeconds } from '../../utils/Frames';
+import { loopEndIndexOf, rowGameEnd } from '../../logic/rotationRows';
+import { SYSTEM_NAMESPACE } from '../../utils/MechanicKey';
 import type { TeamSlot } from '../../types';
 
 // Every evaluated-row field the Timeline reads. A row carries far more (dropdown snapshots, the
@@ -92,13 +94,12 @@ export interface TimeCompression {
 // Mirrors RotationBuilder/RotationTimeline's loopEndOverride + row-adjacency logic, so the row
 // table and Timeline agree on split location. Null if no split, or gap < compressed width.
 export function buildTimeCompression(evaluatedRows: any[]): TimeCompression | null {
-  const loopEndIndex = evaluatedRows.findIndex(r => r && r.unit && r.loopEndOverride === true);
+  const loopEndIndex = loopEndIndexOf(evaluatedRows);
   if (loopEndIndex === -1) return null;
-  const loopEndRow = evaluatedRows[loopEndIndex];
   const endRotationRow = evaluatedRows[loopEndIndex + 1];
-  if (!endRotationRow || !endRotationRow.unit) return null;
+  if (!endRotationRow?.unit) return null;
 
-  const gapStartFrames = toFrames(loopEndRow.gameTimeStart + loopEndRow.gameTimePassed);
+  const gapStartFrames = toFrames(rowGameEnd(evaluatedRows[loopEndIndex]));
   const gapEndFrames = toFrames(endRotationRow.gameTimeStart);
   if (gapEndFrames <= gapStartFrames) return null;
 
@@ -229,7 +230,7 @@ function deriveSimultaneousLines(rows: any[], compression: TimeCompression | nul
 }
 
 // A System mechanic's hit (a negative status tick, Tune Break...), by its move pointer.
-export const isSystemHit = (hit: any): boolean => typeof hit.moveRef === 'string' && hit.moveRef.startsWith('@System(');
+export const isSystemHit = (hit: any): boolean => typeof hit.moveRef === 'string' && hit.moveRef.startsWith(`@${SYSTEM_NAMESPACE}(`);
 
 // The hits a row's damage breakdown lists, in time order -- less System hits when they're drawn
 // on their own rows instead (the Calculator's System Effects).
@@ -317,6 +318,10 @@ export interface LaidOutFlag extends TimelineFlag {
   lane: number;
 }
 
+// The flag track's height: enough lanes for every flag.
+export const flagTrackHeightPx = (flags: LaidOutFlag[]): number =>
+  Math.max(FLAG_TRACK_MIN_HEIGHT_PX, (Math.max(-1, ...flags.map(f => f.lane)) + 1) * LANE_HEIGHT_PX);
+
 // Priority order Basic < Heavy < Skill < Echo < Dodge/Jump < Liberation < Intro < Outro (see
 // GAME_DEFAULTS) -- if the previous row outranks this one, it's safe to mash early ('spam');
 // otherwise mashing risks cutting the current move short ('wait'). Same (input, inputType) as
@@ -347,13 +352,11 @@ export function buildFlags(evaluatedRows: any[], team: TeamSlot[]): TimelineFlag
     }
 
     if (row.input) {
-      const keyLabel = INPUT_KEY_MAP[row.input] || row.input;
-      const prefix = row.inputType === 'Hold' ? 'Hold' : row.inputType === 'Release' ? 'Release' : undefined;
-      const label = prefix ? `${prefix} ${keyLabel}` : keyLabel;
+      const prefix = row.inputType === 'Hold' || row.inputType === 'Release' ? row.inputType : undefined;
       // Basic (left click), the most frequent input, gets a compact mouse icon instead of text.
       const icon = row.input === 'Basic' ? 'mouse-left' : undefined;
       const spamState = describeSpamState(prevRow, row);
-      flags.push({ type: 'input', timeFrames: row.gameTimeStart, label, prefix, icon, spamState, row, themeColor });
+      flags.push({ type: 'input', timeFrames: row.gameTimeStart, label: describeInput(row), prefix, icon, spamState, row, themeColor });
     }
 
     prevUnit = row.unit;
@@ -408,13 +411,13 @@ export interface Tick {
   label?: string;
 }
 
-// The ruler's ticks across `totalFrames`, skipping the compressed gap.
+// The ruler's ticks across `totalFrames` -- every quarter second, labeled each second -- skipping the compressed gap.
 export function generateTicks(totalFrames: number, compression: TimeCompression | null = null): Tick[] {
   const ticks: Tick[] = [];
-  for (let f = 0; f <= totalFrames; f += 15) {
+  for (let f = 0; f <= totalFrames; f += FPS / 4) {
     // Skip ticks inside the compressed gap -- illegible there, and spacing no longer means real time.
     if (compression && f > compression.gapStartFrames && f < compression.gapEndFrames) continue;
-    const tier: TickTier = f % 60 === 0 ? 'major' : f % 30 === 0 ? 'secondary' : 'minor';
+    const tier: TickTier = f % FPS === 0 ? 'major' : f % (FPS / 2) === 0 ? 'secondary' : 'minor';
     ticks.push({
       frames: f,
       xPx: compressedTimeToPx(f, compression),
@@ -432,15 +435,7 @@ export function computeTotalDurationFrames(evaluatedRows: any[]): number {
     if (!row.unit) continue;
     max = Math.max(max, row.gameTimeStart + row.animationCommitment);
   }
-  return Math.ceil(max / 60) * 60;
-}
-
-// Mirrors TimelineEngine.ts's own timingLabel derivation so the tooltip text matches.
-export function describeTiming(row: any): string {
-  if (row.timing === 'Auto') {
-    return row._autoTimingChoice ? `Auto (${row._autoTimingChoice})` : 'Auto';
-  }
-  return String(row.timing || 'Auto').replace('_', ' ');
+  return Math.ceil(max / FPS) * FPS;
 }
 
 // A row's input for tooltips, e.g. "Hold E".

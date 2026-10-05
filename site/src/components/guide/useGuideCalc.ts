@@ -3,8 +3,7 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
 import { runFullCalculation, runSummaryCalculation } from '../../workers/runFullCalculation';
 import { CancelledError } from '../../workers/calcWorkerClient';
-import type { RotationSummary } from '../../types/results';
-import type { PanelResults } from '../../types/results';
+import type { RotationSummary, PanelResults } from '../../types/results';
 import type { TeamSlot } from '../../types';
 import { DataLoader } from '../../utils/DataLoader';
 import type { RankingEntry } from '../../store/useRankingsStore';
@@ -38,9 +37,7 @@ function track(key: string, run: Promise<RotationSummary>): Promise<void> {
 function startSummary(job: GuideJob): Promise<void> {
   const existing = inflight.get(job.key);
   if (existing) return existing;
-  return track(job.key, (async () => {
-    return runSummaryCalculation({ ...job.entry.run, team: job.team }, () => !wantedKeys.has(job.key));
-  })());
+  return track(job.key, runSummaryCalculation({ ...job.entry.run, team: job.team }, () => !wantedKeys.has(job.key)));
 }
 
 export interface GuideSummaries {
@@ -119,9 +116,7 @@ export function useGuideFullCalc(job: GuideJob | null): GuideFullCalc {
     }
     setState(prev => ({ ...prev, status: 'loading', error: null }));
 
-    const full = (async () => {
-      return runFullCalculation({ ...job.entry.run, team: job.team });
-    })();
+    const full = runFullCalculation({ ...job.entry.run, team: job.team });
 
     if (!summaryCache.has(job.key) && !inflight.has(job.key)) {
       track(job.key, full.then(({ results }) => ({ dpsStats: results.dpsStats, contribution: results.contribution })));

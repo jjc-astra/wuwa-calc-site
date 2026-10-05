@@ -1,5 +1,7 @@
 // Small value helpers the simulation shares: telling DSL expressions from plain values, the
-// ALL/HALF/N spend rule, and the lowercase modifier sets events are matched on.
+// ALL/HALF/N spend rule, the lowercase modifier sets events are matched on, and effect/key shapes.
+import type { Effect } from '../types';
+import { SYSTEM_NAMESPACE } from '../utils/MechanicKey';
 
 const ARITHMETIC = /[+\-*/]/;
 const ARITHMETIC_OR_PERCENT = /[+\-*/%]/;
@@ -26,3 +28,14 @@ export const modifierSet = (parts: unknown[]): Set<string> => new Set(parts.map(
 // The one-name set a buff or tracker event fires with. Lowercase, since `Event[Name]` brackets
 // are lowercased when the DSL is parsed (dslParser.ts).
 export const eventModifier = (name: string | undefined): Set<string> => new Set([(name || '').toLowerCase()]);
+
+// A buff effect (an effect with no type is one).
+export const isBuffEffect = (effect: Effect): boolean => !effect.type || effect.type === 'buff';
+
+// The key a buff or cooldown is kept under on a row: whose it is (a unit, Enemy, @Team...) and its name.
+export const scopedKey = (scope: string, name: string | undefined): string => `${scope}_${name ?? ''}`;
+
+// A provider that names no unit: unset, System, or the @Equipper placeholder. The effect is then
+// credited to whoever it resolves on.
+export const isPlaceholderProvider = (provider: string | undefined): boolean =>
+  !provider || provider === SYSTEM_NAMESPACE || provider === '@Equipper';

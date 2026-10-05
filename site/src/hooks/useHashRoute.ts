@@ -39,6 +39,8 @@ export interface Route {
 }
 
 // Also set directly (window.location.hash = ...) by components that navigate() doesn't reach.
+export const calculatorHash = (step: 1 | 2): string => `#/calculator/step-${step}`;
+
 export const guideHash = (character?: string): string =>
   character ? `#/guide/${encodeURIComponent(character)}` : '#/guide';
 
@@ -66,7 +68,7 @@ function routeToHash(view: ViewId, step: 1 | 2): string {
   if (view === 'landing') return '';
   // Both steps get their own explicit segment -- see parseHash above for why step 1 can't be
   // "the bare #/calculator path" without becoming ambiguous with "no step specified".
-  if (view === 'calculator') return `#/calculator/step-${step}`;
+  if (view === 'calculator') return calculatorHash(step);
   return `#/${view}`;
 }
 

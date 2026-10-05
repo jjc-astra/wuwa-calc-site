@@ -21,6 +21,13 @@ export const SHEET_DMG_BONUS_KEY: Record<string, string> = {
   ...Object.fromEntries(ELEMENTS.map(element => [element.toLowerCase(), elementBonusKey(element)]))
 };
 
+// The sheet DMG Bonus stat a hit's dmg type draws on ("Liberation" -> libDmgBonus), if it has one.
+export const sheetDmgBonusKeyForType = (dmgType: string): string | undefined => {
+  const tag = dmgType.toLowerCase();
+  const scope = Object.keys(SCOPE_HIT_TAGS).find(s => SCOPE_HIT_TAGS[s].includes(tag));
+  return scope ? SHEET_DMG_BONUS_KEY[scope] : undefined;
+};
+
 type MultiplierBucket = keyof BuffTotals;
 
 // First match wins. Must precede bare atk/hp/def and DMG_BONUS_FALLBACK checks (e.g. DEF Shred -> reduceDef).

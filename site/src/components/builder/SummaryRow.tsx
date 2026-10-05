@@ -5,7 +5,8 @@ import type { MechanicNode } from '../../types';
 import { useBuilderStore } from '../../store/useBuilderStore';
 import { TypeTag } from '../common/TypeTag';
 import { GAME_DEFAULTS } from '../../data/db';
-import { displayTimeVal, fmtNum, resAbbr, resFullName, sumNumeric, castTagColor, dmgTagColor, tip, resolveDefaultNum, makeTimeBlur } from './mechanicNodeHelpers';
+import { displayTimeVal, resAbbr, resFullName, sumNumeric, castTagColor, dmgTagColor, resolveDefaultNum, makeTimeBlur } from './mechanicNodeHelpers';
+import { tip, formatNum } from '../../utils/Common';
 import type { PanelKey } from './MechanicNodeCard';
 import { NodeChangeBadge } from './NodeChangeBadge';
 
@@ -71,9 +72,9 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
 
   let multSummaryLabel = '—';
   if (hitMultsArr.length > 0) {
-    if (flatEntries.length === 0) multSummaryLabel = `${fmtNum(sumEntries(pctEntries))}%${ellipsis}`;
-    else if (pctEntries.length === 0) multSummaryLabel = `${fmtNum(sumEntries(flatEntries))} flat${ellipsis}`;
-    else multSummaryLabel = `${fmtNum(sumEntries(pctEntries))}% + ${fmtNum(sumEntries(flatEntries))} flat${ellipsis}`;
+    if (flatEntries.length === 0) multSummaryLabel = `${formatNum(sumEntries(pctEntries))}%${ellipsis}`;
+    else if (pctEntries.length === 0) multSummaryLabel = `${formatNum(sumEntries(flatEntries))} flat${ellipsis}`;
+    else multSummaryLabel = `${formatNum(sumEntries(pctEntries))}% + ${formatNum(sumEntries(flatEntries))} flat${ellipsis}`;
   }
 
   const physicsSummaryLabel = `${data.input || '—'}${data.inputType ? ` · ${data.inputType}` : ''}`;
@@ -106,11 +107,11 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
       label: `Cancel ${ct.time}f${ct.hits ? `·${ct.hits}h` : ''}`,
       tooltip: ct.triggerRule ? `Rule: ${ct.triggerRule}` : 'Cancel Timing'
     })),
-    ...(freezeVal !== null ? [{ label: `Freeze ${fmtNum(freezeVal)}f`, tooltip: 'Freeze Time' }] : []),
-    ...(motionStopVal !== null ? [{ label: `Motion ${fmtNum(motionStopVal)}f`, tooltip: 'Motion Stop' }] : []),
-    ...(swapVal !== null ? [{ label: `Swap ${fmtNum(swapVal)}f`, tooltip: 'Swap Time' }] : []),
-    ...(priorityVal !== null ? [{ label: `Prio ${fmtNum(priorityVal)}`, tooltip: 'Priority' }] : []),
-    ...(comboVal !== null ? [{ label: `Combo ${fmtNum(comboVal)}f`, tooltip: 'Combo Window' }] : [])
+    ...(freezeVal !== null ? [{ label: `Freeze ${formatNum(freezeVal)}f`, tooltip: 'Freeze Time' }] : []),
+    ...(motionStopVal !== null ? [{ label: `Motion ${formatNum(motionStopVal)}f`, tooltip: 'Motion Stop' }] : []),
+    ...(swapVal !== null ? [{ label: `Swap ${formatNum(swapVal)}f`, tooltip: 'Swap Time' }] : []),
+    ...(priorityVal !== null ? [{ label: `Prio ${formatNum(priorityVal)}`, tooltip: 'Priority' }] : []),
+    ...(comboVal !== null ? [{ label: `Combo ${formatNum(comboVal)}f`, tooltip: 'Combo Window' }] : [])
   ];
 
   const maxCharges = data.maxCharges !== undefined && data.maxCharges !== '' ? parseInt(String(data.maxCharges), 10) : 1;
@@ -298,7 +299,7 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
       >
         <div className="mech-tag-row">
           {hitResourceKeys.length === 0 ? <span className="dim">—</span> : hitResourceKeys.map(k => (
-            <TypeTag key={k} val={k} label={`${resAbbr(k)} ${fmtNum(sumNumeric(data.hitResources?.[k]))}`} tooltip={resFullName(k, baseStats)} />
+            <TypeTag key={k} val={k} label={`${resAbbr(k)} ${formatNum(sumNumeric(data.hitResources?.[k]))}`} tooltip={resFullName(k, baseStats)} />
           ))}
         </div>
       </td>

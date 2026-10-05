@@ -1,7 +1,11 @@
 import React from 'react';
 import { formatFramesAsSeconds, toFrames } from '../../utils/Frames';
-import { describeTiming, describeInput, hairlinePx, rowHits, CLIP_INSET_PX } from './timelineLayout';
+import { tooltipLine } from '../../utils/Common';
+import { timingLabel } from '../../logic/rotationRows';
+import { describeInput, hairlinePx, rowHits, CLIP_INSET_PX } from './timelineLayout';
 import type { TimelineSegment } from './timelineLayout';
+
+const seconds = (frames: number) => formatFramesAsSeconds(toFrames(frames));
 
 interface TimelineClipProps {
   segment: TimelineSegment;
@@ -31,24 +35,21 @@ export function buildClipTooltipHtml(
   if (type === 'motionstop' && pause) {
     return (
       `<div>Motion Stop</div>` +
-      `<div><span class="tooltip-key">Paused by:</span> <span class="tooltip-val">${pause.by} (${pause.moveName})</span></div>` +
-      `<div><span class="tooltip-key">Paused:</span> <span class="tooltip-val">${formatFramesAsSeconds(toFrames(pause.frames))}</span></div>` +
-      `<div><span class="tooltip-key">Move:</span> <span class="tooltip-val">${row.moveName}</span></div>`
+      tooltipLine('Paused by', `${pause.by} (${pause.moveName})`) +
+      tooltipLine('Paused', seconds(pause.frames)) +
+      tooltipLine('Move', row.moveName)
     );
   }
   if (type === 'wait') {
     const reason = row.waitTime === row.cdWaitTime ? 'Waiting for Skill CD' : 'Off-Field Animation Lock';
-    return (
-      `<div>${reason}</div>` +
-      `<div><span class="tooltip-key">Wait:</span> <span class="tooltip-val">${formatFramesAsSeconds(toFrames(row.waitTime))}</span></div>`
-    );
+    return `<div>${reason}</div>` + tooltipLine('Wait', seconds(row.waitTime));
   }
   return (
     `<div>${row.moveName}${type === 'offfield' ? ' (off-field)' : ''}</div>` +
-    `<div><span class="tooltip-key">Start:</span> <span class="tooltip-val">${formatFramesAsSeconds(toFrames(row.gameTimeStart))}</span></div>` +
-    `<div><span class="tooltip-key">Duration:</span> <span class="tooltip-val">${formatFramesAsSeconds(toFrames(row.duration))}</span></div>` +
-    `<div><span class="tooltip-key">Timing:</span> <span class="tooltip-val">${describeTiming(row)}</span></div>` +
-    `<div><span class="tooltip-key">Input:</span> <span class="tooltip-val">${describeInput(row)}</span></div>` +
+    tooltipLine('Start', seconds(row.gameTimeStart)) +
+    tooltipLine('Duration', seconds(row.duration)) +
+    tooltipLine('Timing', timingLabel(row)) +
+    tooltipLine('Input', describeInput(row)) +
     buildHitLinesHtml(row, activeHit, withSystemHits)
   );
 }

@@ -95,6 +95,24 @@ const REPLY_OMIT_NO_DAMAGE = new Set([...WORKER_ONLY_KEYS, 'damageInstances']);
 
 const worker = self as any;
 
+// The table's own pass: the rows run once (priced when `withDamage`), where the loop starts (the
+// live calculator passes the one it has; one-shot callers leave it to be found), and -- with
+// Ending Rotation on -- that tail re-timed to where it actually lands after the loops, since a
+// plain single pass shows it right after the one loop rep in front of it.
+function runTable(payload: any, withDamage: boolean) {
+  const { rows, team, options, enemy } = payload;
+  const baseRows = TimelineEngine.recalculateState(rows, team, options, enemy);
+  if (withDamage) populateDamageInstances(baseRows, enemy, team);
+  const found = typeof payload.loopStartIndex === 'number'
+    ? { index: payload.loopStartIndex, isOverride: false }
+    : TimelineEngine.findLoopStart(baseRows, team[0]?.character, payload.collapseMap);
+  const shared: SharedExtendedRun = {};
+  const evaluatedRows = payload.endingRotationEnabled
+    ? previewEndingRotationTiming(baseRows, team, options, enemy, found.index, withDamage, !!payload.endRotationStartsEarlier, shared)
+    : baseRows;
+  return { baseRows, evaluatedRows, loopStartIndex: found.index, loopStartIsOverride: found.isOverride, shared };
+}
+
 worker.onmessage = async (e: MessageEvent) => {
   const { id, type, payload } = e.data;
   try {
@@ -120,19 +138,11 @@ worker.onmessage = async (e: MessageEvent) => {
     editedEntities = overriddenEntities(payload.builderOverrides);
 
     if (type === 'recalculate') {
-      const { rows, team, options, enemy } = payload;
       const key = runKey(payload);
-      const baseRows = TimelineEngine.recalculateState(rows, team, options, enemy);
       // Always priced (it's cheap) so a Calculate press can reuse this run; only sent back when
       // asked for (the Timeline's hit dots, RotationBuilder's mount-effect refresh).
-      populateDamageInstances(baseRows, enemy, team);
-      const { index: loopStartIndex, isOverride: loopStartIsOverride } = TimelineEngine.findLoopStart(baseRows, team[0]?.character, payload.collapseMap);
-      // A plain single pass shows the Ending Rotation's rows right after the one loop rep in
-      // front of them -- re-time just that tail to reflect where it actually lands.
-      const shared: SharedExtendedRun = {};
-      const evaluatedRows = payload.endingRotationEnabled
-        ? previewEndingRotationTiming(baseRows, team, options, enemy, loopStartIndex, true, !!payload.endRotationStartsEarlier, shared)
-        : baseRows;
+      const { baseRows, evaluatedRows, loopStartIndex, loopStartIsOverride, shared } = runTable(payload, true);
+      const { team, options, enemy } = payload;
       // The loop check reads a second loop rep: the preview already simulated one (opener + N
       // reps + ending) when N >= 2, otherwise analyzeLoop runs opener + 2 reps itself.
       const preview = shared.run;
@@ -150,7 +160,7 @@ worker.onmessage = async (e: MessageEvent) => {
         loopWarnings
       });
     } else if (type === 'calculateDamage') {
-      const { rows, team, options, enemy, endingRotationEnabled, endRotationStartsEarlier } = payload;
+      const { team, options, enemy, endingRotationEnabled, endRotationStartsEarlier } = payload;
 
       // summaryOnly returns just DPS + contribution, skipping the per-row breakdown and timeline rows.
       const summaryOnly = !!payload.summaryOnly;
@@ -168,18 +178,9 @@ worker.onmessage = async (e: MessageEvent) => {
         // A copy: the results pass may record its own run here.
         shared = { ...reusable.shared };
       } else {
-        baseRows = TimelineEngine.recalculateState(rows, team, options, enemy);
-        if (!summaryOnly) populateDamageInstances(baseRows, enemy, team);
-        // The live calculator passes the loop start it already has; one-shot callers omit it.
-        loopStartIndex = typeof payload.loopStartIndex === 'number'
-          ? payload.loopStartIndex
-          : TimelineEngine.findLoopStart(baseRows, team[0]?.character).index;
-        // Same re-timing as the 'recalculate' preview above, or Calculate would overwrite the
-        // Ending Rotation rows' columns with the plain single-pass evaluation.
-        shared = {};
-        evaluatedRows = endingRotationEnabled
-          ? previewEndingRotationTiming(baseRows, team, options, enemy, loopStartIndex, !summaryOnly, !!endRotationStartsEarlier, shared)
-          : baseRows;
+        // Same Ending Rotation re-timing as the 'recalculate' preview, or Calculate would overwrite
+        // those rows' columns with the plain single-pass evaluation.
+        ({ baseRows, evaluatedRows, loopStartIndex, shared } = runTable(payload, !summaryOnly));
       }
 
       // Extended (opener + N-loop-repetition) pass -- feeds the Results panel. Reuses the Ending

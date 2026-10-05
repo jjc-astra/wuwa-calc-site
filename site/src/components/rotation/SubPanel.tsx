@@ -107,18 +107,9 @@ export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row }) => {
             stateVal = stateVal[u];
           }
 
-          let deltaVal: any;
-          const lookupKeys = [`${u}_${f.key}`, f.key];
-          const dataContainers = [row.trackers, row.memory, row.dropdownState?.trackers].filter(Boolean);
-          outer: for (const container of dataContainers) {
-            for (const key of lookupKeys) {
-              if (container[key] !== undefined) {
-                deltaVal = container[key];
-                break outer;
-              }
-            }
-          }
-          let rawVal = stateVal !== undefined ? stateVal : deltaVal !== undefined ? deltaVal : f.default;
+          // Not on the row itself: a per-move tracker (the resource deltas).
+          const trackerVal = row.trackers?.[f.key] ?? row.dropdownState?.trackers?.[f.key];
+          const rawVal = stateVal ?? trackerVal ?? f.default;
 
           let displayVal = rawVal;
           if (typeof rawVal === 'number') {

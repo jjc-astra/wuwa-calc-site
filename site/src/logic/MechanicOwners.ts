@@ -4,6 +4,7 @@
 import { DataLoader } from '../utils/DataLoader';
 import { CommonUtils } from '../utils/Common';
 import { SYSTEM_NAMESPACE } from '../utils/MechanicKey';
+import { SLOT_SET_FIELDS } from '../utils/TeamUtils';
 import type { MechanicNode, TeamSlot } from '../types';
 
 export type MechanicOwnerKind = 'character' | 'echo' | 'weapon' | 'set' | 'system';
@@ -49,15 +50,13 @@ export function getMechanicOwners(team: TeamSlot[]): MechanicOwner[] {
     const pieces = DataLoader.resolveSetPieceCounts(slot);
     const equipper = slot.character;
 
-    const set = (name: string, count: number) => {
+    SLOT_SET_FIELDS.forEach(field => {
+      const name = slot[field];
+      const count = pieces[field];
       if (name && count > 0) {
         owners.push({ name, kind: 'set', equipper, allowDirectNode: true, listens: mech => isPassive(mech) && meetsPieceCount(mech, count) });
       }
-    };
-    set(slot.mainSet, pieces.mainSet);
-    set(slot.subSet, pieces.subSet);
-    set(slot.subSet2a, pieces.subSet2a);
-    set(slot.subSet2b, pieces.subSet2b);
+    });
 
     if (slot.mainEcho) owners.push({ name: slot.mainEcho, kind: 'echo', equipper, allowDirectNode: true, listens: isPassive });
     if (slot.weapon) {

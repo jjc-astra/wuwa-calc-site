@@ -26,20 +26,17 @@ export const CooldownPanel: React.FC<CooldownPanelProps> = ({ data, updateNode }
     setShareDraft(null);
     if (newPartnerName === oldPartnerName) return;
 
-    const prefix = MechanicKey.prefix(activeChar || 'System');
+    const keyOf = (name: string) => MechanicKey.build(activeChar, name);
 
     if (oldPartnerName) {
-      const oldPartner = mechanics[`${prefix}${oldPartnerName}`];
-      if (oldPartner?.shareCooldownWith === data.name) {
-        const { shareCooldownWith: _drop, ...rest } = oldPartner;
-        setMechanicNode(`${prefix}${oldPartnerName}`, rest as MechanicNode);
-      }
+      const oldPartner = mechanics[keyOf(oldPartnerName)];
+      if (oldPartner?.shareCooldownWith === data.name) setMechanicNode(keyOf(oldPartnerName), { ...oldPartner, shareCooldownWith: undefined });
     }
 
     const isSelf = newPartnerName === data.name;
     if (newPartnerName && !isSelf) {
-      const newPartner = mechanics[`${prefix}${newPartnerName}`];
-      if (newPartner) setMechanicNode(`${prefix}${newPartnerName}`, { ...newPartner, shareCooldownWith: data.name });
+      const newPartner = mechanics[keyOf(newPartnerName)];
+      if (newPartner) setMechanicNode(keyOf(newPartnerName), { ...newPartner, shareCooldownWith: data.name });
     }
 
     updateNode({ shareCooldownWith: (newPartnerName && !isSelf) ? newPartnerName : undefined });

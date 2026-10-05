@@ -9,7 +9,7 @@
 // legal while blocking an unconverted seconds-number from being assigned into a Frames slot.
 export type Frames = number & { readonly __frameBrand: unique symbol };
 
-const FPS = 60;
+export const FPS = 60;
 
 // Trust-cast for a value already known to be whole frames (e.g. JSON already migrated).
 // Does not round -- use roundFrames if the value might be fractional.

@@ -98,7 +98,7 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
   // Props wiring a text-valued draft field to a field component.
   const bind = (key: TextDraftKey) => ({ value: draft[key], onChange: (value: string) => set({ [key]: value }) });
 
-  const provider = activeChar || 'System';
+  const provider = MechanicKey.toNamespace(activeChar);
   const existingRepeatId = groupSiblings?.repeat?.[0];
   const existingReleaseId = groupSiblings?.release?.[0];
   const hasRepeat = data.inputType === 'Hold' && !!existingRepeatId;
@@ -116,8 +116,7 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
     // Clears stale cursor settings on existing Release siblings when adding a Repeat, stamping holdGroupId to prevent node orphaning.
     if (role === 'Repeat' && existingReleaseId && groupSiblings?.release?.[1]) {
       const [releaseId, releaseData] = groupSiblings.release;
-      const { holdConfig, ...releaseRest } = releaseData;
-      setMechanicNode(releaseId, { ...releaseRest, holdGroupId } as MechanicNode);
+      setMechanicNode(releaseId, { ...releaseData, holdConfig: undefined, holdGroupId });
     }
     // Brand new sibling -- name it off the Hold's own name, since nothing to reuse yet.
     const id = MechanicKey.build(provider, `${data.name} (${role})`);

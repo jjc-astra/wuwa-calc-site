@@ -1,7 +1,7 @@
 import React from 'react';
 import type { MechanicNode } from '../../../types';
 import { Dropdown, type DropdownOption } from '../../common/Dropdown';
-import { tip } from '../mechanicNodeHelpers';
+import { tip } from '../../../utils/Common';
 
 interface AddCastResourcePanelProps {
   data: MechanicNode;

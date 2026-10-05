@@ -362,10 +362,7 @@ export const useBuilderStore = create<BuilderState>()(
           editedMechanics: Object.fromEntries(
             Object.entries(editedMechanics)
               .filter(([id]) => matchesAny(id))
-              .map(([id, node]) => {
-                const { _compiledRule, ...rest } = node as any;
-                return [id, rest];
-              })
+              .map(([id, node]) => [id, { ...node, _compiledRule: undefined }])
           ),
           deletedMechanicIds: deletedMechanicIds.filter(matchesAny)
         };

@@ -1,26 +1,18 @@
 // Shared formatting/lookup helpers used across MechanicNodeCard and its split-out sub-panels.
 import type { Effect, MechanicNode } from '../../types';
 import { CAST_TYPE_COLORS } from '../../data/db';
-import { ELEMENT_COLORS } from '../../utils/Common';
-import { DSLParser } from '../../logic/dsl/dslParser';
+import { elementColorOf } from '../../utils/Common';
+import { DSLParser, NAMESPACE_REF } from '../../logic/dsl/dslParser';
 import { parseTimeInput } from '../../utils/Frames';
 import { forteLabel } from '../../utils/ForteNames';
 import { forteSlotOf } from '../../utils/ResourceKeys';
 
-export { tip } from '../../utils/Common';
-
-// Matches names with up to one level of nested parens (e.g. "@Sanhua(Forte Hold (Release))") to prevent premature capture truncation.
-// Namespace allows spaces since echo names carry them (e.g. "@Impermanence Heron(Attack)").
+// "@Namespace(Name)" -> "Namespace_Name", the key form effect names use.
 export const flattenDslShorthand = (v: string): string =>
-  v.replace(/@([A-Za-z0-9_ ]+)\(((?:[^)(]+|\([^)(]*\))*)\)/g, (_match, p1, p2) => `${p1}_${p2.trim()}`);
+  v.replace(NAMESPACE_REF, (_match, p1, p2) => `${p1}_${p2.trim()}`);
 
-// Resolves shared dmg/cast tags consistently: matches element hues first (exact or substring), then falls back to non-elemental cast colors.
-export function dmgTagColor(tag: string): string {
-  if (ELEMENT_COLORS[tag]) return ELEMENT_COLORS[tag];
-  const match = Object.keys(ELEMENT_COLORS).find(el => tag.includes(el));
-  if (match) return ELEMENT_COLORS[match];
-  return CAST_TYPE_COLORS[tag] || '#999999';
-}
+// A dmg tag's color: its element's (exact or substring), else its cast type's.
+export const dmgTagColor = (tag: string): string => elementColorOf(tag) ?? CAST_TYPE_COLORS[tag] ?? '#999999';
 export const castTagColor = (tag: string): string => CAST_TYPE_COLORS[tag] || '#dca54c';
 
 // Short labels for resource-key chips/summaries (On Cast / Resources columns).
@@ -44,7 +36,6 @@ export const sumNumeric = (v: string | number | number[] | undefined): number =>
   return arr.filter((x): x is number => typeof x === 'number').reduce((a, b) => a + b, 0);
 };
 
-export const fmtNum = (n: number): string => (Number.isInteger(n) ? String(n) : n.toFixed(2));
 
 // Adds unit suffix ("30f"/"12s") to a plain numeric value so the field reads unambiguous.
 // A DSL string (e.g. "@Default.SwapTime") is shown untouched.
@@ -96,10 +87,5 @@ export const makeTimeBlur = (
 // "@Default.BasicPriority + 1". Only @Default resolves without a live rotation context.
 export function resolveDefaultNum(v: number | string | undefined, dslEvalCtx: Record<string, any>): number | null {
   if (v === undefined || v === '') return null;
-  if (typeof v === 'number') return v;
-  try {
-    return DSLParser.evaluateMath(v, dslEvalCtx);
-  } catch {
-    return null;
-  }
+  return typeof v === 'number' ? v : DSLParser.evaluateMath(v, dslEvalCtx);
 }

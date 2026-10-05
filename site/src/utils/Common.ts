@@ -1,8 +1,9 @@
 import type { MouseEvent } from 'react';
-import type { ImageFolder } from '../data/db';
+import { SIM_CONSTANTS, type ImageFolder } from '../data/db';
 import { toFrames, framesToSeconds } from './Frames';
 import { imageUrl, dataUrl } from './dataSource';
 import type { ElementName } from '../data/gameVocab';
+import { SYSTEM_NAMESPACE } from './MechanicKey';
 
 /** Current UI scale (root font-size / 16) set by the fluid `html` rule in components.css --
  * turns a measured px size back into the 16px-rem "design units" the layout is written in. */
@@ -27,6 +28,10 @@ export const ELEMENT_COLORS: Record<string, string> = ({
   Havoc: '#e056fd',
   Physical: '#aaaaaa'
 } satisfies Record<ElementName, string>);
+
+/** The color of the element a dmg/status tag names ("Glacio", "Glacio Chafe"), if any. */
+export const elementColorOf = (tag: string): string | undefined =>
+  ELEMENT_COLORS[tag] ?? ELEMENT_COLORS[Object.keys(ELEMENT_COLORS).find(el => tag.includes(el)) ?? ''];
 
 /** A character's brand color, falling back through element color to a neutral gray. */
 export function getCharacterThemeColor(dbChar: Record<string, any> | undefined): string {
@@ -116,6 +121,17 @@ class TooltipManagerClass {
 
 export const TooltipManager = new TooltipManagerClass();
 
+/** A number for a label: whole as is, else to two places ("3", "1.25"). */
+export const formatNum = (n: number): string => (Number.isInteger(n) ? String(n) : n.toFixed(2));
+
+/** Text made safe to put in tooltip HTML. */
+export const escapeHtml = (text: unknown): string =>
+  String(text ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+
+/** One "Key: value" line of tooltip HTML (the value escaped). */
+export const tooltipLine = (key: string, value: unknown): string =>
+  `<div><span class="tooltip-key">${key}:</span> <span class="tooltip-val">${escapeHtml(value)}</span></div>`;
+
 /** Spread onto an element instead of `title="..."` to use the shared TooltipManager. */
 export const tip = (text: string) => ({
   onMouseEnter: (e: MouseEvent) => TooltipManager.show(e.currentTarget as Element, text),
@@ -133,7 +149,7 @@ export const CommonUtils = {
   getIconPath: (name: string, folder: ImageFolder): string => {
     if (!name) return TRANSPARENT_PIXEL;
     // The data repo's icon for the 'System' entity is still filed under its old name, Generic.
-    const n = name.startsWith('Rover') ? 'Rover' : name === 'System' ? 'Generic' : name;
+    const n = name.startsWith('Rover') ? 'Rover' : name === SYSTEM_NAMESPACE ? 'Generic' : name;
     return CommonUtils.getImage(`${folder}/Icon_${n.replaceAll(' ', '')}${EXTENSION}`);
   },
 
@@ -163,6 +179,13 @@ export const CommonUtils = {
     return CommonUtils.resolveHoldCursor(progress, mode, maxVal);
   },
 
+  // Whether a hold's cursor is where its release lands: in the window, or for 'clamp' (no
+  // window) full when it fills (speed >= 0) or empty when it drains.
+  isHoldCursorDone: (cursor: number, hold: { mode: string; speed: number; maxVal: number; center: number; size: number }): boolean =>
+    hold.mode === 'clamp'
+      ? (hold.speed >= 0 ? cursor >= hold.maxVal : cursor <= 0)
+      : Math.abs(cursor - hold.center) <= hold.size / 2,
+
   // Where data/images come from (data repo, or the dev WIP mirror first) is dataSource.ts's concern.
   getImage: imageUrl,
   getData: dataUrl,
@@ -186,7 +209,7 @@ export const CommonUtils = {
 
   parseRankValue: (val: any, rank = 1): any => {
     if (typeof val !== 'string' || !val.includes('/')) return val;
-    const rankIdx = Math.max(0, Math.min(4, (parseInt(rank as any, 10) || 1) - 1));
+    const rankIdx = Math.max(0, Math.min(SIM_CONSTANTS.MAX_RANK, parseInt(rank as any, 10) || 1) - 1);
     const parts = val.split('/');
     let resolved = parts[Math.min(rankIdx, parts.length - 1)].trim();
     if (val.includes('%') && !resolved.includes('%')) resolved += '%';

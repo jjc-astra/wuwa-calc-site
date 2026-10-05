@@ -100,7 +100,7 @@ export const BuilderUtils = {
   syntaxHighlight: (str: string): string => {
     const escaped = str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const highlighted = escaped.replace(
-      /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?|\/\/.*|\b[a-zA-Z_][a-zA-Z0-9_]*\s*:)/g,
+      /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?|\/\/.*|\b[a-zA-Z_][a-zA-Z0-9_]*\s*:)/g,
       (match) => {
         let cls = 'syntax-number';
         if (/^"/.test(match)) cls = /:$/.test(match) ? 'syntax-key' : 'syntax-string';
@@ -151,7 +151,7 @@ export const BuilderUtils = {
         cleanedMechanics[id] = BuilderUtils.cleanMechanicNode(node as MechanicNode, activeChar);
       });
       mechStr = JSON.stringify(cleanedMechanics, null, 2);
-      mechStr = mechStr.replace(/\[\s+([^\[\]\{\}]*?)\s+\]/g, (_, inner) => {
+      mechStr = mechStr.replace(/\[\s+([^[\]{}]*?)\s+\]/g, (_, inner) => {
         return '[' + inner.replace(/\s*\n\s*/g, ' ').trim() + ']';
       });
 

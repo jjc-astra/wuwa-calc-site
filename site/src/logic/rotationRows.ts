@@ -63,6 +63,17 @@ export const createGroupIdRemapper = () => {
   };
 };
 
+// The row with its repeat block ids passed through `remap` (from createGroupIdRemapper).
+export const withRemappedGroupIds = <T extends RotationRowFields>(row: T, remap: (id: string | undefined) => string | undefined): T =>
+  ({ ...row, repeatBlockStart: remap(row.repeatBlockStart), repeatBlockEnd: remap(row.repeatBlockEnd) });
+
+// The row without its repeat block fields.
+export const withoutRepeatFields = <T extends RotationRowFields>(row: T): T => {
+  const copy = { ...row };
+  for (const key of REPEAT_FIELDS) delete copy[key];
+  return copy;
+};
+
 const repeatFieldsOf = (row: RotationRowFields) => ({
   ...(row.repeatBlockStart !== undefined && { repeatBlockStart: row.repeatBlockStart, repeatCount: row.repeatCount }),
   ...(row.repeatBlockEnd !== undefined && { repeatBlockEnd: row.repeatBlockEnd, ...(row.repeatFinalTiming !== undefined && { repeatFinalTiming: row.repeatFinalTiming }) })
@@ -103,3 +114,44 @@ export const toRunInput = (rows: RotationRowFields[]): RotationRowFields[] => [
   })),
   { unit: '', action: '', timing: 'Auto', offset: 0 }
 ];
+
+// --- Evaluated rows (after an engine run) ---
+
+/** When a row's game time runs out (0 for no row). */
+export const rowGameEnd = (row: any): number => (row?.gameTimeStart || 0) + (row?.gameTimePassed || 0);
+
+/** The row carrying the loop-end marker (the Ending Rotation split), or -1. */
+export const loopEndIndexOf = (rows: any[]): number => rows.findIndex(r => r?.loopEndOverride === true);
+
+/** A row's timing as shown: "Auto (Cancel)", "Full", "Cancel 0"... */
+export const timingLabel = (row: any): string =>
+  !row.timing || row.timing === 'Auto'
+    ? row._autoTimingChoice ? `Auto (${row._autoTimingChoice})` : 'Auto'
+    : String(row.timing).replace('_', ' ');
+
+/**
+ * Content rows split into opener, loop template and -- with Ending Rotation on and a loop-end
+ * marker before the last row -- the ending rows after it.
+ */
+export function splitLoopSegments(
+  contentRows: any[],
+  loopStartIndex: number,
+  endingRotationEnabled: boolean
+): { openerRows: any[]; loopTemplate: any[]; endingRows: any[] } {
+  const clampedStart = Math.max(0, Math.min(loopStartIndex, contentRows.length));
+  const openerRows = contentRows.slice(0, clampedStart);
+  const loopTemplate = contentRows.slice(clampedStart);
+  const endRel = endingRotationEnabled ? loopEndIndexOf(loopTemplate) : -1;
+  if (endRel === -1 || endRel === loopTemplate.length - 1) return { openerRows, loopTemplate, endingRows: [] };
+  return { openerRows, loopTemplate: loopTemplate.slice(0, endRel + 1), endingRows: loopTemplate.slice(endRel + 1) };
+}
+
+/** When the opener ends and how long one loop takes, off already-run rows. */
+export function loopTiming(openerRows: any[], loopTemplate: any[]): { openerEnd: number; loopDuration: number } {
+  const openerEnd = rowGameEnd(openerRows[openerRows.length - 1]);
+  return { openerEnd, loopDuration: rowGameEnd(loopTemplate[loopTemplate.length - 1]) - openerEnd };
+}
+
+/** Opener, `reps` copies of the loop, then the ending rows. */
+export const repeatLoop = (openerRows: any[], loopTemplate: any[], reps: number, endingRows: any[] = []): any[] =>
+  [...openerRows, ...Array.from({ length: reps }, () => loopTemplate).flat(), ...endingRows];

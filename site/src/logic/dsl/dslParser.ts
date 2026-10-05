@@ -79,7 +79,9 @@ function buildTranslationMaps(): { pointerMap: Record<string, string>; scalarMap
   return { pointerMap, scalarMap };
 }
 
-const { pointerMap: POINTER_MAP, scalarMap: SCALAR_MAP } = buildTranslationMaps();
+const { pointerMap, scalarMap } = buildTranslationMaps();
+const POINTER_RULES = Object.entries(pointerMap).map(([key, val]) => [new RegExp(key + '(?![A-Za-z0-9_])', 'gi'), val] as const);
+const SCALAR_RULES = Object.entries(scalarMap).map(([key, val]) => [new RegExp(key, 'gi'), val] as const);
 
 // '.BuffStacks(arg)' -> '.getBuffStacks("arg")' and its siblings, one rule per distinct method the
 // registry declares. Matched case-insensitively, like the pointer rules.
@@ -92,6 +94,10 @@ for (const pointer of Object.values(DSL_POINTERS)) {
     }
   }
 }
+
+/** "@Namespace(Move Name)": spaces allowed in the namespace (echo names), one level of nested
+ * parens in the name ("@Sanhua(Forte Hold (Release))"). Groups: namespace, name. */
+export const NAMESPACE_REF = /@([A-Za-z0-9_ ]+)\(((?:[^)(]+|\([^)(]*\))*)\)/g;
 
 type CompiledMathFn = (ctx: unknown, equipper: string | undefined, statusMult: typeof getNegativeStatusMult) => number;
 
@@ -155,7 +161,7 @@ export const DSLParser = {
         let mStr = s.trim();
         // Keeps @Namespace(Move Name) shape intact (lowercased/trimmed) rather than flattening
         // to Namespace_MoveName -- must match TimelineEngine's castModifiers format exactly.
-        mStr = mStr.replace(/@([A-Za-z0-9_ ]+)\(((?:[^)(]+|\([^)(]*\))*)\)/g, (_, p1, p2) => `@${p1}(${p2.trim()})`);
+        mStr = mStr.replace(NAMESPACE_REF, (_, p1, p2) => `@${p1}(${p2.trim()})`);
         return mStr.toLowerCase();
       });
     }
@@ -256,11 +262,9 @@ export const DSLParser = {
     jsStr = DSLParser._translateStatusMult(jsStr);
     jsStr = jsStr.replace(/\bABS\b/gi, 'Math.abs');
     jsStr = jsStr.replace(/%(?!\s*[\d@a-zA-Z(_])/g, ' / 100');
-    jsStr = jsStr.replace(/@([A-Za-z0-9_ ]+)\(((?:[^)(]+|\([^)(]*\))*)\)/g, (_, p1, p2) => '"' + p1 + '_' + p2.trim() + '"');
+    jsStr = jsStr.replace(NAMESPACE_REF, (_, p1, p2) => '"' + p1 + '_' + p2.trim() + '"');
 
-    for (const [key, val] of Object.entries(POINTER_MAP)) {
-      jsStr = jsStr.replace(new RegExp(key + '(?![A-Za-z0-9_])', 'gi'), val);
-    }
+    for (const [pattern, val] of POINTER_RULES) jsStr = jsStr.replace(pattern, val);
 
     const wrapQuotes = (arg: string) => {
       arg = arg.trim();
@@ -271,9 +275,7 @@ export const DSLParser = {
       jsStr = jsStr.replace(pattern, (_, p1) => `.${jsName}(${wrapQuotes(p1)})`);
     }
 
-    for (const [key, val] of Object.entries(SCALAR_MAP)) {
-      jsStr = jsStr.replace(new RegExp(key, 'gi'), val);
-    }
+    for (const [pattern, val] of SCALAR_RULES) jsStr = jsStr.replace(pattern, val);
     return jsStr;
   },
 

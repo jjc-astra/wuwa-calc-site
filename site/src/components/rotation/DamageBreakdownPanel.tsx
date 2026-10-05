@@ -9,7 +9,7 @@ import { toFrames, formatFramesAsSeconds } from '../../utils/Frames';
 import { PanelInfoItem } from '../common/PanelInfoItem';
 import { FormulaRow } from '../common/FormulaRow';
 import { BuffCard } from '../common/BuffCard';
-import { hitAverage, critSplit, groupBuffsBySource } from './damagePanelData';
+import { groupBuffsBySource } from './damagePanelData';
 
 interface DamageBreakdownPanelProps {
   config: Extract<PanelConfig, { type: 'complex_dmg' }>;
@@ -40,9 +40,8 @@ export const DamageBreakdownPanel: React.FC<DamageBreakdownPanelProps> = ({ conf
       <div className="dmg-accordion-container">
         {instances.map((inst: any, idx: number) => {
           const instData = inst.data || { activeBuffs: {} };
-          const avgVal = hitAverage(inst);
+          const { total: avgVal, nonCrit: nonCritVal, crit: critVal } = inst;
           const isOpen = !!openInstances[idx];
-          const { nonCritVal, critVal } = critSplit(inst, instData, avgVal);
           const activeBuffs = Object.values(instData.activeBuffs || {});
 
           return (

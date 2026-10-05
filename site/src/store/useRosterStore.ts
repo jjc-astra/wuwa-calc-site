@@ -4,13 +4,14 @@ import { persistStorage } from '../utils/safeLocalStorage';
 import type { TeamSlot, EnemyStats } from '../types';
 import {
   defaultEnemyStats,
+  defaultRoll,
   DEFAULT_SUBSTATS,
+  EMPTY_SUBSTAT,
   DEFAULT_ECHO_LAYOUT,
   costsForLayout,
   mainStatOptionsFor,
   SECONDARY_MAIN_STATS,
   MAIN_STAT_VALUES,
-  STAT_DB,
   STAT_NAME_MAP
 } from '../data/db';
 import { DataLoader } from '../utils/DataLoader';
@@ -42,12 +43,9 @@ const createEmptySlot = (index: number): TeamSlot => {
     subSet2a: '',
     subSet2b: '',
     mainEcho: '',
-    echoes: Array(5).fill(null).map((_, i) => ({
-      mainStat: defaultMainStats[i] || '',
-      substats: Array(5).fill(null).map((_, j) => ({
-        name: DEFAULT_SUBSTATS[j] || 'N/A',
-        value: ''
-      }))
+    echoes: defaultMainStats.map(mainStat => ({
+      mainStat,
+      substats: DEFAULT_SUBSTATS.map(name => ({ name, value: '' }))
     })),
     echoStats: emptyEchoStats()
   };
@@ -56,27 +54,21 @@ const createEmptySlot = (index: number): TeamSlot => {
 };
 
 // The stats a slot's five echoes add up to: main stats, secondary main stats and substats.
-export const calculateEchoStatsForSlot = (slot: TeamSlot) => {
-  const echoStats = { ...slot.echoStats };
-  Object.keys(echoStats).forEach(k => ((echoStats as any)[k] = 0));
+export const calculateEchoStatsForSlot = (slot: TeamSlot): Record<string, number> => {
+  const echoStats: Record<string, number> = emptyEchoStats();
   const costs = costsForLayout(slot.layout);
 
   slot.echoes.forEach((echo, i) => {
     const cost = costs[i];
-    if (SECONDARY_MAIN_STATS[cost]) {
-      const sec = SECONDARY_MAIN_STATS[cost];
-      (echoStats as any)[sec.stat] += sec.value;
-    }
-    if (echo.mainStat && MAIN_STAT_VALUES[cost]?.[echo.mainStat]) {
-      const internalKey = STAT_NAME_MAP[echo.mainStat];
-      if (internalKey) (echoStats as any)[internalKey] += MAIN_STAT_VALUES[cost][echo.mainStat];
-    }
+    const secondary = SECONDARY_MAIN_STATS[cost];
+    if (secondary) echoStats[secondary.stat] += secondary.value;
+    const mainValue = MAIN_STAT_VALUES[cost]?.[echo.mainStat];
+    const mainKey = STAT_NAME_MAP[echo.mainStat];
+    if (mainValue && mainKey) echoStats[mainKey] += mainValue;
     echo.substats.forEach(sub => {
-      if (sub.name !== 'N/A' && sub.value) {
-        const internalKey = STAT_NAME_MAP[sub.name];
-        const numVal = parseFloat(String(sub.value));
-        if (internalKey && !isNaN(numVal)) (echoStats as any)[internalKey] += numVal;
-      }
+      const key = STAT_NAME_MAP[sub.name];
+      const value = parseFloat(String(sub.value));
+      if (key && !isNaN(value)) echoStats[key] += value;
     });
   });
   return echoStats;
@@ -103,21 +95,13 @@ export function defaultSubstats(slot: TeamSlot, build: any): TeamSlot['echoes'] 
   return slot.echoes.map(echo => {
     const usedOnThisEcho = new Set<string>();
     const substats = echo.substats.map(() => {
-      let targetSub = 'N/A';
-      for (const key of subStatKeys) {
-        if (remainingSubs[key] > 0 && !usedOnThisEcho.has(key)) {
-          targetSub = key;
-          remainingSubs[key]--;
-          usedOnThisEcho.add(key);
-          break;
-        }
+      // The next substat the build still wants rolls of, once per echo.
+      const name = subStatKeys.find(key => remainingSubs[key] > 0 && !usedOnThisEcho.has(key)) ?? EMPTY_SUBSTAT;
+      if (name !== EMPTY_SUBSTAT) {
+        remainingSubs[name]--;
+        usedOnThisEcho.add(name);
       }
-      let val: string | number = '';
-      if (targetSub !== 'N/A' && STAT_DB[targetSub]) {
-        const defaultIdx = STAT_DB[targetSub].defaultIndex || 0;
-        val = STAT_DB[targetSub].values[defaultIdx];
-      }
-      return { name: targetSub, value: val };
+      return { name, value: defaultRoll(name) };
     });
     return { ...echo, substats };
   });
