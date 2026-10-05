@@ -325,7 +325,7 @@ export const DIAGRAMS = {
       A1 -- no --> A3
       A2 --> A3["cooldown wait: cooldownRemaining<br/>(charges: only once every one is out)"]:::logic
       A3 --> A4["busy wait: the unit's last animation<br/>(unitBusyUntil, + other units' motion stops<br/>during it); none for an Outro"]:::logic
-      A4 --> A5["wait = the larger; _applyDecay:<br/>time runs, hits land"]:::logic
+      A4 --> A5["wait = the larger; _decayState (not<br/>on row 1): time runs, hits land"]:::logic
     end
     subgraph Res["resources"]
       direction TB
@@ -512,7 +512,7 @@ export const DIAGRAMS = {
     end
     subgraph Kind["formula"]
       direction TB
-      K1{"castTypes or title<br/>mention Tune?"}
+      K1{"a Tune cast type<br/>(TuneBreak, ...)?"}
       K1 -- yes --> KT["Tune"]
       K1 -- no --> K2{"dmgTypes is just one<br/>negative status?"}
       K2 -- yes --> KN["NegativeStatus"]
