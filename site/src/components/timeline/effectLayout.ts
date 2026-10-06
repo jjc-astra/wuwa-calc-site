@@ -5,7 +5,7 @@ import { DataLoader } from '../../utils/DataLoader';
 import { isTimelineTracker, timelineBuffInfo, timelineCooldownInfo } from '../../logic/TimelineEngine';
 import { loopEndIndexOf } from '../../logic/rotationRows';
 import { SYSTEM_NAMESPACE } from '../../utils/MechanicKey';
-import { compressedTimeToPx, computeTotalDurationFrames, isSystemHit, stackDots } from './timelineLayout';
+import { compressedTimeToPx, computeTotalDurationFrames, isInstantSystemRow, isSystemHit, stackDots } from './timelineLayout';
 import type { TimeCompression } from './timelineLayout';
 import { slotSets } from '../../utils/TeamUtils';
 import type { TeamSlot } from '../../types';
@@ -75,6 +75,12 @@ export interface EffectHit {
   moveName: string;
 }
 
+// An instant System move's clip (isInstantSystemRow), drawn in its hits row.
+export interface EffectAction {
+  xPx: number;
+  row: any;
+}
+
 export type EffectLaneKind = 'buff' | 'cooldown' | 'tracker' | 'hits';
 
 export interface EffectLane {
@@ -86,6 +92,7 @@ export interface EffectLane {
   kind: EffectLaneKind;
   bars: EffectBar[];
   hits: EffectHit[];
+  actions: EffectAction[];
   // In effect the whole rotation, start to end with no gaps (hidden by the Permanent toggle) --
   // not just permanent-duration, which can still switch on and off. A tracker also never changes value.
   alwaysOn: boolean;
@@ -140,10 +147,10 @@ class LaneBuilder {
     return compressedTimeToPx(frames, this.compression);
   }
 
-  lane(id: string, init: () => Omit<EffectLane, 'id' | 'bars' | 'hits' | 'alwaysOn'> & { section: string }, frames: number) {
+  lane(id: string, init: () => Omit<EffectLane, 'id' | 'bars' | 'hits' | 'actions' | 'alwaysOn'> & { section: string }, frames: number) {
     let lane = this.lanes.get(id);
     if (!lane) {
-      lane = { id, bars: [], hits: [], alwaysOn: false, firstFrames: frames, ...init() };
+      lane = { id, bars: [], hits: [], actions: [], alwaysOn: false, firstFrames: frames, ...init() };
       this.lanes.set(id, lane);
     }
     return lane;
@@ -342,12 +349,20 @@ export function buildEffectTimeline(rows: any[], team: TeamSlot[], compression: 
     }), frames);
     lane.hits.push({ frames, xPx: compressedTimeToPx(frames, compression), yPx: 0, total: hit.total || 0, moveName });
   }));
+  // Instant System moves (Tune Break): their clip joins their hits' row, off the unit's.
+  rows.filter(isInstantSystemRow).forEach(row => {
+    const moveName = row.moveName || SYSTEM_NAMESPACE;
+    const lane = builder.lane(`hits:${moveName}`, () => ({
+      section: 'system', label: moveName, fullName: moveName, color: SYSTEM_COLOR, kind: 'hits' as const
+    }), row.gameTimeStart);
+    lane.actions.push({ xPx: compressedTimeToPx(row.gameTimeStart, compression), row });
+  });
 
   const data: EffectTimelineData = { unitLanes: {}, enemy: [], system: [], trackers: [] };
   // In order of appearance, a section's cooldowns after its buffs.
   [...builder.lanes.values()]
     .sort((a, b) => Number(a.kind === 'cooldown') - Number(b.kind === 'cooldown') || a.firstFrames - b.firstFrames)
-    .filter(lane => lane.bars.length > 0 || lane.hits.length > 0)
+    .filter(lane => lane.bars.length > 0 || lane.hits.length > 0 || lane.actions.length > 0)
     .forEach(({ section, ...lane }) => {
       const unchanging = lane.kind === 'buff'
         || (lane.kind === 'tracker' && new Set(lane.bars.map(bar => bar.points[0]?.value)).size === 1);

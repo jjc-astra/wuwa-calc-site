@@ -1,10 +1,12 @@
 import React, { useRef } from 'react';
-import { TooltipManager, tip, escapeHtml, tooltipLine as line, formatNum as formatValue } from '../../utils/Common';
+import { TooltipManager, tip, escapeHtml, tooltipLine as line, formatNum as formatValue, getCharacterThemeColor } from '../../utils/Common';
+import { DataLoader } from '../../utils/DataLoader';
+import { buildClipTooltipHtml } from './TimelineClip';
 import { formatFramesAsSeconds, framesToSeconds, secondsToFrames, toFrames } from '../../utils/Frames';
 import { EFFECT_BAR_INSET_PX, EFFECT_ROW_HEIGHT_PX, describeAppliesTo, pointLabelFits, rowsReceivingBar } from './effectLayout';
 import { useLinkedRowStore } from '../../store/useLinkedRowStore';
 import { nearestMarker, trackPointer, useActiveMarker, useFrameMove } from './trackPointer';
-import type { EffectBar, EffectLane, EffectPoint } from './effectLayout';
+import type { EffectAction, EffectBar, EffectLane, EffectPoint } from './effectLayout';
 
 interface TimelineEffectRowProps {
   lane: EffectLane;
@@ -13,6 +15,11 @@ interface TimelineEffectRowProps {
   // The timeline's rows, when linked to the rotation table: hovering a buff highlights the rows it reached.
   linkRows?: any[];
 }
+
+// An instant System move's clip: drawn this wide, centered on its time, and hoverable this far
+// either side of it.
+const ACTION_WIDTH_PX = 3;
+const ACTION_HOVER_PX = 3;
 
 const timeRange = (start: number, end: number) =>
   `${formatFramesAsSeconds(toFrames(start))} – ${formatFramesAsSeconds(toFrames(end))}`;
@@ -73,12 +80,13 @@ const framesAt = (bar: EffectBar, x: number): number =>
 export const TimelineEffectRow = React.memo<TimelineEffectRowProps>(({ lane, nested = false, linkRows }) => {
   const markActive = useActiveMarker();
   const hover = useLinkedRowStore(s => s.hover);
-  // The bar last linked, so moving within it doesn't re-scan the rows.
-  const linkedBar = useRef<EffectBar | undefined>(undefined);
-  const hoverBar = (bar: EffectBar | undefined) => {
-    if (!linkRows || bar === linkedBar.current) return;
-    linkedBar.current = bar;
-    hover(bar ? rowsReceivingBar(linkRows, lane, bar) : [], 'timeline', false);
+  // The bar (or instant System move) last linked, so moving within it doesn't re-scan the rows.
+  const linked = useRef<EffectBar | EffectAction | undefined>(undefined);
+  const hoverLinked = (target: EffectBar | EffectAction | undefined) => {
+    if (!linkRows || target === linked.current) return;
+    linked.current = target;
+    const ids = !target ? [] : 'row' in target ? (target.row?.id ? [target.row.id] : []) : rowsReceivingBar(linkRows, lane, target);
+    hover(ids, 'timeline', false);
   };
 
   // Snap targets: stack/value changes after a bar's start, and hits.
@@ -97,7 +105,7 @@ export const TimelineEffectRow = React.memo<TimelineEffectRowProps>(({ lane, nes
       const marker: any = markers[nearest];
       const at = pointer.toClient(marker.xPx, marker.yPx);
       markActive(e.currentTarget.querySelector(`[data-marker="${nearest}"]`));
-      hoverBar(marker.bar);
+      hoverLinked(marker.bar);
       const html = marker.hit
         ? `<div>${escapeHtml(marker.hit.moveName)}</div>` + line('Hit', `${Math.floor(marker.hit.total).toLocaleString()} dmg`) + line('Time', formatFramesAsSeconds(toFrames(marker.hit.frames)))
         : barTooltipHtml(lane, marker.bar, marker.point, marker.point.frames);
@@ -105,8 +113,14 @@ export const TimelineEffectRow = React.memo<TimelineEffectRowProps>(({ lane, nes
       return;
     }
     markActive(null);
+    const action = lane.actions.find(a => Math.abs(pointer.x - a.xPx) <= ACTION_HOVER_PX);
+    if (action) {
+      hoverLinked(action);
+      TooltipManager.showAtPoint(e.clientX, e.clientY, buildClipTooltipHtml({ type: 'onfield', row: action.row }, action.row.gameTimeStart));
+      return;
+    }
     const bar = [...lane.bars].reverse().find(b => pointer.x >= b.xPx && pointer.x < b.xPx + b.widthPx);
-    hoverBar(bar);
+    hoverLinked(bar);
     if (!bar) return TooltipManager.hide();
     // The stack count under the cursor.
     const point = [...bar.points].reverse().find(p => p.xPx <= pointer.x) ?? bar.points[0];
@@ -116,7 +130,7 @@ export const TimelineEffectRow = React.memo<TimelineEffectRowProps>(({ lane, nes
   const handleLeave = () => {
     move.cancel();
     markActive(null);
-    hoverBar(undefined);
+    hoverLinked(undefined);
     TooltipManager.hide();
   };
 
@@ -148,6 +162,16 @@ export const TimelineEffectRow = React.memo<TimelineEffectRowProps>(({ lane, nes
             </React.Fragment>
           );
         }))}
+        {lane.actions.map((action, i) => (
+          <div
+            key={`action-${i}`}
+            className="timeline-clip timeline-clip-onfield"
+            style={{
+              left: action.xPx - ACTION_WIDTH_PX / 2, width: ACTION_WIDTH_PX, top: EFFECT_BAR_INSET_PX, bottom: EFFECT_BAR_INSET_PX,
+              '--char-theme-raw': getCharacterThemeColor(DataLoader.characterDB[action.row.unit])
+            } as React.CSSProperties}
+          />
+        ))}
         {lane.hits.map((hit, i) => (
           <div
             key={`hit-${i}`}

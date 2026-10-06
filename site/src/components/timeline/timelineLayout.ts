@@ -13,7 +13,7 @@ import type { TeamSlot } from '../../types';
 // anything that stores rows just for the Timeline (the Character Guide's cache) keeps only these.
 // Reading a new row field in this folder means adding it here.
 const TIMELINE_ROW_FIELDS = [
-  'unit', 'moveName', 'input', 'inputType', 'priority', 'timing', '_autoTimingChoice', 'loopEndOverride',
+  'unit', 'action', 'moveName', 'input', 'inputType', 'priority', 'timing', '_autoTimingChoice', 'loopEndOverride',
   'gameTimeStart', 'gameTimePassed', 'duration', 'waitTime', 'cdWaitTime', 'freezeTime', 'animationCommitment',
   'motionStopPauses'
 ] as const;
@@ -246,6 +246,11 @@ function deriveSimultaneousLines(rows: any[], compression: TimeCompression | nul
 }
 
 // A System mechanic's hit (a negative status tick, Tune Break...), by its move pointer.
+/** A System move that takes no game time (it all plays during freeze, e.g. Tune Break): with
+ * effect rows shown, it's drawn in its System Effects row instead of the unit's. */
+export const isInstantSystemRow = (row: any): boolean =>
+  typeof row?.action === 'string' && row.action.startsWith(`${SYSTEM_NAMESPACE}_`) && !(row.gameTimePassed > 0);
+
 export const isSystemHit = (hit: any): boolean => typeof hit.moveRef === 'string' && hit.moveRef.startsWith(`@${SYSTEM_NAMESPACE}(`);
 
 // The hits a row's damage breakdown lists, in time order -- less System hits when they're drawn
@@ -287,7 +292,8 @@ function deriveHitDots(rows: any[], compression: TimeCompression | null, withSys
 }
 
 // Each team member's row of clips, Simultaneous lines and hit dots. `withSystemHits: false`
-// leaves System hits off the unit rows, for a Timeline that gives them rows of their own.
+// leaves System hits (and instant System moves) off the unit rows, for a Timeline that gives them
+// rows of their own.
 export function buildUnitRows(
   evaluatedRows: any[],
   team: TeamSlot[],
@@ -297,7 +303,8 @@ export function buildUnitRows(
   const unitRows: UnitRowData[] = [];
   team.forEach((slot, slotIndex) => {
     if (!slot.character) return;
-    const rows = evaluatedRows.filter(r => r.unit === slot.character);
+    // Without System hits here, they have rows of their own, and so do instant System moves.
+    const rows = evaluatedRows.filter(r => r.unit === slot.character && (withSystemHits || !isInstantSystemRow(r)));
     unitRows.push({
       unit: slot.character,
       slotIndex,
