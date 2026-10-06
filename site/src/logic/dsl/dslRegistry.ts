@@ -183,7 +183,8 @@ export const DSL_POINTERS: Record<string, DSLPointerDef> = {
       { propName: 'SwapTime', type: 'number', fullOverride: 'ctx.move.swapTiming', tooltip: 'Returns the time offset (seconds) at which a swap becomes available during this move.' },
       { propName: 'BaseMult', type: 'number', fullOverride: 'ctx.move.baseMult', tooltip: "Returns this move's base damage multiplier." },
       { propName: 'HitMults', type: 'string[]', fullOverride: 'ctx.move.hitMults', tooltip: 'Returns the list of per-hit damage multipliers for this move.' },
-      { propName: 'IsInHoldWindow', type: 'boolean', fullOverride: 'ctx.move.isInHoldWindow', tooltip: 'Returns true while a Hold input is being charged during this move.' }
+      { propName: 'IsInHoldWindow', type: 'boolean', fullOverride: 'ctx.move.isInHoldWindow', tooltip: 'Returns true while a Hold input is being charged during this move.' },
+      { propName: 'IsNextInCombo', type: 'boolean', fullOverride: 'ctx.move.isNextInCombo', tooltip: "True if this move is what its input does right now: no higher-priority move on the same input (a combo's next step) passes its rule. E.g. IF (@Move.IsNextInCombo) on Basic Attack 1." }
     ]
   },
   // Prev's bare form already resolves to its identity (the acting unit) -- ctx.prev.unit, not a

@@ -5,10 +5,15 @@ import { CHARACTER_DEFAULTS, ENEMY_DEFAULTS, GAME_DEFAULTS } from '../data/db';
 import { forteAlias } from '../utils/ForteNames';
 import { forteKey, maxForteKey } from '../utils/ResourceKeys';
 import { forteMax, readResource, resourceCap } from './resources';
-import { scopedKey } from './engineValues';
+import { isDslExpr, scopedKey } from './engineValues';
+import { DSLParser } from './dsl/dslParser';
+import { MechanicKey } from '../utils/MechanicKey';
 
 // A buff still in effect: it has time left or stacks.
 const isBuffLive = (buff: any): boolean => !!buff && (buff.duration > 0 || buff.stacks > 0);
+
+// @Move.IsNextInCombo checks in progress (by unit + move), so a rule that itself reads it can't recurse.
+const comboChecks = new Set<string>();
 
 // Builds the `ctx` DSL rules and math evaluate against.
 export const ContextManager = {
@@ -30,6 +35,43 @@ export const ContextManager = {
       return Math.max(0, Math.min(...pending));
     }
     return Math.max(0, state?.cooldowns?.[key] || 0);
+  },
+
+  /**
+   * @Move.IsNextInCombo: whether the move being cast is what its input does right now -- no
+   * higher-priority move of `unit` on the same input and input type, castable in its stance, passes
+   * its own trigger rule (as a combo's next step would). Lets a combo starter (Basic Attack 1)
+   * require that no step above it is available, without listing them.
+   */
+  isNextInCombo: (state: any, unit: string, team: any[]): boolean => {
+    const currentKey = state.action || '';
+    const current = DataLoader.mechanicsDB[currentKey];
+    const guardKey = `${unit}|${currentKey}`;
+    if (!current?.input || comboChecks.has(guardKey)) return true;
+    comboChecks.add(guardKey);
+    try {
+      const ctx = () => ContextManager.buildContext(state, unit, team);
+      const priorityOf = (move: any): number => {
+        const raw = move?.priority ?? 0;
+        return parseFloat(String(isDslExpr(raw) ? DSLParser.evaluateMath(raw, ctx(), unit) : raw)) || 0;
+      };
+      const currentPriority = priorityOf(current);
+      const inputType = current.inputType ?? null;
+      const stance = state.entryStance || state.stance || CHARACTER_DEFAULTS.defaultStance;
+      return !Object.entries(DataLoader.mechanicsDB).some(([key, move]: [string, any]) => {
+        if (key === currentKey || !MechanicKey.belongsTo(key, unit) || move.isPassive) return false;
+        if (move.input !== current.input || (move.inputType ?? null) !== inputType) return false;
+        if (move.stanceReq && move.stanceReq !== 'Any' && move.stanceReq !== stance) return false;
+        if (priorityOf(move) <= currentPriority) return false;
+        if (!move.triggerRule) return true;
+        if (!move._compiledRule || typeof move._compiledRule.evaluate !== 'function') move._compiledRule = DSLParser.compile(move.triggerRule);
+        if (!move._compiledRule || typeof move._compiledRule.evaluate !== 'function') return false;
+        // Its rule reads its own move (ctx.move), not the one being cast.
+        return !!move._compiledRule.evaluate(ContextManager.buildContext({ ...state, action: key }, unit, team), unit);
+      });
+    } finally {
+      comboChecks.delete(guardKey);
+    }
   },
 
   buildContext: (
@@ -147,7 +189,9 @@ export const ContextManager = {
           swapTiming: activeState.swapTiming || 0,
           baseMult: activeState.baseMult || 0,
           hitMults: activeState.hitMults || [],
-          isInHoldWindow: activeState.isInForteWindow || false
+          isInHoldWindow: activeState.isInForteWindow || false,
+          // Lazy: only worked out when a rule reads it.
+          get isNextInCombo() { return ContextManager.isNextInCombo(activeState, activeUnitName, team); }
         },
         enemy: {
           hp: enemyHp,
