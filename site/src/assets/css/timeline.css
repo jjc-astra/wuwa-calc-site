@@ -90,6 +90,8 @@
 .timeline-section-row.is-nested .timeline-section-toggle { margin-left: 8px; color: var(--text-dim); }
 .timeline-section-row.is-nested .timeline-section-title { font-size: 9.6px; }
 .timeline-effect-row.is-nested .timeline-effect-label { margin-left: 18px; }
+/* A hovered move (here or in the table) received this buff. */
+.timeline-effect-row.is-linked { background: color-mix(in srgb, var(--char-theme-raw) 5%, rgba(255, 255, 255, 0.055)); }
 .timeline-section-toggle {
     display: flex; align-items: center; gap: 6px;
     background: none; border: none; padding: 0;
@@ -168,7 +170,8 @@
     border: 1px dashed var(--danger);
 }
 /* Its rotation row is hovered (here or in the table). */
-.timeline-clip-hit.is-linked .timeline-clip {
+.timeline-clip-hit.is-linked .timeline-clip,
+.timeline-clip.is-linked {
     box-shadow: 0 0 0 1.5px var(--text-main);
     filter: brightness(1.2);
 }

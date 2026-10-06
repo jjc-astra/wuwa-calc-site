@@ -425,6 +425,26 @@ export function rowsReceivingBar(rows: any[], lane: EffectLane, bar: EffectBar):
   return [...ids];
 }
 
+/**
+ * The rotation rows (ids) that received a buff lane at all: those with a hit that used it. A buff no
+ * hit used (not a damage stat) falls back to its target's moves cast while it was up -- anyone's,
+ * on the Enemy. For highlighting a hovered move's buffs (rowsReceivingBar is the per-bar inverse).
+ */
+export function rowsReceivingLane(rows: any[], lane: EffectLane): Set<string> {
+  const ids = new Set<string>();
+  if (lane.kind !== 'buff') return ids;
+  rows.forEach(row => {
+    if (row?.id && (row.damageInstances || []).some((hit: any) => hit.data?.activeBuffs?.[lane.id])) ids.add(row.id);
+  });
+  if (ids.size > 0) return ids;
+  rows.forEach(row => {
+    if (!row?.id || !row.unit) return;
+    const start = row.gameTimeStart ?? 0;
+    if (lane.bars.some(bar => (bar.info.target === 'Enemy' || row.unit === bar.info.target) && start >= bar.startFrames && start < bar.endFrames)) ids.add(row.id);
+  });
+  return ids;
+}
+
 // "Self" / "Team -> Sanhua" / "Next -> Lumi": the selector a buff was applied with, and where it
 // landed when that isn't obvious from the selector.
 export function describeAppliesTo(info: EffectInfo): string {

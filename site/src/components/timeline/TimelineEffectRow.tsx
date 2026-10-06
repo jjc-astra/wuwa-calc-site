@@ -1,9 +1,9 @@
-import React, { useRef } from 'react';
+import React, { useLayoutEffect, useRef } from 'react';
 import { TooltipManager, tip, escapeHtml, tooltipLine as line, formatNum as formatValue, getCharacterThemeColor } from '../../utils/Common';
 import { DataLoader } from '../../utils/DataLoader';
 import { buildClipTooltipHtml } from './TimelineClip';
 import { formatFramesAsSeconds, framesToSeconds, secondsToFrames, toFrames } from '../../utils/Frames';
-import { EFFECT_BAR_INSET_PX, EFFECT_ROW_HEIGHT_PX, describeAppliesTo, pointLabelFits, rowsReceivingBar } from './effectLayout';
+import { EFFECT_BAR_INSET_PX, EFFECT_ROW_HEIGHT_PX, describeAppliesTo, pointLabelFits, rowsReceivingBar, rowsReceivingLane } from './effectLayout';
 import { useLinkedRowStore } from '../../store/useLinkedRowStore';
 import { nearestMarker, trackPointer, useActiveMarker, useFrameMove } from './trackPointer';
 import type { EffectAction, EffectBar, EffectLane, EffectPoint } from './effectLayout';
@@ -85,9 +85,35 @@ export const TimelineEffectRow = React.memo<TimelineEffectRowProps>(({ lane, nes
   const hoverLinked = (target: EffectBar | EffectAction | undefined) => {
     if (!linkRows || target === linked.current) return;
     linked.current = target;
-    const ids = !target ? [] : 'row' in target ? (target.row?.id ? [target.row.id] : []) : rowsReceivingBar(linkRows, lane, target);
-    hover(ids, 'timeline', false);
+    // An instant System move links like a unit's move (the table scrolls to it); a buff's rows don't scroll.
+    if (target && 'row' in target) return hover(target.row?.id ? [target.row.id] : [], 'timeline');
+    hover(target ? rowsReceivingBar(linkRows, lane, target) : [], 'timeline', false);
   };
+
+  // A move hovered (in the table, or its clip here): each buff row it received is highlighted,
+  // name and background (rowsReceivingLane). Toggled on the DOM, like TimelineRow's linked clips.
+  const trackRef = useRef<HTMLDivElement>(null);
+  const rowRef = useRef<HTMLDivElement>(null);
+  // Built on first use.
+  const receivedBy = useRef<{ lane: EffectLane; rows: any[]; ids: Set<string> } | null>(null);
+  useLayoutEffect(() => {
+    if (!linkRows) return;
+    const received = (rowIds: string[]): boolean => {
+      if (receivedBy.current?.lane !== lane || receivedBy.current.rows !== linkRows) {
+        receivedBy.current = { lane, rows: linkRows, ids: rowsReceivingLane(linkRows, lane) };
+      }
+      return rowIds.some(id => receivedBy.current!.ids.has(id));
+    };
+    const apply = ({ rowIds, source, scroll }: ReturnType<typeof useLinkedRowStore.getState>) => {
+      // A buff's rows (scroll: false) are what's hovered there, not a move.
+      const moveIds = source === 'table' || (source === 'timeline' && scroll) ? rowIds : [];
+      rowRef.current?.classList.toggle('is-linked', moveIds.length > 0 && lane.kind === 'buff' && received(moveIds));
+      trackRef.current?.querySelectorAll<HTMLElement>('[data-row-id]').forEach(el =>
+        el.classList.toggle('is-linked', moveIds.includes(el.dataset.rowId!)));
+    };
+    apply(useLinkedRowStore.getState());
+    return useLinkedRowStore.subscribe((s, prev) => { if (s !== prev) apply(s); });
+  });
 
   // Snap targets: stack/value changes after a bar's start, and hits.
   const markers = [
@@ -136,13 +162,14 @@ export const TimelineEffectRow = React.memo<TimelineEffectRowProps>(({ lane, nes
 
   return (
     <div
+      ref={rowRef}
       className={`timeline-row timeline-effect-row timeline-effect-${lane.kind}${nested ? ' is-nested' : ''}`}
       style={{ height: EFFECT_ROW_HEIGHT_PX, '--char-theme-raw': lane.color } as React.CSSProperties}
     >
       <div className="timeline-row-header" style={{ width: 'var(--timeline-header-width)' }}>
         <span className="timeline-effect-label" {...tip(escapeHtml(lane.fullName))}>{lane.label}</span>
       </div>
-      <div className="timeline-row-track" onMouseMove={move.onMove} onMouseLeave={handleLeave}>
+      <div ref={trackRef} className="timeline-row-track" onMouseMove={move.onMove} onMouseLeave={handleLeave}>
         {lane.bars.map((bar, i) => (
           <div
             key={`bar-${i}`}
@@ -165,6 +192,7 @@ export const TimelineEffectRow = React.memo<TimelineEffectRowProps>(({ lane, nes
         {lane.actions.map((action, i) => (
           <div
             key={`action-${i}`}
+            data-row-id={action.row?.id}
             className="timeline-clip timeline-clip-onfield"
             style={{
               left: action.xPx - ACTION_WIDTH_PX / 2, width: ACTION_WIDTH_PX, top: EFFECT_BAR_INSET_PX, bottom: EFFECT_BAR_INSET_PX,
