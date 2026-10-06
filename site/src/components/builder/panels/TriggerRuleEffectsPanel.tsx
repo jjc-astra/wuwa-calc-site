@@ -435,6 +435,8 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
                   ]}
                 />
                 <TextField label="Resource Value" {...bind('val')} placeholder="Amount (e.g. 10 or -5)" />
+                {/* Tune is the enemy's pool, so it has no unit to target. */}
+                {draft.name !== 'tune' && <AutoField label="Target Entity" mode="eff-target" {...bind('target')} />}
               </div>
             )}
 

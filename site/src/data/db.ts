@@ -103,8 +103,8 @@ export const STAT_NAME_MAP: Record<string, string> = {
   'Heavy DMG': 'heavyDmgBonus',
   'Lib DMG': 'libDmgBonus',
   'Tune Break Boost': 'tuneBreakBoost',
-  'Off-Tune Buildup Rate': 'offTuneBuildupRate',
-  'Forte Buildup Rate': 'forteBuildupRate',
+  'Off-Tune Buildup Rate': "offTuneBuildupRate",
+  'Forte Buildup Rate': "forteBuildupRate",
   ...Object.fromEntries(ELEMENTS.map(element => [`${element} DMG`, elementBonusKey(element)]))
 };
 
@@ -239,11 +239,11 @@ export const SHEET_STAT_TOOLTIPS: Record<string, string> = {
   'DEF %': "Percentage increase to DEF, added to the character's base DEF contribution.",
   'CR Rate': 'Critical Rate — chance for a hit to crit.',
   'CR DMG': 'Critical DMG — bonus damage multiplier applied on a crit.',
-  'ER %': 'Energy Regen — increases Resonance Energy generated per hit/action.',
+  'ER %': 'Energy Regen — increases Resonance Energy generated per hit/action (not Energy granted by effects).',
   'Healing Bonus': 'Increases the amount healed by healing effects.',
   'Tune Break Boost': "Flat Tune Break Boost, added to the character's base (read with @Self.Stat(tuneBreakBoost)).",
-  'Off-Tune Buildup Rate': 'Rate this unit builds up Off-Tune (Tune) on the enemy. Base 100%, like Energy Regen; a buff adds to it.',
-  'Forte Buildup Rate': 'Rate this unit gains every Forte resource. Base 100%, like Energy Regen; a buff adds to it.'
+  'Off-Tune Buildup Rate': "Rate this unit builds up Off-Tune (Tune) on the enemy from its moves' casts and hits (not effects). Base 100%, like Energy Regen; a buff adds to it.",
+  'Forte Buildup Rate': "Rate this unit gains every Forte resource from its moves' casts and hits (not effects). Base 100%, like Energy Regen; a buff adds to it."
 };
 
 // The sheet stats a Stat Modifier effect offers, in the order above.

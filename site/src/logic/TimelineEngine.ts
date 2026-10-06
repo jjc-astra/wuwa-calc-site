@@ -1035,7 +1035,7 @@ export class TimelineEngineClass {
           const amount = (Array.isArray(resArray) && resArray.length > nextHit.hitIndex) ? resArray[nextHit.hitIndex] : 0;
           if (amount !== 0) {
             const targetSelector = resKey === 'energy' ? '@Team' : '@Self';
-            this._processEffect({ type: 'resource', name: resKey, value: amount, target: targetSelector, provider: nextHit.origin.caster }, currentData, nextHit.origin.caster, activeTeam, activeRows, currentData.arrayIndex, team);
+            this._processEffect({ type: 'resource', name: resKey, value: amount, target: targetSelector, provider: nextHit.origin.caster, rateScaled: true }, currentData, nextHit.origin.caster, activeTeam, activeRows, currentData.arrayIndex, team);
           }
         }
       }
@@ -1288,26 +1288,32 @@ export class TimelineEngineClass {
   }
 
   // Every Energy gain and spend is logged on the row it happens in, in order, for Results'
-  // required-ER analysis: a gain with its amount before Energy Regen and the unit's Energy Regen %
-  // at that moment (buffs included), a spend with its amount.
-  _gainEnergy(currentData: any, unit: string, base: number, team: any[]): void {
+  // required-ER analysis: a scaled gain with its amount before Energy Regen and the unit's Energy
+  // Regen % at that moment (buffs included), a flat gain with its amount, a spend with its amount.
+  _gainEnergy(currentData: any, unit: string, base: number, team: any[], scaled: boolean): void {
+    if (!scaled) {
+      (currentData.energyLog ??= []).push({ unit, flatGain: base });
+      addResource(currentData, 'energy', unit, base, resourceCap(unit, 'energy'));
+      return;
+    }
     const erPct = energyRegenPct(currentData, unit, team);
     (currentData.energyLog ??= []).push({ unit, gain: base, erPct });
     addResource(currentData, 'energy', unit, base * (erPct / 100), resourceCap(unit, 'energy'));
   }
 
-  // A non-Energy resource change caused by `unit`: gains scale by its buildup rate for that
-  // resource (Off-Tune / Forte Buildup Rate), spends don't.
-  _changeResource(currentData: any, key: string, unit: string, amount: number, team: any[]): void {
-    const scaled = amount > 0 ? amount * buildupRateMult(currentData, unit, key, team) : amount;
-    addResource(currentData, key, unit, scaled, resourceCap(unit, key));
+  // A non-Energy resource change caused by `unit`: scaled gains are multiplied by its buildup rate
+  // for that resource (Off-Tune / Forte Buildup Rate); flat gains and spends aren't.
+  _changeResource(currentData: any, key: string, unit: string, amount: number, team: any[], scaled: boolean): void {
+    const value = scaled && amount > 0 ? amount * buildupRateMult(currentData, unit, key, team) : amount;
+    addResource(currentData, key, unit, value, resourceCap(unit, key));
   }
 
   // One unit's resource change: Energy gains through _gainEnergy, Energy spends logged, the rest
-  // through _changeResource.
-  _applyUnitResource(currentData: any, key: string, unit: string, amount: number, team: any[]): void {
-    if (key !== 'energy') return this._changeResource(currentData, key, unit, amount, team);
-    if (amount > 0) return this._gainEnergy(currentData, unit, amount, team);
+  // through _changeResource. `scaled`: a move's own cast/hit resources, which Energy Regen and
+  // buildup rates apply to; resources granted by effects are flat.
+  _applyUnitResource(currentData: any, key: string, unit: string, amount: number, team: any[], scaled: boolean): void {
+    if (key !== 'energy') return this._changeResource(currentData, key, unit, amount, team, scaled);
+    if (amount > 0) return this._gainEnergy(currentData, unit, amount, team, scaled);
     if (amount < 0) (currentData.energyLog ??= []).push({ unit, spend: -amount });
     addResource(currentData, key, unit, amount, resourceCap(unit, key));
   }
@@ -1319,7 +1325,7 @@ export class TimelineEngineClass {
       // Energy a move grants goes to the whole team, each scaled by their own Energy Regen;
       // spending it is the caster's alone.
       const units = key === 'energy' && amount > 0 ? activeTeam : [currentData.unit];
-      units.forEach(unit => this._applyUnitResource(currentData, key, unit, amount, team));
+      units.forEach(unit => this._applyUnitResource(currentData, key, unit, amount, team, true));
     }
   }
 
@@ -1605,9 +1611,11 @@ export class TimelineEngineClass {
     const amt = parseFloat(String(resolvedEffect.value || '0')) || 0;
     const resKey = resolvedEffect.name;
     if (!resKey) return;
+    // Only a hit's own resources (rateScaled) scale by Energy Regen / buildup rate; an effect's are flat.
+    const scaled = resolvedEffect.rateScaled === true;
     // The enemy's pool, built up at the rate of whoever caused it.
-    if (isEnemyResource(resKey)) return this._changeResource(currentData, resKey, resolvedEffect.provider || currentData.unit, amt, team);
-    targetUnits.forEach(tName => this._applyUnitResource(currentData, resKey, tName, amt, team));
+    if (isEnemyResource(resKey)) return this._changeResource(currentData, resKey, resolvedEffect.provider || currentData.unit, amt, team, scaled);
+    targetUnits.forEach(tName => this._applyUnitResource(currentData, resKey, tName, amt, team, scaled));
   }
 
   _handleBuffActionEffect(effect: Effect, currentData: any, targetUnits: string[], activeTeam: string[], activeRows: any[], team: any[]): void {

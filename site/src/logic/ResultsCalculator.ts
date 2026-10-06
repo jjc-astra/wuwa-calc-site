@@ -557,6 +557,11 @@ function buildEnergyRequirements(
     rows.forEach(row => {
       (row?.energyLog || []).forEach((entry: any) => {
         if (entry.unit !== unit) return;
+        // Effect-granted Energy: the same at any Energy Regen.
+        if (entry.flatGain > 0) {
+          have += entry.flatGain;
+          return;
+        }
         if (entry.gain > 0) {
           base += entry.gain;
           buffWeighted += entry.gain * (entry.erPct - current);

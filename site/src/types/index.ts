@@ -114,6 +114,9 @@ export interface Effect {
   isPaused?: boolean;
   maxDuration?: number;
   durations?: number[];
+  // A resource effect made from a move's hitResources: scaled by Energy Regen / buildup rate.
+  // Every other resource effect is a flat amount.
+  rateScaled?: boolean;
   [key: string]: any;
 }
 
