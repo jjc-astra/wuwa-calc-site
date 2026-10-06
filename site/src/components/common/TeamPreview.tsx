@@ -1,4 +1,4 @@
-// Mini character + weapon avatar row: the roster's collapsed header, Rankings and History rows.
+// Mini character + weapon (+ echo set) avatar row: the roster's collapsed header, Rankings and History rows.
 import React from 'react';
 import { CommonUtils, getCharacterThemeColor, tip } from '../../utils/Common';
 import { useImageStatus } from '../../hooks/useImageStatus';
@@ -28,10 +28,12 @@ const PreviewIcon: React.FC<{ name: string; folder: ImageFolder }> = ({ name, fo
 };
 
 interface TeamPreviewProps {
-  team: Array<Pick<TeamSlot, 'character' | 'sequence' | 'weapon' | 'rank'>>;
+  team: Array<Pick<TeamSlot, 'character' | 'sequence' | 'weapon' | 'rank'> & Partial<Pick<TeamSlot, 'mainSet'>>>;
+  // Adds each slot's main echo set.
+  showSets?: boolean;
 }
 
-export const TeamPreview: React.FC<TeamPreviewProps> = ({ team }) => (
+export const TeamPreview: React.FC<TeamPreviewProps> = ({ team, showSets = false }) => (
   <>
     {team.map((slot, i) => {
       const themeColor = getCharacterThemeColor(slot.character ? DataLoader.characterDB[slot.character] : undefined);
@@ -54,6 +56,15 @@ export const TeamPreview: React.FC<TeamPreviewProps> = ({ team }) => (
             )}
           </div>
           <span className="preview-badge">R{slot.rank || 1}</span>
+          {showSets && (
+            <div className="preview-avatar preview-circle preview-avatar-wrap preview-set" {...tip(slot.mainSet || 'No Echo Set')}>
+              {slot.mainSet ? (
+                <PreviewIcon name={slot.mainSet} folder={IMAGE_FOLDERS.ECHO_SETS} />
+              ) : (
+                <span className="preview-char-initial">?</span>
+              )}
+            </div>
+          )}
         </div>
       );
     })}

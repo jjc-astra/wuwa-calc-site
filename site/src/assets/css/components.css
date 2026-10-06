@@ -526,7 +526,8 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     object-fit: cover; opacity: 0; transition: opacity 0.2s;
     z-index: 10; background: var(--bg-card);
 }
-.preview-badge { color: color-mix(in srgb, var(--row-accent) 50%, white); font-size: 0.6875rem; font-weight: bold; }
+.preview-set .preview-img-abs { object-fit: contain; background: transparent; }
+.preview-badge { color: color-mix(in srgb, var(--row-accent) 50%, white); font-size: 0.6875rem; font-weight: bold; font-variant-numeric: tabular-nums; }
 
 /* --- Tooltip --- */
 .global-tooltip {

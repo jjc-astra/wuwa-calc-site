@@ -72,7 +72,7 @@ return (
         <span className={`ranking-row-expand-icon ${isExpanded ? 'is-open' : ''}`}>▶</span>
         <div className="ranking-row-rank">{rank}</div>
         <div className="ranking-row-icons">
-          <TeamPreview team={rosterOf(entry, results)} />
+          <TeamPreview team={rosterOf(entry, results)} showSets />
         </div>
         <div className="ranking-row-main">
           <div className="ranking-row-label-line">

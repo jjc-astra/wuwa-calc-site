@@ -7,6 +7,10 @@ import { usePositionedSelectPopup } from '../../hooks/usePositionedSelectPopup';
 
 export interface IconSelectOption {
   value: string;
+  // Shown in place of `value` (e.g. when values are ids rather than names).
+  label?: string;
+  // Icon name, when it isn't `value`.
+  icon?: string;
   disabled?: boolean;
   disabledTooltip?: string;
 }
@@ -42,7 +46,7 @@ export const IconSelect: React.FC<IconSelectProps> = ({
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const filteredOptions = searchable && searchTerm.trim()
-    ? options.filter(o => o.value.toLowerCase().includes(searchTerm.trim().toLowerCase()))
+    ? options.filter(o => (o.label ?? o.value).toLowerCase().includes(searchTerm.trim().toLowerCase()))
     : options;
 
   const selectOption = (opt: IconSelectOption) => {
@@ -60,7 +64,7 @@ export const IconSelect: React.FC<IconSelectProps> = ({
     activeOptionSelector: '.icon-select-option.is-active',
     findInitialActiveIndex: () => filteredOptions.findIndex(o => o.value === value),
     // Search box replaces letter-by-letter typeahead -- see the activeIndex reset below instead.
-    findTypeaheadMatch: term => (searchable ? -1 : filteredOptions.findIndex(o => o.value.toLowerCase().startsWith(term))),
+    findTypeaheadMatch: term => (searchable ? -1 : filteredOptions.findIndex(o => (o.label ?? o.value).toLowerCase().startsWith(term))),
     onSelectIndex: index => selectOption(filteredOptions[index])
   });
 
@@ -118,8 +122,8 @@ export const IconSelect: React.FC<IconSelectProps> = ({
               onMouseDown={e => e.preventDefault()}
               onClick={() => selectOption(opt)}
             >
-              <AvatarIcon name={opt.value} folder={iconFolder} className={avatarClass} />
-              <span className="icon-select-option-label">{opt.value}</span>
+              <AvatarIcon name={opt.icon ?? opt.value} folder={iconFolder} className={avatarClass} />
+              <span className="icon-select-option-label">{opt.label ?? opt.value}</span>
             </div>
           ))}
         </div>,

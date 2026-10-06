@@ -68,10 +68,10 @@
 .guide-config-slots {
     display: grid;
     /* Unit (avatar, name, S) sized to the team's longest, up to half the panel; weapon takes the rest. */
-    grid-template-columns: fit-content(50%) minmax(0, 1fr) auto;
+    grid-template-columns: fit-content(50%) minmax(0, 1fr) auto auto;
     gap: var(--space-2);
 }
-/* One line per member: avatar, name, S, weapon, R -- columns shared across rows via subgrid. */
+/* One line per member: avatar, name, S, weapon, R, set -- columns shared across rows via subgrid. */
 .guide-config-slot {
     display: grid;
     grid-column: 1 / -1;
@@ -93,6 +93,12 @@
 .guide-config-slot-weapon .avatar { flex-shrink: 0; }
 /* .dropdown is display: contents, so the trigger itself is the flex item to size. */
 .guide-mini-select { width: 3.25rem; flex: none; }
+/* Icon-only set picker. */
+.guide-config-slot .icon-select:has(.guide-set-select) { width: auto; }
+/* No vertical padding, icon sized to the other dropdowns' height so the underlines line up. */
+.guide-set-select { padding-top: 0; padding-bottom: 0; }
+.guide-set-select .avatar-sm { width: 1.45rem; height: 1.45rem; }
+.guide-set-select:disabled { opacity: 1; cursor: default; }
 
 /* --- Results + timeline --- */
 /* Left: config + its results. Right: comparisons, split 50/50. Stacks to one column when the

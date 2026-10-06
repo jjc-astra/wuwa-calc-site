@@ -354,13 +354,38 @@ function echoDefs(group: GuideTeamGroup, config: GuideConfig, unitIdx: number, s
 
 const setNameOf = (slot: RosterSlot): string => slotSets(slot).join(' + ') || 'No set';
 
-export interface EchoSetDef {
-  key: string;
+// A set build a team slot was submitted with.
+export interface SetBuildOption {
   signature: string;
   label: string;
-  // Set + main echo, for the label's tooltip.
+  // Set + main echo, for tooltips.
   detail: string;
   mainSet: string;
+}
+
+// Every set build `unitIdx` was submitted with on this team, in submission order. Labels name the
+// main echo when two builds share a set.
+export function setBuildOptions(group: GuideTeamGroup, unitIdx: number): SetBuildOption[] {
+  const bySignature = new Map<string, SetBuildOption>();
+  for (const entry of group.entries) {
+    const slot = entry.team[unitIdx];
+    const signature = setSignatureOf(slot);
+    if (bySignature.has(signature)) continue;
+    const label = setNameOf(slot);
+    bySignature.set(signature, { signature, label, detail: [label, slot.mainEcho].filter(Boolean).join(' · '), mainSet: slot.mainSet });
+  }
+  const options = Array.from(bySignature.values());
+  const labelCounts = new Map<string, number>();
+  options.forEach(o => labelCounts.set(o.label, (labelCounts.get(o.label) || 0) + 1));
+  options.forEach(o => { if ((labelCounts.get(o.label) || 0) > 1) o.label = o.detail; });
+  return options;
+}
+
+// The set build a job's team runs for a slot.
+export const setSignatureOfJob = (job: GuideJob, unitIdx: number): string => setSignatureOf(job.team[unitIdx]);
+
+export interface EchoSetDef extends SetBuildOption {
+  key: string;
   job: GuideJob;
   isCurrent: boolean;
 }
@@ -368,35 +393,17 @@ export interface EchoSetDef {
 // One row per set build this team was submitted with, each run from that set's own submission
 // with the rest of the selection applied. Empty for a single set build.
 function echoSetDefs(group: GuideTeamGroup, config: GuideConfig, unitIdx: number, selectedJob: GuideJob): EchoSetDef[] {
-  const bySignature = new Map<string, GuideEntry[]>();
-  for (const entry of group.entries) {
-    const signature = setSignatureOf(entry.team[unitIdx]);
-    bySignature.set(signature, [...(bySignature.get(signature) || []), entry]);
-  }
-  if (bySignature.size < 2) return [];
+  const options = setBuildOptions(group, unitIdx);
+  if (options.length < 2) return [];
 
-  const currentSignature = setSignatureOf(selectedJob.team[unitIdx]);
-  const defs = Array.from(bySignature, ([signature, entries]) => {
-    const isCurrent = signature === currentSignature;
-    const job = isCurrent ? selectedJob : jobForConfig(group, withSlot(config, unitIdx, { setSignature: signature }));
-    const slot = entries[0].team[unitIdx];
-    return {
-      key: `set:${signature}`,
-      signature,
-      label: setNameOf(slot),
-      detail: [setNameOf(slot), slot.mainEcho].filter(Boolean).join(' · '),
-      mainSet: slot.mainSet,
-      job,
-      isCurrent
-    };
-  });
-
-  // Name the main echo when two rows share a set.
-  const labelCounts = new Map<string, number>();
-  defs.forEach(d => labelCounts.set(d.label, (labelCounts.get(d.label) || 0) + 1));
-  defs.forEach(d => { if ((labelCounts.get(d.label) || 0) > 1) d.label = d.detail; });
-
-  return defs.sort((a, b) => Number(b.isCurrent) - Number(a.isCurrent));
+  const currentSignature = setSignatureOfJob(selectedJob, unitIdx);
+  return options
+    .map(option => {
+      const isCurrent = option.signature === currentSignature;
+      const job = isCurrent ? selectedJob : jobForConfig(group, withSlot(config, unitIdx, { setSignature: option.signature }));
+      return { ...option, key: `set:${option.signature}`, job, isCurrent };
+    })
+    .sort((a, b) => Number(b.isCurrent) - Number(a.isCurrent));
 }
 
 // --- Views --------------------------------------------------------------------------------

@@ -25,12 +25,12 @@ import { EchoStatsPanel } from './EchoStatsPanel';
 import { SequenceComparison, WeaponComparison, EchoComparison } from './GuideComparisons';
 import {
   FULL_RANK_RANGE, groupTeams, defaultConfig, configFromEntry, findGroupFor, weaponsForUnit,
-  guideView, isValidConfig
+  guideView, isValidConfig, setBuildOptions, setSignatureOfJob
 } from './guideModel';
 import { useGuideSelectionStore } from '../../store/useGuideSelectionStore';
 import { selectableOptions } from '../../utils/selectableContent';
 import type { GuideSelection } from '../../store/useGuideSelectionStore';
-import type { GuideConfig, GuideMetric, GuideScope, GuideTeamGroup, GuideEntry } from './guideModel';
+import type { GuideConfig, GuideJob, GuideMetric, GuideScope, GuideTeamGroup, GuideEntry } from './guideModel';
 import { useGuideFullCalc, useGuideSummaries, useGuideEntries, useGuideCache } from './useGuideCalc';
 import { warmWorkerPool } from '../../workers/calcWorkerClient';
 
@@ -218,6 +218,7 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
             <GuideConfigPanel
               group={group}
               config={config}
+              selectedJob={selectedJob}
               isDefault={isDefaultConfig}
               onSlotChange={updateSlot}
               onReset={() => setPicked(null)}
@@ -332,6 +333,8 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
 interface GuideConfigPanelProps {
   group: GuideTeamGroup;
   config: GuideConfig;
+  // The submission the config runs, for the sets it shows.
+  selectedJob: GuideJob;
   isDefault: boolean;
   onSlotChange: (slotIdx: number, patch: Partial<GuideConfig['slots'][number]>) => void;
   onReset: () => void;
@@ -341,7 +344,7 @@ const SEQUENCE_OPTIONS = Array.from({ length: SIM_CONSTANTS.MAX_SEQUENCE + 1 }, 
 const RANK_OPTIONS = Array.from({ length: SIM_CONSTANTS.MAX_RANK }, (_, r) => ({ value: String(r + 1), label: `R${r + 1}` }));
 
 // The selected team's investment. Other teams are picked from the Rankings below (Show in Guide).
-const GuideConfigPanel: React.FC<GuideConfigPanelProps> = ({ group, config, isDefault, onSlotChange, onReset }) => {
+const GuideConfigPanel: React.FC<GuideConfigPanelProps> = ({ group, config, selectedJob, isDefault, onSlotChange, onReset }) => {
   const team = group.entries[0].team;
 
   return (
@@ -360,6 +363,8 @@ const GuideConfigPanel: React.FC<GuideConfigPanelProps> = ({ group, config, isDe
         {team.map((slot, i) => {
           if (!slot.character) return null;
           const choice = config.slots[i];
+          const setOptions = setBuildOptions(group, i);
+          const currentSet = setOptions.find(o => o.signature === setSignatureOfJob(selectedJob, i));
           const themeColor = getCharacterThemeColor(DataLoader.characterDB[slot.character]);
           return (
             <div key={i} className="guide-config-slot" style={{ '--char-theme-raw': themeColor } as React.CSSProperties}>
@@ -390,6 +395,19 @@ const GuideConfigPanel: React.FC<GuideConfigPanelProps> = ({ group, config, isDe
                 value={String(choice.rank)}
                 options={RANK_OPTIONS}
                 onChange={v => onSlotChange(i, { rank: Number(v) })}
+              />
+              {/* Only the set builds this unit was submitted with on this team. */}
+              <IconSelect
+                value={currentSet?.signature ?? ''}
+                options={setOptions.map(o => ({ value: o.signature, label: o.label, icon: o.mainSet }))}
+                onChange={setSignature => onSlotChange(i, { setSignature })}
+                iconFolder={IMAGE_FOLDERS.ECHO_SETS}
+                iconShape="circle"
+                placeholder="Echo Set"
+                className="base-select guide-set-select"
+                disabled={setOptions.length < 2}
+                triggerContent={<AvatarIcon name={currentSet?.mainSet ?? ''} folder={IMAGE_FOLDERS.ECHO_SETS} className="avatar-sm" />}
+                triggerTooltip={currentSet?.detail ?? 'Echo Set'}
               />
             </div>
           );
