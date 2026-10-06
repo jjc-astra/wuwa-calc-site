@@ -121,6 +121,19 @@ export const RotationStyleToggle: React.FC<RankingFilterToolbarProps> = ({ filte
   />
 );
 
+/** All rotations, or only the best per team + sequences. */
+export const BestOnlyToggle: React.FC<RankingFilterToolbarProps> = ({ filters, onChange }) => (
+  <SegmentedToggle
+    ariaLabel="Best rotation only"
+    value={filters.bestOnly ? 'best' : 'all'}
+    onChange={which => onChange({ ...filters, bestOnly: which === 'best' })}
+    options={[
+      { value: 'all', label: 'All' },
+      { value: 'best', label: 'Best Only' }
+    ]}
+  />
+);
+
 /** The Rankings filters: slot sequences, rotation style, element and damage category. */
 export const RankingFilterToolbar: React.FC<RankingFilterToolbarProps> = ({ filters, onChange }) => {
   return (
@@ -132,15 +145,7 @@ export const RankingFilterToolbar: React.FC<RankingFilterToolbarProps> = ({ filt
       <RotationStyleToggle filters={filters} onChange={onChange} />
       {/* Grouped with Rotation Type, not DMG Type -- both describe the rotation itself, applied
           last in RotationRankingsPage's filter order regardless of position here. */}
-      <SegmentedToggle
-        ariaLabel="Best rotation only"
-        value={filters.bestOnly ? 'best' : 'all'}
-        onChange={which => onChange({ ...filters, bestOnly: which === 'best' })}
-        options={[
-          { value: 'all', label: 'All' },
-          { value: 'best', label: 'Best Only' }
-        ]}
-      />
+      <BestOnlyToggle filters={filters} onChange={onChange} />
 
       <div className="panel-header-tiny">DMG Type</div>
       <div className="ranking-dmgtype-columns">
