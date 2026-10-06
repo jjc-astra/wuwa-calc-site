@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import { CommonUtils, TooltipManager } from '../../utils/Common';
 import { IMAGE_FOLDERS } from '../../data/db';
 import { TimelineClip, buildClipTooltipHtml } from './TimelineClip';
-import { ROW_HEIGHT_PX, CLIP_INSET_PX, simultaneousLineHeightPx } from './timelineLayout';
+import { ROW_HEIGHT_PX, CLIP_INSET_PX, simultaneousLineHeightPx, pxToCompressedTime } from './timelineLayout';
 import { nearestMarker, trackPointer, useActiveMarker, useFrameMove } from './trackPointer';
 import type { UnitRowData } from './timelineLayout';
 import { useLinkedRowStore, scrollIntoContainer } from '../../store/useLinkedRowStore';
@@ -54,7 +54,7 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({ data, expander, linked
       const at = pointer.toClient(dot.xPx, dot.yPx);
       markActive(e.currentTarget.querySelector(`[data-dot="${nearest}"]`));
       hoverRow(dot.row);
-      TooltipManager.showAtPoint(at.x, at.y, buildClipTooltipHtml({ type: 'onfield', row: dot.row }, dot.hitNumber, data.withSystemHits));
+      TooltipManager.showAtPoint(at.x, at.y, buildClipTooltipHtml({ type: 'onfield', row: dot.row }, dot.gameTime, dot.hitNumber, data.withSystemHits));
       return;
     }
 
@@ -63,7 +63,7 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({ data, expander, linked
     const inClipBand = pointer.y >= CLIP_INSET_PX && pointer.y <= ROW_HEIGHT_PX - CLIP_INSET_PX;
     const segment = inClipBand ? [...data.segments].reverse().find(s => pointer.x >= s.xPx && pointer.x < s.xPx + s.widthPx) : undefined;
     hoverRow(segment?.row);
-    if (segment) TooltipManager.showAtPoint(e.clientX, e.clientY, buildClipTooltipHtml(segment, undefined, data.withSystemHits));
+    if (segment) TooltipManager.showAtPoint(e.clientX, e.clientY, buildClipTooltipHtml(segment, pxToCompressedTime(pointer.x, data.compression), undefined, data.withSystemHits));
     else TooltipManager.hide();
    });
 

@@ -11,38 +11,40 @@ interface TimelineClipProps {
   segment: TimelineSegment;
 }
 
-// "Hit #n: x dmg" per hit, with `activeHit` (1-based) highlighted.
-function buildHitLinesHtml(row: any, activeHit: number | undefined, withSystemHits: boolean): string {
-  const hits = rowHits(row, withSystemHits);
-  if (hits.length === 0) return '';
-  const lines = hits.map((hit, i) => {
+// "Hit #n: x dmg" per hit, or only hit `onlyHit` (1-based).
+function buildHitLinesHtml(row: any, onlyHit: number | undefined, withSystemHits: boolean): string {
+  const lines = rowHits(row, withSystemHits).flatMap((hit, i) => {
+    if (onlyHit !== undefined && i + 1 !== onlyHit) return [];
     // A proc names its mechanic, e.g. "[Proc] Forte Detonate (Hit 2)" -> "(Forte Detonate)".
     const proc = typeof hit.title === 'string' && hit.title.startsWith('[Proc] ')
       ? ` (${hit.title.slice(7).replace(/ \(Hit \d+\)$/, '')})`
       : '';
-    const cls = i + 1 === activeHit ? 'timeline-tooltip-hit is-active' : 'timeline-tooltip-hit';
-    return `<div class="${cls}"><span class="tooltip-key">Hit #${i + 1}${proc}:</span> <span class="tooltip-val">${Math.floor(hit.total || 0).toLocaleString()} dmg</span></div>`;
+    return [`<div class="timeline-tooltip-hit"><span class="tooltip-key">Hit #${i + 1}${proc}:</span> <span class="tooltip-val">${Math.floor(hit.total || 0).toLocaleString()} dmg</span></div>`];
   });
-  return `<div class="timeline-tooltip-hits">${lines.join('')}</div>`;
+  return lines.length > 0 ? `<div class="timeline-tooltip-hits">${lines.join('')}</div>` : '';
 }
 
-/** Tooltip for a row's clip, or for one of its hit dots (`activeHit`). */
+/** Tooltip for a row's clip at game time `atFrames` (the cursor's, or a snapped hit's), listing
+ * only hit `onlyHit` (1-based) when snapped to its dot. */
 export function buildClipTooltipHtml(
   { type, row, pause }: Pick<TimelineSegment, 'type' | 'row' | 'pause'>,
-  activeHit?: number,
+  atFrames: number,
+  onlyHit?: number,
   withSystemHits = true
 ): string {
+  const at = tooltipLine('At', seconds(atFrames));
   if (type === 'motionstop' && pause) {
     return (
       `<div>Motion Stop</div>` +
       tooltipLine('Paused by', `${pause.by} (${pause.moveName})`) +
       tooltipLine('Paused', seconds(pause.frames)) +
-      tooltipLine('Move', row.moveName)
+      tooltipLine('Move', row.moveName) +
+      at
     );
   }
   if (type === 'wait') {
     const reason = row.waitTime === row.cdWaitTime ? 'Waiting for Skill CD' : 'Off-Field Animation Lock';
-    return `<div>${reason}</div>` + tooltipLine('Wait', seconds(row.waitTime));
+    return `<div>${reason}</div>` + tooltipLine('Wait', seconds(row.waitTime)) + at;
   }
   return (
     `<div>${row.moveName}${type === 'offfield' ? ' (off-field)' : ''}</div>` +
@@ -50,7 +52,8 @@ export function buildClipTooltipHtml(
     tooltipLine('Duration', seconds(row.duration)) +
     tooltipLine('Timing', timingLabel(row)) +
     tooltipLine('Input', describeInput(row)) +
-    buildHitLinesHtml(row, activeHit, withSystemHits)
+    at +
+    buildHitLinesHtml(row, onlyHit, withSystemHits)
   );
 }
 

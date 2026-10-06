@@ -3,7 +3,7 @@
 import { getCharacterThemeColor, uiScale } from '../../utils/Common';
 import { DataLoader } from '../../utils/DataLoader';
 import { INPUT_KEY_MAP } from '../../data/db';
-import { FPS, toFrames, framesToSeconds } from '../../utils/Frames';
+import { FPS, toFrames, framesToSeconds, secondsToFrames } from '../../utils/Frames';
 import { loopEndIndexOf, rowGameEnd } from '../../logic/rotationRows';
 import { SYSTEM_NAMESPACE } from '../../utils/MechanicKey';
 import type { TeamSlot } from '../../types';
@@ -127,6 +127,18 @@ export function compressedTimeToPx(frames: number, compression: TimeCompression 
   return gapStartPx + frac * compressedWidthPx;
 }
 
+// Inverse of compressedTimeToPx: the game time (frames) at an x position. Inside the compressed
+// band, interpolated across the gap.
+export function pxToCompressedTime(px: number, compression: TimeCompression | null): number {
+  const pxToTime = (x: number) => secondsToFrames(Math.max(0, x) / PX_PER_SECOND);
+  if (!compression) return pxToTime(px);
+  const { gapStartFrames, gapEndFrames, compressedWidthPx } = compression;
+  const gapStartPx = timeToPx(gapStartFrames);
+  if (px <= gapStartPx) return pxToTime(px);
+  if (px < gapStartPx + compressedWidthPx) return gapStartFrames + ((px - gapStartPx) / compressedWidthPx) * (gapEndFrames - gapStartFrames);
+  return pxToTime(px - compressedWidthPx + (timeToPx(gapEndFrames) - gapStartPx));
+}
+
 export type SegmentType = 'onfield' | 'offfield' | 'wait' | 'motionstop';
 
 // Another unit's motion stop pausing this row's move (TimelineEngine._applyMotionStop).
@@ -159,6 +171,8 @@ export interface HitDot {
   row: any;
   // 1-based, in time order within its row.
   hitNumber: number;
+  // When it lands.
+  gameTime: number;
 }
 
 export interface UnitRowData {
@@ -170,6 +184,8 @@ export interface UnitRowData {
   hitDots: HitDot[];
   // Whether hitDots (and its tooltip's hit list) include System hits.
   withSystemHits: boolean;
+  // For reading the game time under the cursor (pxToCompressedTime).
+  compression: TimeCompression | null;
 }
 
 function deriveSegments(rows: any[], compression: TimeCompression | null): TimelineSegment[] {
@@ -263,7 +279,8 @@ function deriveHitDots(rows: any[], compression: TimeCompression | null, withSys
     xPx: compressedTimeToPx(hit.gameTime ?? row.gameTimeStart, compression),
     yPx: 0,
     row,
-    hitNumber: i + 1
+    hitNumber: i + 1,
+    gameTime: hit.gameTime ?? row.gameTimeStart
   })));
   dots.sort((a, b) => a.xPx - b.xPx);
   return stackDots(dots, CLIP_INSET_PX, CLIP_HEIGHT_PX);
@@ -288,7 +305,8 @@ export function buildUnitRows(
       segments: deriveSegments(rows, compression),
       simultaneousLines: deriveSimultaneousLines(rows, compression),
       hitDots: deriveHitDots(rows, compression, withSystemHits),
-      withSystemHits
+      withSystemHits,
+      compression
     });
   });
   return unitRows;

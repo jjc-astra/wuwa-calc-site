@@ -196,14 +196,12 @@
     z-index: 1;
 }
 
-/* Hit list in a clip's tooltip; the snapped hit is highlighted. */
+/* Hit list in a clip's tooltip (only the snapped hit, when snapped to one). */
 .timeline-tooltip-hits {
     margin-top: 4px;
     padding-top: 4px;
     border-top: 1px solid var(--border);
 }
-.timeline-tooltip-hit.is-active .tooltip-key,
-.timeline-tooltip-hit.is-active .tooltip-val { color: var(--accent); font-weight: bold; }
 
 .timeline-simultaneous-line {
     position: absolute;
