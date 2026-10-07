@@ -3,7 +3,7 @@ import type { Frames } from '../../../utils/Frames';
 import type { MechanicNode } from '../../../types';
 import { CommonUtils } from '../../../utils/Common';
 import { displayTimeVal } from '../mechanicNodeHelpers';
-import { tip } from '../../../utils/Common';
+import { tip, escapeHtml } from '../../../utils/Common';
 import { Dropdown, type DropdownOption } from '../../common/Dropdown';
 import { parseTimeInput, hitFrameOffsets } from '../../../utils/Frames';
 
@@ -171,18 +171,21 @@ export const HitBreakdownPanel: React.FC<HitBreakdownPanelProps> = ({ nodeId, da
                   : i === hitCount - 1
                     ? 'Dmg window end (inferred if blank)'
                     : "This hit's frame";
+                const frameText = String(displayTimeVal(hitFrameValue(i), 'f'));
                 return (
                   <tr key={i}>
                     <td>{i + 1}</td>
                     <td>
                       <input
                         type="text"
-                        className="cell-value"
-                        value={displayTimeVal(hitFrameValue(i), 'f')}
+                        className="cell-value mech-hit-frame"
+                        value={frameText}
                         onChange={e => setHitFrame(i, e.target.value)}
                         onBlur={handleHitFrameBlur(i)}
                         placeholder={`${hitOffsets[i]}f`}
-                        {...tip(frameTip)}
+                        // Grows with its text (monospace, so 1ch a character); CSS keeps it between a min and max.
+                        style={{ width: `${frameText.length + 1}ch` }}
+                        {...tip(frameText.length > 4 ? `${frameTip}<br>${escapeHtml(frameText)}` : frameTip)}
                       />
                     </td>
                     <td className="accent">{String(mv)}</td>

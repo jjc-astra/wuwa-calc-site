@@ -940,6 +940,8 @@
 }
 .builder-view .cell-value::placeholder { color: var(--text-disabled); font-style: italic; }
 .builder-view .mech-hit-table .cell-value { width: 2.375rem; font-size: 0.68rem; }
+/* Width set inline from its text (a DSL frame can be long); this is its floor and ceiling. */
+.builder-view .mech-hit-table .mech-hit-frame { min-width: 2.375rem; max-width: 18rem; }
 
 .builder-view .mech-detail-cell {
     padding: 0 !important;
