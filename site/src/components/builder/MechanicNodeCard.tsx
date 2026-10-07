@@ -45,7 +45,7 @@ const PANEL_FIELDS: Record<PanelKey, string[]> = {
   identity: ['name', 'provider', 'triggerRule', 'isPassive', 'isSwapInDefault', 'modeScope', 'effects'],
   inputs: ['input', 'inputType', 'stanceReq', 'stanceChanges', 'holdConfig'],
   timeMods: ['freezeTime', 'motionStop', 'swapTiming', 'priority', 'comboWindow', 'cancelTimings'],
-  hits: ['scalar', 'hitMults', 'damageTimeframe', 'hitResources'],
+  hits: ['scalar', 'hitMults', 'damageTimeframe', 'hitFrames', 'hitResources'],
   castTags: ['castTypes'],
   dmgTags: ['dmgTypes'],
   castRes: ['castResources'],

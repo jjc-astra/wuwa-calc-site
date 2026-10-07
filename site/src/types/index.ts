@@ -191,6 +191,9 @@ export interface MechanicNode {
   cancelTimings?: CancelTiming[];
   effects?: Effect[];
   damageTimeframe?: { start?: Frames | string; end?: Frames | string };
+  // Frame overrides for the hits between the first and last, from the second (hitFrames[0] is hit 2):
+  // null = spread evenly. The first and last hits are damageTimeframe's start/end.
+  hitFrames?: Array<Frames | string | null>;
   allowedHits?: number;
   _compiledRule?: any;
 }

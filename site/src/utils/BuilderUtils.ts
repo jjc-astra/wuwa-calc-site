@@ -80,6 +80,12 @@ export const BuilderUtils = {
       if (dmgStart !== undefined) clean.damageTimeframe.start = dmgStart;
       if (dmgEnd !== undefined) clean.damageTimeframe.end = dmgEnd;
     }
+    // Per-hit overrides, same readers: blanks become null (spread evenly), trailing ones dropped.
+    if (Array.isArray(node.hitFrames)) {
+      const hitFrames = node.hitFrames.map(v => CommonUtils.parseMixed(v) ?? null);
+      while (hitFrames.length > 0 && hitFrames[hitFrames.length - 1] === null) hitFrames.pop();
+      if (hitFrames.some(v => v !== null)) clean.hitFrames = hitFrames;
+    }
 
     return clean;
   },

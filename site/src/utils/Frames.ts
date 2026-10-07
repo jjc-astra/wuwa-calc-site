@@ -31,6 +31,36 @@ export function framesToSeconds(frames: Frames): number {
   return frames / FPS;
 }
 
+/**
+ * Each hit's frame offset from its move's start. The first and last hits sit at `start` and `end`
+ * (a single hit at `end`); `overrides` pin the hits in between, from the second (overrides[0] is
+ * hit 2), so it never holds the first or last; every other hit is spread evenly
+ * between the nearest pinned hits either side. With `end` not after `start`, unpinned hits all
+ * land at `end`.
+ */
+export function hitFrameOffsets(hitCount: number, start: number, end: number, overrides: ReadonlyArray<number | null | undefined> = []): Frames[] {
+  if (hitCount <= 0) return [];
+  const pinned = (i: number): number | undefined => (i > 0 && i < hitCount - 1 ? overrides[i - 1] ?? undefined : undefined);
+  if (hitCount === 1 || end <= start) {
+    return Array.from({ length: hitCount }, (_, i) => roundFrames(pinned(i) ?? end));
+  }
+  // Index -> frame of every fixed hit, in index order.
+  const anchors: Array<[number, number]> = [[0, start]];
+  for (let i = 1; i < hitCount - 1; i++) {
+    const frame = pinned(i);
+    if (frame !== undefined) anchors.push([i, frame]);
+  }
+  anchors.push([hitCount - 1, end]);
+  const offsets: Frames[] = [];
+  for (let a = 0; a < anchors.length - 1; a++) {
+    const [fromIdx, fromFrame] = anchors[a];
+    const [toIdx, toFrame] = anchors[a + 1];
+    for (let i = fromIdx; i < toIdx; i++) offsets.push(roundFrames(fromFrame + (toFrame - fromFrame) * ((i - fromIdx) / (toIdx - fromIdx))));
+  }
+  offsets.push(roundFrames(end));
+  return offsets;
+}
+
 /** Seconds with an explicit sign, to two places: "+1.47s", "-0.50s", "0.00s". */
 export const formatSignedSeconds = (seconds: number): string => `${seconds > 0 ? '+' : ''}${seconds.toFixed(2)}s`;
 

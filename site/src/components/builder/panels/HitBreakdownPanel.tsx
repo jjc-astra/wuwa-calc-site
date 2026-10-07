@@ -5,7 +5,7 @@ import { CommonUtils } from '../../../utils/Common';
 import { displayTimeVal } from '../mechanicNodeHelpers';
 import { tip } from '../../../utils/Common';
 import { Dropdown, type DropdownOption } from '../../common/Dropdown';
-import { parseTimeInput } from '../../../utils/Frames';
+import { parseTimeInput, hitFrameOffsets } from '../../../utils/Frames';
 
 interface HitBreakdownPanelProps {
   nodeId: string;
@@ -32,8 +32,8 @@ export const HitBreakdownPanel: React.FC<HitBreakdownPanelProps> = ({ nodeId, da
     setHitResRaw({});
   }, [nodeId]);
 
-  // Timeline preview mirrors TimelineEngine's getHitTimeOffset, purely for display. Dmg window is
-  // inferred: hit 1's frame -> damageTimeframe.start, last hit's frame -> damageTimeframe.end.
+  // Timeline preview: the engine's own hitFrameOffsets. Hit 1's frame is damageTimeframe.start, the
+  // last hit's damageTimeframe.end, and any hit between can be pinned (hitFrames) -- the rest spread.
   const hitMultsArr = Array.isArray(data.hitMults) ? data.hitMults : [];
   const hitCount = hitMultsArr.length;
   // actionDuration is only the dmg-window's fallback end when damageTimeframe.end is unset --
@@ -41,29 +41,36 @@ export const HitBreakdownPanel: React.FC<HitBreakdownPanelProps> = ({ nodeId, da
   const durationFrames = typeof data.actionDuration === 'number' ? data.actionDuration : null;
   const tfStart = typeof data.damageTimeframe?.start === 'number' ? data.damageTimeframe.start : 0;
   const tfEnd = typeof data.damageTimeframe?.end === 'number' ? data.damageTimeframe.end : (durationFrames ?? 0);
-  const hitOffsets = Array.from({ length: hitCount }, (_, i) =>
-    hitCount <= 1 || tfEnd <= tfStart ? tfEnd : Math.round(tfStart + (tfEnd - tfStart) * (i / (hitCount - 1)))
-  );
+  // A DSL override can't be previewed without a row; it shows as spread.
+  const hitFrameOverrides = (data.hitFrames || []).map(v => (typeof v === 'number' ? v : undefined));
+  const hitOffsets = hitFrameOffsets(hitCount, tfStart, tfEnd, hitFrameOverrides);
   const cancelFrames = (data.cancelTimings || []).map(ct => ct.time).filter((t): t is Frames => typeof t === 'number');
   const timelineMax = Math.max(durationFrames || 0, tfEnd, ...cancelFrames, ...hitOffsets, 1);
   const hitResourceKeys = Object.keys(data.hitResources || {});
 
-  const handleHitFrameChange = (i: number, raw: string) => {
-    const patch: any = { ...(data.damageTimeframe || {}) };
-    if (i === 0) patch.start = raw;
-    if (i === hitCount - 1) patch.end = raw;
-    updateNode({ damageTimeframe: patch });
+  // A hit's frame field: the first and last are the damage window's start/end, the rest hitFrames.
+  const isWindowEdge = (i: number) => i === 0 || i === hitCount - 1;
+  const hitFrameValue = (i: number) =>
+    i === 0 ? data.damageTimeframe?.start : i === hitCount - 1 ? data.damageTimeframe?.end : data.hitFrames?.[i - 1] ?? undefined;
+  const setHitFrame = (i: number, value: any) => {
+    if (isWindowEdge(i)) {
+      const patch: any = { ...(data.damageTimeframe || {}) };
+      if (i === 0) patch.start = value;
+      if (i === hitCount - 1) patch.end = value;
+      updateNode({ damageTimeframe: patch });
+      return;
+    }
+    // hitFrames starts at hit 2.
+    const hitFrames = Array.from({ length: Math.max(hitCount - 2, data.hitFrames?.length ?? 0) }, (_, j) => data.hitFrames?.[j] ?? null);
+    hitFrames[i - 1] = value === '' ? null : value;
+    updateNode({ hitFrames });
   };
 
   const handleHitFrameBlur = (i: number) => () => {
-    const raw = i === 0 ? data.damageTimeframe?.start : data.damageTimeframe?.end;
+    const raw = hitFrameValue(i);
     if (typeof raw !== 'string' || raw.trim() === '') return;
     const parsed = parseTimeInput(raw, 'frames');
-    if (parsed === raw) return;
-    const patch: any = { ...(data.damageTimeframe || {}) };
-    if (i === 0) patch.start = parsed;
-    if (i === hitCount - 1) patch.end = parsed;
-    updateNode({ damageTimeframe: patch });
+    if (parsed !== raw) setHitFrame(i, parsed);
   };
 
   const updateHitResourceValue = (key: string, idx: number, raw: string) => {
@@ -159,24 +166,24 @@ export const HitBreakdownPanel: React.FC<HitBreakdownPanelProps> = ({ nodeId, da
             </thead>
             <tbody>
               {hitMultsArr.map((mv, i) => {
-                const editableFrame = i === 0 || i === hitCount - 1;
+                const frameTip = i === 0
+                  ? 'Dmg window start (inferred if blank)'
+                  : i === hitCount - 1
+                    ? 'Dmg window end (inferred if blank)'
+                    : "This hit's frame";
                 return (
                   <tr key={i}>
                     <td>{i + 1}</td>
                     <td>
-                      {editableFrame ? (
-                        <input
-                          type="text"
-                          className="cell-value"
-                          value={displayTimeVal(i === 0 ? data.damageTimeframe?.start : data.damageTimeframe?.end, 'f')}
-                          onChange={e => handleHitFrameChange(i, e.target.value)}
-                          onBlur={handleHitFrameBlur(i)}
-                          placeholder={`${hitOffsets[i]}f`}
-                          {...tip(i === 0 ? 'Dmg window start (inferred if blank)' : 'Dmg window end (inferred if blank)')}
-                        />
-                      ) : (
-                        <span className="dim">{hitOffsets[i]}f</span>
-                      )}
+                      <input
+                        type="text"
+                        className="cell-value"
+                        value={displayTimeVal(hitFrameValue(i), 'f')}
+                        onChange={e => setHitFrame(i, e.target.value)}
+                        onBlur={handleHitFrameBlur(i)}
+                        placeholder={`${hitOffsets[i]}f`}
+                        {...tip(frameTip)}
+                      />
                     </td>
                     <td className="accent">{String(mv)}</td>
                     {hitResourceKeys.map(k => {

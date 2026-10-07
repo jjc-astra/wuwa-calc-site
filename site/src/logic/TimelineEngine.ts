@@ -20,7 +20,7 @@ import { calculateEchoStatsForSlot } from '../store/useRosterStore';
 import { CHARACTER_DEFAULTS, ENEMY_DEFAULTS, GAME_DEFAULTS, MECHANICS_NOTATION } from '../data/db';
 import type { Effect, MechanicNode, HoldConfig, MoveOrigin, EnemyStats } from '../types';
 import { sortedStanceChanges } from '../utils/Stance';
-import { type Frames, toFrames, roundFrames, secondsToFrames, framesToSeconds, formatFramesAsSeconds } from '../utils/Frames';
+import { type Frames, toFrames, roundFrames, secondsToFrames, framesToSeconds, formatFramesAsSeconds, hitFrameOffsets } from '../utils/Frames';
 
 export interface QueuedHit {
   originRow: any;
@@ -354,6 +354,7 @@ export class TimelineEngineClass {
       currentData.freezeTime = timings.freezeTime;
       currentData.motionStop = timings.motionStop;
       currentData.damageTimeframe = timings.damageTimeframe;
+      currentData.hitFrameOverrides = timings.hitFrameOverrides;
       currentData.allowedHits = timings.allowedHits;
 
       if (dbMove.stanceReq && dbMove.stanceReq !== 'Any') currentData.stance = dbMove.stanceReq;
@@ -730,6 +731,11 @@ export class TimelineEngineClass {
     return val === undefined ? fallback : roundFrames(this._resolveNumber(val, currentData, unit, team));
   }
 
+  // A move's per-hit frame overrides (hitFrames), resolved; undefined where a hit is spread evenly.
+  _hitFrameOverrides(move: MechanicNode, currentData: any, unit: string, team: any[]): Array<number | undefined> {
+    return (move.hitFrames || []).map(v => (v === null || v === undefined || v === '' ? undefined : this._resolveFrames(v, currentData, unit, team, toFrames(0))));
+  }
+
   _resolveComboWindows(currentData: any, dbMove: MechanicNode, team: any[]): void {
     if (!currentData.action) return;
 
@@ -821,10 +827,9 @@ export class TimelineEngineClass {
     const tfStart = resolveFrames(moveData.damageTimeframe?.start, toFrames(0));
     const tfEnd = resolveFrames(moveData.damageTimeframe?.end, cancelTimeForAnimation);
 
-    const getHitTimeOffset = (idx: number): Frames => {
-      if (hitCount <= 1 || tfEnd <= tfStart) return tfEnd;
-      return roundFrames(tfStart + (tfEnd - tfStart) * (idx / (hitCount - 1)));
-    };
+    const hitFrameOverrides = this._hitFrameOverrides(moveData, currentData, unitName, team);
+    const hitOffsets = hitFrameOffsets(hitCount, tfStart, tfEnd, hitFrameOverrides);
+    const getHitTimeOffset = (idx: number): Frames => hitOffsets[idx] ?? tfEnd;
 
     let capEnergyHitIdx = -1;
     let capConcertoHitIdx = -1;
@@ -925,6 +930,7 @@ export class TimelineEngineClass {
       freezeTime,
       motionStop,
       damageTimeframe: { start: tfStart, end: tfEnd },
+      hitFrameOverrides,
       allowedHits: finalHits
     };
   }
@@ -1177,13 +1183,11 @@ export class TimelineEngineClass {
 
   // Queues a move's hits across its damage timeframe. DSL hit mults stay unresolved until each hit
   // lands (_processQueuedHits), so they read the state at that hit, not at the cast.
-  _scheduleHits(currentData: any, moveData: MechanicNode, origin: MoveOrigin, rawMults: any[], executeStartTime: number, executeEndTime: number, isProc: boolean, hitModifiers: Set<string>): void {
+  // Queues a move's hits at `baseTime` + each hit's offset (hitFrameOffsets).
+  _scheduleHits(currentData: any, moveData: MechanicNode, origin: MoveOrigin, rawMults: any[], baseTime: number, offsets: number[], isProc: boolean, hitModifiers: Set<string>): void {
     const hitCount = rawMults.length;
     for (let i = 0; i < hitCount; i++) {
-      let hitTime = executeEndTime;
-      if (hitCount > 1 && executeEndTime > executeStartTime) {
-        hitTime = executeStartTime + (executeEndTime - executeStartTime) * (i / (hitCount - 1));
-      }
+      const hitTime = baseTime + (offsets[i] ?? offsets[offsets.length - 1] ?? 0);
       this.damageQueue.push({
         originRow: currentData,
         originActionId: isProc ? moveData.name : currentData.action,
@@ -1210,7 +1214,8 @@ export class TimelineEngineClass {
       // unset, both default to executeAt (instant-fire).
       const tfStart = this._resolveFrames(mData.damageTimeframe?.start, currentData, proc.provider, team, toFrames(0));
       const tfEnd = this._resolveFrames(mData.damageTimeframe?.end, currentData, proc.provider, team, tfStart);
-      this._scheduleHits(currentData, mData, origin, rawProcMults, executeAt + tfStart, executeAt + tfEnd, true, procModifiers);
+      const offsets = hitFrameOffsets(rawProcMults.length, tfStart, tfEnd, this._hitFrameOverrides(mData, currentData, proc.provider, team));
+      this._scheduleHits(currentData, mData, origin, rawProcMults, executeAt, offsets, true, procModifiers);
     }
     this.damageQueue.sort((a, b) => a.executeAt - b.executeAt);
   }
@@ -1398,11 +1403,11 @@ export class TimelineEngineClass {
     this._applyCastResources(currentData, moveData, activeTeam, team);
 
     const rawHitMults = Array.isArray(moveData.hitMults) ? moveData.hitMults : [];
-    const tfStart = currentData.timeStart + (currentData.damageTimeframe?.start || 0);
-    const tfEnd = currentData.timeStart + (currentData.damageTimeframe?.end || currentData.baseDuration);
-
     if (rawHitMults.length > 0) {
-      this._scheduleHits(currentData, moveData, origin, rawHitMults, tfStart, tfEnd, false, hitModifiers);
+      const tfStart = currentData.damageTimeframe?.start || 0;
+      const tfEnd = currentData.damageTimeframe?.end || currentData.baseDuration;
+      const offsets = hitFrameOffsets(rawHitMults.length, tfStart, tfEnd, currentData.hitFrameOverrides);
+      this._scheduleHits(currentData, moveData, origin, rawHitMults, currentData.timeStart, offsets, false, hitModifiers);
     }
 
     this._executeEffectsStream(instantEffects, currentData, activeTeam, activeRows, currentData.timeStart, unitName, team);
