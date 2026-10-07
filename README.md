@@ -12,8 +12,9 @@ A web tool for planning and optimizing Wuthering Waves team rotations, live at
 - **About**: flowcharts of how the codebase works (`src/components/about/`).
 
 Game data and images live in a separate repo,
-[wuwa-calc-data](https://github.com/jjc-astra/wuwa-calc-data). The site fetches them at runtime,
-so new data doesn't need a site rebuild.
+[wuwa-calc-data](https://github.com/jjc-astra/wuwa-calc-data). Each GitHub Pages deploy bundles them
+in (served from the site's own `/data` and `/images`), and a push to the data repo triggers a
+redeploy, so new data goes live without a site commit. The dev server reads the data repo directly.
 
 Built with React, TypeScript and Vite. Zustand manages state, and the simulation runs in a Web
 Worker.

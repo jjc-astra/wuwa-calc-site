@@ -10,7 +10,7 @@ export const DIAGRAMS = {
     Work["<b>src/workers</b><br/>calcWorkerClient: main lane + pool<br/>calc.worker, runFullCalculation"]:::worker
     Logic["<b>src/logic</b> (pure)<br/>TimelineEngine, EventManager, ContextManager,<br/>CombatCalculator + combat/, ResultsCalculator,<br/>RepeatBlocks, MechanicOwners, dsl/"]:::logic
     Util["<b>src/utils, data, types, config</b><br/>DataLoader, dataFreshness, dataSource, idbStore,<br/>db.ts tables, gameVocab, small helpers"]:::data
-    Ext[("data repo (GitHub raw), /wip-data (dev),<br/>localStorage, IndexedDB")]:::data
+    Ext[("data repo (bundled /data; GitHub raw in dev),<br/>/wip-data (dev), localStorage, IndexedDB")]:::data
     Entry --> Pages
     Pages --> Hooks
     Pages --> Stores
@@ -838,7 +838,7 @@ export const DIAGRAMS = {
     graph LR
     subgraph Src["data sources"]
       direction TB
-      Gen["data repo Action (a push touching data JSON):<br/>generate-rankings-index, then generate-manifest<br/>(path → content hash), committed"]:::data --> Repo
+      Gen["data repo Action (a push touching data JSON or images):<br/>generate-rankings-index, then generate-manifest<br/>(path → content hash), committed; then<br/>triggers the site's deploy"]:::data --> Repo
       Repo[("<b>wuwa-calc-data</b><br/>data/: db_*.json, manifest.json<br/>data/mechanics/: characters, weapons, sets, echoes, system<br/>data/character_results/: rotations/, results/, index.json<br/>images/")]:::data
       Wip[("/wip-data: dev only, gitignored;<br/>files under test")]:::data
       Repo ~~~ Wip
@@ -912,9 +912,9 @@ export const DIAGRAMS = {
     graph LR
     LSt[("<b>localStorage</b> via safeLocalStorage (quota errors swallowed)<br/>wuwa_calc_team_cache: team + enemy<br/>wuwa_calc_rotation_cache: rows, undo + redo, settings, last results<br/>wuwa_builder_cache: Builder edit log<br/>wuwa_calc_rotation_history: Calculate history<br/>wuwa_calc_pinned_comparison: pinned rotation<br/>wuwa_rankings_ui_cache: filters, page, window<br/>wuwa_guide_selection: guide config per character<br/>wuwa_calc_last_step, wuwa_calc_last_guide_character")]:::data
     IDB[("<b>IndexedDB</b> via idbStore (failures read as empty)<br/>wuwa-calc / guide-cache: guide results per character")]:::data
-    Push["push to main"]:::data --> CI["GitHub Actions: npm ci, npm run build<br/>(tsc -b + vite build; virtual:calc-version<br/>hashes src/**/*.ts for the guide cache)"]:::data
+    Push["push to main, or run by<br/>the data repo's Action"]:::data --> CI["GitHub Actions: npm ci, npm run build<br/>(tsc -b + vite build; virtual:calc-version<br/>hashes src/**/*.ts for the guide cache), then<br/>the data repo's data/ + images/ copied into dist"]:::data
     CI --> Pages["GitHub Pages"]:::data
-    Pages --> SWn["service worker: cache-first for assets and<br/>repo images, network-first for index.html<br/>(bump CACHE_VERSION to evict)"]:::data
+    Pages --> SWn["service worker: cache-first for assets and<br/>/images, network-first for index.html<br/>(bump CACHE_VERSION to evict)"]:::data
     LSt ~~~ IDB
   `
 };

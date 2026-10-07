@@ -213,7 +213,7 @@ export const AboutPage: React.FC = () => {
           </AboutSection>
 
           <AboutSection id="data" title="Data, freshness, persistence and deployment" tag="DataLoader, dataFreshness, sw.js, GitHub Actions">
-            <p className="about-note">Game data lives in its own repo and is fetched straight from GitHub. A manifest of content hashes tells the app when something it already loaded has changed, so a data update never needs a site redeploy.</p>
+            <p className="about-note">Game data lives in its own repo. Each deploy bundles it into the site (its own <code>/data</code> and <code>/images</code>), and a push to the data repo triggers a redeploy; the dev server reads the repo from GitHub. A manifest of content hashes tells the app when something it already loaded has changed, so an open page picks up new data without a reload.</p>
             <h3 className="about-subhead caps-tag">Loading</h3>
             <MermaidDiagram source={DIAGRAMS.dataLoading} />
             <h3 className="about-subhead caps-tag">Freshness: mechanics</h3>

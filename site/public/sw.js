@@ -25,10 +25,14 @@ self.addEventListener('fetch', event => {
 
   const url = new URL(req.url);
 
-  // Character/weapon/echo icons: filenames don't change once published, so a cache hit never
-  // needs revalidating. `<img>` fetches these no-cors, so the response is opaque (status 0,
-  // ok:false even on success) -- cache it unconditionally rather than gating on .ok.
-  if (url.hostname === IMAGE_HOST && url.pathname.includes('/images/')) {
+  // Character/weapon/echo icons (bundled under /images/, or raw GitHub's for an older build):
+  // filenames don't change once published, so a cache hit never needs revalidating. A cross-origin
+  // `<img>` fetch is no-cors, so its response is opaque (status 0, ok:false even on success) --
+  // cache it unconditionally rather than gating on .ok.
+  const isIcon = url.origin === self.location.origin
+    ? url.pathname.startsWith('/images/')
+    : url.hostname === IMAGE_HOST && url.pathname.includes('/images/');
+  if (isIcon) {
     event.respondWith(cacheFirst(req, IMG_CACHE, { requireOk: false }));
     return;
   }

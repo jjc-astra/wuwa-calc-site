@@ -3,6 +3,7 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
+  # Also run by wuwa-calc-data's workflow after each data push, so the bundled data goes live.
   workflow_dispatch:
 
 permissions:
@@ -31,6 +32,14 @@ jobs:
 
       - run: npm ci
       - run: npm run build
+
+      # The data repo's data/ and images/ ship with the site, served from its own /data and /images.
+      - uses: actions/checkout@v4
+        with:
+          repository: jjc-astra/wuwa-calc-data
+          ref: main
+          path: data-repo
+      - run: cp -r ../data-repo/data ../data-repo/images dist/
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
