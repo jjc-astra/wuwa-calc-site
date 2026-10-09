@@ -21,14 +21,18 @@ const withJsonExtension = (name: string, fallback: string): string => {
 };
 
 export const ExportRotationDialog: React.FC<ExportRotationDialogProps> = ({ source, onClose }) => {
-  const defaultRotationName = CommonUtils.exportFilename('Rotation', source.team);
-  const defaultResultsName = CommonUtils.exportFilename('Results', source.team);
-  const [rotationName, setRotationName] = useState(defaultRotationName);
-  const [resultsName, setResultsName] = useState(defaultResultsName);
   const [author, setAuthor] = useState('');
   const [includeResults, setIncludeResults] = useState(true);
   const [build, setBuild] = useState<ResultsBuild>('default');
   const [rotationType, setRotationType] = useState<RotationTypeChoice>('unclassified');
+  // Presets end in the rotation type (none when unclassified) and follow it until edited; null = the preset.
+  const typeSuffix = rotationType === 'unclassified' ? '' : `_${ROTATION_TYPE_LABELS[rotationType]}`;
+  const defaultRotationName = CommonUtils.exportFilename('Rotation', source.team, typeSuffix);
+  const defaultResultsName = CommonUtils.exportFilename('Results', source.team, typeSuffix);
+  const [editedRotationName, setRotationName] = useState<string | null>(null);
+  const [editedResultsName, setResultsName] = useState<string | null>(null);
+  const rotationName = editedRotationName ?? defaultRotationName;
+  const resultsName = editedResultsName ?? defaultResultsName;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,7 +42,6 @@ export const ExportRotationDialog: React.FC<ExportRotationDialogProps> = ({ sour
     try {
       const rotationFilename = withJsonExtension(rotationName, defaultRotationName);
       const { rotationFile, resultsFile } = await buildExportFiles(source, {
-        rotationFilename,
         author: author.trim(),
         rotationType: rotationType === 'unclassified' ? null : rotationType,
         results: includeResults ? { build } : null

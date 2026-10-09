@@ -13,7 +13,6 @@ export interface ExportSource extends CalcInput {
 }
 
 interface ExportOptions {
-  rotationFilename: string;
   author: string;
   rotationType: RotationType;
   // null: the rotation file only, with no calculation.
@@ -43,7 +42,7 @@ function withDefaultBuild(team: TeamSlot[]): TeamSlot[] {
 // An export's rotation file and, when asked for, its results file (on the default or submitted build).
 export async function buildExportFiles(
   source: ExportSource,
-  { rotationFilename, author, rotationType, results: resultsOptions }: ExportOptions
+  { author, rotationType, results: resultsOptions }: ExportOptions
 ): Promise<{ rotationFile: RotationFile; resultsFile: ResultsFile | null }> {
   const { rotation, team, settings, enemy } = source;
   const hash = await hashRotationInputs(source);
@@ -65,7 +64,6 @@ export async function buildExportFiles(
     rotationFile,
     resultsFile: {
       format: 2,
-      rotationFile: rotationFilename,
       hash,
       build,
       ...classified,

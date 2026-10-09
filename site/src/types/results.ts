@@ -146,10 +146,10 @@ export interface RotationFile extends CalcInput {
 // build and target, for sharing.
 export type ResultsBuild = 'default' | 'custom';
 
-// results/<name>.json: one calculation of a rotation file.
+// results/<name>.json: one calculation of a rotation file, linked to it only by `hash` (so either
+// file can be renamed); the rankings index resolves which rotation file that is.
 export interface ResultsFile {
   format: 2;
-  rotationFile: string;
   hash: string;
   build: ResultsBuild;
   author?: string;
