@@ -152,11 +152,34 @@ button, input, select, textarea { font-family: inherit; }
     color: var(--accent);
 }
 
-/* Phones: tighter header padding and nav buttons (wrapping is handled above at every width). */
+/* Phones: tighter header padding and nav buttons. */
 @media (max-width: 720px) {
     .global-nav-header { padding: 0.5rem 0.75rem; }
     .nav-item-btn { padding: 0.375rem 0.625rem; font-size: 0.72rem; }
 }
+
+/* Compact header (set by Header once the page links would wrap off the brand's row): the links
+   fold into the menu button, and opened they drop below the brand row as a full-width list. */
+.nav-menu-btn,
+.nav-phone-only { display: none; }
+
+.global-nav-header.is-compact .header-left { display: contents; }
+.global-nav-header.is-compact .header-right { align-self: center; }
+.is-compact .nav-menu-btn { display: inline-flex; padding: 0.375rem; }
+.is-compact .nav-desktop-only { display: none; }
+.is-compact .nav-phone-only { display: inline-flex; }
+
+.is-compact .nav-items { display: none; }
+.is-compact.is-menu-open .nav-items {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    order: 1;
+    flex-basis: 100%;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border);
+}
+.is-compact.is-menu-open .nav-items .nav-item-btn { padding: 0.625rem 0.75rem; }
 
 /* =========================================
    3. GLOBAL VARIABLES

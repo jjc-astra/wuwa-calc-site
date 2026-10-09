@@ -316,6 +316,8 @@
 :root {
     /* Index/Check | Unit | Action | Time | Timing | Offset | DMG | Fortes | Concerto | Energy | Tune */
     --rot-grid: 0.9375rem 6.875rem      1fr   4.75rem       5.3125rem     4.0625rem 8.125rem     5.3125rem       4.6875rem     3.75rem  2.5rem;
+    /* The grid's narrowest width; anything narrower scrolls #rotation-content sideways. */
+    --rot-min-width: 56.25rem;
 }
 
 .separator-v { width: 1px; height: 1.25rem; background: var(--border); }
@@ -340,6 +342,9 @@
        real overflow and forces #rotation-content into horizontal scroll at every width, even
        though nothing actually needs it. */
     overflow: hidden;
+    /* As wide as the rows plus #rotation-builder's scrollbar: narrower, and the rows' overflow is
+       clipped here instead of scrolling with #rotation-content (blank columns past the viewport). */
+    min-width: calc(var(--rot-min-width) + 1rem);
 }
 #rotation-builder {
     flex: 1;
@@ -380,13 +385,15 @@
     padding: 0.625rem 0.9375rem;
     background: var(--surface-card);
     border-bottom: 1px solid var(--border); flex-shrink: 0;
-    min-width: 56.25rem;
+    min-width: var(--rot-min-width);
 }
 .rotation-toolbar .base-btn {
     height: 1.75rem; line-height: 1; display: inline-flex;
     align-items: center; justify-content: center; padding: 0 0.625rem; box-sizing: border-box;
 }
 .rotation-toolbar .icon-btn { width: 1.75rem; padding: 0; }
+/* One word per line, stacked like Mark Repeat. */
+.rotation-toolbar .toolbar-toggle-label { width: min-content; line-height: 1; text-align: center; }
 .rotation-toolbar .icon-btn svg { display: block; width: 1rem; height: 1rem; }
 
 /* --- Grid Definitions --- */
@@ -397,7 +404,7 @@
     gap: 0.625rem;
     align-items: center;
     padding: 0.3125rem 0.9375rem;
-    min-width: 56.25rem;
+    min-width: var(--rot-min-width);
 }
 
 .rotation-header-row {
@@ -1151,12 +1158,20 @@
 /* Tightens grid column floors and allows the toolbar to wrap, lowering the horizontal scroll breakpoint well below 900px. */
 @media (max-width: 900px) {
     :root {
-        --rot-grid: 0.9375rem 5.625rem minmax(5.625rem, 1fr) 4.75rem 3.75rem 3.125rem 5.9375rem 4.0625rem 3.4375rem 2.8125rem 2rem;
+        --rot-grid: 0.9375rem 5.625rem minmax(5.625rem, 1fr) 4.75rem 3.75rem 3.125rem 5.9375rem 3.4375rem 4.375rem 3.25rem 2rem;
+        /* The tracks above (42.8125rem) + 10 gaps of 0.375rem + 0.625rem padding each side. */
+        --rot-min-width: 47.8125rem;
     }
+    /* Stays viewport-wide and wraps, so its buttons are reachable without scrolling sideways. */
     .rotation-toolbar {
         padding: 0.625rem;
         min-width: 0;
+        flex-wrap: wrap;
+        row-gap: 0.5rem;
     }
+    /* height: 100% would be the wrapped toolbar's full height; one button's height instead. */
+    .rotation-toolbar .calc-warning-msg,
+    .rotation-toolbar .calc-loading-msg { height: 1.75rem; }
     /* Wraps the button cluster internally rather than .rotation-toolbar to keep toggles together and prevent clipping. */
     .rotation-toolbar > .flex-row.gap-sm {
         flex-wrap: wrap;
@@ -1166,6 +1181,12 @@
     .row-grid-layer {
         gap: 0.375rem;
         padding: 0.3125rem 0.625rem;
-        min-width: 0;
     }
+    /* Import / Export drop below the title once both don't fit, instead of covering it. */
+    .section-header {
+        flex-wrap: wrap;
+        row-gap: 0.5rem;
+    }
+    /* Never shorter than its (possibly wrapped) header. */
+    .section-wrapper.is-collapsed { flex-shrink: 0; }
 }
