@@ -4,7 +4,7 @@ import { useRosterStore } from '../../store/useRosterStore';
 import { RotationToolbar } from './RotationToolbar';
 import { RotationRow, type DraggedMarker } from './RotationRow';
 import { CollapsibleSection } from '../common/CollapsibleSection';
-import { CommonUtils, getCharacterThemeColor } from '../../utils/Common';
+import { CommonUtils, getCharacterThemeColor, tip } from '../../utils/Common';
 import { DataLoader } from '../../utils/DataLoader';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { ExportRotationDialog } from '../common/ExportRotationDialog';
@@ -14,6 +14,8 @@ import { loopEndIndexOf } from '../../logic/rotationRows';
 import { useLatestCallback } from '../../hooks/useLatestCallback';
 import { useLinkedRowStore } from '../../store/useLinkedRowStore';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { useTimelineViewStore } from '../../store/useTimelineViewStore';
+import { SortIcon } from '../common/icons';
 
 interface RotationBuilderProps {
   isOpen: boolean;
@@ -77,6 +79,8 @@ let hasRunLoadRefresh = false;
 /** Step 2: the rotation table, its toolbar and minimap. */
 export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onToggle }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const timeCountdown = useTimelineViewStore(s => s.timeCountdown);
+  const toggleTimeCountdown = useTimelineViewStore(s => s.toggleTimeCountdown);
 
   // Actual scrollbar width (offsetWidth - clientWidth) so the minimap matches it exactly.
   // Re-measured on resize and row-count change.
@@ -497,7 +501,17 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
           <div></div>
           <div>Unit</div>
           <div>Action</div>
-          <div>Time</div>
+          <div><span className="rotation-header-time">
+            <button
+              type="button"
+              className="rotation-time-sort"
+              onClick={toggleTimeCountdown}
+              {...tip(timeCountdown ? 'Counting down from 120s' : 'Counting up from 0s')}
+            >
+              <SortIcon size={12} descending={timeCountdown} />
+            </button>
+            Time
+          </span></div>
           <div>Timing</div>
           <div>Offset</div>
           <div>DMG</div>

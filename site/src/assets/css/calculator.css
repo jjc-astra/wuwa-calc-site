@@ -410,6 +410,14 @@
 .rotation-header-row::-webkit-scrollbar-thumb { background: transparent; }
 .rotation-header-row > div:nth-child(2),
 .rotation-header-row > div:nth-child(3) { text-align: left; }
+/* Time header: the count up/down toggle hangs off the left, so "Time" stays centered on its column. */
+.rotation-header-time { position: relative; }
+.rotation-time-sort {
+    position: absolute; right: 100%; top: 50%; transform: translateY(-50%); margin-right: 0.125rem;
+    display: inline-flex; padding: 0.125rem; border: none; border-radius: 0.25rem;
+    background: none; color: var(--text-dim); cursor: pointer;
+}
+.rotation-time-sort:hover { color: var(--text-main); }
 
 .rotation-row .base-select,
 .rotation-row .base-num-box {

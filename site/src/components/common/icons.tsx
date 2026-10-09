@@ -93,3 +93,12 @@ export const FastForwardIcon: React.FC<{ className?: string }> = ({ className })
     <polygon points="12,4 22,12 12,20" />
   </svg>
 );
+
+/** A sort arrow beside bars widening the way it points: down when `descending`. */
+export const SortIcon: React.FC<IconProps & { descending?: boolean }> = ({ descending = false, ...props }) => (
+  <Svg {...props}>
+    <path d="M7 4v16" />
+    <path d={descending ? 'm3 16 4 4 4-4' : 'm3 8 4-4 4 4'} />
+    <path d={descending ? 'M11 4h10M11 8h7M11 12h4' : 'M11 12h4M11 16h7M11 20h10'} />
+  </Svg>
+);

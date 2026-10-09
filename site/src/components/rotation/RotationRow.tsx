@@ -22,6 +22,8 @@ import { teamCharacters } from '../../utils/TeamUtils';
 import { toFrames, secondsToFrames, framesToSeconds, formatFramesAsSeconds } from '../../utils/Frames';
 import { applyBuilderOverridesFor } from '../../workers/builderOverridePayload';
 import { useLinkedRowStore } from '../../store/useLinkedRowStore';
+import { useTimelineViewStore } from '../../store/useTimelineViewStore';
+import { TWO_MIN } from '../../logic/ResultsCalculator';
 
 interface RotationRowProps {
   index: number;
@@ -326,7 +328,10 @@ export const RotationRow = React.memo<RotationRowProps>(({
     if (row.repeatBlockStart) onRepeatCountChange?.(row.repeatBlockStart, Math.max(1, repeatCount + delta));
   };
 
-  const timeStart = row.gameTimeStart !== undefined ? formatFramesAsSeconds(toFrames(row.gameTimeStart)) : '0.00s';
+  // Counting down: time left in the 2-Min window (negative past it).
+  const timeCountdown = useTimelineViewStore(s => s.timeCountdown);
+  const gameTime = toFrames(row.gameTimeStart ?? 0);
+  const timeStart = formatFramesAsSeconds(timeCountdown ? toFrames(TWO_MIN - gameTime) : gameTime);
   // row.offset is Frames; convert to seconds (sign preserved) for the offset-pos/neg styling below.
   const offsetVal = framesToSeconds(toFrames(row.offset || 0));
   const offsetStr = `${offsetVal > 0 ? '+' : ''}${offsetVal.toFixed(2)}`;

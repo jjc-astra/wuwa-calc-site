@@ -24,7 +24,8 @@ import type {
   ContributionForWindow
 } from '../types/results';
 
-const TWO_MIN = toFrames(120 * 60);
+/** The 2-Min DPS window, in frames. */
+export const TWO_MIN = toFrames(120 * 60);
 // Fixed avg-loop sample size: first loop + 2 more, regardless of how short a loop is.
 const AVG_LOOP_REPS = 3;
 
