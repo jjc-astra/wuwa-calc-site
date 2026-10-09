@@ -692,14 +692,16 @@ export class TimelineEngineClass {
 
     currentData.timeScales = structuredClone(prevData.timeScales || {});
     // Stance is tracked per unit: a unit that swaps out midair stays midair for its combo window
-    // (a swap back inside it finds them still airborne), then lands.
+    // (a swap back inside it finds them still airborne), then lands. A unit swapped in outside its
+    // combo window takes over the outgoing unit's stance.
     currentData.unitStances = { ...(prevData.unitStances || {}) };
     if (prevData.unit) currentData.unitStances[prevData.unit] = prevData.stance || CHARACTER_DEFAULTS.defaultStance;
     if (prevData.unit && currentData.unit && currentData.unit !== prevData.unit) {
       const isIntro = currentData.castTypes?.includes('Intro');
       const myCombo = prevData.unitCombos?.[currentData.unit];
       const isDuringCombo = myCombo && currentTime <= myCombo.expiration;
-      currentData.stance = (!isIntro && isDuringCombo && currentData.unitStances[currentData.unit]) || CHARACTER_DEFAULTS.defaultStance;
+      const swapInStance = isDuringCombo ? currentData.unitStances[currentData.unit] : prevData.stance;
+      currentData.stance = (!isIntro && swapInStance) || CHARACTER_DEFAULTS.defaultStance;
     } else {
       currentData.stance = prevData.stance || CHARACTER_DEFAULTS.defaultStance;
     }
@@ -806,10 +808,13 @@ export class TimelineEngineClass {
 
     // A cancel with no rule is only usable by a next move that outranks this one and isn't the
     // same input binding + type (e.g. a Basic+Hold heavy can cancel a Basic string).
+    // A swap out (to another unit, or an Outro) cancels like the highest-priority move.
     const bindingOf = (m: MechanicNode) => `${m.input ?? ''}|${m.inputType ?? ''}`;
-    const nextMoveCancels = !!nextMoveData
+    const isNextSwapOut = swapDuration !== undefined && !!nextRow?.unit
+      && (nextRow.unit !== unitName || !!nextMoveData?.castTypes?.includes('Outro'));
+    const nextMoveCancels = isNextSwapOut || (!!nextMoveData
       && bindingOf(nextMoveData) !== bindingOf(moveData)
-      && this._resolvePriority(nextMoveData, currentData, nextRow.unit, team) > this._resolvePriority(moveData, currentData, unitName, team);
+      && this._resolvePriority(nextMoveData, currentData, nextRow.unit, team) > this._resolvePriority(moveData, currentData, unitName, team));
 
     const validCancels: Array<{ index: number; time: Frames; hits: number }> = [];
     if (moveData.cancelTimings && moveData.cancelTimings.length > 0) {
@@ -866,6 +871,11 @@ export class TimelineEngineClass {
       const title = `Duration: ${formatFramesAsSeconds(vc.time)}` + (vc.hits !== Infinity ? ` | Hits: ${vc.hits}` : ` | All Hits`);
       availableTimings.push({ val: `Cancel_${vc.index}`, label, title });
     });
+    // Cancelled on the swap frame, before any hit lands.
+    const instantCancelTime = swapDuration ?? toFrames(GAME_DEFAULTS.swapTime);
+    if (validCancels.length > 0) {
+      availableTimings.push({ val: 'Instant_Cancel', label: 'Instant Cancel', title: `Duration: ${formatFramesAsSeconds(instantCancelTime)} | No Hits` });
+    }
     if (moveData.inputType === 'Hold' || moveData.castTypes?.includes('Echo')) {
       availableTimings.push({ val: 'Simultaneous', label: 'Simultaneous', title: "Executes in parallel anchored to the previous move's start time." });
     }
@@ -923,6 +933,8 @@ export class TimelineEngineClass {
       const ct = validCancels.find(vc => vc.index === parseInt(timingType.split('_')[1], 10));
       if (ct) cutAt(ct.time, ct.hits);
       else cutAuto();
+    } else if (timingType === 'Instant_Cancel' && validCancels.length > 0) {
+      cutAt(instantCancelTime, 0);
     } else if (timingType === 'Cancel') {
       if (validCancels.length > 0) cutAt(validCancels[0].time, validCancels[0].hits);
       else cutAuto();
@@ -973,9 +985,9 @@ export class TimelineEngineClass {
   }
 
   // A row can be short on a resource purely because its own generation is still undrained
-  // in the queue (e.g. an Outro right after a Swap). Static prediction isn't reliable here --
-  // passive/OnHit grants aren't visible ahead of time -- so this drains the queue hit-by-hit
-  // via _decayState, like a cooldown wait, until the shortfall resolves or the queue can't help.
+  // in the queue (e.g. an Outro right after a Swap). It only waits when the queued hits' own gains
+  // cover the shortfall. Passive/OnHit grants aren't visible ahead of time, so the wait itself
+  // drains the queue hit-by-hit via _decayState, like a cooldown wait, until the shortfall resolves.
   // Energy is excluded: stays a warning, never worth forcing a wait.
   _computeResourceWait(currentData: any, dbMove: MechanicNode, team: any[], activeTeam: string[], activeRows: any[]): { waitFrames: number; label: string | null } {
     const unit = currentData.unit;
@@ -990,6 +1002,24 @@ export class TimelineEngineClass {
     let shortKeys = trackedKeys.filter(k => reqFor(k.key) > 0 && currentValue(k.key) < reqFor(k.key));
     if (shortKeys.length === 0) return { waitFrames: 0, label: null };
 
+    // A pending hit's amount of `key` for this unit's pool: a unit's pool fills from its own hits; the enemy's from anyone's.
+    const hitAmount = (hit: QueuedHit, key: string): number => {
+      if (hit.hitIndex >= hitLimit(hit)) return 0;
+      if (!isEnemyResource(key) && hit.origin.caster !== unit) return 0;
+      const arr = hit.originMoveData.hitResources?.[key];
+      return Array.isArray(arr) && arr.length > hit.hitIndex ? parseFloat(String(arr[hit.hitIndex])) || 0 : 0;
+    };
+
+    // No wait unless the queued hits can cover every shortfall; otherwise the move keeps its normal timing (and its error).
+    const reachable = shortKeys.every(k => {
+      const pending = this.damageQueue.reduce((sum, hit) => {
+        const amount = hitAmount(hit, k.key);
+        return sum + (amount > 0 ? amount * buildupRateMult(currentData, hit.origin.caster, k.key, team) : amount);
+      }, 0);
+      return currentValue(k.key) + pending >= reqFor(k.key);
+    });
+    if (!reachable) return { waitFrames: 0, label: null };
+
     let waitFrames = 0;
     const resolvedLabels: string[] = [];
     let guard = 0;
@@ -997,15 +1027,7 @@ export class TimelineEngineClass {
     while (shortKeys.length > 0 && guard++ < 1000) {
       let target: QueuedHit | null = null;
       for (const hit of this.damageQueue) {
-        if (hit.hitIndex >= hitLimit(hit)) continue;
-        const hitRes = hit.originMoveData.hitResources;
-        if (!hitRes) continue;
-        const isRelevant = shortKeys.some(k => {
-          // A unit's pool fills from its own hits; the enemy's from anyone's.
-          if (!isEnemyResource(k.key) && hit.origin.caster !== unit) return false;
-          const arr = hitRes[k.key];
-          return Array.isArray(arr) && arr.length > hit.hitIndex && (parseFloat(String(arr[hit.hitIndex])) || 0) !== 0;
-        });
+        const isRelevant = shortKeys.some(k => hitAmount(hit, k.key) !== 0);
         if (isRelevant) { target = hit; break; }
       }
       if (!target) break;
@@ -1522,7 +1544,9 @@ export class TimelineEngineClass {
           // mechanicsIndex is keyed by owner; .provider is only set for third-party attributions (e.g., echoes).
           const expectedSwapIns: string[] = [];
           const ownMechanics = (DataLoader.mechanicsIndex[currentData.unit] || []).map(key => DataLoader.mechanicsDB[key]);
-          ownMechanics.filter(m => m && m.isSwapInDefault).forEach(m => {
+          // Only swap-ins castable from the stance the unit enters in.
+          const fitsStance = (m: MechanicNode) => !m.stanceReq || m.stanceReq === 'Any' || m.stanceReq === (currentData.entryStance || 'Grounded');
+          ownMechanics.filter(m => m && m.isSwapInDefault && fitsStance(m)).forEach(m => {
             const isValid = m.triggerRule && !m.isPassive
               ? this._evaluateRule(m, m.triggerRule, currentData, currentData.unit, team) ?? true
               : true;
