@@ -39,7 +39,7 @@ export const DSL_EVENT_TOOLTIPS: Record<string, string> = {
   OnTrackerChanged: 'Fires whenever a tracker changes for any reason (add/remove/set/consume/delete). Filter with [TrackerName].',
   OnTrackerDetonate: 'Fires when a tracker is detonated via the detonate action. Filter with [TrackerName], e.g. OnTrackerDetonate[Spectro Frazzle].',
   OnBuffAdd: 'Fires when a buff is applied. Filter with [BuffName].',
-  OnBuffRemove: 'Fires when a Buff/CD Control effect strips the buff via the Remove action (ALL/HALF/N, same options as Consume). Filter with [BuffName].',
+  OnBuffRemove: 'Fires when a Buff/CD Control effect strips the buff via the Remove action (ALL/HALF/N, same options as Consume), or a removeOnSwap buff drops as its holder swaps out. Filter with [BuffName].',
   OnBuffConsume: "Fires when a Buff/CD Control effect spends the buff via the Consume action (ALL/HALF/N, same options as Remove) -- use it to distinguish the wearer spending their own buff from something else stripping it. Filter with [BuffName].",
   OnBuffUpdate: 'Fires when an existing buff is refreshed or its stacks change. Filter with [BuffName].',
   OnBuffExpire: 'Fires when a buff runs out on its own (duration reaches zero), as opposed to being explicitly removed or consumed. Filter with [BuffName].'
@@ -241,7 +241,14 @@ export const DSL_POINTERS: Record<string, DSLPointerDef> = {
     ]
   },
   // Bare-only pointers: no dot-properties.
-  Team: { pointer: 'Team', targetVar: 'ctx.team', tooltip: 'All characters currently in the team roster.', properties: [] },
+  Team: {
+    pointer: 'Team',
+    targetVar: 'ctx.team',
+    tooltip: 'All characters currently in the team roster.',
+    properties: [
+      { propName: 'HasBuff()', type: 'method', isMethod: true, jsName: 'hasBuff', tooltip: 'Method — returns true if anyone on the team currently has the given buff, e.g. @Team.HasBuff(@Rebecca(Edgerunner Bonds)).' }
+    ]
+  },
   TeamOthers: { pointer: 'TeamOthers', targetVar: 'ctx.teamOthers', tooltip: 'All team members except Self.', properties: [] },
   Equipper: { pointer: 'Equipper', targetVar: 'equipper', tooltip: 'The character this weapon or echo is equipped on.', properties: [] },
   // Call-only: @System(Name) resolves via the generic @Namespace(...) string-literal rule in

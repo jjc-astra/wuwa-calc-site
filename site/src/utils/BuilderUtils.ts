@@ -22,6 +22,7 @@ export const BuilderUtils = {
     if (node.cancelTimings && node.cancelTimings.length > 0) clean.cancelTimings = node.cancelTimings;
     if (node.effects && node.effects.length > 0) clean.effects = node.effects;
     if (node.hitMults && node.hitMults.length > 0) clean.hitMults = node.hitMults;
+    if (node.hitCondition?.trim()) clean.hitCondition = node.hitCondition;
     if (node.scalar) clean.scalar = node.scalar;
 
     if (!node.isPassive) {

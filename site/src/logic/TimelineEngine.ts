@@ -120,6 +120,8 @@ export class TimelineEngineClass {
   _trackerWatch = new Map<string, number>();
   _refreshedBuffs = new Set<string>();
   _buffRanOutAt = new Map<string, number>();
+  // Each mechanic's compiled hitCondition, apart from its triggerRule's.
+  _hitConditions = new WeakMap<MechanicNode, { _compiledRule?: any }>();
   // Each cooldown's last logged timer (seconds left as of `at`; `until` = its last charge's), and
   // who/what each cooldown key belongs to.
   _cooldownWatch = new Map<string, { remaining: number; until: number; at: number; charges?: number }>();
@@ -671,11 +673,13 @@ export class TimelineEngineClass {
     currentData.activeBuffs = structuredClone(prevData.activeBuffs || {});
 
     // removeOnSwap buffs belong to whoever swaps off-field; drop them the moment they leave.
+    // Kept for _gatherInstantEffects, which fires OnBuffRemove for each with the swap events.
     if (prevData.unit && currentData.unit && currentData.unit !== prevData.unit) {
       const swappedOutPrefix = `${prevData.unit}_`;
       for (const key in currentData.activeBuffs) {
         const buff = currentData.activeBuffs[key];
         if (buff?.removeOnSwap && key.startsWith(swappedOutPrefix)) {
+          (currentData._swapRemovedBuffs ??= []).push(buff);
           delete currentData.activeBuffs[key];
           markBuffsChanged(currentData);
         }
@@ -1054,6 +1058,8 @@ export class TimelineEngineClass {
       this.damageQueue.shift();
       beforeHit?.(Math.max(0, nextHit.executeAt - this.currentGlobalRealTime));
       if (nextHit.hitIndex >= hitLimit(nextHit)) continue;
+      // A hit failing its move's hitCondition doesn't happen: no damage, resources or OnHit.
+      if (!this._hitConditionPasses(nextHit, currentData, team)) continue;
 
       // The hit's multiplier as it lands -- per hit, not per cast. A move that needs a value from
       // its cast (e.g. forte it spends on cast) saves it to a tracker on cast and reads that.
@@ -1288,6 +1294,14 @@ export class TimelineEngineClass {
 
   // Evaluates a trigger rule (a mechanic's, or a cancel timing's) against the row, compiling and
   // caching it on `holder` the first time. null when there's no usable rule to evaluate.
+  _hitConditionPasses(hit: QueuedHit, currentData: any, team: any[]): boolean {
+    const rule = hit.originMoveData.hitCondition;
+    if (!rule || !rule.trim()) return true;
+    let holder = this._hitConditions.get(hit.originMoveData);
+    if (!holder) this._hitConditions.set(hit.originMoveData, holder = {});
+    return this._evaluateRule(holder, rule, hitState(currentData, hit.originRow), hit.origin.caster, team) ?? true;
+  }
+
   _evaluateRule(holder: { _compiledRule?: any }, rule: string, currentData: any, unit: string, team: any[]): any {
     if (!holder._compiledRule || typeof holder._compiledRule.evaluate !== 'function') {
       holder._compiledRule = DSLParser.compile(rule);
@@ -1391,9 +1405,13 @@ export class TimelineEngineClass {
     effects.push(...EventManager.emit('OnCast', castModifiers, currentData, currentData.unit, team));
     if (prevData?.unit && prevData.unit !== currentData.unit) {
       effects.push(...EventManager.emit('OnSwapOut', new Set(), currentData, prevData.unit, team));
+      (currentData._swapRemovedBuffs || []).forEach((buff: any) => {
+        effects.push(...EventManager.emit('OnBuffRemove', eventModifier(buff.name), currentData, buff.provider || prevData.unit, team));
+      });
       effects.push(...EventManager.emit('OnSwapIn', new Set(), currentData, currentData.unit, team));
       effects.push(...EventManager.emit('OnUnitChange', new Set(), currentData, currentData.unit, team));
     }
+    delete currentData._swapRemovedBuffs;
     return effects;
   }
 

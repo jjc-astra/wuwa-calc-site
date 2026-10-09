@@ -195,6 +195,8 @@ export interface MechanicNode {
   // null = spread evenly. The first and last hits are damageTimeframe's start/end.
   hitFrames?: Array<Frames | string | null>;
   allowedHits?: number;
+  // Checked as each hit lands (IF (...), for the caster): a hit that fails it doesn't happen.
+  hitCondition?: string;
   _compiledRule?: any;
 }
 

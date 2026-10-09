@@ -203,7 +203,14 @@ export const ContextManager = {
           getBuffMaxStacks: (debuffName: string) => lookupBuff('Enemy', debuffName)?.maxStacks || 1,
           hasBuff: (debuffName: string) => isBuffLive(lookupBuff('Enemy', debuffName)) ? 1 : 0
         },
-        team: teamNames,
+        // Still the roster's names (@Team.includes(...)), plus HasBuff across the whole team.
+        team: Object.assign([...teamNames], {
+          hasBuff: (buffName: string) => ([
+            ...teamNames.map(name => lookupBuff(name, buffName)),
+            activeState.activeBuffs?.[scopedKey('@Team', buffName)],
+            activeState.activeBuffs?.[scopedKey('Active', buffName)]
+          ].some(isBuffLive) ? 1 : 0)
+        }),
         teamOthers: teamNames.filter(c => c !== activeUnitName),
         default: GAME_DEFAULTS,
         next: (() => {
