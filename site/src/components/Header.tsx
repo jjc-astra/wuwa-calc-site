@@ -5,7 +5,9 @@ import type { ViewId } from '../config/nav';
 import { HomeIcon, InfoIcon, HeartIcon, DiscordIcon, PatreonIcon } from './common/icons';
 import { ActionsMenuButton } from './common/ActionsMenuButton';
 import { SITE_FEATURES, SITE_LINKS } from '../data/db';
-import { guideHash } from '../hooks/useHashRoute';
+import { guidePath, viewPath } from '../config/routes';
+import { goTo } from '../hooks/useRoute';
+import { RouteLink } from './common/RouteLink';
 
 interface HeaderProps {
   currentView: ViewId;
@@ -21,21 +23,22 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavClick, guideCh
   return (
     <div className="global-nav-header">
       <div className="header-left">
-        <button className="nav-brand" onClick={() => onNavClick('landing')}>
+        <RouteLink className="nav-brand" href={viewPath('landing')} onNavigate={() => onNavClick('landing')}>
           <HomeIcon size={20} />
           <span>WuWa Calculator</span>
-        </button>
+        </RouteLink>
 
         <nav className="nav-items">
           {NAV_ITEMS.map(item => (
-            <button
+            <RouteLink
               key={item.id}
               className={`nav-item-btn ${currentView === item.id ? 'is-active' : ''}`}
-              onClick={() => onNavClick(item.id)}
+              href={viewPath(item.id)}
+              onNavigate={() => onNavClick(item.id)}
             >
               <item.icon size={15} />
               <span>{item.label}</span>
-            </button>
+            </RouteLink>
           ))}
         </nav>
       </div>
@@ -47,18 +50,19 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavClick, guideCh
           </button>
         )}
         {currentView === 'guide' && guideCharacter && (
-          <button className="base-btn" onClick={() => { window.location.hash = guideHash(); }}>
+          <button className="base-btn" onClick={() => goTo(guidePath())}>
             Back to Library
           </button>
         )}
 
-        <button
+        <RouteLink
           className={`nav-item-btn ${currentView === 'about' ? 'is-active' : ''}`}
-          onClick={() => onNavClick('about')}
+          href={viewPath('about')}
+          onNavigate={() => onNavClick('about')}
         >
           <InfoIcon size={15} />
           <span>About</span>
-        </button>
+        </RouteLink>
 
         {SITE_FEATURES.SHOW_DISCORD_BUTTON && (
           <a

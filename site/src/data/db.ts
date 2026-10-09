@@ -20,7 +20,11 @@ export const SITE_FEATURES = {
   SHOW_SUPPORT_BUTTON: false
 };
 
+// The landing page's "Latest added characters", in display order; each opens its Character Guide.
+export const LATEST_CHARACTERS = ['Mornye', 'Lumi'];
+
 export const SITE_LINKS = {
+  DATA_REPO_URL: 'https://github.com/jjc-astra/wuwa-calc-data',
   DISCORD_INVITE_URL: 'https://discord.gg/REPLACE_ME',
   PATREON_URL: 'https://patreon.com/REPLACE_ME',
   KOFI_URL: 'https://ko-fi.com/REPLACE_ME'

@@ -4,38 +4,37 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/webp" href="/favicon.webp" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WuWa Calculator</title>
-    <meta name="description" content="Tools for planning, building, and optimizing Wuthering Waves team rotations." />
-
-    <!-- Open Graph -- read by Discord, Slack, iMessage, etc. to build a link-preview embed.
-         These are scraped from the raw HTML (no JS execution), so og:image must be an absolute
-         URL, not a relative one. -->
-    <meta property="og:type" content="website" />
-    <meta property="og:title" content="WuWa Calculator" />
-    <meta property="og:description" content="Tools for planning, building, and optimizing Wuthering Waves team rotations." />
-    <meta property="og:url" content="https://wuwacalc.com/" />
-    <meta property="og:image" content="https://wuwacalc.com/og-image.png" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta property="og:image:type" content="image/png" />
+    <!-- Per-route title, description, canonical and Open Graph / Twitter tags: injected by
+         routePagesPlugin (vite.config.ts) from src/config/routes.ts, into each view's own page. -->
+    <!--route-meta-->
     <meta name="theme-color" content="#863bff" />
 
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="WuWa Calculator" />
-    <meta name="twitter:description" content="Tools for planning, building, and optimizing Wuthering Waves team rotations." />
-    <meta name="twitter:image" content="https://wuwacalc.com/og-image.png" />
-
-    <!-- GoatCounter analytics. Routing is hash-based (see useHashRoute.ts), and count.js's
-         default path is just pathname+search -- every route would collapse into one "page"
-         without this, so onload/hashchange fire an explicit count() including location.hash. -->
-    <script>
-      window.goatcounter = { no_onload: true };
-      function gcPath() { return location.pathname + location.search + location.hash; }
-      window.addEventListener('hashchange', function () { window.goatcounter.count({ path: gcPath() }); });
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "WuWa Calculator",
+        "alternateName": ["WuWa Calc", "Wuthering Waves Calculator", "Wuthering Waves Damage Calculator"],
+        "url": "https://wuwacalc.com/",
+        "applicationCategory": "GameApplication",
+        "operatingSystem": "All",
+        "browserRequirements": "Requires JavaScript",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "description": "A free damage calculator and team rotation simulator for Wuthering Waves."
+      }
     </script>
+
+    <!-- Old hash-routed links (#/calculator/step-2) -> their path equivalents (/calculator/step-2/),
+         before the app or GoatCounter read the URL. -->
+    <script>
+      if (location.hash.indexOf('#/') === 0) {
+        history.replaceState(null, '', location.hash.slice(1).replace(/\/?$/, '/'));
+      }
+    </script>
+
+    <!-- GoatCounter analytics: counts this load; in-app navigations are counted by useRoute. -->
     <script data-goatcounter="https://jjc-astra.goatcounter.com/count"
-            async src="//gc.zgo.at/count.js"
-            onload="window.goatcounter.count({ path: gcPath() })"></script>
+            async src="//gc.zgo.at/count.js"></script>
   </head>
   <body>
     <div id="root"></div>

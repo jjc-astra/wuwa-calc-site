@@ -13,7 +13,7 @@ import { checkTeamFreshness, checkBuilderItemFreshness } from './utils/dataFresh
 import { useRosterStore } from './store/useRosterStore';
 import { useRankingsStore } from './store/useRankingsStore';
 import { useBuilderStore, mechFolderFor } from './store/useBuilderStore';
-import { useHashRoute } from './hooks/useHashRoute';
+import { useRoute } from './hooks/useRoute';
 import './assets/css/palette.css';
 import './assets/css/components.css';
 import './assets/css/calculator.css';
@@ -30,7 +30,7 @@ let startupLoad: Promise<void> | null = null;
 
 // Loads the databases, routes between pages, and rechecks loaded data when the tab refocuses.
 export default function App() {
-  const [{ view: currentView, step: activeStep, guideCharacter }, navigate] = useHashRoute();
+  const [{ view: currentView, step: activeStep, guideCharacter }, navigate] = useRoute();
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Re-checks the Builder's open entity against the manifest, replaying setActiveChar if it
@@ -79,21 +79,20 @@ export default function App() {
     return () => clearInterval(interval);
   }, [currentView]);
 
-  if (!isLoaded) {
-    return (
-      <div id="app-layout" className="flex-center" style={{ height: '100vh', color: 'var(--accent)' }}>
-        Loading databases...
-      </div>
-    );
-  }
-
+  // The header and landing page need no data, so they render (and are crawlable) right away.
   return (
     <div id="app-layout">
       <Header currentView={currentView} onNavClick={navigate} guideCharacter={guideCharacter} />
 
-      {currentView === 'landing' && <LandingPage onNavigate={navigate} />}
+      {currentView === 'landing' && <LandingPage onNavigate={navigate} dataReady={isLoaded} />}
 
-      {currentView === 'calculator' && (
+      {currentView !== 'landing' && !isLoaded && (
+        <div className="flex-center" style={{ flex: 1, color: 'var(--accent)' }}>
+          Loading databases...
+        </div>
+      )}
+
+      {isLoaded && currentView === 'calculator' && (
         <div className="calculator-layout">
           <ResultsPanel collapsed={activeStep === 1} />
           <div className="calculator-steps">
@@ -109,15 +108,15 @@ export default function App() {
         </div>
       )}
 
-      {currentView === 'builder' && <MechanicsBuilder />}
+      {isLoaded && currentView === 'builder' && <MechanicsBuilder />}
 
-      {currentView === 'rankings' && <RotationRankingsPage />}
+      {isLoaded && currentView === 'rankings' && <RotationRankingsPage />}
 
-      {currentView === 'guide' && <CharacterGuidePage character={guideCharacter} />}
+      {isLoaded && currentView === 'guide' && <CharacterGuidePage character={guideCharacter} />}
 
-      {currentView === 'about' && <AboutPage />}
+      {isLoaded && currentView === 'about' && <AboutPage />}
 
-      <FreshnessConflictDialog />
+      {isLoaded && <FreshnessConflictDialog />}
     </div>
   );
 }

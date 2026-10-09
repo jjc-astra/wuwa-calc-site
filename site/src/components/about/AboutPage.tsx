@@ -105,8 +105,8 @@ export const AboutPage: React.FC = () => {
             <MermaidDiagram source={DIAGRAMS.layers} />
           </AboutSection>
 
-          <AboutSection id="boot" title="Boot, routing and shell" tag="main.tsx, App.tsx, useHashRoute, Header">
-            <p className="about-note">Persisted stores restore as their modules load, before anything renders. Nothing but a loading line shows until <code>initDatabases</code> finishes. Views are hash routes (<code>#/calculator/step-2</code>, <code>#/guide/Lumi</code>), so back, forward and refresh work with no router. Refocus and poll checks are covered under <SectionLink to="data">Data + ops</SectionLink>.</p>
+          <AboutSection id="boot" title="Boot, routing and shell" tag="main.tsx, App.tsx, useRoute, Header">
+            <p className="about-note">Persisted stores restore as their modules load, before anything renders. The header and landing page render at once; every other view shows a loading line until <code>initDatabases</code> finishes. Views are path routes (<code>/calculator/step-2/</code>, <code>/guide/Lumi/</code>) driven by <code>pushState</code>, so back, forward and refresh work with no router. Each view gets its own static HTML page at build, with its own title, description and canonical URL, and <code>404.html</code> serves the app for every other path. Refocus and poll checks are covered under <SectionLink to="data">Data + ops</SectionLink>.</p>
             <h3 className="about-subhead caps-tag">Startup</h3>
             <MermaidDiagram source={DIAGRAMS.bootStartup} />
             <h3 className="about-subhead caps-tag">Routing</h3>

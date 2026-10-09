@@ -4,20 +4,58 @@
 .landing-page {
     flex: 1 1 auto;
     min-height: 0;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: minmax(0, 45rem) minmax(0, 33.5rem);
+    justify-content: center;
+    /* Top-aligned, not centered: opening an FAQ answer grows the page, which would shift both columns. */
+    align-content: start;
+    /* Columns keep their own heights, so the divider (sized to the left column) never grows. */
+    align-items: start;
+    padding: 3.5rem 1.25rem 2.5rem;
+    gap: 2.5rem 7rem;
+}
+
+/* Left: hero + page cards. Right: latest characters + FAQ. */
+.landing-main,
+.landing-side {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    overflow-y: auto;
-    padding: 2.5rem 1.25rem;
     gap: 2.5rem;
+    min-width: 0;
+}
+
+.landing-side { gap: 2rem; }
+
+/* Column divider: centered in the gap, fading out like .panel-header-main's rule. */
+.landing-main { position: relative; }
+.landing-main::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: -3.5rem;
+    width: 1px;
+    background: linear-gradient(to bottom, var(--overlay-w5), transparent);
+}
+
+/* Narrow screens: one column, the side content below the cards; the divider runs across instead. */
+@media (max-width: 1000px) {
+    .landing-page { grid-template-columns: minmax(0, 45rem); gap: 2.5rem; }
+    .landing-main { padding-bottom: 2.5rem; }
+    .landing-main::after {
+        top: auto;
+        left: 0;
+        right: 0;
+        width: auto;
+        height: 1px;
+        background: linear-gradient(to right, var(--overlay-w5), transparent);
+    }
 }
 
 .landing-hero {
-    text-align: center;
     display: flex;
     flex-direction: column;
-    align-items: center;
     gap: var(--space-4);
 }
 
@@ -40,8 +78,6 @@
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: var(--space-6);
-    width: 100%;
-    max-width: 45rem;
 }
 
 .landing-card {
@@ -56,7 +92,8 @@
     border-radius: 0.5rem;
     cursor: pointer;
     text-align: left;
-    font-family: inherit;
+    color: inherit;
+    text-decoration: none;
     transition: 0.2s;
 }
 
@@ -87,3 +124,50 @@
     line-height: 1.4;
 }
 
+
+/* --- Side sections: latest characters, FAQ --- */
+.landing-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.landing-section .panel-header-main { margin-top: 0; margin-bottom: var(--space-2); }
+
+.landing-latest-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 9.5rem);
+    gap: 1rem;
+    /* Larger names to match the bigger cards (LibraryCard sizes its label in em). */
+    font-size: 1.2rem;
+    /* Holds its height while the databases load, so the FAQ doesn't jump. */
+    min-height: 13rem;
+}
+
+.landing-faq details {
+    background: var(--surface-card);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+}
+
+.landing-faq summary {
+    padding: 0.875rem 1.25rem;
+    color: var(--text-main);
+    font-weight: bold;
+    font-size: 0.95rem;
+    cursor: pointer;
+}
+
+.landing-faq summary:hover,
+.landing-faq details[open] summary { color: var(--accent); }
+
+.landing-faq details p {
+    margin: 0;
+    padding: 0 1.25rem 1rem;
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    line-height: 1.55;
+}
+
+.landing-faq details a { color: var(--accent); text-decoration: none; }
+.landing-faq details a:hover { text-decoration: underline; }

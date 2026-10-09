@@ -11,7 +11,8 @@ import { rotationTypeLabel } from '../../store/useRankingsStore';
 import type { RankingEntry } from '../../store/useRankingsStore';
 import type { DpsWindowKey } from '../../types/results';
 import { dpsFieldOf } from '../../data/dpsWindows';
-import { calculatorHash, guideHash } from '../../hooks/useHashRoute';
+import { calculatorPath, guidePath } from '../../config/routes';
+import { goTo } from '../../hooks/useRoute';
 import type { ActionsMenuItem } from '../common/ActionsMenuButton';
 
 /** A rotation's Linear / Quickswap tag. */
@@ -52,15 +53,14 @@ export const RankingRow: React.FC<RankingRowProps> = ({ rank, entry, activeWindo
       return;
     }
     await loadSavedRotation(run);
-    // No navigate() prop reaches this deep; the hook's hashchange listener picks this up the same way.
-    window.location.hash = calculatorHash(2);
+    goTo(calculatorPath(2));
   };
 
   // No dmgOverTimeSeries on RankingEntry -- recalculates via worker like Import JSON does
   // (pinFromRankingEntry), then jumps to Calculator since Rankings has no such panel to show it.
   const handlePinToComparison = () => {
     useComparisonStore.getState().pinFromRankingEntry(entry);
-    window.location.hash = calculatorHash(2);
+    goTo(calculatorPath(2));
   };
 
 return (
@@ -100,7 +100,7 @@ return (
             items={[
               { key: 'open-in-calculator', label: 'Open in Rotation Calculator', onClick: handleOpenInCalculator },
               { key: 'pin-to-comparison', label: 'Pin to Comparison', onClick: handlePinToComparison },
-              ...unitNames.map(name => ({ key: `guide-${name}`, label: `Open ${name} Guide`, onClick: () => { window.location.hash = guideHash(name); } })),
+              ...unitNames.map(name => ({ key: `guide-${name}`, label: `Open ${name} Guide`, onClick: () => goTo(guidePath(name)) })),
               ...extraMenuItems
             ]}
           />

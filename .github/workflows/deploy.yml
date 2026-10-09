@@ -30,15 +30,18 @@ jobs:
           cache: npm
           cache-dependency-path: site/package-lock.json
 
-      - run: npm ci
-      - run: npm run build
-
       # The data repo's data/ and images/ ship with the site, served from its own /data and /images.
+      # Checked out before the build, which also reads its rankings index for the guide pages.
       - uses: actions/checkout@v4
         with:
           repository: jjc-astra/wuwa-calc-data
           ref: main
           path: data-repo
+
+      - run: npm ci
+      - run: npm run build
+        env:
+          WUWA_DATA_DIR: ../data-repo/data
       - run: cp -r ../data-repo/data ../data-repo/images dist/
 
       - uses: actions/configure-pages@v5

@@ -1,8 +1,9 @@
 import type { ComponentType } from 'react';
 import type { IconProps } from '../components/common/icons';
 import { CalculatorIcon, BuilderIcon, RankingsIcon, GuideIcon } from '../components/common/icons';
+import type { ViewId } from './routes';
 
-export type ViewId = 'landing' | 'calculator' | 'builder' | 'rankings' | 'guide' | 'about';
+export type { ViewId };
 
 export interface NavItem {
   id: ViewId;

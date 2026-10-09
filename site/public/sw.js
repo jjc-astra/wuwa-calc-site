@@ -39,10 +39,11 @@ self.addEventListener('fetch', event => {
 
   if (url.origin !== self.location.origin) return;
 
-  // index.html: network-first, so a new deploy's referenced asset hashes are picked up as soon
-  // as they're reachable -- falls back to the last cached shell only when offline.
+  // Route pages: network-first, so a new deploy's referenced asset hashes are picked up as soon
+  // as they're reachable -- falls back to the last cached shell only when offline. Every route's
+  // page is the same app, so an uncached route falls back to the homepage's.
   if (req.mode === 'navigate' || url.pathname === '/' || url.pathname.endsWith('.html')) {
-    event.respondWith(networkFirst(req, APP_CACHE));
+    event.respondWith(networkFirst(req, APP_CACHE, req.mode === 'navigate' ? '/' : undefined));
     return;
   }
 
@@ -62,14 +63,14 @@ async function cacheFirst(request, cacheName, { requireOk = true } = {}) {
   return response;
 }
 
-async function networkFirst(request, cacheName) {
+async function networkFirst(request, cacheName, fallbackUrl) {
   const cache = await caches.open(cacheName);
   try {
     const response = await fetch(request);
     if (response.ok) cache.put(request, response.clone());
     return response;
   } catch (err) {
-    const cached = await cache.match(request);
+    const cached = await cache.match(request) ?? (fallbackUrl && await cache.match(fallbackUrl));
     if (cached) return cached;
     throw err;
   }

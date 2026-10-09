@@ -42,7 +42,7 @@ export const DIAGRAMS = {
       direction TB
       A1["DataLoader.initDatabases<br/>refreshManifest(force); loadMergedDB: characters,<br/>weapons, builds, echoes; weaponsByType;<br/>set → echo mapping; System mechanics; ready"]:::data
       A1 --> A2["refreshActiveBuilderItem(force):<br/>checkBuilderItemFreshness + setActiveChar"]:::store
-      A2 --> A3["isLoaded → Header + view +<br/>FreshnessConflictDialog<br/>(until then: Loading databases...)"]:::ui
+      A2 --> A3["isLoaded → view +<br/>FreshnessConflictDialog<br/>(Header + landing render before it;<br/>other views: Loading databases...)"]:::ui
       A3 --> A4["tab refocus: freshness check for the view;<br/>Builder view: 3 s poll too"]:::ui
     end
     Hydrate --> Main --> Mount
@@ -50,17 +50,18 @@ export const DIAGRAMS = {
   bootRouting: `
     graph LR
     N["nav click:<br/>navigate(view)"]:::ui --> NT{"target"}
-    NT -->|"current hash"| NS["setRoute(parseHash())"]:::ui
-    NT -->|"landing"| NL["pushState to a clean<br/>URL, setRoute"]:::ui
-    NT -->|"calculator"| NC["#/calculator/step-N<br/>N = remembered step"]:::ui
-    NT -->|"guide"| NG["#/guide/Name<br/>Name = remembered"]:::ui
-    NT -->|"builder, rankings,<br/>about"| NO["#/view"]:::ui
-    NC --> EV
-    NG --> EV
-    NO --> EV
-    EV["hashchange /<br/>popstate"]:::ui --> P{"parseHash:<br/>first segment"}
-    P -->|"calculator"| PC["step from the hash, else the<br/>remembered one; saved to<br/>wuwa_calc_last_step"]:::data
-    P -->|"guide"| PG["character from the hash, saved to<br/>wuwa_calc_last_guide_character<br/>(a bare #/guide clears it)"]:::data
+    NT -->|"landing"| NL["/"]:::ui
+    NT -->|"calculator"| NC["/calculator/step-N/<br/>N = remembered step"]:::ui
+    NT -->|"guide"| NG["/guide/Name/<br/>Name = remembered"]:::ui
+    NT -->|"builder, rankings,<br/>about"| NO["/view/"]:::ui
+    NL --> GT
+    NC --> GT
+    NG --> GT
+    NO --> GT
+    GT["goTo: pushState (unless<br/>already there) + route event"]:::ui --> EV
+    EV["route event /<br/>popstate"]:::ui --> P{"parseRoute:<br/>first path segment"}
+    P -->|"calculator"| PC["step from the path, else the<br/>remembered one; saved to<br/>wuwa_calc_last_step"]:::data
+    P -->|"guide"| PG["character from the path, saved to<br/>wuwa_calc_last_guide_character<br/>(a bare /guide/ clears it)"]:::data
     P -->|"builder, rankings,<br/>about"| PO["that view"]
     P -->|"empty or<br/>unknown"| PL["landing"]
     PC --> V
@@ -68,6 +69,7 @@ export const DIAGRAMS = {
     PO --> V
     PL --> V
     V["App renders the view<br/>calculator: ResultsPanel + TeamBuilder + RotationBuilder<br/>builder: MechanicsBuilder · rankings: RotationRankingsPage<br/>guide: CharacterGuidePage · about: AboutPage<br/>landing: LandingPage, a card per NAV_ITEM"]:::ui
+    V --> VT["document.title +<br/>GoatCounter pageview"]:::ui
   `,
   teamEdits: `
     graph LR
@@ -748,9 +750,9 @@ export const DIAGRAMS = {
     subgraph Row["RankingRow"]
       direction TB
       W1["TeamPreview + StackedContributionBar"]:::ui
-      W2["Open in Rotation Calculator: loadRankedRun,<br/>loadSavedRotation, #/calculator/step-2"]:::store
+      W2["Open in Rotation Calculator: loadRankedRun,<br/>loadSavedRotation, /calculator/step-2/"]:::store
       W3["Pin to Comparison: pinFromRankingEntry,<br/>then the calculator"]:::store
-      W4["Open Name Guide: #/guide/Name"]:::ui
+      W4["Open Name Guide: /guide/Name/"]:::ui
       W5["expand: RankingTimelinePanel<br/>(next diagram)"]:::ui
       W1 ~~~ W2 ~~~ W3 ~~~ W4 ~~~ W5
     end
@@ -783,8 +785,8 @@ export const DIAGRAMS = {
     graph LR
     subgraph Page["page"]
       direction TB
-      G1["#/guide: GuideLibrary; characters<br/>with no ranked rotation dimmed"]:::ui
-      G1 --> G2["#/guide/Name: useRankingsStore.load;<br/>useGuideEntries: loadRankedRun for each entry<br/>with the unit (failures left out)"]:::data
+      G1["/guide/: GuideLibrary; characters<br/>with no ranked rotation dimmed"]:::ui
+      G1 --> G2["/guide/Name/: useRankingsStore.load;<br/>useGuideEntries: loadRankedRun for each entry<br/>with the unit (failures left out)"]:::data
       G2 --> G3["groupTeams: a group per team +<br/>rotation style, best S0 DPS first"]:::logic
     end
     subgraph Cfg["config"]

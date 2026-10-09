@@ -106,6 +106,7 @@ button, input, select, textarea { font-family: inherit; }
     color: var(--text-main);
     font-size: 1.05rem;
     font-weight: bold;
+    text-decoration: none;
     white-space: nowrap;
     cursor: pointer;
     transition: color 0.2s;

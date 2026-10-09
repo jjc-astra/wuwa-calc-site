@@ -1,13 +1,13 @@
 // Browses the submitted Rankings results for one character: pick a team and investment, then see
 // its results, timeline, and sequence / weapon / echo comparisons.
 import React, { useEffect, useMemo, useState } from 'react';
-import { useRankingsStore } from '../../store/useRankingsStore';
 import { RotationTypeBadge } from '../rankings/RankingRow';
 import type { RankingEntry } from '../../store/useRankingsStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { getCharacterThemeColor, tip } from '../../utils/Common';
 import { IMAGE_FOLDERS, SIM_CONSTANTS } from '../../data/db';
-import { guideHash } from '../../hooks/useHashRoute';
+import { guidePath } from '../../config/routes';
+import { goTo } from '../../hooks/useRoute';
 import { AvatarIcon } from '../common/AvatarIcon';
 import { LibraryCard, LibrarySection, LibrarySearchInput, matchesLibrarySearch } from '../common/LibraryGrid';
 import { IconSelect } from '../common/IconSelect';
@@ -33,25 +33,16 @@ import type { GuideSelection } from '../../store/useGuideSelectionStore';
 import type { GuideConfig, GuideJob, GuideMetric, GuideScope, GuideTeamGroup, GuideEntry } from './guideModel';
 import { useGuideFullCalc, useGuideSummaries, useGuideEntries, useGuideCache } from './useGuideCalc';
 import { warmWorkerPool } from '../../workers/calcWorkerClient';
+import { useRankedCharacters } from './useRankedCharacters';
 
 interface CharacterGuidePageProps {
   character?: string;
 }
 
 export const CharacterGuidePage: React.FC<CharacterGuidePageProps> = ({ character }) => {
-  const { status, entries, error, load } = useRankingsStore();
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const { status, entries, error, rankedCharacters } = useRankedCharacters();
   // From the library too: the workers load while a character is picked.
   useEffect(() => warmWorkerPool(), []);
-
-  const rankedCharacters = useMemo(() => {
-    const names = new Set<string>();
-    entries.forEach(e => e.characters.forEach(character => { if (character) names.add(character); }));
-    return names;
-  }, [entries]);
 
   if (!character) return <GuideLibrary status={status} error={error} rankedCharacters={rankedCharacters} />;
 
@@ -95,7 +86,7 @@ const GuideLibrary: React.FC<GuideLibraryProps> = ({ status, error, rankedCharac
                   rarity={DataLoader.characterDB[name]?.rarity || 5}
                   dimmed={!isRanked}
                   dimmedTooltip="No ranked rotations yet"
-                  onClick={() => { if (isRanked) window.location.hash = guideHash(name); }}
+                  onClick={() => { if (isRanked) goTo(guidePath(name)); }}
                 />
               );
             })}
