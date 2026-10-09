@@ -17,7 +17,7 @@ export type ImageFolder = typeof IMAGE_FOLDERS[keyof typeof IMAGE_FOLDERS];
 
 export const SITE_FEATURES = {
   SHOW_DISCORD_BUTTON: false,
-  SHOW_SUPPORT_BUTTON: false
+  SHOW_SUPPORT_BUTTON: true
 };
 
 // The landing page's "Latest added characters", in display order; each opens its Character Guide.
@@ -26,8 +26,8 @@ export const LATEST_CHARACTERS = ['Mornye', 'Lumi'];
 export const SITE_LINKS = {
   DATA_REPO_URL: 'https://github.com/jjc-astra/wuwa-calc-data',
   DISCORD_INVITE_URL: 'https://discord.gg/REPLACE_ME',
-  PATREON_URL: 'https://patreon.com/REPLACE_ME',
-  KOFI_URL: 'https://ko-fi.com/REPLACE_ME'
+  PATREON_URL: '',
+  KOFI_URL: 'https://ko-fi.com/wuwacalc'
 };
 
 export const MECHANICS_NOTATION = {

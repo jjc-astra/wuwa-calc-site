@@ -9,6 +9,30 @@ import { guidePath, viewPath } from '../config/routes';
 import { goTo } from '../hooks/useRoute';
 import { RouteLink } from './common/RouteLink';
 
+// The Support menu's entries; one whose SITE_LINKS url is blank is left out.
+const supportLinks = [
+  {
+    key: 'patreon',
+    url: SITE_LINKS.PATREON_URL,
+    label: (
+      <span className="flex-row gap-sm brand-patreon">
+        <PatreonIcon size={16} />
+        <span>Patreon</span>
+      </span>
+    )
+  },
+  {
+    key: 'kofi',
+    url: SITE_LINKS.KOFI_URL,
+    label: (
+      <span className="flex-row gap-sm brand-kofi">
+        <img src="/ko-fi-logotype-27349.svg" width={16} height={16} alt="" />
+        <span>Ko-fi</span>
+      </span>
+    )
+  }
+].filter(link => link.url.trim() !== '');
+
 interface HeaderProps {
   currentView: ViewId;
   onNavClick: (view: ViewId) => void;
@@ -76,7 +100,7 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavClick, guideCh
           </a>
         )}
 
-        {SITE_FEATURES.SHOW_SUPPORT_BUTTON && (
+        {SITE_FEATURES.SHOW_SUPPORT_BUTTON && supportLinks.length > 0 && (
           <ActionsMenuButton
             triggerClassName="nav-item-btn text-gold"
             popupClassName="pin-menu-narrow"
@@ -86,28 +110,11 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavClick, guideCh
                 <span>Support</span>
               </>
             }
-            items={[
-              {
-                key: 'patreon',
-                label: (
-                  <span className="flex-row gap-sm brand-patreon">
-                    <PatreonIcon size={16} />
-                    <span>Patreon</span>
-                  </span>
-                ),
-                onClick: () => window.open(SITE_LINKS.PATREON_URL, '_blank', 'noopener,noreferrer')
-              },
-              {
-                key: 'kofi',
-                label: (
-                  <span className="flex-row gap-sm brand-kofi">
-                    <img src="/ko-fi-logotype-27349.svg" width={16} height={16} alt="" />
-                    <span>Ko-fi</span>
-                  </span>
-                ),
-                onClick: () => window.open(SITE_LINKS.KOFI_URL, '_blank', 'noopener,noreferrer')
-              }
-            ]}
+            items={supportLinks.map(({ key, url, label }) => ({
+              key,
+              label,
+              onClick: () => window.open(url, '_blank', 'noopener,noreferrer')
+            }))}
           />
         )}
       </div>
