@@ -467,7 +467,8 @@ function substatWorthSample(hits: RotationHit[], openerEndTime: Frames, loopEnds
 // Avoids re-running the full sim 78x (13 substats x 3 rolls x 2 dirs): a unit's stats only reach
 // its own hits and the hits carrying a buff of its whose value reads its stats (e.g. DMG Bonus
 // from its ER), so those cached hit/context pairs are just re-priced with a patched team -- along
-// with any multiplier reading the caster's stats. Rotation timing isn't re-simulated.
+// with any multiplier reading the caster's stats. Rotation timing isn't re-simulated. Per hit, what
+// the unit's stats don't touch is worked out once for all its variants (CombatCalculator.repricer).
 function buildSubstatWorth(sample: WeightedHit[], team: TeamSlot[]): Record<string, SubstatWorthRow[]> {
   const baselineTotal = weightedTotal(sample);
   const out: Record<string, SubstatWorthRow[]> = {};
@@ -478,9 +479,16 @@ function buildSubstatWorth(sample: WeightedHit[], team: TeamSlot[]): Record<stri
     if (!unit) return;
     const unitBaseline = weightedTotal(sample.filter(s => s.hit.provider === unit));
     const reached = sample.filter(s => s.hit.provider === unit || carriesStatScaledBuffFrom(s.hit.context, unit));
-    // A copy of each context: pricing writes the enemy's HP onto it. Weighted, as the sample is.
-    const price = (forTeam: TeamSlot[]) =>
-      reached.map(({ hit, weight }) => CombatCalculator.calculateDamageInstance(hit.config, { ...hit.context }, forTeam, { restat: true }).total * weight);
+    // What the unit's stats don't touch on each hit, worked out once (CombatCalculator.repricer);
+    // each variant finishes them from its sheet stats and team.
+    const repricers = reached.map(({ hit }) => CombatCalculator.repricer(hit.config, hit.context, team, unit));
+    // Any it can't do (Tune/status hits) in full -- a copy of each context, as pricing writes the
+    // enemy's HP onto it. Weighted, as the sample is.
+    const price = (forTeam: TeamSlot[]) => {
+      const baseStats = CombatCalculator.calculateFinalStats(unit, [], forTeam);
+      return reached.map(({ hit, weight }, i) =>
+        (repricers[i]?.(baseStats, forTeam) ?? CombatCalculator.calculateDamageInstance(hit.config, { ...hit.context }, forTeam, { restat: true }).total) * weight);
+    };
     // Re-priced the same way, so only the stat change moves the difference.
     const baseline = price(team);
 
