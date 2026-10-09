@@ -1147,6 +1147,10 @@
     to { transform: rotate(360deg); }
 }
 
+/* RosterPickDialog: one button per option. */
+.roster-pick-options { display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-4); }
+.roster-pick-option { justify-content: flex-start; }
+
 /* =========================================
    MOBILE LAYOUT (must stay last -- overriding rules earlier in this file at equal specificity)
    ========================================= */

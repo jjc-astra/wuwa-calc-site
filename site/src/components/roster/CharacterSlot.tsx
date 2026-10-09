@@ -1,5 +1,5 @@
-import React from 'react';
-import { useRosterStore } from '../../store/useRosterStore';
+import React, { useRef } from 'react';
+import { useRosterStore, isUnitFile } from '../../store/useRosterStore';
 import { useBuilderStore } from '../../store/useBuilderStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { selectableOptions } from '../../utils/selectableContent';
@@ -18,7 +18,8 @@ interface CharacterSlotProps {
 
 /** One roster slot: character, weapon, echo sets and echoes. */
 export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
-  const { team, setSlotField, applyRecommendedBuild, clearSlot } = useRosterStore();
+  const { team, setSlotField, applyRecommendedBuild, clearSlot, importUnit } = useRosterStore();
+  const unitInputRef = useRef<HTMLInputElement>(null);
   // Subscribed (not just read) so Builder edits -- which can make an entity selectable -- re-render the pickers.
   const { editedBaseStats } = useBuilderStore();
   const slot = team[index];
@@ -58,6 +59,22 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
     </div>
   );
 
+  // A unit file replaces this slot's options outright.
+  const handleImportUnit = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    try {
+      const data = JSON.parse(await CommonUtils.readTextFile(file));
+      if (!isUnitFile(data)) alert('No unit data found in this file.');
+      else if (!DataLoader.charList.includes(data.character)) alert(`Unknown character: ${data.character}.`);
+      else await importUnit(index, data);
+    } catch (err) {
+      console.error('[CharacterSlot] Error importing unit:', err);
+      alert('Error loading unit.');
+    }
+  };
+
   return (
     <div className={`char-row ${hasMode ? 'has-mode' : ''}`} style={{ '--char-theme-raw': themeColor } as React.CSSProperties}>
       {/* 1. Character Column */}
@@ -74,6 +91,43 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+          </svg>
+        </button>
+
+        <input type="file" ref={unitInputRef} accept=".json" style={{ display: 'none' }} onChange={handleImportUnit} />
+        <button
+          type="button"
+          className="base-btn icon-btn"
+          {...tip('Import Unit')}
+          style={{ position: 'absolute', top: '2.375rem', right: '0.3125rem', zIndex: 10 }}
+          onClick={(e) => {
+            e.preventDefault();
+            unitInputRef.current?.click();
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+        </button>
+
+        {/* Same file as Export Team's single-unit pick. */}
+        <button
+          type="button"
+          className="base-btn icon-btn"
+          {...tip('Export Unit')}
+          style={{ position: 'absolute', top: '2.375rem', left: '0.3125rem', zIndex: 10 }}
+          disabled={!slot.character}
+          onClick={(e) => {
+            e.preventDefault();
+            CommonUtils.downloadJson(slot, CommonUtils.exportFilename('Unit', [slot]));
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
           </svg>
         </button>
 

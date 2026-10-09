@@ -27,6 +27,10 @@ import { emptyEchoStats } from '../data/gameVocab';
 const defaultLayoutMainStats = (layout: string): string[] =>
   costsForLayout(layout).map(cost => mainStatOptionsFor(cost)[0] || '');
 
+/** A single unit's export (Export Unit, or Export Team's unit pick): one slot object, not a team array. */
+export const isUnitFile = (data: unknown): data is TeamSlot =>
+  !!data && typeof data === 'object' && !Array.isArray(data) && typeof (data as TeamSlot).character === 'string' && !!(data as TeamSlot).character;
+
 const createEmptySlot = (index: number): TeamSlot => {
   const layout = DEFAULT_ECHO_LAYOUT;
   const defaultMainStats = defaultLayoutMainStats(layout);
@@ -178,6 +182,8 @@ interface RosterState {
   // Replaces the target without recalculating -- for loaders that recalculate right after.
   setEnemy: (enemy: EnemyStats) => void;
   importTeam: (teamData: TeamSlot[]) => Promise<void>;
+  // A single unit's export, replacing that slot's options outright.
+  importUnit: (slotIndex: number, unit: TeamSlot) => Promise<void>;
   applyRecommendedBuild: (slotIndex: number, charName: string) => Promise<void>;
   getIdleStats: (slotIndex: number) => any;
 }
@@ -300,6 +306,10 @@ export const useRosterStore = create<RosterState>()(
         // recalculate() right after, and without waiting these two race on the same async
         // checkTeamFreshness() gap, letting a stale response silently overwrite fresh rows.
         await useRotationStore.getState().recalculate();
+      },
+
+      importUnit: async (slotIndex, unit) => {
+        await get().importTeam(get().team.map((slot, i) => (i === slotIndex ? { ...unit, index: i } : slot)));
       },
 
       getIdleStats: slotIndex => {

@@ -90,7 +90,7 @@ export const DIAGRAMS = {
     C["calculateEchoStatsForSlot, then commitTeam:<br/>publishTeam (applyBuilderOverridesForTeam,<br/>set team)"]:::store --> R
     I5["EchoCard substat"]:::ui --> A9["setSubstat: echo stats<br/>recounted, team set"]:::store --> R
     I6["enemy level, RES, HP"]:::ui --> A10["setEnemyField"]:::store --> R
-    I7["Import Team: a team file,<br/>or a rotation file's team"]:::ui --> A11["importTeam: slots merged, loadTeamMechanics,<br/>echo stats, publishTeam; recalculate awaited"]:::store --> R
+    I7["Import Team: a team file,<br/>or a rotation file's team;<br/>a slot's Import Unit: one unit"]:::ui --> A11["importTeam: slots merged, loadTeamMechanics,<br/>echo stats, publishTeam; recalculate awaited"]:::store --> R
     R["useRotationStore<br/>.recalculate"]:::store
   `,
   teamDisplay: `
