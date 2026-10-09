@@ -111,6 +111,21 @@ export function buffedStats(state: any, unit: string, team: any[]): CalculatedSt
   return (cache[unit] ??= CombatCalculator.calculateFinalStats(unit, buffs, team, state));
 }
 
+// A buff as a hit's breakdown lists it: an '@' value shown as what it came to for that hit (per stack).
+function asApplied(buff: Effect, totalVal: number, isPct: boolean): Effect {
+  if (typeof buff.value !== 'string' || !buff.value.includes('@')) return buff;
+  const perStack = totalVal / (buff.stacks || 1);
+  return { ...buff, value: isPct ? `${CommonUtils.trimNumber(perStack * 100, 2)}%` : CommonUtils.trimNumber(perStack, 2) };
+}
+
+/** A buff's value as a hit on `state` would read it: an '@' value evaluated for its provider (per
+ * stack, as a percent when it is one); any other value as it is. */
+export function evaluatedBuffValue(buff: Effect, state: any, team: any[]): string | number | undefined {
+  const provider = buff.provider || state?.unit;
+  const { totalVal, isPct } = readBuffTotal(buff, provider, team, providerStatsCache(team, state), state);
+  return asApplied(buff, totalVal, isPct).value;
+}
+
 // A debuff on the target: it reaches every hit against it, whoever deals it.
 const targetsEnemy = (buff: Effect): boolean => buff.target === '@Enemy' || buff.target === 'Enemy';
 
@@ -337,10 +352,9 @@ export const CombatCalculator = {
         if (requiredScope && !SCOPE_HIT_TAGS[requiredScope].some(t => modsSet.has(t))) continue;
       }
 
-      appliedBuffs[key] = buff;
-
       const { totalVal, isPct } = readBuffTotal(buff, buff.provider || executingUnit, team, getProviderStats, stateData);
       classifyBuffIntoTotals(sLower, totalVal, isPct, buffTotals);
+      appliedBuffs[key] = asApplied(buff, totalVal, isPct);
     }
 
     return { buffTotals, appliedBuffs };
@@ -366,10 +380,9 @@ export const CombatCalculator = {
       const namesThisStatus = sLower.startsWith(statusLower);
       if (!(targetsEnemy(buff) || namesThisStatus)) continue;
 
-      appliedBuffs[key] = buff;
-
       const { totalVal, isPct } = readBuffTotal(buff, buff.provider || SYSTEM_NAMESPACE, team, getProviderStats, stateData);
       classifyBuffIntoTotals(sLower, totalVal, isPct, buffTotals);
+      appliedBuffs[key] = asApplied(buff, totalVal, isPct);
     }
 
     return { buffTotals, appliedBuffs };

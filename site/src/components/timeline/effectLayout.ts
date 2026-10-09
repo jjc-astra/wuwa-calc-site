@@ -8,6 +8,7 @@ import { SYSTEM_NAMESPACE } from '../../utils/MechanicKey';
 import { compressedTimeToPx, computeTotalDurationFrames, isInstantSystemRow, isSystemHit, stackDots } from './timelineLayout';
 import type { TimeCompression } from './timelineLayout';
 import { slotSets } from '../../utils/TeamUtils';
+import { evaluatedBuffValue } from '../../logic/CombatCalculator';
 import type { TeamSlot } from '../../types';
 
 export const SECTION_ROW_HEIGHT_PX = 24;
@@ -65,6 +66,22 @@ export interface EffectBar {
   widthPx: number;
   info: EffectInfo;
   points: EffectPoint[];
+  // A DSL value as evaluated for each hit the buff reached during the bar, in time order.
+  values?: Array<{ frames: number; value: string | number }>;
+}
+
+const isDslValue = (value: unknown): boolean => typeof value === 'string' && value.includes('@');
+
+/** A bar's value at `frames`: a DSL value as the latest hit at or before then evaluated it (else
+ * its first hit), or the expression itself if no hit carried it. */
+export function barValueAt(bar: EffectBar, frames: number): string | number | undefined {
+  if (!isDslValue(bar.info.value) || !bar.values?.length) return bar.info.value;
+  let at = bar.values[0];
+  for (const v of bar.values) {
+    if (v.frames > frames) break;
+    at = v;
+  }
+  return at.value;
 }
 
 export interface EffectHit {
@@ -357,6 +374,27 @@ export function buildEffectTimeline(rows: any[], team: TeamSlot[], compression: 
     }), row.gameTimeStart);
     lane.actions.push({ xPx: compressedTimeToPx(row.gameTimeStart, compression), row });
   });
+
+  // Each DSL-valued buff's evaluated value at every hit that carried it (CombatCalculator records it).
+  const dslLanes = [...builder.lanes.entries()].filter(([, lane]) => lane.kind === 'buff' && lane.bars.some(bar => isDslValue(bar.info.value)));
+  if (dslLanes.length > 0) {
+    const valuesByKey = new Map<string, Array<{ frames: number; value: string | number }>>(dslLanes.map(([key]) => [key, []]));
+    rows.forEach(row => (row?.damageInstances || []).forEach((hit: any) => {
+      Object.entries(hit.data?.activeBuffs || {}).forEach(([key, buff]: [string, any]) => {
+        valuesByKey.get(key)?.push({ frames: hit.gameTime ?? row.gameTimeStart, value: buff.value });
+      });
+    }));
+    // A bar no hit reached (e.g. its unit off-field): evaluated on the state of the row it starts in.
+    const rowAt = (frames: number) => rows.reduce((at, row) => (row?.unit && (row.gameTimeStart ?? 0) <= frames ? row : at), rows.find(row => row?.unit));
+    dslLanes.forEach(([key, lane]) => {
+      const values = valuesByKey.get(key)!.sort((a, b) => a.frames - b.frames);
+      lane.bars.forEach(bar => {
+        bar.values = values.filter(v => v.frames >= bar.startFrames && v.frames <= bar.endFrames);
+        const state = isDslValue(bar.info.value) && bar.values.length === 0 ? rowAt(bar.startFrames) : null;
+        if (state) bar.values = [{ frames: bar.startFrames, value: evaluatedBuffValue(bar.info as any, state, team) ?? bar.info.value! }];
+      });
+    });
+  }
 
   const data: EffectTimelineData = { unitLanes: {}, enemy: [], system: [], trackers: [] };
   // In order of appearance, a section's cooldowns after its buffs.

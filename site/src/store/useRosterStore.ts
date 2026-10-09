@@ -318,8 +318,9 @@ export const useRosterStore = create<RosterState>()(
 
             mech.effects.forEach(eff => {
               if (eff.type === 'buff' && eff.stat) {
+                // No target lands on the provider, as in the engine (_resolveTargets).
                 const appliesToSelf =
-                  (eff.target === '@Self' || eff.target === '@Equipper') && isSelf;
+                  (!eff.target || eff.target === '@Self' || eff.target === '@Equipper') && isSelf;
                 const appliesToTeam = eff.target === '@Team';
                 const appliesToOthers = eff.target === '@TeamOthers' && !isSelf;
                 if (appliesToSelf || appliesToTeam || appliesToOthers) {

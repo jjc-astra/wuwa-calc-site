@@ -543,6 +543,8 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 }
 .tooltip-key { color: var(--text-dim); font-weight: bold; margin-right: var(--space-1); }
 .tooltip-val { color: var(--accent); font-weight: bold; }
+/* The arrow glyph is centered on the x-height; lifted to the middle of the capitals beside it. */
+.tooltip-arrow { display: inline-block; transform: translateY(-0.08em); }
 
 /* --- Sub Panel System (.sub-panel-trigger is rotation-only, in calculator.css) --- */
 .sub-panel {

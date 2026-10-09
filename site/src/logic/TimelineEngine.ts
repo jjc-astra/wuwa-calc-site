@@ -163,7 +163,9 @@ export class TimelineEngineClass {
     // Each unit's animation still furthest from done (its Timeline off-field tail), with its end
     // in real frames -- what a later motion stop pushes back.
     const animationByUnit: Record<string, { row: any; end: number }> = {};
-    let globalSwapCdExpiresAt = 0;
+    // When each unit can be swapped back in: swapping off a unit locks it out for swapCooldown.
+    // Combat starts on slot 1, so an opening row by another unit swaps off slot 1.
+    const swapBackReadyAt: Record<string, number> = {};
 
     // Link row pointers (@Prev, @Next, @Self.PrevAction)
     activeRows.forEach((row, i) => {
@@ -232,9 +234,9 @@ export class TimelineEngineClass {
         this._primeCombatStart(currentData, team);
       }
 
-      if (prevData.unit !== currentData.unit) {
+      if (prevData.unit && prevData.unit !== currentData.unit) {
         // swapCooldown is seconds-domain; convert once here into the frames-domain marker.
-        globalSwapCdExpiresAt = Math.max(globalSwapCdExpiresAt, accumulatedTime + secondsToFrames(GAME_DEFAULTS.swapCooldown));
+        swapBackReadyAt[prevData.unit] = accumulatedTime + secondsToFrames(GAME_DEFAULTS.swapCooldown);
       }
 
       // seconds -- cooldowns stay in seconds. Charge-aware (see ContextManager.cooldownRemaining):
@@ -337,11 +339,14 @@ export class TimelineEngineClass {
         (currentData.timing === 'Auto' && currentData._autoTimingChoice === 'Swap') ||
         (nextRow && nextRow.unit !== currentData.unit && nextRow.unit !== '');
 
+      // The unit swapped to waits out its own swap cooldown.
+      const incomingUnit = nextRow?.unit && nextRow.unit !== currentData.unit ? nextRow.unit : null;
       let swapCdDelay = 0;
-      if (isSwappingOut) {
+      if (isSwappingOut && incomingUnit) {
         const desiredSwapOutTime = accumulatedTime + finalWaitTime + duration;
-        if (desiredSwapOutTime < globalSwapCdExpiresAt) {
-          swapCdDelay = globalSwapCdExpiresAt - desiredSwapOutTime;
+        const readyAt = swapBackReadyAt[incomingUnit] ?? 0;
+        if (desiredSwapOutTime < readyAt) {
+          swapCdDelay = readyAt - desiredSwapOutTime;
           duration += swapCdDelay;
           animationCommitment += swapCdDelay;
         }
@@ -417,13 +422,9 @@ export class TimelineEngineClass {
         const netTimingChange = timingDiff + swapCdDelay;
         const label = timingLabel(currentData);
 
-        if (swapCdDelay > 0) {
-          if (netTimingChange > 0) reasons.push({ label: 'Swap Cooldown Delay', valueFrames: toFrames(netTimingChange) });
-          else if (netTimingChange < 0) reasons.push({ label: `${label} Time Saved`, valueFrames: toFrames(netTimingChange), isNegative: true });
-        } else {
-          if (timingDiff < 0) reasons.push({ label: `${label} Time Saved`, valueFrames: toFrames(timingDiff), isNegative: true });
-          else if (timingDiff > 0) reasons.push({ label: `${label} Penalty`, valueFrames: toFrames(timingDiff) });
-        }
+        if (timingDiff < 0) reasons.push({ label: `${label} Time Saved`, valueFrames: toFrames(timingDiff), isNegative: true });
+        else if (timingDiff > 0) reasons.push({ label: `${label} Penalty`, valueFrames: toFrames(timingDiff) });
+        if (swapCdDelay > 0) reasons.push({ label: `Swap Cooldown Delay (${incomingUnit})`, valueFrames: toFrames(swapCdDelay) });
         const rawOffset = finalWaitTime + netTimingChange;
         currentData.offset = toFrames(rawOffset);
       }
@@ -899,7 +900,12 @@ export class TimelineEngineClass {
       const isNextOutro = nextMoveData?.castTypes?.includes('Outro');
       const isNextSwap = nextRow && nextRow.unit !== currentData.unit && nextRow.unit !== '';
 
-      if (isNextOutro && capConcertoHitIdx !== -1) {
+      if (isNextOutro && capConcertoHitIdx !== -1 && swapDuration !== undefined) {
+        // An Outro is a swap: out on the hit that fills Concerto (not before the move allows a
+        // swap), its later hits still landing off-field.
+        swapOut(toFrames(Math.max(getHitTimeOffset(capConcertoHitIdx), swapDuration)));
+        currentData._autoTimingChoice = 'Concerto';
+      } else if (isNextOutro && capConcertoHitIdx !== -1) {
         capAt(capConcertoHitIdx);
         currentData._autoTimingChoice = 'Concerto';
       } else if ((isNextOutro || isNextSwap) && swapDuration !== undefined) {

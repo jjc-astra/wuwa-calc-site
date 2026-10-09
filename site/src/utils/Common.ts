@@ -128,9 +128,9 @@ export const formatNum = (n: number): string => (Number.isInteger(n) ? String(n)
 export const escapeHtml = (text: unknown): string =>
   String(text ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 
-/** One "Key: value" line of tooltip HTML (the value escaped). */
+/** One "Key: value" line of tooltip HTML (the value escaped; a "→" in it lifted to sit level with capitals). */
 export const tooltipLine = (key: string, value: unknown): string =>
-  `<div><span class="tooltip-key">${key}:</span> <span class="tooltip-val">${escapeHtml(value)}</span></div>`;
+  `<div><span class="tooltip-key">${key}:</span> <span class="tooltip-val">${escapeHtml(value).replace(/→/g, '<span class="tooltip-arrow">→</span>')}</span></div>`;
 
 /** Spread onto an element instead of `title="..."` to use the shared TooltipManager. */
 export const tip = (text: string) => ({

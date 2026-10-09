@@ -3,7 +3,7 @@ import { TooltipManager, tip, escapeHtml, tooltipLine as line, formatNum as form
 import { DataLoader } from '../../utils/DataLoader';
 import { buildClipTooltipHtml } from './TimelineClip';
 import { formatFramesAsSeconds, framesToSeconds, secondsToFrames, toFrames } from '../../utils/Frames';
-import { EFFECT_BAR_INSET_PX, EFFECT_ROW_HEIGHT_PX, describeAppliesTo, pointLabelFits, rowsReceivingBar, rowsReceivingLane } from './effectLayout';
+import { EFFECT_BAR_INSET_PX, EFFECT_ROW_HEIGHT_PX, barValueAt, describeAppliesTo, pointLabelFits, rowsReceivingBar, rowsReceivingLane } from './effectLayout';
 import { useLinkedRowStore } from '../../store/useLinkedRowStore';
 import { nearestMarker, trackPointer, useActiveMarker, useFrameMove } from './trackPointer';
 import type { EffectAction, EffectBar, EffectLane, EffectPoint } from './effectLayout';
@@ -54,7 +54,8 @@ function barTooltipHtml(lane: EffectLane, bar: EffectBar, point: EffectPoint, cu
       time + cursorLines(point, cursorFrames)
     );
   }
-  const effect = [info.stat, info.value].filter(v => v !== undefined && v !== '').join(' ');
+  // "DMG Bonus → 40%", like the Applies to line.
+  const effect = [info.stat, barValueAt(bar, cursorFrames)].filter(v => v !== undefined && v !== '').join(' → ');
   return (
     `<div>${escapeHtml(info.label && info.label !== info.name ? `${lane.label} (${info.label})` : lane.label)}</div>` +
     line('Provider', info.provider || 'Unknown') +
