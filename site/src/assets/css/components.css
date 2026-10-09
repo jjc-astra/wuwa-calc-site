@@ -810,6 +810,8 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     color: var(--text-dim); font-size: 1.5rem; cursor: pointer; line-height: 1;
 }
 .modal-close-x:hover { color: var(--text-main); }
+/* Splits a dialog's fields into groups. */
+.modal-divider { border: none; height: 1px; margin: var(--space-6) 0 0; background: var(--border); }
 .modal-actions { display: flex; justify-content: flex-end; gap: 0.625rem; margin-top: var(--space-6); }
 
 .modal-field { margin-top: var(--space-4); }

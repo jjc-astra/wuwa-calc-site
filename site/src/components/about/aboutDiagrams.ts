@@ -606,12 +606,13 @@ export const DIAGRAMS = {
     graph LR
     subgraph Exp["Export Rotation (toolbar or History)"]
       direction TB
-      E1["ExportRotationDialog: file names,<br/>author, results build"]:::ui
+      E1["ExportRotationDialog: file names,<br/>author, Export Results, results<br/>build, rotation type"]:::ui
+      E1 -->|"Export Results off"| E6["buildExportFiles: the<br/>rotation file only, no calculation"]:::data
       E1 --> E2{"results build"}
       E2 -->|"Default"| E3["withDefaultBuild:<br/>defaultSubstats + weapon R1 per unit<br/>(all else kept), default enemy;<br/>runSummaryCalculation"]:::worker
       E2 -->|"Custom"| E4["current results if<br/>not stale, else<br/>runSummaryCalculation"]:::worker
       E3 --> E5
-      E4 --> E5["buildExportFiles: hash of rotation +<br/>team + settings + enemy; a rotation file<br/>and a results file (dpsStats +<br/>contribution), both downloaded"]:::data
+      E4 --> E5["buildExportFiles: hash of rotation +<br/>team + settings + enemy; a rotation file<br/>and a results file (dpsStats +<br/>contribution, rotationType unless<br/>Unclassified), both downloaded"]:::data
     end
     subgraph Repo["data repo"]
       direction TB

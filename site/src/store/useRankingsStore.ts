@@ -12,7 +12,7 @@ import type { RankingFilters, RankingElement, RankingDmgCategory } from '../comp
 // (team details, author, contribution) from its results file (useRankedResults).
 export type RankingEntry = RankingIndexEntry;
 
-const ROTATION_TYPE_LABELS = { linear: 'Linear', quickswap: 'Quickswap', unclassified: 'Unclassified' } as const;
+export const ROTATION_TYPE_LABELS = { linear: 'Linear', quickswap: 'Quickswap', unclassified: 'Unclassified' } as const;
 export const rotationTypeLabel = (type: RankingEntry['rotationType']): string => ROTATION_TYPE_LABELS[type ?? 'unclassified'];
 
 // "Same rotation" for Best Only: same characters, same slots, same sequence.

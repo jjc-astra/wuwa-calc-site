@@ -137,6 +137,8 @@ export interface RotationFile extends CalcInput {
   // calculated from exactly this file.
   hash: string;
   author?: string;
+  // Absent when unclassified. The rankings index reads the results file's copy.
+  rotationType?: RotationType;
 }
 
 // 'default': each unit on its recommended build's default substats and its weapon at R1 (everything
