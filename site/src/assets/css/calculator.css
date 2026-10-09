@@ -315,7 +315,7 @@
    ========================================= */
 :root {
     /* Index/Check | Unit | Action | Time | Timing | Offset | DMG | Fortes | Concerto | Energy | Tune */
-    --rot-grid: 0.9375rem 6.875rem      1fr   4.0625rem     5.3125rem     4.0625rem 8.125rem     5.3125rem       4.6875rem     3.75rem  2.5rem;
+    --rot-grid: 0.9375rem 6.875rem      1fr   4.75rem       5.3125rem     4.0625rem 8.125rem     5.3125rem       4.6875rem     3.75rem  2.5rem;
 }
 
 .separator-v { width: 1px; height: 1.25rem; background: var(--border); }
@@ -1151,7 +1151,7 @@
 /* Tightens grid column floors and allows the toolbar to wrap, lowering the horizontal scroll breakpoint well below 900px. */
 @media (max-width: 900px) {
     :root {
-        --rot-grid: 0.9375rem 5.625rem minmax(5.625rem, 1fr) 3.4375rem 3.75rem 3.125rem 5.9375rem 4.0625rem 3.4375rem 2.8125rem 2rem;
+        --rot-grid: 0.9375rem 5.625rem minmax(5.625rem, 1fr) 4.75rem 3.75rem 3.125rem 5.9375rem 4.0625rem 3.4375rem 2.8125rem 2rem;
     }
     .rotation-toolbar {
         padding: 0.625rem;

@@ -19,7 +19,7 @@ import { Dropdown } from '../common/Dropdown';
 import type { DropdownGroup } from '../common/Dropdown';
 import { TooltipManager, getCharacterThemeColor, tip } from '../../utils/Common';
 import { teamCharacters } from '../../utils/TeamUtils';
-import { toFrames, secondsToFrames, framesToSeconds, formatFramesAsSeconds } from '../../utils/Frames';
+import { toFrames, secondsToFrames, framesToSeconds, formatFramesAsClock } from '../../utils/Frames';
 import { applyBuilderOverridesFor } from '../../workers/builderOverridePayload';
 import { useLinkedRowStore } from '../../store/useLinkedRowStore';
 import { useTimelineViewStore } from '../../store/useTimelineViewStore';
@@ -331,7 +331,7 @@ export const RotationRow = React.memo<RotationRowProps>(({
   // Counting down: time left in the 2-Min window (negative past it).
   const timeCountdown = useTimelineViewStore(s => s.timeCountdown);
   const gameTime = toFrames(row.gameTimeStart ?? 0);
-  const timeStart = formatFramesAsSeconds(timeCountdown ? toFrames(TWO_MIN - gameTime) : gameTime);
+  const timeStart = formatFramesAsClock(timeCountdown ? toFrames(TWO_MIN - gameTime) : gameTime);
   // row.offset is Frames; convert to seconds (sign preserved) for the offset-pos/neg styling below.
   const offsetVal = framesToSeconds(toFrames(row.offset || 0));
   const offsetStr = `${offsetVal > 0 ? '+' : ''}${offsetVal.toFixed(2)}`;

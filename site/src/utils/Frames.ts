@@ -69,6 +69,15 @@ export function formatFramesAsSeconds(frames: Frames, decimals = 2): string {
   return `${framesToSeconds(frames).toFixed(decimals)}s`;
 }
 
+/** Frames as a clock ("2:00.00", "-0:03.20"). */
+export function formatFramesAsClock(frames: Frames): string {
+  // Rounded to hundredths first, so 59.999s reads 1:00.00, not 0:60.00.
+  const hundredths = Math.round(Math.abs(framesToSeconds(frames)) * 100);
+  const minutes = Math.floor(hundredths / 6000);
+  const seconds = ((hundredths % 6000) / 100).toFixed(2).padStart(5, '0');
+  return `${frames < 0 ? '-' : ''}${minutes}:${seconds}`;
+}
+
 // Mechanics Builder's shared timing-input parser. Accepts "30f" (frames), "0.5s" (seconds), a
 // bare number (native unit, keeps existing JSON like `"cooldown": 25` unchanged), or a DSL
 // expression ("@Default.SwapTime", "10 + ...") which passes through unchanged.
