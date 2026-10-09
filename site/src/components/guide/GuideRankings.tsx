@@ -12,7 +12,7 @@ import { dpsFieldOf } from '../../data/dpsWindows';
 import type { DpsWindowKey } from '../../types/results';
 import type { RotationSummary } from '../../types/results';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 
 interface GuideRankingsProps {
   unit: string;

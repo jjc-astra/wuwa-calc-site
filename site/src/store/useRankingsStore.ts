@@ -117,7 +117,7 @@ export const useRankingsStore = create<RankingsState>()(
   setFilters: (filters) => set({ filters }),
 
   page: 1,
-  pageSize: 20,
+  pageSize: 10,
   setPage: (page) => set({ page }),
   // A page-size change shifts what "page 2" means, so reset to page 1.
   setPageSize: (pageSize) => set({ pageSize, page: 1 }),
