@@ -433,6 +433,34 @@ function buildAllContribution(
   return contribution;
 }
 
+interface WeightedHit { hit: RotationHit; weight: number }
+
+const weightedTotal = (sample: WeightedHit[]): number => sample.reduce((sum, s) => sum + s.hit.total * s.weight, 0);
+
+// What substat worth prices, standing for the 2-min window: the opener, the first loop with each
+// unit's hits weighted to that unit's damage across every whole loop in the window, and the loop
+// cut off at 2 min as it is. No loop, or an opener past 2 min: the 2-min hits as they are.
+function substatWorthSample(hits: RotationHit[], openerEndTime: Frames, loopEnds: LoopEnds): WeightedHit[] {
+  const asIs = (start: number, end: Frames) => windowedHits(hits, start, end).map(hit => ({ hit, weight: 1 }));
+  if (!loopEnds || openerEndTime >= TWO_MIN) return asIs(-Infinity, TWO_MIN);
+  const wholeLoopsEnd = loopEnds.filter(end => end <= TWO_MIN).pop();
+  // The first loop runs past 2 min: it's the cut-off loop.
+  if (wholeLoopsEnd === undefined) return asIs(-Infinity, TWO_MIN);
+
+  const firstLoop = windowedHits(hits, openerEndTime, loopEnds[0]);
+  const wholeLoops = windowedHits(hits, openerEndTime, wholeLoopsEnd);
+  const byUnit = (list: RotationHit[]) => groupSum(list, h => h.provider);
+  const firstDmg = byUnit(firstLoop);
+  const wholeDmg = byUnit(wholeLoops);
+  return [
+    ...asIs(-Infinity, openerEndTime),
+    ...firstLoop.map(hit => ({ hit, weight: firstDmg[hit.provider] > 0 ? wholeDmg[hit.provider] / firstDmg[hit.provider] : 1 })),
+    // A unit with no damage in the first loop has nothing to scale: its later loops' hits as they are.
+    ...wholeLoops.filter(h => h.gameTime > loopEnds[0] && !(firstDmg[h.provider] > 0)).map(hit => ({ hit, weight: 1 })),
+    ...asIs(wholeLoopsEnd, TWO_MIN)
+  ];
+}
+
 // Basis: 2-min total damage. Each roll's worth = "team" (% of rotation total) and "personal"
 // (% of that unit's own total).
 //
@@ -440,19 +468,19 @@ function buildAllContribution(
 // its own hits and the hits carrying a buff of its whose value reads its stats (e.g. DMG Bonus
 // from its ER), so those cached hit/context pairs are just re-priced with a patched team -- along
 // with any multiplier reading the caster's stats. Rotation timing isn't re-simulated.
-function buildSubstatWorth(twoMinHits: RotationHit[], team: TeamSlot[]): Record<string, SubstatWorthRow[]> {
-  const baselineTotal = sumTotal(twoMinHits);
+function buildSubstatWorth(sample: WeightedHit[], team: TeamSlot[]): Record<string, SubstatWorthRow[]> {
+  const baselineTotal = weightedTotal(sample);
   const out: Record<string, SubstatWorthRow[]> = {};
   if (baselineTotal <= 0) return out;
 
   team.forEach(slot => {
     const unit = slot.character;
     if (!unit) return;
-    const unitBaseline = sumTotal(twoMinHits.filter(h => h.provider === unit));
-    const reached = twoMinHits.filter(h => h.provider === unit || carriesStatScaledBuffFrom(h.context, unit));
-    // A copy of each context: pricing writes the enemy's HP onto it.
+    const unitBaseline = weightedTotal(sample.filter(s => s.hit.provider === unit));
+    const reached = sample.filter(s => s.hit.provider === unit || carriesStatScaledBuffFrom(s.hit.context, unit));
+    // A copy of each context: pricing writes the enemy's HP onto it. Weighted, as the sample is.
     const price = (forTeam: TeamSlot[]) =>
-      reached.map(h => CombatCalculator.calculateDamageInstance(h.config, { ...h.context }, forTeam, { restat: true }).total);
+      reached.map(({ hit, weight }) => CombatCalculator.calculateDamageInstance(hit.config, { ...hit.context }, forTeam, { restat: true }).total * weight);
     // Re-priced the same way, so only the stat change moves the difference.
     const baseline = price(team);
 
@@ -475,7 +503,7 @@ function buildSubstatWorth(twoMinHits: RotationHit[], team: TeamSlot[]): Record<
         let ownDelta = 0;
         price(modifiedTeam).forEach((total, i) => {
           delta += total - baseline[i];
-          if (reached[i].provider === unit) ownDelta += total - baseline[i];
+          if (reached[i].hit.provider === unit) ownDelta += total - baseline[i];
         });
         return { team: (delta / baselineTotal) * 100, personal: unitBaseline > 0 ? (ownDelta / unitBaseline) * 100 : 0 };
       };
@@ -600,13 +628,12 @@ function buildEnergyRequirements(
 export function buildRotationResults(args: Readonly<ResultsArgs>, { withSubstatWorth = true }: { withSubstatWorth?: boolean } = {}): RotationResults {
   const { hits, evaluatedRows, openerEndTime, loopEnds, teamNames } = simulateHits(...args);
   const [, team, options, enemyConfig] = args;
-  const twoMinHits = windowedHits(hits, -Infinity, TWO_MIN);
 
   return {
     dpsStats: buildDpsStats(hits, openerEndTime, loopEnds),
     dmgOverTimeSeries: buildAllDmgOverTime(hits, openerEndTime, loopEnds, enemyConfig.hp),
     contribution: buildAllContribution(hits, evaluatedRows, openerEndTime, loopEnds, teamNames),
-    substatWorth: withSubstatWorth ? buildSubstatWorth(twoMinHits, team) : null,
+    substatWorth: withSubstatWorth ? buildSubstatWorth(substatWorthSample(hits, openerEndTime, loopEnds), team) : null,
     energyRequirements: buildEnergyRequirements(evaluatedRows, team, !!options.startEnergy, openerEndTime, loopEnds)
   };
 }
