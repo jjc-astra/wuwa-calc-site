@@ -80,12 +80,40 @@ function valueAtTime(points: DisplayPoint[], t: number): number {
   return points[points.length - 1].dmg;
 }
 
-// Same lookup as valueAtTime, but for the label -- colors the hover dot/tooltip by unit segment.
-function labelAtTime(points: DisplayPoint[], t: number): string | undefined {
+// Same lookup as valueAtTime, but for the point -- colors the hover dot/tooltip by unit segment.
+function pointIndexAtTime(points: DisplayPoint[], t: number): number {
   for (let i = 1; i < points.length; i++) {
-    if (points[i].t >= t) return points[i].label;
+    if (points[i].t >= t) return i;
   }
-  return points[points.length - 1].label;
+  return points.length - 1;
+}
+
+// Seconds either side of a point that decide its line color.
+const LINE_COLOR_WINDOW = 1;
+// A hit rising at least this share of the chart's height keeps its own color (a Tune Break).
+const OWN_COLOR_SHARE = 0.01;
+
+// The line's color at each point: whoever dealt the most damage within LINE_COLOR_WINDOW of it, so
+// a stream of small hits from someone off-field (an Outro turret) doesn't break up the run. A hit
+// of at least `ownColorDmg` keeps its own dealer's color.
+function smoothedLabels(points: DisplayPoint[], ownColorDmg: number): Array<string | undefined> {
+  const dealt = (i: number) => (i === 0 ? 0 : points[i].dmg - points[i - 1].dmg);
+  const sums = new Map<string, number>();
+  const shift = (i: number, sign: number) => {
+    const label = points[i].label;
+    if (label) sums.set(label, (sums.get(label) || 0) + sign * dealt(i));
+  };
+  let lo = 0;
+  let hi = 0;
+  return points.map((p, i) => {
+    while (hi < points.length && points[hi].t <= p.t + LINE_COLOR_WINDOW) shift(hi++, 1);
+    while (points[lo].t < p.t - LINE_COLOR_WINDOW) shift(lo++, -1);
+    if (p.label && dealt(i) >= ownColorDmg) return p.label;
+    let best = p.label;
+    let bestDmg = best ? sums.get(best) || 0 : -Infinity;
+    sums.forEach((dmg, label) => { if (dmg > bestDmg) { best = label; bestDmg = dmg; } });
+    return best;
+  });
 }
 
 // Trailing 1s-average DPS line, sampled at each hit's timestamp and its +1s "expiry" --
@@ -201,6 +229,7 @@ export const DmgOverTimeChart: React.FC = () => {
   // Scaled to what's visible in-window, not always up to Boss HP (a short window rarely nears it).
   // The Boss HP reference line below only renders when in range.
   const domainMaxDmg = Math.max(1, ...series.flatMap(s => s.points.map(p => p.dmg))) * 1.05;
+  const lineLabels = series.length === 1 ? smoothedLabels(series[0].points, domainMaxDmg * OWN_COLOR_SHARE) : [];
   // A binned stack's magnitude has nothing to do with the cumulative total -- bars get their own
   // y-domain instead of sharing domainMaxDmg (which would flatten every bar to nothing).
   const activeDomainMax = isBar ? Math.max(1, ...barBins.map(b => b.total)) * 1.05 : domainMaxDmg;
@@ -222,7 +251,7 @@ export const DmgOverTimeChart: React.FC = () => {
   // Matches the line's per-segment color for a solo series; fixed per-series color once pinned.
   const colorForSeriesAt = (s: DisplaySeries, i: number, t: number): string => {
     if (series.length > 1) return CATEGORICAL_PALETTE[i];
-    const label = labelAtTime(s.points, t);
+    const label = lineLabels[pointIndexAtTime(s.points, t)];
     return label ? colorForProvider(label) : CATEGORICAL_PALETTE[0];
   };
 
@@ -390,13 +419,14 @@ export const DmgOverTimeChart: React.FC = () => {
           : series.length === 1
           ? series[0].points.slice(1).map((p, i) => {
               const prev = series[0].points[i];
+              const label = lineLabels[i + 1];
               return (
                 <line
                   key={i}
                   x1={xScale(prev.t)} y1={yScale(prev.dmg)}
                   x2={xScale(p.t)} y2={yScale(p.dmg)}
                   className="dmg-time-line"
-                  stroke={p.label ? colorForProvider(p.label) : CATEGORICAL_PALETTE[0]}
+                  stroke={label ? colorForProvider(label) : CATEGORICAL_PALETTE[0]}
                 />
               );
             })

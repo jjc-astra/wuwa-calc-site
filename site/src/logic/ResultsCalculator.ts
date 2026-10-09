@@ -40,10 +40,12 @@ interface RotationHit {
   context: any;
 }
 
-// A non-Standard-formula hit (Tune Break, negative status) isn't any unit's own combat kit,
-// so it's labeled by dmgType instead (e.g. "Aero Erosion"). Shared by the pie and dmg-over-time chart.
+// A non-Standard-formula hit (Tune Break, negative status) is labeled by dmgType (e.g. "Aero
+// Erosion") unless it's from the provider's own kit (Rebecca's Hack Response), which stays theirs.
+// Shared by the pie and dmg-over-time chart.
 function hitLabel(h: RotationHit): string {
-  return h.formulaUsed !== 'Standard' ? (h.dmgTypes[0] || 'Status Effect') : h.provider;
+  if (h.formulaUsed === 'Standard' || h.config.moveRef?.startsWith(`@${h.provider}(`)) return h.provider;
+  return h.dmgTypes[0] || 'Status Effect';
 }
 
 // Opener + N loop reps run through the real engine once. N is at least AVG_LOOP_REPS and
@@ -398,8 +400,9 @@ function buildContributionForWindow(windowHits: RotationHit[], teamNames: string
   const units: Record<string, CastTypeSlice[]> = {};
   teamNames.forEach(unit => {
     const unitGroups = groupSum(
-      windowHits.filter(h => h.provider === unit && h.formulaUsed === 'Standard'),
-      h => primaryDmgType(h.dmgTypes)
+      windowHits.filter(h => hitLabel(h) === unit),
+      // A unit's own non-Standard hit (Hack Response) is its own slice, by dmgType.
+      h => (h.formulaUsed === 'Standard' ? primaryDmgType(h.dmgTypes) : h.dmgTypes[0] || 'Other')
     );
     units[unit] = Object.entries(unitGroups)
       .map(([castType, dmg]) => ({ castType, dmg: dmg / divisor }))
