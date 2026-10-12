@@ -550,8 +550,9 @@ export const DIAGRAMS = {
       X1 --> X2{"loop"}
       X2 -->|"none"| X3["runs the opener alone"]:::logic
       X2 -->|"no duration"| X4["runs everything once"]:::logic
-      X2 -->|"ok"| X5["reps: with Ending Rotation, whole loops that fit<br/>in 120 s (−1 if it starts earlier); else enough to<br/>pass 120 s; at least 3"]:::logic
+      X2 -->|"ok"| X5["reps: with Ending Rotation, endingLoopReps (whole loops<br/>that fit in 120 s, −1 if it starts earlier, min 1; same<br/>as the table); else enough to pass 120 s, at least 3"]:::logic
       X5 --> X6["the Ending Rotation preview's run if the same<br/>length, else recalculateState(full);<br/>each rep's real end read off it"]:::logic
+      X6 --> X7["Ending Rotation before the 3rd rep: 2-Min reads<br/>that run, the loop windows a plain 3-rep run"]:::logic
     end
     subgraph Hits["buildHitList"]
       direction TB
@@ -564,7 +565,7 @@ export const DIAGRAMS = {
       O2["buildAllDmgOverTime: cumulative damage vs boss HP,<br/>kill time; Avg Loop folds its 3 reps per move"]:::logic
       O3["buildAllContribution: per unit (status ticks by name),<br/>per cast type, on-field time"]:::logic
       O4["buildSubstatWorth (Substat Worth toggle on): the unit's<br/>2-min hits, and those with its stat-scaled buffs, re-priced<br/>with one substat ± a min / default / max roll (no re-simulation)"]:::logic
-      O5["buildEnergyRequirements: energyLog split at each Energy<br/>spend → ER needed, the bottleneck cast"]:::logic
+      O5["buildEnergyRequirements: the 2-min run's energyLog split<br/>at each Energy spend → ER needed, the bottleneck cast"]:::logic
       O1 ~~~ O2 ~~~ O3 ~~~ O4 ~~~ O5
     end
     subgraph Sum["summaryOnly"]
