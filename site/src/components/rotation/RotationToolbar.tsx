@@ -1,6 +1,8 @@
 import React from 'react';
 import { useRotationStore } from '../../store/useRotationStore';
+import { useRosterStore } from '../../store/useRosterStore';
 import { tip } from '../../utils/Common';
+import { loopSplitRowIndices, splitLoopSegments } from '../../logic/rotationRows';
 
 /** The rotation table's toolbar: Calculate, row editing and the rotation's settings. */
 export const RotationToolbar: React.FC = () => {
@@ -27,8 +29,11 @@ export const RotationToolbar: React.FC = () => {
     addRepeatBlock,
     copySelectedRows,
     insertRowAboveSelection,
-    insertRowBelowSelection
+    insertRowBelowSelection,
+    loopStartIndex,
+    setLoopSplit
   } = useRotationStore();
+  const mainDps = useRosterStore(state => state.team[0]?.character);
 
   const lastIndex = rows.length - 1;
   const hasSelection = selectedIndices.some(i => i !== lastIndex);
@@ -41,6 +46,16 @@ export const RotationToolbar: React.FC = () => {
   const handleDelete = () => {
     const deletable = selectedIndices.filter(i => i !== lastIndex);
     if (deletable.length > 0) deleteRows(deletable);
+  };
+
+  // Split Loop: one selected row inside the loop (not its first row) toggles a sub-loop start there.
+  const splitTarget = selectedIndices.length === 1 ? selectedIndices[0] : -1;
+  const contentRows = rows.filter(r => r.unit);
+  const { openerRows, loopTemplate } = splitLoopSegments(contentRows, loopStartIndex, endingRotationEnabled);
+  const canSplit = splitTarget > openerRows.length && splitTarget < openerRows.length + loopTemplate.length && !!rows[splitTarget]?.unit;
+  const isSplit = canSplit && loopSplitRowIndices(rows, loopStartIndex, endingRotationEnabled, mainDps).includes(splitTarget);
+  const handleToggleSplit = () => {
+    if (canSplit) setLoopSplit(splitTarget, !isSplit);
   };
 
   const handleMarkHoldRepeat = () => {
@@ -66,6 +81,14 @@ export const RotationToolbar: React.FC = () => {
 
         <div className="btn-group">
           <button className="base-btn text-xs" onClick={handleMarkHoldRepeat} {...tip('Wrap the selected rows as a repeat block')} disabled={!hasSelection}>Mark Repeat</button>
+          <button
+            className="base-btn text-xs"
+            onClick={handleToggleSplit}
+            {...tip(isSplit ? 'Remove the sub-loop split at the selected row' : 'Start a sub-loop at the selected row, so a loop made of two cycles can end on either')}
+            disabled={!canSplit}
+          >
+            {isSplit ? 'Unsplit Loop' : 'Split Loop'}
+          </button>
         </div>
 
         <div className="separator-v"></div>

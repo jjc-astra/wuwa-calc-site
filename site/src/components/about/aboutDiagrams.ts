@@ -195,7 +195,7 @@ export const DIAGRAMS = {
       E1["toolbar checkbox"]:::ui --> E2{"turned"}
       E2 -->|"on"| E3{"already tagged,<br/>or no rows yet?"}
       E3 -- yes --> E4["flag only"]:::store
-      E3 -- no --> E5["one step: SetLoopEnd on the last row<br/>+ AddRow a copy of the loop<br/>(fresh repeat ids)"]:::store
+      E3 -- no --> E5["one step: SetLoopEnd on the last row<br/>+ AddRow a copy of the sub-loop crossing<br/>2 min (fresh repeat ids)"]:::store
       E2 -->|"off"| E6["resetLoopEnd: rows after the loop end<br/>deleted, marker cleared, flags off"]:::store
       E7["starts earlier (marker checkbox):<br/>flag + recalculate"]:::ui
     end
@@ -550,7 +550,8 @@ export const DIAGRAMS = {
       X1 --> X2{"loop"}
       X2 -->|"none"| X3["runs the opener alone"]:::logic
       X2 -->|"no duration"| X4["runs everything once"]:::logic
-      X2 -->|"ok"| X5["reps: with Ending Rotation, endingLoopReps (whole loops<br/>that fit in 120 s, −1 if it starts earlier, min 1; same<br/>as the table); else enough to pass 120 s, at least 3"]:::logic
+      X2 -->|"ok"| X5["reps: with Ending Rotation, endingPlacement (whole<br/>sub-loops that fit in 120 s, −1 if it starts earlier, min 1;<br/>same as the table); else enough to pass 120 s, at least 3"]:::logic
+      X1 -.-> XS["loopSplitStarts: sub-loops start after each main<br/>DPS Outro in the loop, or at a row's loopSplit<br/>(Split Loop / the tag's ✕ and ↺)"]:::logic
       X5 --> X6["the Ending Rotation preview's run if the same<br/>length, else recalculateState(full);<br/>each rep's real end read off it"]:::logic
       X6 --> X7["Ending Rotation before the 3rd rep: 2-Min reads<br/>that run, the loop windows a plain 3-rep run"]:::logic
     end
@@ -559,10 +560,10 @@ export const DIAGRAMS = {
       H1["priceHits: every _pendingHit through<br/>calculateDamageInstance, enemy HP carried"]:::logic
       H1 --> H2["sorted by game time"]:::logic
     end
-    subgraph Outs["per DPS window: Opener, First Loop, Avg Loop (3 reps), 2-Min"]
+    subgraph Outs["per DPS window: Opener, First Loop (first sub-loop),<br/>Avg Loop (every sub-loop of 3 reps), 2-Min"]
       direction TB
       O1["buildDpsStats: window damage / its length<br/>(loop windows null without a loop)"]:::logic
-      O2["buildAllDmgOverTime: cumulative damage vs boss HP,<br/>kill time; Avg Loop folds its 3 reps per move"]:::logic
+      O2["buildAllDmgOverTime: cumulative damage vs boss HP,<br/>kill time; Avg Loop folds its sub-loops per move"]:::logic
       O3["buildAllContribution: per unit (status ticks by name),<br/>per cast type, on-field time"]:::logic
       O4["buildSubstatWorth (Substat Worth toggle on): the unit's<br/>2-min hits, and those with its stat-scaled buffs, re-priced<br/>with one substat ± a min / default / max roll (no re-simulation)"]:::logic
       O5["buildEnergyRequirements: the 2-min run's energyLog split<br/>at each Energy spend → ER needed, the bottleneck cast"]:::logic

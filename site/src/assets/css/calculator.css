@@ -876,8 +876,9 @@
 /* =========================================
    9. LOOP & ENDING ROTATION TAGS
    ========================================= */
-/* --- Loop Start Tag --- */
-.loop-start-tag {
+/* --- Loop Start Tag (and the Sub-Loop tag, a dashed, fixed variant) --- */
+.loop-start-tag,
+.loop-split-tag {
     display: flex;
     align-items: center;
     gap: var(--space-2);
@@ -893,6 +894,8 @@
     letter-spacing: 0.02rem;
 }
 .loop-start-tag:active { cursor: grabbing; }
+.loop-split-tag { cursor: default; border-style: dashed; }
+.loop-split-auto { opacity: 0.6; font-size: 0.6rem; }
 .loop-tag-icon { flex-shrink: 0; }
 .loop-tag-label { flex-shrink: 0; }
 

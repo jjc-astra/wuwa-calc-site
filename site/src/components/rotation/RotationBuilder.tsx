@@ -10,7 +10,7 @@ import { ConfirmDialog } from '../common/ConfirmDialog';
 import { ExportRotationDialog } from '../common/ExportRotationDialog';
 import type { ExportSource } from '../../utils/rotationExport';
 import { toSavedRow } from '../../store/useRotationStore';
-import { loopEndIndexOf } from '../../logic/rotationRows';
+import { loopEndIndexOf, loopSplitRowIndices } from '../../logic/rotationRows';
 import { useLatestCallback } from '../../hooks/useLatestCallback';
 import { useLinkedRowStore } from '../../store/useLinkedRowStore';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -31,8 +31,8 @@ interface ScrollbarSegment {
 }
 
 // VS Code "overview ruler" style minimap for .rotation-scrollbar-map, behind the real scrollbar.
-// One dimmed bar per contiguous same-unit run, plus a tick mark for each loop start/end.
-function buildRotationScrollbarSegments(rows: any[], loopStartIndex: number, loopEndIndex: number): ScrollbarSegment[] {
+// One dimmed bar per contiguous same-unit run, plus a tick mark for each loop start/end and sub-loop start.
+function buildRotationScrollbarSegments(rows: any[], loopStartIndex: number, loopEndIndex: number, splitIndices: number[]): ScrollbarSegment[] {
   const n = rows.length;
   if (n === 0) return [];
 
@@ -63,6 +63,9 @@ function buildRotationScrollbarSegments(rows: any[], loopStartIndex: number, loo
   if (loopEndIndex >= 0 && loopEndIndex < n) {
     segments.push({ key: 'loop-end', top: Math.max(0, ((loopEndIndex + 1) / n) * 100 - markerHeight), height: markerHeight, isMarker: true });
   }
+  splitIndices.forEach(index => {
+    segments.push({ key: `loop-split-${index}`, top: (index / n) * 100, height: markerHeight, isMarker: true });
+  });
 
   return segments;
 }
@@ -111,6 +114,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     resetLoopStart,
     setLoopEndOverride,
     resetLoopEnd,
+    setLoopSplit,
     removeRepeatBlock,
     setRepeatCount,
     setRepeatFinalTiming,
@@ -450,9 +454,19 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
   const hasContent = rows.some(r => r.unit);
   // Derived from loopEndIndex rather than its own flag, to avoid drifting out of sync with it.
   const hasEndRotationContent = loopEndIndex !== -1 && !!rows[loopEndIndex + 1]?.unit;
+  // Sub-loop starts -> their tag; numbered only when there's more than one.
+  const mainDps = team[0]?.character;
+  const splitIndices = useMemo(
+    () => loopSplitRowIndices(rows, loopStartIndex, endingRotationEnabled, mainDps),
+    [rows, loopStartIndex, endingRotationEnabled, mainDps]
+  );
+  const loopSplits = useMemo(() => new Map(splitIndices.map((rowIndex, i) => [rowIndex, {
+    label: splitIndices.length > 1 ? String(i + 1) : '',
+    manual: rows[rowIndex]?.loopSplit === true
+  }])), [splitIndices, rows]);
   const scrollbarSegments = useMemo(
-    () => buildRotationScrollbarSegments(rows, loopStartIndex, loopEndIndex),
-    [rows, loopStartIndex, loopEndIndex]
+    () => buildRotationScrollbarSegments(rows, loopStartIndex, loopEndIndex, splitIndices),
+    [rows, loopStartIndex, loopEndIndex, splitIndices]
   );
 
   return (
@@ -561,6 +575,8 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
                       onResetLoopStart={resetLoopStart}
                       isLoopEnd={i === loopEndIndex}
                       onResetLoopEnd={resetLoopEnd}
+                      loopSplit={loopSplits.get(i)}
+                      onSetLoopSplit={setLoopSplit}
                       isEndRotationStart={i === loopEndIndex + 1 && hasEndRotationContent}
                       endRotationStartsEarlier={endRotationStartsEarlier}
                       onToggleEndRotationStartsEarlier={setEndRotationStartsEarlier}

@@ -2,6 +2,11 @@
 // both useRotationStore and HistoryManager's commands can build and read rows the same way.
 
 // A row's authored fields, without the local-only `id`.
+import { toFrames } from '../utils/Frames';
+
+/** The 2-Min DPS window, in frames. */
+export const TWO_MIN = toFrames(120 * 60);
+
 export interface RotationRowFields {
   unit: string;
   action: string;
@@ -10,6 +15,9 @@ export interface RotationRowFields {
   manualOffset?: number;
   loopStartOverride?: boolean;
   loopEndOverride?: boolean;
+  // A sub-loop starts at this row (true), or not even where one would be auto-detected (false);
+  // unset follows the auto-detection (see loopSplitStarts).
+  loopSplit?: boolean;
   // A Hold Repeat block's boundary rows -- both carry the same groupId, so multiple independent
   // blocks can coexist (unlike loopStartOverride/loopEndOverride, which are rotation-wide
   // singletons). repeatCount lives on the start row only.
@@ -93,6 +101,7 @@ export const toSavedRow = (row: RotationRowFields) => ({
   timing: row.timing,
   ...(row.loopStartOverride === true && { loopStartOverride: true }),
   ...(row.loopEndOverride === true && { loopEndOverride: true }),
+  ...(typeof row.loopSplit === 'boolean' && { loopSplit: row.loopSplit }),
   ...repeatFieldsOf(row)
 });
 
@@ -144,6 +153,60 @@ export function splitLoopSegments(
   const endRel = endingRotationEnabled ? loopEndIndexOf(loopTemplate) : -1;
   if (endRel === -1 || endRel === loopTemplate.length - 1) return { openerRows, loopTemplate, endingRows: [] };
   return { openerRows, loopTemplate: loopTemplate.slice(0, endRel + 1), endingRows: loopTemplate.slice(endRel + 1) };
+}
+
+/**
+ * Where the loop's sub-loops start, as indices into `loopTemplate` (0, the loop's own start, left
+ * out): a loop that's really two or more cycles, e.g. A uses Tune Break once and B twice. Auto-
+ * detected as the row after each main DPS Outro (as findLoopStart finds the loop itself), unless
+ * that row's `loopSplit` is false; a row with `loopSplit: true` starts one regardless. Reads
+ * castTypes, so `loopTemplate` must be already-run rows.
+ */
+export function loopSplitStarts(loopTemplate: any[], mainDps: string | undefined): number[] {
+  const starts: number[] = [];
+  for (let i = 1; i < loopTemplate.length; i++) {
+    const row = loopTemplate[i];
+    if (row?.loopSplit === false) continue;
+    const prev = loopTemplate[i - 1];
+    const afterMainOutro = !!mainDps && prev?.unit === mainDps && Array.isArray(prev.castTypes) && prev.castTypes.includes('Outro');
+    if (row?.loopSplit === true || afterMainOutro) starts.push(i);
+  }
+  return starts;
+}
+
+/** Where each sub-loop ends, as indices into `loopTemplate` (one past its last row); the last is the loop's own end. */
+export const loopCycleBounds = (loopTemplate: any[], mainDps: string | undefined): number[] =>
+  [...loopSplitStarts(loopTemplate, mainDps), loopTemplate.length];
+
+/** Where each sub-loop after the first starts, as indices into the table's `rows`. */
+export function loopSplitRowIndices(rows: any[], loopStartIndex: number, endingRotationEnabled: boolean, mainDps: string | undefined): number[] {
+  const contentIndices = rows.flatMap((row, i) => (row?.unit ? [i] : []));
+  const { openerRows, loopTemplate } = splitLoopSegments(contentIndices.map(i => rows[i]), loopStartIndex, endingRotationEnabled);
+  return loopSplitStarts(loopTemplate, mainDps).map(rel => contentIndices[openerRows.length + rel]);
+}
+
+// Where Ending Rotation starts: after `reps` whole loops, plus the first `partialRows` rows of the
+// next one -- a whole number of its sub-loops (loopSplitStarts), so a loop that's really two cycles
+// can end on either. As many sub-loops as fit in what's left of 120s (floor, not ceil, so it fills
+// the time rather than a truncated loop), at least one; one fewer with endRotationStartsEarlier,
+// so it replaces/extends the final one. The table's preview and the Results pass both use this.
+export function endingPlacement(
+  openerRows: any[],
+  loopTemplate: any[],
+  mainDps: string | undefined,
+  endRotationStartsEarlier: boolean
+): { reps: number; partialRows: number } {
+  const { openerEnd, loopDuration } = loopTiming(openerRows, loopTemplate);
+  const bounds = loopCycleBounds(loopTemplate, mainDps);
+  // Each sub-loop's end, from the loop's start, off the table's single rep.
+  const subEnds = bounds.map(b => rowGameEnd(loopTemplate[b - 1]) - openerEnd);
+  const left = TWO_MIN - openerEnd;
+  const wholeLoops = Math.max(0, Math.floor(left / loopDuration));
+  const remainder = left - wholeLoops * loopDuration;
+  const fitting = wholeLoops * bounds.length + subEnds.slice(0, -1).filter(end => end <= remainder).length;
+  const units = Math.max(1, fitting - (endRotationStartsEarlier ? 1 : 0));
+  const partialUnits = units % bounds.length;
+  return { reps: Math.floor(units / bounds.length), partialRows: partialUnits === 0 ? 0 : bounds[partialUnits - 1] };
 }
 
 /** When the opener ends and how long one loop takes, off already-run rows. */

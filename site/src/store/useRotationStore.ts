@@ -27,7 +27,8 @@ import {
 import type { Command, SerializedCommand, EndingRotationFlags } from '../systems/HistoryManager';
 import {
   REPEAT_FIELDS, DEFAULT_REPEAT_COUNT, makeRow, makeBlankRow, pickFields, createGroupIdRemapper,
-  withRemappedGroupIds, toClipboardRow, toSavedRow, toPersistedRow, loopEndIndexOf
+  withRemappedGroupIds, toClipboardRow, toSavedRow, toPersistedRow, loopEndIndexOf,
+  loopTiming, endingPlacement, loopCycleBounds
 } from '../logic/rotationRows';
 import type { RotationRow, RotationRowFields } from '../logic/rotationRows';
 // Row shapes and views live in logic/rotationRows.ts; components import them from here.
@@ -186,6 +187,9 @@ interface RotationState {
   resetLoopStart: () => void;
   setLoopEndOverride: (index: number) => void;
   resetLoopEnd: () => void;
+  // A row's loopSplit (see rotationRows' loopSplitStarts): true splits there, false suppresses an
+  // auto-detected split, undefined follows auto-detection.
+  setLoopSplit: (index: number, value: boolean | undefined) => void;
   // Wraps rows [startIndex, endIndex] as a new, independent Hold Repeat block (its own groupId,
   // so it doesn't disturb any other block already in the rotation).
   addRepeatBlock: (startIndex: number, endIndex: number) => void;
@@ -195,8 +199,9 @@ interface RotationState {
   // Drag-reposition an existing block's start/end marker (mirrors setLoopStartOverride/setLoopEndOverride).
   setRepeatBlockStartIndex: (groupId: string, index: number) => void;
   setRepeatBlockEndIndex: (groupId: string, index: number) => void;
-  // Enabling tags the last content row as loop end and appends a copy of the loop segment as
-  // "Ending Rotation" content. Disabling removes the tag and appended rows.
+  // Enabling tags the last content row as loop end and appends a copy of the sub-loop that crosses
+  // 2 minutes (the whole loop without splits) as "Ending Rotation" content. Disabling removes the
+  // tag and appended rows.
   setEndingRotationEnabled: (val: boolean) => void;
   // No-op while there's no active Ending Rotation split.
   setEndRotationStartsEarlier: (val: boolean) => void;
@@ -580,6 +585,10 @@ export const useRotationStore = create<RotationState>()(
           historyManager.execute(cmd.setLoopEnd(index, SetLoopEndCommand.findPrevIndex(get().rows)));
         },
 
+        setLoopSplit: (index: number, value: boolean | undefined) => {
+          get().updateRowField(index, 'loopSplit', value);
+        },
+
         addRepeatBlock: (startIndex: number, endIndex: number) => {
           const rows = get().rows;
           if (!rows[startIndex]?.unit || !rows[endIndex]?.unit || endIndex < startIndex) return;
@@ -692,7 +701,17 @@ export const useRotationStore = create<RotationState>()(
 
           const commands: Command[] = [cmd.setLoopEnd(lastContentIdx, null)];
           const loopStart = get().loopStartIndex;
-          const loopRows = rows.slice(loopStart, lastContentIdx + 1);
+          const fullLoopRows = rows.slice(loopStart, lastContentIdx + 1);
+          // Prefilled with just the sub-loop that crosses 2 minutes, where Ending Rotation will start
+          // (the whole loop when it has no splits).
+          const contentRows = rows.slice(0, lastContentIdx + 1);
+          const { loopDuration } = loopTiming(contentRows.slice(0, loopStart), fullLoopRows);
+          const mainDps = useRosterStore.getState().team[0]?.character;
+          const { partialRows } = loopDuration > 0
+            ? endingPlacement(contentRows.slice(0, loopStart), fullLoopRows, mainDps, get().endRotationStartsEarlier)
+            : { partialRows: 0 };
+          const crossingEnd = loopCycleBounds(fullLoopRows, mainDps).find(bound => bound > partialRows) ?? fullLoopRows.length;
+          const loopRows = fullLoopRows.slice(partialRows, crossingEnd);
           // Repeat blocks in the loop are copied as independent blocks (fresh group ids).
           const remapGroupId = createGroupIdRemapper();
           loopRows.forEach((r, i) => {

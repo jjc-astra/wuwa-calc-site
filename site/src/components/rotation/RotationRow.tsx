@@ -23,7 +23,7 @@ import { toFrames, secondsToFrames, framesToSeconds, formatFramesAsClock } from 
 import { applyBuilderOverridesFor } from '../../workers/builderOverridePayload';
 import { useLinkedRowStore } from '../../store/useLinkedRowStore';
 import { useTimelineViewStore } from '../../store/useTimelineViewStore';
-import { TWO_MIN } from '../../logic/ResultsCalculator';
+import { TWO_MIN } from '../../logic/rotationRows';
 
 interface RotationRowProps {
   index: number;
@@ -45,6 +45,10 @@ interface RotationRowProps {
   onResetLoopStart?: () => void;
   isLoopEnd?: boolean;
   onResetLoopEnd?: () => void;
+  // This row starts a sub-loop: `label` numbers it when there are several, `manual` from the row's
+  // own loopSplit, else auto-detected.
+  loopSplit?: { label: string; manual: boolean };
+  onSetLoopSplit?: (index: number, value: boolean | undefined) => void;
   // Derived by RotationBuilder (loopEndIndex + 1, when that row has content), not a persisted flag.
   isEndRotationStart?: boolean;
   endRotationStartsEarlier?: boolean;
@@ -113,6 +117,8 @@ export const RotationRow = React.memo<RotationRowProps>(({
   onResetLoopStart,
   isLoopEnd,
   onResetLoopEnd,
+  loopSplit,
+  onSetLoopSplit,
   isEndRotationStart,
   endRotationStartsEarlier,
   onToggleEndRotationStartsEarlier,
@@ -426,6 +432,26 @@ export const RotationRow = React.memo<RotationRowProps>(({
             </div>
           ))}
         </>
+      )}
+
+      {loopSplit && (
+        <div
+          className="loop-split-tag"
+          {...tip(loopSplit.manual
+            ? 'Sub-loop starts here (set by Split Loop). Ending Rotation can start after any sub-loop.'
+            : 'Sub-loop starts here, after the main DPS Outro. Ending Rotation can start after any sub-loop.')}
+        >
+          <span className="loop-tag-icon">⟳</span>
+          <span className="loop-tag-label">SUB-LOOP{loopSplit.label && ` ${loopSplit.label}`}</span>
+          {!loopSplit.manual && <span className="loop-split-auto">AUTO</span>}
+          <button
+            className="loop-tag-reset"
+            onClick={e => { e.stopPropagation(); onSetLoopSplit?.(index, loopSplit.manual ? undefined : false); }}
+            {...tip(loopSplit.manual ? 'Reset to auto-detection' : 'Remove this split')}
+          >
+            {loopSplit.manual ? '↺' : '✕'}
+          </button>
+        </div>
       )}
 
       {row.repeatBlockStart && (
