@@ -1570,7 +1570,8 @@ export class TimelineEngineClass {
               : true;
             if (isValid) expectedSwapIns.push(m.name);
           });
-          if (expectedSwapIns.length > 0 && !moveData.isSwapInDefault) {
+          // A Hold move also works: its input can be held through the swap, going straight into it.
+          if (expectedSwapIns.length > 0 && !moveData.isSwapInDefault && moveData.inputType !== 'Hold') {
             errors.push(`Standard swap-in expected. Must use: ${expectedSwapIns.join(' or ')}.`);
           }
         }
