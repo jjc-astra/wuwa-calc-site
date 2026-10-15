@@ -11,10 +11,11 @@ interface TimelineClipProps {
   segment: TimelineSegment;
 }
 
-// "Hit #n: x dmg" per hit, or only hit `onlyHit` (1-based).
+// "Hit #n: x dmg" for hit `onlyHit` (1-based); none when not snapped to a hit.
 function buildHitLinesHtml(row: any, onlyHit: number | undefined, withSystemHits: boolean): string {
+  if (onlyHit === undefined) return '';
   const lines = rowHits(row, withSystemHits).flatMap((hit, i) => {
-    if (onlyHit !== undefined && i + 1 !== onlyHit) return [];
+    if (i + 1 !== onlyHit) return [];
     // A proc names its mechanic, e.g. "[Proc] Forte Detonate (Hit 2)" -> "(Forte Detonate)".
     const proc = typeof hit.title === 'string' && hit.title.startsWith('[Proc] ')
       ? ` (${hit.title.slice(7).replace(/ \(Hit \d+\)$/, '')})`
@@ -25,7 +26,7 @@ function buildHitLinesHtml(row: any, onlyHit: number | undefined, withSystemHits
 }
 
 /** Tooltip for a row's clip at game time `atFrames` (the cursor's, or a snapped hit's), listing
- * only hit `onlyHit` (1-based) when snapped to its dot. */
+ * hit `onlyHit` (1-based) only when snapped to its dot. */
 export function buildClipTooltipHtml(
   { type, row, pause }: Pick<TimelineSegment, 'type' | 'row' | 'pause'>,
   atFrames: number,

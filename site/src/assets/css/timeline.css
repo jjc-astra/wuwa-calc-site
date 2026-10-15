@@ -199,7 +199,7 @@
     z-index: 1;
 }
 
-/* Hit list in a clip's tooltip (only the snapped hit, when snapped to one). */
+/* Hit line in a clip's tooltip (only when snapped to a hit). */
 .timeline-tooltip-hits {
     margin-top: 4px;
     padding-top: 4px;
