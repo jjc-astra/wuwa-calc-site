@@ -481,7 +481,13 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
           <button className="base-btn" onClick={() => fileInputRef.current?.click()}>
             Import Rotation
           </button>
-          <button className="base-btn" onClick={handleExport}>
+          {/* Stale ("Stats changed"): the table's timings and results predate the last edit. */}
+          <button
+            className="base-btn"
+            onClick={handleExport}
+            disabled={isStale}
+            {...(isStale ? tip('Stats changed: press Calculate before exporting') : {})}
+          >
             Export Rotation
           </button>
         </>
