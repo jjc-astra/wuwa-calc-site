@@ -1,5 +1,4 @@
-// Browses the submitted Rankings results for one character: pick a team and investment, then see
-// its results, timeline, and sequence / weapon / echo comparisons.
+// Character Guide: a character's ranked teams, results, timeline and comparisons.
 import React, { useEffect, useMemo, useState } from 'react';
 import { RotationTypeBadge } from '../rankings/RankingRow';
 import type { RankingEntry } from '../../store/useRankingsStore';
@@ -41,7 +40,7 @@ interface CharacterGuidePageProps {
 
 export const CharacterGuidePage: React.FC<CharacterGuidePageProps> = ({ character }) => {
   const { status, entries, error, rankedCharacters } = useRankedCharacters();
-  // From the library too: the workers load while a character is picked.
+  // Warm workers while a character is picked.
   useEffect(() => warmWorkerPool(), []);
 
   if (!character) return <GuideLibrary status={status} error={error} rankedCharacters={rankedCharacters} />;
@@ -63,7 +62,7 @@ interface GuideLibraryProps {
   rankedCharacters: Set<string>;
 }
 
-// Lists every character; ones without a ranked rotation are dimmed and can't be opened.
+// Characters without a ranked rotation are dimmed.
 const GuideLibrary: React.FC<GuideLibraryProps> = ({ status, error, rankedCharacters }) => {
   const [search, setSearch] = useState('');
   const characters = Object.keys(DataLoader.characterDB).filter(name => matchesLibrarySearch(name, search));
@@ -102,7 +101,6 @@ interface GuideBodyProps {
   entries: RankingEntry[];
 }
 
-// Loads the runs the guide calculates from, then shows the guide.
 const GuideBody: React.FC<GuideBodyProps> = ({ character, entries }) => {
   const guideEntries = useGuideEntries(entries, character);
   if (guideEntries.status === 'loading') return <div className="results-empty">Loading rotations...</div>;
@@ -116,7 +114,7 @@ interface GuideContentProps extends GuideBodyProps {
 const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEntries }) => {
   const groups = useMemo(() => groupTeams(guideEntries, character), [guideEntries, character]);
   const defaultCfg = useMemo(() => defaultConfig(groups), [groups]);
-  // Reopens what was last selected for this character (see useGuideSelectionStore).
+  // Reopen the last selection.
   const saved = useGuideSelectionStore(s => s.selections[character]);
   const setSelection = useGuideSelectionStore(s => s.setSelection);
   const [selection, setSelectionState] = useState<GuideSelection>(() => ({
@@ -154,14 +152,13 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
   const selectedJob = view?.selectedJob ?? null;
   const defaultJob = defaultView?.selectedJob ?? null;
 
-  // The shown view first; the default view trails it (its Default job is also the Rankings
-  // baseline), so the view every visit can open on always finishes and gets saved.
+  // Shown view first, then the default view (also the Rankings baseline).
   const allJobs = useMemo(() => [...(view?.jobs ?? []), ...(defaultView?.jobs ?? [])], [view, defaultView]);
 
   const isDefaultConfig = !picked || JSON.stringify(picked) === JSON.stringify(defaultCfg);
   const cacheReady = useGuideCache(character, guideEntries, allJobs);
 
-  // Must come before useGuideSummaries -- see useGuideFullCalc.
+  // Before useGuideSummaries.
   const full = useGuideFullCalc(cacheReady ? selectedJob : null);
   const summaries = useGuideSummaries(cacheReady ? allJobs : []);
 
@@ -174,7 +171,6 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
     setPicked({ ...config, slots: config.slots.map((s, i) => (i === slotIdx ? { ...s, ...patch } : s)) });
 
   const showEntry = (entry: RankingEntry) => {
-    // Its loaded run carries the weapons and sets the config is read from.
     const guideEntry = guideEntries.find(e => e.id === entry.id);
     const entryGroup = findGroupFor(groups, entry);
     if (entryGroup && guideEntry) setPicked(configFromEntry(entryGroup, guideEntry));
@@ -202,7 +198,6 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
       {full.status === 'error' && <div className="results-empty">Calculation failed: {full.error}</div>}
       {!full.results && full.status === 'loading' && <div className="results-empty">Calculating rotation...</div>}
 
-      {/* Left: the selected config, its echoes and results. Right: the comparisons. */}
       <ResultsSourceContext.Provider value={{ results: full.results, team: full.team, isStale, pinned: null, allowPin: false, allowSubstatToggle: false, scope }}>
         <div className="guide-columns">
           <div className="guide-column">
@@ -324,7 +319,6 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
 interface GuideConfigPanelProps {
   group: GuideTeamGroup;
   config: GuideConfig;
-  // The submission the config runs, for the sets it shows.
   selectedJob: GuideJob;
   isDefault: boolean;
   onSlotChange: (slotIdx: number, patch: Partial<GuideConfig['slots'][number]>) => void;
@@ -334,7 +328,7 @@ interface GuideConfigPanelProps {
 const SEQUENCE_OPTIONS = Array.from({ length: SIM_CONSTANTS.MAX_SEQUENCE + 1 }, (_, s) => ({ value: String(s), label: `S${s}` }));
 const RANK_OPTIONS = Array.from({ length: SIM_CONSTANTS.MAX_RANK }, (_, r) => ({ value: String(r + 1), label: `R${r + 1}` }));
 
-// The selected team's investment. Other teams are picked from the Rankings below (Show in Guide).
+// The selected team's investment.
 const GuideConfigPanel: React.FC<GuideConfigPanelProps> = ({ group, config, selectedJob, isDefault, onSlotChange, onReset }) => {
   const team = group.entries[0].team;
 
@@ -387,7 +381,7 @@ const GuideConfigPanel: React.FC<GuideConfigPanelProps> = ({ group, config, sele
                 options={RANK_OPTIONS}
                 onChange={v => onSlotChange(i, { rank: Number(v) })}
               />
-              {/* Only the set builds this unit was submitted with on this team. */}
+              {/* Submitted set builds only. */}
               <IconSelect
                 value={currentSet?.signature ?? ''}
                 options={setOptions.map(o => ({ value: o.signature, label: o.label, icon: o.mainSet }))}

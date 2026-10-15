@@ -15,10 +15,7 @@ export const CooldownPanel: React.FC<CooldownPanelProps> = ({ data, updateNode }
   const { activeChar, mechanics, setMechanicNode } = useBuilderStore();
   const [shareDraft, setShareDraft] = useState<string | null>(null);
 
-  // "Share Cooldown With" is a two-way link: writing it on this move also stamps the partner's
-  // own field to point back here, and changing/clearing it un-stamps whichever partner it used
-  // to point at (only if that partner still points back at this move -- never steal a link the
-  // user pointed somewhere else by hand). Committed on blur, like every other draft field here.
+  // Two-way link: updates the partner too, and unlinks the old partner if it pointed back.
   const commitShareCooldown = () => {
     if (shareDraft === null) return;
     const newPartnerName = shareDraft.trim();

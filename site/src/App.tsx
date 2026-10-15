@@ -25,17 +25,15 @@ import './assets/css/timeline.css';
 import './assets/css/guide.css';
 import './assets/css/about.css';
 
-// The startup database load, shared so StrictMode's double-run mount effect doesn't fetch twice.
+// Shared so StrictMode's double mount doesn't fetch twice.
 let startupLoad: Promise<void> | null = null;
 
-// Loads the databases, routes between pages, and rechecks loaded data when the tab refocuses.
+// Loads databases, routes pages, and rechecks data on refocus.
 export default function App() {
   const [{ view: currentView, step: activeStep, guideCharacter }, navigate] = useRoute();
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Re-checks the Builder's open entity against the manifest, replaying setActiveChar if it
-  // changed. `force` skips the "did anything change" gate -- needed at mount (mechanics/baseStats
-  // aren't persisted), but elsewhere a no-op replay still flickers JsonOutputPane's highlight.
+  // Reloads the Builder's open entity if it changed. `force`: reload regardless.
   const refreshActiveBuilderItem = async (force = false) => {
     const { activeChar, activeFolder, activeRarity, setActiveChar } = useBuilderStore.getState();
     if (!activeChar) return;
@@ -46,14 +44,13 @@ export default function App() {
   useEffect(() => {
     startupLoad ??= DataLoader.initDatabases();
     startupLoad.then(async () => {
-      // A reload only persists activeChar, not the derived `mechanics` working copy, so it
-      // needs the same freshness-check + replay a grid click normally does.
+      // Only activeChar is persisted.
       await refreshActiveBuilderItem(true);
       setIsLoaded(true);
     });
   }, []);
 
-  // "Tab regains focus" freshness check, scoped to whatever the active page has loaded.
+  // Freshness check on tab focus.
   useEffect(() => {
     const onVisibility = () => {
       if (document.visibilityState !== 'visible') return;
@@ -69,8 +66,7 @@ export default function App() {
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, [currentView]);
 
-  // visibilitychange doesn't fire for a side-by-side editor window, the Builder's most common
-  // live-editing setup, so it needs its own poll instead. Cheap: refreshManifest self-throttles.
+  // Builder poll: visibilitychange doesn't fire for side-by-side windows.
   useEffect(() => {
     if (currentView !== 'builder') return;
     const interval = setInterval(() => {
@@ -79,7 +75,6 @@ export default function App() {
     return () => clearInterval(interval);
   }, [currentView]);
 
-  // The header and landing page need no data, so they render (and are crawlable) right away.
   return (
     <div id="app-layout">
       <Header currentView={currentView} onNavClick={navigate} guideCharacter={guideCharacter} />

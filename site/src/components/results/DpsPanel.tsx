@@ -9,11 +9,10 @@ const formatDelta = (d: number) => `${d >= 0 ? '+' : '−'}${Math.abs(d).toFixed
 
 const ROWS = DPS_WINDOWS.map(window => ({ key: window.dpsField, label: window.label }));
 
-// Smallest |delta| that fills half the track, so near-identical rotations don't show full bars.
+// Minimum |delta| for a half-full bar.
 const MIN_DELTA_SCALE = 1;
 
-// Solo: one slim bar per window, scaled to the highest. Pinned: each bar grows left (worse) or
-// right (better) from a 0% center line, scaled to the largest change.
+// Solo: bars scaled to the highest. Pinned: diverging bars from 0%.
 export const DpsPanel: React.FC = () => {
   const { results, pinned, allowPin, isStale } = useResultsSource();
 

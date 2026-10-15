@@ -1,6 +1,4 @@
 /* Landing page. */
-
-/* --- Landing Page --- */
 .landing-page {
     flex: 1 1 auto;
     min-height: 0;
@@ -8,9 +6,8 @@
     display: grid;
     grid-template-columns: minmax(0, 45rem) minmax(0, 33.5rem);
     justify-content: center;
-    /* Top-aligned, not centered: opening an FAQ answer grows the page, which would shift both columns. */
+    /* Top-aligned so opening the FAQ doesn't shift columns. */
     align-content: start;
-    /* Columns keep their own heights, so the divider (sized to the left column) never grows. */
     align-items: start;
     padding: 3.5rem 1.25rem 2.5rem;
     gap: 2.5rem 7rem;
@@ -27,7 +24,6 @@
 
 .landing-side { gap: 2rem; }
 
-/* Column divider: centered in the gap, fading out like .panel-header-main's rule. */
 .landing-main { position: relative; }
 .landing-main::after {
     content: "";
@@ -39,7 +35,7 @@
     background: linear-gradient(to bottom, var(--overlay-w5), transparent);
 }
 
-/* Narrow screens: one column, the side content below the cards; the divider runs across instead. */
+/* Narrow: one column. */
 @media (max-width: 1000px) {
     .landing-page { grid-template-columns: minmax(0, 45rem); gap: 2.5rem; }
     .landing-main { padding-bottom: 2.5rem; }
@@ -138,9 +134,8 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, 9.5rem);
     gap: 1rem;
-    /* Larger names to match the bigger cards (LibraryCard sizes its label in em). */
     font-size: 1.2rem;
-    /* Holds its height while the databases load, so the FAQ doesn't jump. */
+    /* Reserve height while loading. */
     min-height: 13rem;
 }
 

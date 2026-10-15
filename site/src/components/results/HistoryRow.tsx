@@ -75,7 +75,7 @@ export const HistoryRow: React.FC<HistoryRowProps> = ({ entry }) => {
             items={[
               { label: 'Export', onClick: () => setExportOpen(true) },
               { label: 'Restore Rotation', onClick: () => setConfirmOpen(true) },
-              // Instant -- this entry already carries full RotationResults (dmgOverTimeSeries included).
+              // Instant: entries carry full results.
               { label: 'Pin to Comparison', onClick: () => useComparisonStore.getState().pinFromHistoryEntry(entry.team, entry.results) },
               { label: 'Remove', onClick: () => removeEntry(entry.id), danger: true }
             ]}

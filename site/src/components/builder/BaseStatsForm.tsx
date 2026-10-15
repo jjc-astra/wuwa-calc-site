@@ -9,12 +9,11 @@ import { ELEMENTS } from '../../data/gameVocab';
 import { IMAGE_FOLDERS } from '../../data/db';
 import { Dropdown } from '../common/Dropdown';
 
-/** The open character's or weapon's base stats (its db_characters / db_weapons entry). */
+/** Base stats of the open character or weapon. */
 export const BaseStatsForm: React.FC = () => {
   const { activeChar, baseStats, setBaseStat } = useBuilderStore();
 
-  // Computed ahead of the early returns below since the hooks that depend on it must stay
-  // unconditional (Rules of Hooks).
+  // Before the early returns (Rules of Hooks).
   const isChar = !!activeChar && !!DataLoader.characterDB[activeChar];
   const iconFolder = isChar ? IMAGE_FOLDERS.CHARACTERS : IMAGE_FOLDERS.WEAPONS;
   const iconPath = activeChar ? CommonUtils.getIconPath(activeChar, iconFolder) : '';
@@ -70,7 +69,6 @@ export const BaseStatsForm: React.FC = () => {
     </div>
   );
 
-  // Small underlined label per group (matches mechanics table style), not a bordered box.
   const renderGroup = (title: string, children: React.ReactNode) => (
     <div className="base-stats-group">
       <div className="base-stats-group-title caps-label">{title}</div>

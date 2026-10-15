@@ -35,20 +35,17 @@ export interface QueuedHit {
   isProc: boolean;
 }
 
-// What a run produces. Each mode skips the work whose output nobody reads, so a throwaway pass
-// isn't slowed down by bookkeeping meant for the screen.
-//   full    everything: the rotation table, Results, the Ending Rotation preview
-//   lean    only timings, resources and messages: no dropdown snapshots and no per-hit damage
-//           log, for the loop analysis, which never reads them
-// Row problems surface as each row's errorMsgs/warningMsgs (shown in the table), not the console.
+// Run mode:
+// - full: everything (table, Results, Ending Rotation preview)
+// - lean: timings, resources, messages only (loop analysis)
 export type EngineMode = 'full' | 'lean';
 
-// How deep events may fire inside other events' effects before the chain is cut as a loop.
+// Max nested event depth before the chain is cut as a loop.
 const MAX_EVENT_DEPTH = 32;
-// The one part of a context that @Default pointers read (ContextManager.buildContext's `default`).
+// Context for math that only reads @Default.
 const DEFAULTS_ONLY_CTX = { default: GAME_DEFAULTS };
 const defaultsOnlyCache = new Map<string, boolean>();
-// True when every context read in the math is ctx.default.* (it compiles @Default.X to that).
+// True when the math reads only @Default values.
 function readsOnlyDefaults(mathStr: string): boolean {
   let result = defaultsOnlyCache.get(mathStr);
   if (result === undefined) {
@@ -64,15 +61,14 @@ const RUN_PROFILES: Record<EngineMode, { dropdownSnapshots: boolean; hitLog: boo
   lean: { dropdownSnapshots: false, hitLog: false }
 };
 
-// The engine's own hold-cursor bookkeeping (see _handleTracker's Hold_Start branch).
+// Engine-internal hold-cursor trackers.
 const HOLD_BOOKKEEPING_TRACKERS = new Set(['Hold_Start', 'Hold_Unit', 'Hold_Input', 'Cursor_Pos', 'Cursor_Accumulated', 'Forte_Win_Center', 'Forte_Win_Size']);
 
-/** A tracker the Timeline shows: an authored one, not the engine's own bookkeeping (OnTick
- * timers, per-row resource deltas, hold cursors). */
+/** True for authored trackers shown on the Timeline (not engine bookkeeping). */
 export const isTimelineTracker = (name: string): boolean =>
   !name.startsWith('__sys_') && !name.endsWith('_Delta') && !HOLD_BOOKKEEPING_TRACKERS.has(name);
 
-/** What the Timeline shows of a buff: one bar's identity between two changes. */
+/** Timeline identity of a buff bar. */
 export const timelineBuffInfo = (buff: Effect) => ({
   name: buff.name || '',
   provider: buff.provider,
@@ -87,21 +83,21 @@ export const timelineBuffInfo = (buff: Effect) => ({
   sourceOwner: buff.sourceOwner
 });
 
-/** What the Timeline shows of a cooldown: whose it is, whether it's a System move's, and its charges. */
+/** Timeline info for a cooldown: owner, System flag, charges. */
 export const timelineCooldownInfo = (key: string, unit: string, name: string) => ({
   key, unit, name,
   isSystem: unit === SYSTEM_NAMESPACE || !!DataLoader.mechanicsDB[MechanicKey.build(SYSTEM_NAMESPACE, name)],
   maxCharges: Number(DataLoader.mechanicsDB[key]?.maxCharges) || 1
 });
 
-// How many of a queued hit's move's hits land: a cast's cut-off (its timing), or a proc's allowedHits.
+// Number of hits that land: cast cut-off, or a proc's allowedHits.
 const hitLimit = (hit: QueuedHit): number =>
   hit.isProc ? hit.originMoveData.allowedHits ?? Infinity : hit.originRow.allowedHits;
 
-// Simulates a rotation row by row: timings, resources, buffs, events and the hit queue.
-// A timing that swaps the unit out: Swap, or Swap + Cancel (SwapCancel_<n>).
+// Swap or Swap + Cancel (SwapCancel_<n>).
 const isSwapTiming = (timing: unknown): boolean => timing === 'Swap' || String(timing ?? '').startsWith('SwapCancel_');
 
+// Simulates a rotation row by row: timings, resources, buffs, events, hit queue.
 export class TimelineEngineClass {
   damageQueue: QueuedHit[] = [];
   currentGlobalGameTime = 0;
@@ -111,22 +107,19 @@ export class TimelineEngineClass {
   _localBuffCache: Record<string, Effect> = {};
   _globalBuffCache: Record<string, Effect | null> = {};
   _enemyConfig: EnemyStats = ENEMY_DEFAULTS;
-  // Which optional work this recalculateState call does (see EngineMode).
   _run = RUN_PROFILES.full;
-  // Memoizes _getModifiedMoveData per actionId for one recalculateState call; reset each call.
+  // Per-run cache of _getModifiedMoveData by actionId.
   _moveDataCache = new Map<string, MechanicNode | null>();
-  // Events currently firing inside each other, outermost first (see _nested).
+  // Nested events currently firing, outermost first.
   _eventChain: string[] = [];
-  // The Timeline's change log (_logTimeline): each buff's and tracker's last logged state, buffs
-  // refreshed since (a refresh changes nothing else to compare), and when a buff that ran out did.
+  // Timeline change log state (_logTimeline).
   _buffWatch = new Map<string, { sig: string; stacks: number }>();
   _trackerWatch = new Map<string, number>();
   _refreshedBuffs = new Set<string>();
   _buffRanOutAt = new Map<string, number>();
-  // Each mechanic's compiled hitCondition, apart from its triggerRule's.
+  // Compiled hitConditions per mechanic.
   _hitConditions = new WeakMap<MechanicNode, { _compiledRule?: any }>();
-  // Each cooldown's last logged timer (seconds left as of `at`; `until` = its last charge's), and
-  // who/what each cooldown key belongs to.
+  // Last logged cooldown timers and their owners.
   _cooldownWatch = new Map<string, { remaining: number; until: number; at: number; charges?: number }>();
   _cooldownOwners = new Map<string, { unit: string; name: string }>();
 
@@ -163,22 +156,20 @@ export class TimelineEngineClass {
     let accumulatedTime = 0;
     let accumulatedGameTime = 0;
     const unitBusyUntil: Record<string, number> = {};
-    // Each unit's latest row, which a later motion stop pauses.
+    // Latest row per unit (for motion stop pauses).
     const lastRowByUnit: Record<string, any> = {};
-    // Each unit's animation still furthest from done (its Timeline off-field tail), with its end
-    // in real frames -- what a later motion stop pushes back.
+    // Longest-running off-field animation per unit, with its end in real frames.
     const animationByUnit: Record<string, { row: any; end: number }> = {};
-    // When each unit can be swapped back in: swapping off a unit locks it out for swapCooldown.
-    // Combat starts on slot 1, so an opening row by another unit swaps off slot 1.
+    // Swap-back lockout per unit. Combat starts on slot 1.
     const swapBackReadyAt: Record<string, number> = {};
 
-    // Link row pointers (@Prev, @Next, @Self.PrevAction)
+    // @Prev, @Next, @Self.PrevAction
     activeRows.forEach((row, i) => {
       row.arrayIndex = i;
       row.prevRow = i > 0 ? activeRows[i - 1] : null;
       row.nextRow = i < activeRows.length - 1 ? activeRows[i + 1] : null;
     });
-    // @Self.NextAction: each unit's next action after a row, which isn't necessarily the next row's.
+    // @Self.NextAction: the unit's own next action, not necessarily the next row.
     const upcomingActions: Record<string, string> = {};
     for (let i = activeRows.length - 1; i >= 0; i--) {
       const row = activeRows[i];
@@ -205,16 +196,12 @@ export class TimelineEngineClass {
 
       currentData.damageInstances = [];
       currentData._pendingHits = [];
-      // Rows are recalculated in place -- clear so a fixed hold config doesn't keep showing
-      // last run's "unreachable" error.
+      // Clear stale errors from the last run.
       currentData._holdUnreachable = undefined;
       currentData.motionStopPauses = undefined;
 
-      // Populated by the auto-wait lookahead below when this row's own action is a Release --
-      // the live cursor-tracking block further down reuses it instead of re-resolving the same
-      // holdConfig/DSL-window/maxCap work a second time for the same row.
+      // Set by the release lookahead; reused by cursor tracking below.
       let holdConfigCache: { config: HoldConfig; mode: string; speed: number; maxVal: number; center: number; size: number } | null = null;
-      // Waits the same lookahead adds for a hold's release, listed with this row's other wait reasons below.
       const holdWaitReasons: Array<{ label: string; valueFrames: Frames }> = [];
 
       const dbMove =
@@ -224,14 +211,13 @@ export class TimelineEngineClass {
       currentData.moveName = dbMove.name || currentData.action;
       currentData.castTypes = dbMove.castTypes || (currentData.action ? [currentData.action] : []);
       currentData.dmgTypes = dbMove.dmgTypes || [];
-      // Metadata for the Timeline's input-press flags; never read by damage calculation below.
+      // Timeline input-press flags only.
       currentData.input = dbMove.input;
       currentData.inputType = dbMove.inputType;
 
       this._applyInheritance(currentData, prevData, accumulatedGameTime, team);
 
       if (i === 0) {
-        // The pools exist already: _applyInheritance copied them.
         activeTeam.forEach(charName => {
           if (options.startEnergy) currentData.energy[charName] = resourceCap(charName, 'energy');
           if (options.startConcerto) currentData.concerto[charName] = resourceCap(charName, 'concerto');
@@ -240,27 +226,24 @@ export class TimelineEngineClass {
       }
 
       if (prevData.unit && prevData.unit !== currentData.unit) {
-        // swapCooldown is seconds-domain; convert once here into the frames-domain marker.
+        // swapCooldown is in seconds; convert to frames.
         swapBackReadyAt[prevData.unit] = accumulatedTime + secondsToFrames(GAME_DEFAULTS.swapCooldown);
       }
 
-      // seconds -- cooldowns stay in seconds. Charge-aware (see ContextManager.cooldownRemaining):
-      // a maxCharges > 1 move waits only once every charge is in use, not on its own single timer.
+      // Seconds. Multi-charge moves wait only when every charge is in use.
       const actualCdRemaining = ContextManager.cooldownRemaining(currentData, currentData.unit, currentData.moveName);
       const wCD = secondsToFrames(actualCdRemaining);
       let wBusy = 0;
       let busyUntil = unitBusyUntil[currentData.unit] || 0;
       const isOutroCast = !!dbMove.castTypes?.includes('Outro');
-      // An Intro overrides whatever the unit is still playing off-field: no wait, and that move ends here.
+      // An Intro cuts the unit's off-field move short.
       const isIntroCast = !!dbMove.castTypes?.includes('Intro');
       const swappedOut = lastRowByUnit[currentData.unit];
       const introCutsSwappedOut = isIntroCast && !!swappedOut && busyUntil > accumulatedTime;
-      // Swapback cancel: this is the move the unit's swapped-out one (Swap + Cancel) was set to be
-      // cancelled by -- it cuts it at its cancel point, or now if that's already past.
+      // Swapback cancel: cut the off-field move at its cancel point, or now if past.
       const cutsSwappedOut = swappedOut?._swapCancelAt !== undefined && busyUntil > accumulatedTime && !isOutroCast && !isIntroCast;
       if (cutsSwappedOut) {
-        // Motion stops while it played off-field paused it, pushing its hits (and so its cancel
-        // point) back by as much as its end -- a hit on the cancel frame still lands.
+        // Off-field motion stops push the cancel point back.
         const paused = Math.max(0, busyUntil - (swappedOut.timeStart + swappedOut.animationCommitment));
         busyUntil = Math.min(busyUntil, Math.max(accumulatedTime, swappedOut.timeStart + swappedOut._swapCancelAt + paused));
       }
@@ -271,24 +254,17 @@ export class TimelineEngineClass {
       let finalWaitTime = Math.max(wCD, wBusy);
       currentData.waitTime = finalWaitTime;
       currentData.cdWaitTime = wCD;
-      // The first row has nothing before it to run down.
       if (i > 0) this._decayState(currentData, toFrames(finalWaitTime), toFrames(finalWaitTime), activeTeam, activeRows, team);
       if (cutsSwappedOut || introCutsSwappedOut) this._cutSwappedOutMove(swappedOut, accumulatedTime + finalWaitTime);
 
-      // Waits if this move would error on a resource (Concerto/Tune/Forte; Energy stays just
-      // a warning) because its own generation is still undrained in the queue -- same
-      // mechanism as wCD/wBusy above.
+      // Wait for queued resource gains to cover a shortfall (not Energy).
       const { waitFrames: resourceWaitFrames, label: resourceWaitLabel } = this._computeResourceWait(currentData, dbMove, team, activeTeam, activeRows);
       if (resourceWaitFrames > 0) {
         finalWaitTime += resourceWaitFrames;
         currentData.waitTime = finalWaitTime;
       }
 
-      // prevData's gauges should read as "available right before this action starts", not
-      // "whatever landed within its own truncated duration" -- else a gauge can look short of
-      // a requirement the wait above is about to satisfy, with nothing on screen explaining why.
-      // Safe to backfill here: currentData already cloned prevData's dicts via
-      // _applyInheritance, and nothing later re-reads prevData's resource pools.
+      // Backfill prevData gauges to what's available right before this action.
       if (i > 0) {
         backfillPools(prevData, currentData);
         prevData.enemyTune = currentData.enemyTune;
@@ -297,7 +273,6 @@ export class TimelineEngineClass {
 
       if (dbMove.inputType === 'Release' && dbMove.holdConfig && currentData.trackers && currentData.trackers.Hold_Start !== undefined && currentData.trackers.Hold_Unit === currentData.unit) {
         const holdStart = currentData.trackers.Hold_Start;
-        // Cached for the live-tracking block below, so the same row doesn't resolve it twice.
         holdConfigCache = this._resolveHoldCursor(dbMove.holdConfig || {}, currentData, team);
         const { mode, speed, maxVal } = holdConfigCache;
 
@@ -321,13 +296,7 @@ export class TimelineEngineClass {
           }
         }
         if (currentData.timing === 'Manual') {
-          // User has taken explicit control of the release (e.g. an intentional early/partial
-          // release for a shorter charge) -- apply their value directly instead of auto-waiting
-          // for "done", clamped to [0, the delay auto would have used] so Manual can only
-          // shorten the wait, never lengthen it past what the hold's own config would produce.
-          // The live-tracking block further down reads gameTimeStart/Hold_Start the same way
-          // regardless of how the wait got here, so the cursor/forte naturally reflect this
-          // shorter hold instead of assuming "done" -- no separate handling needed there.
+          // Manual release: user's value, clamped to [0, auto delay].
           const manualDelay = Math.max(0, currentData.manualOffset || 0);
           const ceilingDelay = holdReachable ? holdReleaseDelay : GAME_DEFAULTS.holdLookaheadMax;
           const appliedDelay = Math.min(manualDelay, ceilingDelay);
@@ -336,15 +305,13 @@ export class TimelineEngineClass {
             currentData.waitTime = finalWaitTime;
             holdWaitReasons.push({ label: 'Manual Hold Wait', valueFrames: toFrames(appliedDelay) });
           }
-          // Not surfaced here: the user has explicitly opted out of waiting for "done", so an
-          // auto-search miss isn't an error for them the way it is in every other timing mode.
+          // Manual mode: an auto-search miss isn't an error.
         } else if (holdReachable && holdReleaseDelay > 0) {
           finalWaitTime += holdReleaseDelay;
           currentData.waitTime = finalWaitTime;
           holdWaitReasons.push({ label: mode === 'clamp' ? 'Forte Full Wait' : 'Forte Window Wait', valueFrames: toFrames(holdReleaseDelay) });
         } else if (!holdReachable) {
-          // Speed is 0 (or otherwise can't reach the target) -- surfaced by _runValidation as
-          // an error instead of silently releasing as if it were already ready.
+          // Unreachable target; reported by _runValidation.
           currentData._holdUnreachable = mode === 'clamp' ? 'full/empty forte' : 'release window';
         }
       }
@@ -358,7 +325,6 @@ export class TimelineEngineClass {
         (currentData.timing === 'Auto' && currentData._autoTimingChoice === 'Swap') ||
         (nextRow && nextRow.unit !== currentData.unit && nextRow.unit !== '');
 
-      // The unit swapped to waits out its own swap cooldown.
       const incomingUnit = nextRow?.unit && nextRow.unit !== currentData.unit ? nextRow.unit : null;
       let swapCdDelay = 0;
       if (isSwappingOut && incomingUnit) {
@@ -384,13 +350,13 @@ export class TimelineEngineClass {
 
       if (dbMove.stanceReq && dbMove.stanceReq !== 'Any') currentData.stance = dbMove.stanceReq;
 
-      // Only changes the move plays out before it's cancelled/swapped land; the last one sets the end stance.
+      // Stance changes that play out before the cancel/swap; the last sets the end stance.
       for (const change of sortedStanceChanges(dbMove)) {
         if (currentData.duration >= change.frame) currentData.stance = change.stance;
       }
 
       if (currentData.timing === 'Simultaneous' && i > 0) {
-        // Unset: starts together with the previous move.
+        // Unset: starts with the previous move.
         currentData.manualOffset ??= -timings.baseDuration;
         const baseTimeStart = prevData.timeStart + prevData.duration + finalWaitTime;
         const baseGameTimeStart = prevData.gameTimeStart + prevData.gameTimePassed + finalWaitTime;
@@ -419,8 +385,7 @@ export class TimelineEngineClass {
       }
       const baseActDur = timings.baseDuration;
 
-      // Frame counts are exact integers -- no epsilon needed here (unlike seconds-domain decay
-      // checks elsewhere). SubPanel.tsx formats valueFrames to seconds.
+      // Integer frames; no epsilon needed.
       const reasons: any[] = [];
       if (wCD > 0) reasons.push({ label: 'Waiting for Skill CD', valueFrames: wCD });
       if (wBusy > 0) reasons.push({ label: 'Off-Field Animation Lock', valueFrames: toFrames(wBusy) });
@@ -463,12 +428,10 @@ export class TimelineEngineClass {
             team
           );
         const { config, mode, speed, maxVal, center, size } = hold;
-        // A Repeat-style hold (no holdConfig anywhere for this character's hold pair) has no
-        // cursor system at all -- skip writing any cursor/window state so it doesn't inherit
-        // meaningless all-default values (e.g. a bogus pingpong Cursor_Pos) it never asked for.
+        // Repeat-style holds (no holdConfig) have no cursor.
         if (config && Object.keys(config).length > 0) {
           if (!currentData.trackers) currentData.trackers = {};
-          // Clamp has no window -- skip storing meaningless center/size trackers for it.
+          // Clamp has no window.
           if (mode !== 'clamp') {
             currentData.trackers.Forte_Win_Center = center;
             currentData.trackers.Forte_Win_Size = size;
@@ -481,13 +444,11 @@ export class TimelineEngineClass {
             currentData.forteCursorPos = finalCursor;
             currentData.forteWinCenter = center;
             currentData.forteWinSize = size;
-            // What IsInHoldWindow reads in trigger rules.
+            // Read by IsInHoldWindow.
             currentData.isInForteWindow = CommonUtils.isHoldCursorDone(finalCursor, hold);
             currentData.trackers.Cursor_Pos = finalCursor;
 
-            // Clamp mode: the cursor *is* the forte value while holding (unlike a window mode
-            // like Sanhua's, where the cursor is just release timing and forte comes from
-            // separate hitResources/effects) -- keep the real pool in lockstep.
+            // Clamp: cursor is the forte value; keep the pool in sync.
             if (mode === 'clamp') {
               const slot = config.forteSlot || MECHANICS_NOTATION.HOLD_DEFAULTS.FORTE_SLOT;
               if (!currentData[slot]) currentData[slot] = {};
@@ -497,7 +458,7 @@ export class TimelineEngineClass {
         }
       }
 
-      // Pre-cast dropdown snapshot, for the row's panels.
+      // Pre-cast snapshot for the row's panels.
       if (this._run.dropdownSnapshots) {
         currentData.dropdownState = dropdownSnapshot(currentData);
       }
@@ -506,8 +467,7 @@ export class TimelineEngineClass {
 
       this._evaluateMechanics(currentData, activeTeam, activeRows, i, team, dbMove);
       this._resolveComboWindows(currentData, dbMove, team);
-      // For the Timeline's spam-click indicator; deferred until here so @Self/@Move context
-      // reflects this row's fully-computed state.
+      // Spam-click indicator; after the row's state is final.
       currentData.priority = this._resolvePriority(dbMove, currentData, currentData.unit, team);
     }
 
@@ -521,11 +481,7 @@ export class TimelineEngineClass {
     }
     if (this._run.dropdownSnapshots) emptyRow.dropdownState = plainCopy(emptyRow, ROW_LINK_KEYS);
 
-    // A hit can still be queued here (e.g. cancelled into an Outro via swapTiming) with no
-    // later row to advance the clock far enough to reach it -- flush what's left now.
-    // Runs through _decayState like any other window (freeze is long over, so real time is game
-    // time), ending at the last queued hit, so buffs and cooldowns run down between these hits too.
-    // A hit can queue a proc that lands later, so it repeats until the queue is empty.
+    // Flush hits still queued after the last row (repeats, since hits can queue procs).
     const flushContext = activeRows[activeRows.length - 1];
     for (let guard = 0; this.damageQueue.length > 0 && guard < 1000; guard++) {
       const lastHitAt = Math.max(...this.damageQueue.map(hit => hit.executeAt));
@@ -537,7 +493,7 @@ export class TimelineEngineClass {
     return activeRows;
   }
 
-  // Determines loop start via override or main DPS's first true Outro; uses collapseMap to prevent premature loop splitting on Hold-Repeat blocks.
+  // Loop start: override, or main DPS's first Outro (skipping Hold-Repeat blocks).
   findLoopStart(rows: any[], mainDps: string | undefined, collapseMap?: number[]): { index: number; isOverride: boolean } {
     const overrideIndex = rows.findIndex(r => r.loopStartOverride === true && !!r.unit);
     if (overrideIndex !== -1) return { index: overrideIndex, isOverride: true };
@@ -556,9 +512,7 @@ export class TimelineEngineClass {
     return { index: 0, isOverride: false };
   }
 
-  // Live legality check: simulates opener + 2 loop reps, inspects the second rep for issues
-  // that only surface once state carries over (cooldowns, trigger rules, resources). Cheap on
-  // purpose -- proves just the next iteration works, not a full DPS run.
+  // Legality check: simulates opener + 2 loop reps and inspects the second.
   analyzeLoop(
     rows: any[],
     team: any[] = [],
@@ -566,11 +520,10 @@ export class TimelineEngineClass {
     enemyConfig: EnemyStats = ENEMY_DEFAULTS,
     loopStartIndex: number = 0
   ): { errors: string[]; warnings: string[] } {
-    // Ending Rotation rows after the loop-end marker are left out: they don't repeat.
+    // Ending Rotation rows don't repeat.
     const { openerRows, loopTemplate } = splitLoopSegments(rows.filter(r => r && r.unit), loopStartIndex, true);
     if (loopTemplate.length === 0) return { errors: [], warnings: [] };
 
-    // `rows` is already-recalculated, so its timing fields can be read directly.
     if (loopTiming(openerRows, loopTemplate).loopDuration === 0) {
       return { errors: ['Loop has no duration — cannot repeat.'], warnings: [] };
     }
@@ -578,15 +531,11 @@ export class TimelineEngineClass {
     const extendedContent = [...openerRows, ...loopTemplate, ...loopTemplate];
     const extendedResult = this.recalculateState(toRunInput(extendedContent), team, { ...options, mode: 'lean' }, enemyConfig);
 
-    // The second rep, up to extendedContent.length (which leaves out the trailing blank row).
+    // Second rep, excluding the trailing blank row.
     return this.loopIssues(extendedResult, openerRows.length + loopTemplate.length, extendedContent.length);
   }
 
-  /**
-   * The issues in one loop repetition, rows [from, to) of a run that simulated it after at least
-   * one earlier repetition -- analyzeLoop's own run, or the Ending Rotation preview's (which
-   * already covers opener + 2+ reps, so the live recalc reads it instead of simulating again).
-   */
+  /** Issues in loop rows [from, to) of a run with at least one earlier rep. */
   loopIssues(runRows: any[], from: number, to: number): { errors: string[]; warnings: string[] } {
     const errors: string[] = [];
     const warnings: string[] = [];
@@ -597,7 +546,7 @@ export class TimelineEngineClass {
 
       (row.errorMsgs || []).forEach((msg: string) => errors.push(`${moveName}: ${msg}`));
 
-      // A cooldown-blocked move fails its trigger rule too, but it's just a wait, not illegal.
+      // Cooldown waits aren't illegal.
       const cooldownWarning = this._cooldownWaitWarning(row, moveName);
       if (cooldownWarning) warnings.push(cooldownWarning);
       (row.warningMsgs || []).forEach((msg: string) => {
@@ -612,7 +561,7 @@ export class TimelineEngineClass {
     return { errors, warnings };
   }
 
-  // A move's own copy for this run (its compiled rule shared), or null for no such move.
+  // Per-run copy of a move, or null.
   _getModifiedMoveData(actionId: string): MechanicNode | null {
     if (!actionId) return null;
     const cached = this._moveDataCache.get(actionId);
@@ -639,7 +588,7 @@ export class TimelineEngineClass {
     return patchedMove;
   }
 
-  // `mainUnit` (team[0]'s character) stands in for "who was on-field before row 0"
+  // `mainUnit`: on-field before row 0.
   _getDefaultData(mainUnit: string = ''): any {
     return {
       unit: mainUnit, action: '', timing: 'Auto', offset: 0,
@@ -690,8 +639,7 @@ export class TimelineEngineClass {
     currentData.chargeCooldowns = structuredClone(prevData.chargeCooldowns || {});
     currentData.activeBuffs = structuredClone(prevData.activeBuffs || {});
 
-    // removeOnSwap buffs belong to whoever swaps off-field; drop them the moment they leave.
-    // Kept for _gatherInstantEffects, which fires OnBuffRemove for each with the swap events.
+    // Drop the outgoing unit's removeOnSwap buffs (OnBuffRemove fires later).
     if (prevData.unit && currentData.unit && currentData.unit !== prevData.unit) {
       const swappedOutPrefix = `${prevData.unit}_`;
       for (const key in currentData.activeBuffs) {
@@ -713,9 +661,7 @@ export class TimelineEngineClass {
     }
 
     currentData.timeScales = structuredClone(prevData.timeScales || {});
-    // Stance is tracked per unit: a unit that swaps out midair stays midair for its combo window
-    // (a swap back inside it finds them still airborne), then lands. A unit swapped in outside its
-    // combo window takes over the outgoing unit's stance.
+    // Per-unit stance: midair persists through the combo window; otherwise inherit the outgoing stance.
     currentData.unitStances = { ...(prevData.unitStances || {}) };
     if (prevData.unit) currentData.unitStances[prevData.unit] = prevData.stance || CHARACTER_DEFAULTS.defaultStance;
     if (prevData.unit && currentData.unit && currentData.unit !== prevData.unit) {
@@ -727,9 +673,8 @@ export class TimelineEngineClass {
     } else {
       currentData.stance = prevData.stance || CHARACTER_DEFAULTS.defaultStance;
     }
-    // The move's own stanceReq overwrites `stance` later; validation needs the stance it started from.
+    // Starting stance, for validation.
     currentData.entryStance = currentData.stance;
-    // Buffs dropped on the swap above.
     this._logTimeline(currentData);
   }
 
@@ -746,17 +691,17 @@ export class TimelineEngineClass {
     });
   }
 
-  // A number field that may be DSL ("@Default.SwapTime + 5"), resolved for `unit` on the row; NaN if unreadable.
+  // Resolves a numeric or DSL field; NaN if unreadable.
   _resolveNumber(val: unknown, currentData: any, unit: string, team: any[]): number {
     return parseFloat(String(isDslExpr(val) ? this._resolveDynamicMath(val, currentData, unit, team) : val));
   }
 
-  // A frames field, resolved like _resolveNumber and rounded to whole frames; `fallback` when unset.
+  // Resolves a frames field to whole frames; `fallback` when unset.
   _resolveFrames(val: unknown, currentData: any, unit: string, team: any[], fallback: Frames): Frames {
     return val === undefined ? fallback : roundFrames(this._resolveNumber(val, currentData, unit, team));
   }
 
-  // A move's per-hit frame overrides (hitFrames), resolved; undefined where a hit is spread evenly.
+  // Resolved hitFrames; undefined entries are spread evenly.
   _hitFrameOverrides(move: MechanicNode, currentData: any, unit: string, team: any[]): Array<number | undefined> {
     return (move.hitFrames || []).map(v => (v === null || v === undefined || v === '' ? undefined : this._resolveFrames(v, currentData, unit, team, toFrames(0))));
   }
@@ -764,8 +709,7 @@ export class TimelineEngineClass {
   _resolveComboWindows(currentData: any, dbMove: MechanicNode, team: any[]): void {
     if (!currentData.action) return;
 
-    // Every cast row (echo skills, Dodge, Jump, Tune Break, utility...) counts as the unit's own
-    // last action (@Self.PrevAction) and refreshes its combo window.
+    // Every cast sets @Self.PrevAction and refreshes the combo window.
     const postMoveWindow = this._resolveFrames(dbMove.comboWindow, currentData, currentData.unit, team, toFrames(GAME_DEFAULTS.comboWindow));
     currentData.unitCombos[currentData.unit] = {
       action: currentData.action,
@@ -777,9 +721,7 @@ export class TimelineEngineClass {
     return this._resolveNumber(move.priority, currentData, unit, team) || 0;
   }
 
-  // `row`'s move, still playing off-field, is cut at `cutAt` by its unit's next move -- a swapback
-  // cancel (Swap + Cancel), or an Intro, which overrides it: its hits not landed by then are dropped,
-  // and its off-field animation (the Timeline's tail) ends there.
+  // Cuts an off-field move at `cutAt`, dropping unlanded hits.
   _cutSwappedOutMove(row: any, cutAt: number): void {
     const before = this.damageQueue.length;
     this.damageQueue = this.damageQueue.filter(hit => !(hit.originRow === row && !hit.isProc && hit.executeAt > cutAt));
@@ -788,11 +730,7 @@ export class TimelineEngineClass {
     row._swapCancelAt = undefined;
   }
 
-  // A move's motion stop pauses every other unit still mid-move (animating, or with hits pending)
-  // from its cast: their move runs that much longer (their hits: _evaluateMechanics).
-  // The part not covered by the move's own time stop shows on the Timeline, recorded as
-  // motionStopPauses on the row whose animation it pushes back -- not necessarily the unit's
-  // latest row (an Outro after it takes no time) -- or, with only hits pending, the latest row.
+  // Motion stop pauses every other mid-move unit; recorded as motionStopPauses for the Timeline.
   _applyMotionStop(
     currentData: any,
     unitBusyUntil: Record<string, number>,
@@ -809,8 +747,7 @@ export class TimelineEngineClass {
       const hasPendingHits = this.damageQueue.some(hit => hit.origin.caster === unit);
       if (!isAnimating && !hasPendingHits) continue;
       if ((unitBusyUntil[unit] || 0) > currentData.timeStart) unitBusyUntil[unit] += motionStop;
-      // The paused move runs that much longer, and the unit can't act again until it's done --
-      // even past an Outro that otherwise ended its lock.
+      // Extends the paused move and its unit's lock.
       if (isAnimating) {
         animation.end += motionStop;
         unitBusyUntil[unit] = Math.max(unitBusyUntil[unit] || 0, animation.end);
@@ -830,7 +767,6 @@ export class TimelineEngineClass {
     const actionDuration = resolveFrames(moveData.actionDuration, toFrames(0));
     const freezeTime = resolveFrames(moveData.freezeTime, toFrames(0));
     const motionStop = resolveFrames(moveData.motionStop, toFrames(0));
-    // A swap can't come sooner than the game's own swap time.
     const swapDuration = moveData.swapTiming !== undefined
       ? toFrames(Math.max(resolveFrames(moveData.swapTiming, toFrames(0)), GAME_DEFAULTS.swapTime))
       : undefined;
@@ -839,9 +775,7 @@ export class TimelineEngineClass {
     const nextRow = currentData.nextRow;
     const nextMoveData = nextRow?.action ? this._getModifiedMoveData(nextRow.action) : null;
 
-    // A cancel with no rule is only usable by a next move that outranks this one and isn't the
-    // same input binding + type (e.g. a Basic+Hold heavy can cancel a Basic string).
-    // A swap out (to another unit, or an Outro) cancels like the highest-priority move.
+    // No rule: next move must outrank this one on a different input. Swaps rank highest.
     const bindingOf = (m: MechanicNode) => `${m.input ?? ''}|${m.inputType ?? ''}`;
     const isNextSwapOut = swapDuration !== undefined && !!nextRow?.unit
       && (nextRow.unit !== unitName || !!nextMoveData?.castTypes?.includes('Outro'));
@@ -859,17 +793,13 @@ export class TimelineEngineClass {
       });
     }
 
-    // Swap + Cancel (swapback cancel): swaps out like Swap, then the unit's own next move, once it's
-    // swapped back, cancels what's left of this one off-field at a cancel point (or on the swap
-    // back, if later) -- as a normal cancel would: it outranks this move, on a different input --
-    // instead of waiting it out. Hits not yet landed by then are dropped.
+    // Swap + Cancel: swap out, then the unit's next move cancels this one off-field.
     const returnAction = isNextSwapOut && unitName ? currentData.nextUnitActions?.[unitName] : undefined;
     const returnMoveData = returnAction ? this._getModifiedMoveData(returnAction) : null;
     const returnMoveCancels = !!returnMoveData
       && bindingOf(returnMoveData) !== bindingOf(moveData)
       && this._resolvePriority(returnMoveData, currentData, unitName, team) > this._resolvePriority(moveData, currentData, unitName, team);
-    // Unlike a normal cancel, a cancel window's rule doesn't stand in for that check here: a swap
-    // back never cancels into a weaker move, so the rule only adds conditions on top.
+    // The window's rule adds to the priority check rather than replacing it.
     const swapCancels: Array<{ index: number; time: Frames; hits: number }> = [];
     if (isNextSwapOut && returnMoveCancels && moveData.cancelTimings) {
       moveData.cancelTimings.forEach((ct, idx) => {
@@ -931,7 +861,6 @@ export class TimelineEngineClass {
         availableTimings.push({ val: `SwapCancel_${sc.index}`, label, title });
       });
     }
-    // Cancelled on the swap frame, before any hit lands.
     const instantCancelTime = swapDuration ?? toFrames(GAME_DEFAULTS.swapTime);
     if (validCancels.length > 0) {
       availableTimings.push({ val: 'Instant_Cancel', label: 'Instant Cancel', title: `Duration: ${formatFramesAsSeconds(instantCancelTime)} | No Hits` });
@@ -960,9 +889,7 @@ export class TimelineEngineClass {
     let duration = actionDuration;
     let animationCommitment = actionDuration;
     let finalHits = hitCount;
-    // Cut short at `time` with `hits` landed. A swap's animation plays out in full off-field: it
-    // doesn't stop the swap back (only the swap cooldown does), but the unit, swapped back in while
-    // it's still playing, waits it out -- unless a Swap + Cancel cuts it (swapCancelAt).
+    // Cut at `time` with `hits` landed. Swapped-out animations play out off-field.
     const cutAt = (time: Frames, hits: number) => { duration = time; animationCommitment = time; finalHits = hits; };
     const swapOut = (swapAt: Frames) => { duration = swapAt; animationCommitment = actionDuration; finalHits = hitCount; };
     let swapCancelAt: Frames | undefined;
@@ -974,8 +901,7 @@ export class TimelineEngineClass {
       const isNextSwap = nextRow && nextRow.unit !== currentData.unit && nextRow.unit !== '';
 
       if (isNextOutro && capConcertoHitIdx !== -1 && swapDuration !== undefined) {
-        // An Outro is a swap: out on the hit that fills Concerto (not before the move allows a
-        // swap), its later hits still landing off-field.
+        // Outro swaps out on the Concerto-filling hit; later hits land off-field.
         swapOut(toFrames(Math.max(getHitTimeOffset(capConcertoHitIdx), swapDuration)));
         currentData._autoTimingChoice = 'Concerto';
       } else if (isNextOutro && capConcertoHitIdx !== -1) {
@@ -993,7 +919,7 @@ export class TimelineEngineClass {
     } else if (timingType.startsWith('SwapCancel_') && swapDuration !== undefined) {
       const sc = swapCancels.find(c => c.index === parseInt(timingType.split('_')[1], 10));
       swapOut(swapDuration);
-      // The returning move cancels it here at the earliest (the main loop cuts it on the return).
+      // Earliest cancel point for the returning move.
       if (sc) swapCancelAt = sc.time;
     } else if (timingType.startsWith('Cap_')) {
       capAt(parseInt(timingType.split('_')[2], 10));
@@ -1032,15 +958,13 @@ export class TimelineEngineClass {
   ): void {
     if (realTimePassed < 0) return;
 
-    // Game time runs down in segments up to each hit, so a buff or cooldown can expire before a later
-    // hit in the window lands. Freeze (the window's real time that isn't game time) is on cast, so a
-    // hit during it sits at game time 0: nothing runs down until the freeze is over.
+    // Decay game time in segments up to each hit. Hits during freeze sit at game time 0.
     const freezeFrames = Math.max(0, realTimePassed - gameTimePassed);
     let gameTimeElapsed = 0;
     const advanceGameTimeTo = (target: number) => {
       const segment = Math.min(target, gameTimePassed) - gameTimeElapsed;
       if (segment <= 0) return;
-      // Clock first, so what running out fires is logged at the segment's end (_logTimeline).
+      // Clock first, so expiries log at the segment's end.
       this.currentGlobalGameTime += segment;
       this._processGameTimeDecay(currentData, toFrames(segment), activeTeam, activeRows, team);
       gameTimeElapsed += segment;
@@ -1053,11 +977,7 @@ export class TimelineEngineClass {
     advanceGameTimeTo(gameTimePassed);
   }
 
-  // A row can be short on a resource purely because its own generation is still undrained
-  // in the queue (e.g. an Outro right after a Swap). It only waits when the queued hits' own gains
-  // cover the shortfall. Passive/OnHit grants aren't visible ahead of time, so the wait itself
-  // drains the queue hit-by-hit via _decayState, like a cooldown wait, until the shortfall resolves.
-  // Energy is excluded: stays a warning, never worth forcing a wait.
+  // Waits for queued hits to cover a resource shortfall (not Energy).
   _computeResourceWait(currentData: any, dbMove: MechanicNode, team: any[], activeTeam: string[], activeRows: any[]): { waitFrames: number; label: string | null } {
     const unit = currentData.unit;
     if (!unit) return { waitFrames: 0, label: null };
@@ -1071,7 +991,7 @@ export class TimelineEngineClass {
     let shortKeys = trackedKeys.filter(k => reqFor(k.key) > 0 && currentValue(k.key) < reqFor(k.key));
     if (shortKeys.length === 0) return { waitFrames: 0, label: null };
 
-    // A pending hit's amount of `key` for this unit's pool: a unit's pool fills from its own hits; the enemy's from anyone's.
+    // A unit's pool fills from its own hits; the enemy's from anyone's.
     const hitAmount = (hit: QueuedHit, key: string): number => {
       if (hit.hitIndex >= hitLimit(hit)) return 0;
       if (!isEnemyResource(key) && hit.origin.caster !== unit) return 0;
@@ -1079,7 +999,7 @@ export class TimelineEngineClass {
       return Array.isArray(arr) && arr.length > hit.hitIndex ? parseFloat(String(arr[hit.hitIndex])) || 0 : 0;
     };
 
-    // No wait unless the queued hits can cover every shortfall; otherwise the move keeps its normal timing (and its error).
+    // Only wait if queued hits cover every shortfall.
     const reachable = shortKeys.every(k => {
       const pending = this.damageQueue.reduce((sum, hit) => {
         const amount = hitAmount(hit, k.key);
@@ -1113,7 +1033,7 @@ export class TimelineEngineClass {
     return { waitFrames, label: resolvedLabels.length > 0 ? `Waiting for ${resolvedLabels.join(' / ')}` : null };
   }
 
-  // `beforeHit` gets each hit's real time into the window, so the caller can run game time down to it first.
+  // `beforeHit` receives each hit's real-time offset into the window.
   _processQueuedHits(currentData: any, realTimePassed: Frames, activeTeam: string[], activeRows: any[], team: any[], beforeHit?: (elapsedReal: number) => void): void {
     const realWindowEnd = this.currentGlobalRealTime + realTimePassed;
     while (this.damageQueue.length > 0) {
@@ -1123,11 +1043,10 @@ export class TimelineEngineClass {
       this.damageQueue.shift();
       beforeHit?.(Math.max(0, nextHit.executeAt - this.currentGlobalRealTime));
       if (nextHit.hitIndex >= hitLimit(nextHit)) continue;
-      // A hit failing its move's hitCondition doesn't happen: no damage, resources or OnHit.
+      // Failed hitCondition: the hit doesn't happen.
       if (!this._hitConditionPasses(nextHit, currentData, team)) continue;
 
-      // The hit's multiplier as it lands -- per hit, not per cast. A move that needs a value from
-      // its cast (e.g. forte it spends on cast) saves it to a tracker on cast and reads that.
+      // Multiplier resolved per hit, as it lands.
       const rawMult = nextHit.hitMult;
       if (typeof rawMult === 'string' && (rawMult.startsWith('MATH(') || isDslExpr(rawMult))) {
         nextHit.hitMult = this._resolveDynamicMath(rawMult, hitState(currentData, nextHit.originRow), nextHit.origin.caster, team);
@@ -1149,14 +1068,12 @@ export class TimelineEngineClass {
       this._fire('OnHit', nextHit.hitModifiers, currentData, nextHit.origin.caster, activeTeam, activeRows, team, nextHit.executeAt);
       delete currentData.activeProcSource;
 
-      // Builds this hit's history entry: the DMG-cell breakdown, and what Results prices.
+      // Hit history entry for the DMG cell and Results.
       if (this._run.hitLog) {
         const hitName = nextHit.originMoveData.name + (nextHit.totalHits > 1 ? ` (Hit ${nextHit.hitIndex + 1})` : '');
         if (!nextHit.originRow._pendingHits) nextHit.originRow._pendingHits = [];
 
-        // The game clock as the hit lands: beforeHit has run it up to the hit, stopping for any
-        // freeze, whichever unit's. A hit due before this window (a Simultaneous row's) is
-        // dated back by how late it is.
+        // Game time at landing; late hits (Simultaneous rows) are dated back.
         const lateBy = Math.max(0, this.currentGlobalRealTime - nextHit.executeAt);
         const hitGameTime = this.currentGlobalGameTime - lateBy;
         nextHit.originRow._pendingHits.push({
@@ -1180,7 +1097,7 @@ export class TimelineEngineClass {
     }
   }
 
-  // Time-scale multiplier for a timer id (a buff or cooldown name) under the row's active timeScales.
+  // Time-scale multiplier for a buff or cooldown.
   _timeScaleFor(currentData: any): (timerId: string) => number {
     return (timerId: string) => {
       let mult = 1.0;
@@ -1198,7 +1115,7 @@ export class TimelineEngineClass {
   }
 
   _processGameTimeDecay(currentData: any, gameTimePassed: Frames, activeTeam: string[], activeRows: any[], team: any[]): void {
-    // Cooldowns and buff/effect lifetimes deliberately stay in seconds, unlike frame-domain gameTimePassed.
+    // Cooldowns and buff lifetimes are in seconds.
     const decaySeconds = framesToSeconds(gameTimePassed);
     const getTimeScale = this._timeScaleFor(currentData);
 
@@ -1217,7 +1134,6 @@ export class TimelineEngineClass {
             buff.duration -= actualDecay;
             if (buff.duration <= 0.001 && (buff.stacks || 0) > 0) {
               expiringBuffs.push(buff);
-              // When in the segment it actually ran out: the clock is already at the segment's end.
               const overshoot = actualDecay > 0 ? Math.max(0, -buff.duration) / buffSpeed : 0;
               this._buffRanOutAt.set(key, this.currentGlobalGameTime - secondsToFrames(overshoot));
             }
@@ -1264,8 +1180,7 @@ export class TimelineEngineClass {
       if (currentData.cooldowns[key] <= 0.001) delete currentData.cooldowns[key];
     }
 
-    // Each entry is one in-flight charge's own recharge timer -- decay every entry independently
-    // and drop it (freeing that charge) once it completes, rather than clearing the whole key.
+    // One timer per in-flight charge; each frees its charge when done.
     for (const key in currentData.chargeCooldowns) {
       const pending = currentData.chargeCooldowns[key];
       const scale = getTimeScale(key);
@@ -1276,13 +1191,11 @@ export class TimelineEngineClass {
       if (pending.length === 0) delete currentData.chargeCooldowns[key];
     }
 
-    // OnTick intervals are authored as raw seconds literals in the DSL, so this stays seconds.
+    // OnTick intervals are in seconds.
     this._fire('OnTick', new Set(), currentData, currentData.unit, activeTeam, activeRows, team, this.currentGlobalRealTime, { gameTimePassed: decaySeconds, getTimeScale });
   }
 
-  // Queues a move's hits across its damage timeframe. DSL hit mults stay unresolved until each hit
-  // lands (_processQueuedHits), so they read the state at that hit, not at the cast.
-  // Queues a move's hits at `baseTime` + each hit's offset (hitFrameOffsets).
+  // Queues a move's hits at `baseTime` + offsets. DSL mults resolve on landing.
   _scheduleHits(currentData: any, moveData: MechanicNode, origin: MoveOrigin, rawMults: any[], baseTime: number, offsets: number[], isProc: boolean, hitModifiers: Set<string>): void {
     const hitCount = rawMults.length;
     for (let i = 0; i < hitCount; i++) {
@@ -1306,11 +1219,10 @@ export class TimelineEngineClass {
     const mData = proc.mechanicData;
     const rawProcMults = Array.isArray(mData.hitMults) ? mData.hitMults : [];
     const origin = MechanicKey.origin(mData.mechanicKey, proc.provider, mData.name);
-    // Adds name/pointer so an OnHit[...] rule can target this specific proc'd mechanic by name.
+    // Lets OnHit[...] target this proc by name.
     const procModifiers = modifierSet([...(mData.dmgTypes || []), ...(mData.castTypes || []), mData.name, origin.ref]);
     if (rawProcMults.length > 0) {
-      // A proc'd mechanic can carry its own damageTimeframe, offsetting from executeAt; left
-      // unset, both default to executeAt (instant-fire).
+      // Optional damageTimeframe, offset from executeAt.
       const tfStart = this._resolveFrames(mData.damageTimeframe?.start, currentData, proc.provider, team, toFrames(0));
       const tfEnd = this._resolveFrames(mData.damageTimeframe?.end, currentData, proc.provider, team, tfStart);
       const offsets = hitFrameOffsets(rawProcMults.length, tfStart, tfEnd, this._hitFrameOverrides(mData, currentData, proc.provider, team));
@@ -1319,8 +1231,7 @@ export class TimelineEngineClass {
     this.damageQueue.sort((a, b) => a.executeAt - b.executeAt);
   }
 
-  // Emits an event and runs whatever its listeners produce. `modifiers` is what `Event[...]`
-  // brackets on those listeners are matched against.
+  // Emits an event and runs its listeners' effects. `modifiers` match `Event[...]` brackets.
   _fire(
     eventType: string, modifiers: Set<string>, currentData: any, provider: string, activeTeam: string[], activeRows: any[], team: any[],
     executeAt: number = this.currentGlobalRealTime, extraPayload: any = null
@@ -1331,7 +1242,7 @@ export class TimelineEngineClass {
     });
   }
 
-  // Emits several events for one tracker, gathering every listener's effects before running any of them.
+  // Emits several events, gathering all effects before running any.
   _fireTrackerEvents(events: string[], trackerName: string, currentData: any, unitName: string, activeTeam: string[], activeRows: any[], team: any[]): void {
     this._nested(`${events.join(' + ')}[${trackerName}]`, currentData, () => {
       const effects = events.flatMap(event => EventManager.emit(event, eventModifier(trackerName), currentData, unitName, team));
@@ -1339,9 +1250,7 @@ export class TimelineEngineClass {
     });
   }
 
-  // Runs one event's emit-and-apply a level deeper. Past MAX_EVENT_DEPTH it's a loop (rules whose
-  // effects keep re-triggering each other): the event is dropped, with a row warning, instead of
-  // overflowing the call stack.
+  // Runs an event one level deeper; past MAX_EVENT_DEPTH it's dropped with a warning.
   _nested(label: string, currentData: any, run: () => void): void {
     if (this._eventChain.length >= MAX_EVENT_DEPTH) {
       const chain = [...this._eventChain.slice(-4), label].join(' → ');
@@ -1357,8 +1266,7 @@ export class TimelineEngineClass {
     }
   }
 
-  // Evaluates a trigger rule (a mechanic's, or a cancel timing's) against the row, compiling and
-  // caching it on `holder` the first time. null when there's no usable rule to evaluate.
+  // Evaluates a trigger rule, compiling and caching it on `holder`. null if no usable rule.
   _hitConditionPasses(hit: QueuedHit, currentData: any, team: any[]): boolean {
     const rule = hit.originMoveData.hitCondition;
     if (!rule || !rule.trim()) return true;
@@ -1375,8 +1283,7 @@ export class TimelineEngineClass {
     return holder._compiledRule.evaluate(ContextManager.buildContext(currentData, unit, team), unit);
   }
 
-  // A hold's cursor physics: its mode, speed and cap, plus the target window's center and size
-  // (a clamp has no window, so both are 0).
+  // Hold cursor physics and target window (0/0 for clamp).
   _resolveHoldCursor(config: HoldConfig, currentData: any, team: any[]): { config: HoldConfig; mode: string; speed: number; maxVal: number; center: number; size: number } {
     const defaults = MECHANICS_NOTATION.HOLD_DEFAULTS;
     const mode: string = config.cursorMode || defaults.CURSOR_MODE;
@@ -1399,9 +1306,7 @@ export class TimelineEngineClass {
     effectsArray.forEach(eff => { if (eff.type !== 'procced_mechanic') this._processEffect(eff, currentData, eff.provider || defaultProvider, activeTeam, activeRows, currentData.arrayIndex, team); });
   }
 
-  // Every Energy gain and spend is logged on the row it happens in, in order, for Results'
-  // required-ER analysis: a scaled gain with its amount before Energy Regen and the unit's Energy
-  // Regen % at that moment (buffs included), a flat gain with its amount, a spend with its amount.
+  // Logs Energy gains/spends per row for the required-ER analysis.
   _gainEnergy(currentData: any, unit: string, base: number, team: any[], scaled: boolean): void {
     if (!scaled) {
       (currentData.energyLog ??= []).push({ unit, flatGain: base });
@@ -1413,16 +1318,13 @@ export class TimelineEngineClass {
     addResource(currentData, 'energy', unit, base * (erPct / 100), resourceCap(unit, 'energy'));
   }
 
-  // A non-Energy resource change caused by `unit`: scaled gains are multiplied by its buildup rate
-  // for that resource (Off-Tune / Forte Buildup Rate); flat gains and spends aren't.
+  // Non-Energy resource change; scaled gains use the unit's buildup rate.
   _changeResource(currentData: any, key: string, unit: string, amount: number, team: any[], scaled: boolean): void {
     const value = scaled && amount > 0 ? amount * buildupRateMult(currentData, unit, key, team) : amount;
     addResource(currentData, key, unit, value, resourceCap(unit, key));
   }
 
-  // One unit's resource change: Energy gains through _gainEnergy, Energy spends logged, the rest
-  // through _changeResource. `scaled`: a move's own cast/hit resources, which Energy Regen and
-  // buildup rates apply to; resources granted by effects are flat.
+  // Resource change for one unit. `scaled`: a move's own resources (rates apply); effects are flat.
   _applyUnitResource(currentData: any, key: string, unit: string, amount: number, team: any[], scaled: boolean): void {
     if (key !== 'energy') return this._changeResource(currentData, key, unit, amount, team, scaled);
     if (amount > 0) return this._gainEnergy(currentData, unit, amount, team, scaled);
@@ -1434,17 +1336,13 @@ export class TimelineEngineClass {
     for (const key in moveData.castResources || {}) {
       const amount = parseFloat(String(moveData.castResources![key]));
       if (!amount) continue;
-      // Energy a move grants goes to the whole team, each scaled by their own Energy Regen;
-      // spending it is the caster's alone.
+      // Move Energy goes to the whole team; spends are the caster's.
       const units = key === 'energy' && amount > 0 ? activeTeam : [currentData.unit];
       units.forEach(unit => this._applyUnitResource(currentData, key, unit, amount, team, true));
     }
   }
 
-  // Starts a move's own cooldown/charge, then -- one hop only, never following the partner's own
-  // shareCooldownWith -- does the same for its shared-cooldown partner using the PARTNER's own
-  // cooldown/maxCharges (the two values don't need to match; only the start is linked). The
-  // one-hop cap keeps a symmetric pair (A<->B, as CooldownPanel always writes them) from recursing.
+  // Starts a move's cooldown and its shareCooldownWith partner's (one hop, partner's own values).
   _startCooldown(currentData: any, unitName: string, moveData: MechanicNode): void {
     this._startCooldownRaw(currentData, unitName, moveData);
     if (moveData.shareCooldownWith && moveData.shareCooldownWith !== moveData.name) {
@@ -1464,7 +1362,6 @@ export class TimelineEngineClass {
   }
 
   _gatherInstantEffects(currentData: any, moveData: MechanicNode, prevData: any, castModifiers: Set<string>, team: any[]): Effect[] {
-    // The move's own effects come from whatever it belongs to (the character, or an echo).
     const sourceOwner = MechanicKey.origin(currentData.action, currentData.unit, moveData.name).owner;
     const effects: Effect[] = (moveData.effects || []).map(eff => ({ ...eff, sourceOwner: eff.sourceOwner ?? sourceOwner }));
     effects.push(...EventManager.emit('OnCast', castModifiers, currentData, currentData.unit, team));
@@ -1486,7 +1383,7 @@ export class TimelineEngineClass {
     const prevData = currentIndex > 0 ? activeRows[currentIndex - 1] : this._getDefaultData(team[0]?.character);
     const startValues = RESOURCE_KEYS.map(key => readResource(currentData, key, unitName));
 
-    // Motion stop: other units' pending hits wait it out (their animations: recalculateState).
+    // Motion stop delays other units' pending hits.
     const motionStop = currentData.motionStop || 0;
     if (motionStop > 0) {
       this.damageQueue.forEach(queuedHit => {
@@ -1497,14 +1394,12 @@ export class TimelineEngineClass {
 
     const origin = MechanicKey.origin(currentData.action, unitName, moveData.name);
 
-    // dmgTypes plus name/pointer, so OnHit[...] can target one specific move, not just a
-    // shared dmg type.
+    // Name/pointer let OnHit[...] target this specific move.
     const hitModifiers = modifierSet([...(moveData.dmgTypes || []), moveData.name, origin.ref]);
     const moveElements = (moveData.dmgTypes || []).filter(isElement);
     const castModifiers = modifierSet([...(moveData.castTypes || []), ...moveElements, currentData.action, moveData.name, origin.ref]);
 
-    // OnCast / swap rules are checked first, so they see the state the move was cast from, before
-    // its own cooldown starts and its costs are paid. Their effects still run after both.
+    // OnCast/swap rules see the pre-cast state; their effects run after costs.
     const instantEffects = this._gatherInstantEffects(currentData, moveData, prevData, castModifiers, team);
 
     if (moveData.cooldown || moveData.shareCooldownWith) {
@@ -1524,14 +1419,9 @@ export class TimelineEngineClass {
     this._executeEffectsStream(instantEffects, currentData, activeTeam, activeRows, currentData.timeStart, unitName, team);
     this.damageQueue.sort((a, b) => a.executeAt - b.executeAt);
 
-    // Hold_Start/Cursor_Pos/Cursor_Accumulated cleanup is NOT automatic here -- a hold's own
-    // Release `effects` must explicitly clear them (see HoldConfig's doc comment). A Release
-    // that forgets to will just keep "holding" forever, the same visible way any other
-    // forgotten tracker cleanup would.
+    // Hold trackers are cleared by the Release's own effects, not here.
 
-    // A Simultaneous row never advances the shared clock (anchored in a window surrounding
-    // rows already own) -- decaying by its own duration here would double-count, so it decays
-    // 0 real/game time instead.
+    // Simultaneous rows don't advance the clock.
     const isSimultaneous = currentData.timing === 'Simultaneous';
     this._decayState(
       currentData,
@@ -1556,12 +1446,11 @@ export class TimelineEngineClass {
     const moveData = dbMove;
     const moveName = moveData.name || currentData.action;
 
-    // Energy is the only resource whose shortfall stays a warning (rotation can limp forward
-    // on low energy); Concerto/Tune/Forte shortfalls are errors -- see validateRes.
+    // Energy shortfall is a warning; other resources are errors.
     const buildEnergyShortfallMsg = (myVal: number, req: number) => {
       const base = `${currentData.unit} has ${myVal.toFixed(1)} out of the required ${req} Resonance Energy`;
       if (myVal <= 0) return `${base}.`;
-      // Backs out the ER% that would have closed the gap by now, as an "aim for this much ER" hint.
+      // ER% needed to close the gap.
       const erTotal = energyRegenPct(currentData, currentData.unit, team);
       const extraErNeeded = erTotal * ((req - myVal) / myVal);
       return `${base} (Needs ${extraErNeeded.toFixed(0)}% ER on top of the current ${erTotal.toFixed(0)}% ER).`;
@@ -1579,22 +1468,18 @@ export class TimelineEngineClass {
       validateRes(key, readResource(currentData, key, currentData.unit), resourceLabel(key, DataLoader.characterDB[currentData.unit]));
     }
 
-    // Surfaces a cooldown wait directly, even with no trigger rule -- independent of any
-    // resource shortfall above, so both can show at once (e.g. ER + cooldown warnings together).
+    // Cooldown wait warning, independent of resource warnings.
     const cooldownWarning = this._cooldownWaitWarning(currentData, moveName);
     if (cooldownWarning) warnings.push(cooldownWarning);
 
-    // Set by the hold-release lookahead above when the cursor can't reach its target within
-    // the lookahead window (holdLookaheadMax) -- e.g. cursorSpeed is 0, or the window is
-    // unreachable from the current position. Genuinely misconfigured, not a resource wait.
+    // Hold cursor can't reach its target within holdLookaheadMax.
     if (currentData._holdUnreachable) {
       errors.push(`${moveName} never reaches its ${currentData._holdUnreachable} within ${GAME_DEFAULTS.holdLookaheadMax}f -- check the hold's speed/config.`);
     }
 
     if (moveData.triggerRule && !moveData.isPassive) {
       const passed = this._evaluateRule(moveData, moveData.triggerRule, currentData, currentData.unit, team);
-      // Only surfaced when nothing more specific (a shortfall/cooldown wait above) already
-      // explains the failure.
+      // Only when nothing more specific explains the failure.
       if (passed !== null && !passed && errors.length === 0 && warnings.length === 0) {
         warnings.push(`Combo requirement not met for ${moveName}.`);
       }
@@ -1624,10 +1509,9 @@ export class TimelineEngineClass {
       } else {
         if (isIntro) errors.push('Intro skills can only be used immediately after an Outro.');
         else if (!isSwapback) {
-          // mechanicsIndex is keyed by owner; .provider is only set for third-party attributions (e.g., echoes).
+          // .provider is only set for third-party sources (echoes).
           const expectedSwapIns: string[] = [];
           const ownMechanics = (DataLoader.mechanicsIndex[currentData.unit] || []).map(key => DataLoader.mechanicsDB[key]);
-          // Only swap-ins castable from the stance the unit enters in.
           const fitsStance = (m: MechanicNode) => !m.stanceReq || m.stanceReq === 'Any' || m.stanceReq === (currentData.entryStance || 'Grounded');
           ownMechanics.filter(m => m && m.isSwapInDefault && fitsStance(m)).forEach(m => {
             const isValid = m.triggerRule && !m.isPassive
@@ -1635,7 +1519,7 @@ export class TimelineEngineClass {
               : true;
             if (isValid) expectedSwapIns.push(m.name);
           });
-          // A Hold move also works: its input can be held through the swap, going straight into it.
+          // Hold moves can be held through the swap.
           if (expectedSwapIns.length > 0 && !moveData.isSwapInDefault && moveData.inputType !== 'Hold') {
             errors.push(`Standard swap-in expected. Must use: ${expectedSwapIns.join(' or ')}.`);
           }
@@ -1644,26 +1528,23 @@ export class TimelineEngineClass {
     }
   }
 
-  // A cooldown wait worth warning about (over 3 frames), or null.
+  // Cooldown wait over 3 frames, or null.
   _cooldownWaitWarning(row: any, moveName: string): string | null {
     return row.cdWaitTime > 3 ? `${moveName} needs ${formatFramesAsSeconds(row.cdWaitTime)} more (on cooldown).` : null;
   }
 
-  // The weapon rank of `unit`'s slot (per-rank effect values read it).
   _rankOf(unit: string, team: any[]): number {
     return team.find(t => t.character === unit)?.rank ?? CHARACTER_DEFAULTS.rank;
   }
 
   _resolveDynamicMath(mathStr: string, currentData: any, unitName: string, team: any[]): number | string {
-    // Math that only reads @Default constants (e.g. a buff's @Default.PermanentDuration) evaluates
-    // the same against just those, without building the row's full context.
+    // @Default-only math skips building the full context.
     const ctx = readsOnlyDefaults(mathStr) ? DEFAULTS_ONLY_CTX : ContextManager.buildContext(currentData, unitName, team);
     if (!ctx) return 0;
     return asDslResult(String(mathStr), DSLParser.evaluateMath(mathStr, ctx, unitName));
   }
 
-  // Applies one effect. An ALWAYS listener's effect is applied with that listener sitting out the
-  // events it fires (EventManager.applying), so it can't re-check, and flip, itself.
+  // Applies one effect. ALWAYS listeners sit out the events they fire.
   _processEffect(effect: Effect, currentData: any, unitName: string, activeTeam: string[], activeRows: any[], currentIndex: number, team: any[]): void {
     const { [ALWAYS_SOURCE]: alwaysListener, ...plainEffect } = effect;
     if (effect.type === ALWAYS_CHECK) {
@@ -1690,7 +1571,7 @@ export class TimelineEngineClass {
     const resolve = (val: any) => isDslExpr(val, true) ? this._resolveDynamicMath(val, currentData, unitName, team) : val;
     const isBuff = isBuffEffect(resolvedEffect);
     if (!isBuff) {
-      // A per-rank list ("8/10/12/14/16") picks its provider's weapon rank first, like a buff's value.
+      // Per-rank list ("8/10/12/14/16"): pick by weapon rank.
       const value = CommonUtils.isRankValue(resolvedEffect.value)
         ? CommonUtils.parseRankValue(resolvedEffect.value, this._rankOf(effect.provider || unitName, team))
         : resolvedEffect.value;
@@ -1730,9 +1611,9 @@ export class TimelineEngineClass {
     const amt = parseFloat(String(resolvedEffect.value || '0')) || 0;
     const resKey = resolvedEffect.name;
     if (!resKey) return;
-    // Only a hit's own resources (rateScaled) scale by Energy Regen / buildup rate; an effect's are flat.
+    // Only hit resources (rateScaled) use regen/buildup rates.
     const scaled = resolvedEffect.rateScaled === true;
-    // The enemy's pool, built up at the rate of whoever caused it.
+    // Enemy pool, at the causing unit's rate.
     if (isEnemyResource(resKey)) return this._changeResource(currentData, resKey, resolvedEffect.provider || currentData.unit, amt, team, scaled);
     targetUnits.forEach(tName => this._applyUnitResource(currentData, resKey, tName, amt, team, scaled));
   }
@@ -1750,9 +1631,7 @@ export class TimelineEngineClass {
           this._refreshedBuffs.add(buffKey);
         }
         else if (effect.action === 'remove' || effect.action === 'consume') {
-          // Remove and Consume share the same ALL/HALF/N stack math -- they only diverge on
-          // which event fires below, so listeners can tell "spent by the wearer" (Consume) apart
-          // from "stripped by something else" (Remove).
+          // Remove and Consume share stack math; only the fired event differs.
           buff.stacks = stacksAfterSpending(buff.stacks || 1, effect.value !== undefined ? effect.value : 'ALL', true);
           if ((buff.stacks || 0) <= 0) {
             if (buff.linkedTracker && currentData.trackers) currentData.trackers[buff.linkedTracker] = 0;
@@ -1770,7 +1649,7 @@ export class TimelineEngineClass {
     if (targetStr === '@Self') return [unitName];
     if (targetStr === '@Team') return [...activeTeam];
     if (targetStr === '@TeamOthers') return activeTeam.filter(c => c !== unitName);
-    // @Target predates @Enemy and isn't in autocomplete, but still resolves the same way.
+    // @Target is an alias of @Enemy.
     if (targetStr === '@Enemy' || targetStr === '@Target') return ['Enemy'];
     if (targetStr === '@Active') return ['Active'];
     if (targetStr === '@Next') {
@@ -1784,14 +1663,13 @@ export class TimelineEngineClass {
     if (!currentData.trackers) currentData.trackers = {};
     const action = effect.action || 'add';
     const name = effect.name || '';
-    // add/remove/detonate's count: 1 unless given.
     const amount = effect.value !== undefined ? parseFloat(String(effect.value)) : 1;
 
-    // True removal (the key stops existing), unlike 'remove'/'consume'
+    // Deletes the key entirely.
     if (action === 'delete') {
       if (currentData.trackers[name] === undefined) return;
       delete currentData.trackers[name];
-      // Hold_Unit/Hold_Input are pure ownership bookkeeping for Hold_Start
+      // Ownership bookkeeping for Hold_Start.
       if (name === 'Hold_Start') {
         delete currentData.trackers.Hold_Unit;
         delete currentData.trackers.Hold_Input;
@@ -1820,8 +1698,7 @@ export class TimelineEngineClass {
       newVal = Math.max(0, currentVal - amount);
       eventToEmit = 'OnTrackerRemove';
     } else if (action === 'consume') {
-      // Same ALL/HALF/N math as a buffAction consume/remove (_handleBuffActionEffect) -- an
-      // unset value defaults to ALL, matching "Consume" wiping the whole tracker by default.
+      // ALL/HALF/N stack math; unset means ALL.
       const spec = effect.value !== undefined ? effect.value : 'ALL';
       const remaining = stacksAfterSpending(currentVal, spec, false);
       newVal = spec === 'HALF' ? remaining : Math.max(0, remaining);
@@ -1835,25 +1712,20 @@ export class TimelineEngineClass {
       newVal = Math.max(0, currentVal - amount);
     }
 
-    // Setting a tracker that doesn't exist yet to 0 still creates it -- a Hold pressed at game
-    // time 0 has to register its start, or its Release has nothing to wait against.
+    // Setting to 0 still creates the tracker (Hold at time 0).
     const createsTracker = (action === 'set' || action === 'copy') && currentData.trackers[name] === undefined;
     if (newVal === currentVal && action !== 'detonate' && !createsTracker) return;
 
     currentData.trackers[name] = newVal;
 
-    // Hold_Start is a global tracker key (like Cursor_Pos, Forte_Win_Center) shared across
-    // every row -- stamp the owner so hold/release logic can ignore a lingering hold from
-    // another unit's row.
+    // Stamp the hold's owner so other units' rows ignore it.
     if (name === 'Hold_Start') {
       currentData.trackers.Hold_Unit = unitName;
-      // Hold_Input disambiguates which Release mechanic this pairs with (e.g. a dual-mode
-      // character with one Hold per mode) -- Press and its matching Release always share an input.
+      // Pairs the Hold with its Release by input.
       const pressMove = DataLoader.mechanicsDB[currentData.action];
       const inputTag = pressMove?.input;
       if (inputTag) currentData.trackers.Hold_Input = inputTag;
-      // Clamp mode ties the cursor to a real forte pool -- pick up from wherever it already
-      // sits instead of assuming 0, unless a retained cursor already carried a value forward.
+      // Clamp: start from the current forte value unless a cursor was retained.
       const releaseConfig = DataLoader.findHoldReleaseConfig(unitName, inputTag);
       if (releaseConfig?.cursorMode === 'clamp' && currentData.trackers.Cursor_Accumulated === undefined) {
         const slot = releaseConfig.forteSlot || MECHANICS_NOTATION.HOLD_DEFAULTS.FORTE_SLOT;
@@ -1867,9 +1739,7 @@ export class TimelineEngineClass {
     }
   }
 
-  // Logs what changed in the row's buffs and trackers since the last call, at the current game
-  // time, onto currentData.timelineEvents -- what the Calculator's Timeline draws its effect rows
-  // from. Called wherever they change: buffs applied or acted on, time running down, a new row.
+  // Logs buff/tracker/cooldown changes since the last call to currentData.timelineEvents.
   _logTimeline(currentData: any): void {
     if (!this._run.hitLog) return;
     const now = this.currentGlobalGameTime;
@@ -1889,7 +1759,7 @@ export class TimelineEngineClass {
       this._buffWatch.set(key, { sig, stacks });
       events.push({
         kind: 'buff', change, t: this._buffRanOutAt.get(key) ?? now, key, info: timelineBuffInfo(buff), stacks,
-        // Seconds left as of this event (separate stacks: the longest-lived one's).
+        // Seconds left (longest-lived stack).
         remaining: buff.duration ?? (buff.durations?.length ? Math.max(...buff.durations) : undefined)
       });
     }
@@ -1913,8 +1783,7 @@ export class TimelineEngineClass {
       events.push({ kind: 'tracker', t: now, name, value: 0 });
     }
 
-    // Cooldowns: logged when one starts, its time left jumps (a restart or a reduction), or a
-    // charge-based move's in-flight charge count changes -- not every tick it runs down.
+    // Cooldowns log on start, restart, reduction, or charge count change.
     const timers = new Map<string, { remaining: number; until: number; charges?: number }>();
     for (const key in currentData.cooldowns || {}) {
       const left = currentData.cooldowns[key];
@@ -1924,20 +1793,16 @@ export class TimelineEngineClass {
       const pending: number[] = currentData.chargeCooldowns[key];
       if (pending.length > 0) timers.set(key, { remaining: Math.min(...pending), until: Math.max(...pending), charges: pending.length });
     }
-    // When a logged timer (from `at`) runs out, capped at now.
     const runsOut = (at: number, seconds: number) => Math.min(now, at + secondsToFrames(seconds));
     for (const [key, timer] of timers) {
       const prev = this._cooldownWatch.get(key);
       if (prev && prev.charges === timer.charges) {
-        // Mid-segment (a listener firing while time runs down) a timer can read up to a segment
-        // behind schedule, so only a rise past its last logged value is a restart, and only a
-        // drop below schedule is a reduction.
+        // Mid-segment reads can lag; only clear rises/drops count.
         const expected = prev.remaining - framesToSeconds(toFrames(now - prev.at));
         if (timer.remaining <= prev.remaining + 0.05 && timer.remaining >= expected - 0.05) continue;
       }
       this._cooldownWatch.set(key, { ...timer, at: now });
       const owner = this._cooldownOwners.get(key) ?? { unit: key.split('_')[0], name: key.slice(key.indexOf('_') + 1) };
-      // A charge coming back happens partway through the window that noticed it.
       const t = prev && timer.charges !== undefined && (timer.charges ?? 0) < (prev.charges ?? 0) ? runsOut(prev.at, prev.remaining) : now;
       events.push({ kind: 'cooldown', t, ...timelineCooldownInfo(key, owner.unit, owner.name), remaining: timer.remaining, charges: timer.charges });
     }
@@ -1964,7 +1829,6 @@ export class TimelineEngineClass {
         cachedTemplate = this._globalBuffCache[buffName];
         if (cachedTemplate) this._localBuffCache[buffName] = cachedTemplate;
       }
-      // The template fills in whatever this application leaves unset.
       if (cachedTemplate) {
         const template = cachedTemplate as Record<string, any>;
         for (const key in template) {
@@ -1989,8 +1853,7 @@ export class TimelineEngineClass {
       const addedStacks = buffDef.stacks !== undefined ? parseInt(String(buffDef.stacks), 10) : 1;
       let actuallyAddedStacks: number;
 
-      // False only for a re-application that leaves everything the Timeline logs as it was (an
-      // ALWAYS rule re-checking a permanent buff it already applied, on every event).
+      // False for a no-op re-application.
       let changed = true;
       if (existingBuff) {
         const before = { label: existingBuff.label, stat: existingBuff.stat, value: existingBuff.value, stacks: existingBuff.stacks };
@@ -2007,7 +1870,6 @@ export class TimelineEngineClass {
           existingBuff.durations = existingBuff.durations.sort((a: number, b: number) => b - a).slice(0, maxStacks);
         } else {
           existingBuff.duration = effDuration;
-          // A permanent buff re-applied (an ALWAYS rule re-checking) has no timer to refresh.
           if (effDuration < GAME_DEFAULTS.permanentDuration) this._refreshedBuffs.add(key);
           else changed = before.label !== existingBuff.label || before.stat !== existingBuff.stat
             || before.value !== existingBuff.value || before.stacks !== existingBuff.stacks;
@@ -2017,7 +1879,7 @@ export class TimelineEngineClass {
           ...buffDef,
           value: val,
           target: targetName,
-          // The selector it was applied with (@Team, @Next...) -- `target` is the unit it landed on.
+          // Original selector (@Team, @Next...).
           appliesTo: buffDef.appliesTo ?? buffDef.target,
           stacks: addedStacks,
           maxDuration: effDuration,
@@ -2037,8 +1899,7 @@ export class TimelineEngineClass {
     });
   }
 
-  // A hold cursor's max: its forte slot's cap (forteSlot, default Forte 1). A slot the character
-  // doesn't have falls back to Forte 1.
+  // Hold cursor max: the forte slot's cap (default Forte 1).
   _getHoldMaxCap(charName: string, config: HoldConfig): number {
     const slot = config.forteSlot || MECHANICS_NOTATION.HOLD_DEFAULTS.FORTE_SLOT;
     const slotNum = holdSlotNumber(slot);

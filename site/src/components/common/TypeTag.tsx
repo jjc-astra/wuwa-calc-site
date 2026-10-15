@@ -7,11 +7,9 @@ interface TypeTagProps {
   onRemove?: () => void;
   onClick?: (e: React.MouseEvent) => void;
   extraAttrs?: Record<string, string>;
-  // Overrides default gold styling -- e.g. elemental/cast-type color, same pill shape/size.
+  // Overrides the default gold.
   color?: string;
-  // Uses shared TooltipManager (.global-tooltip) instead of native title, to match app hover styling.
   tooltip?: string;
-  // Added after `type-tag`, for a variant (e.g. `is-removed`).
   className?: string;
 }
 
@@ -26,7 +24,7 @@ export const TypeTag: React.FC<TypeTagProps> = ({
   tooltip,
   className
 }) => {
-  // A click often swaps this tag out (e.g. restoring a removed effect), so no mouseleave fires to hide it.
+  // A click may unmount the tag before mouseleave.
   const hideTooltip = () => { if (tooltip) TooltipManager.hide(); };
   return (
     <div

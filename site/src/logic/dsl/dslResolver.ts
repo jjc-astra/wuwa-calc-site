@@ -1,6 +1,4 @@
-// Shared MatchRule factories for every AutocompleteInput.tsx mode. These build the `options` data
-// each MatchRule serves; the matching/insertion engine (handleAutocomplete/handleSelect) stays in
-// AutocompleteInput.tsx, which is otherwise just the UI.
+// MatchRule factories for AutocompleteInput modes.
 import {
   DSL_POINTERS, DSL_EVENTS, DSL_EVENT_TOOLTIPS, DSL_MODIFIERS, DSL_MODIFIER_TOOLTIPS,
   DSL_FUNCTIONS, DSL_FUNCTION_TOOLTIPS, DSL_TYPE_METHODS, DSL_MATH_METHODS, DSL_MATH_METHOD_TOOLTIPS,
@@ -14,20 +12,16 @@ import { MechanicKey, SYSTEM_NAMESPACE } from '../../utils/MechanicKey';
 import { forteAliases } from '../../utils/ForteNames';
 import type { MechanicNode, BaseStats } from '../../types';
 
-// Every node the loaded data and the Builder's working copy define (the Builder's last, so its
-// edits win), with its key's namespace.
+// Every loaded and Builder node (Builder wins), with its namespace.
 function forEachMechanic(builderMechanics: Record<string, MechanicNode>, visit: (key: string, mech: MechanicNode, namespace: string) => void): void {
   [DataLoader.mechanicsDB, builderMechanics].forEach(byKey =>
     Object.entries(byKey).forEach(([key, mech]) => visit(key, mech, MechanicKey.parse(key).namespace)));
 }
 
-// System's, and the current unit's: what a node may reference.
 const isVisibleNamespace = (namespace: string, currentNamespace: string | null): boolean =>
   namespace === SYSTEM_NAMESPACE || namespace === currentNamespace;
 
-// Every mechanic node as an @Namespace(Move Name) ref, scoped to System + the current unit. Uses
-// `.name`, not the raw key, since that's what CombatCalculator's hitModifiers carries as
-// `moveName`. Shared by makeEventModifierBracketRule and makeAppliesDuringRule.
+// @Namespace(Move Name) refs for System + the current unit, by `.name`.
 function collectMechanicReferences(mechanics: Record<string, MechanicNode>, currentNamespace: string | null): SuggestionItem[] {
   const seen = new Set<string>();
   const results: SuggestionItem[] = [];
@@ -39,34 +33,26 @@ function collectMechanicReferences(mechanics: Record<string, MechanicNode>, curr
   return results;
 }
 
-// Effect names don't consistently carry their namespace (some repeat it, e.g.
-// "Lumi_Outro..."; some don't). Deriving namespace from the defining node covers both.
+// Effect names by their defining node's namespace.
 function collectEffectNamesByNamespace(builderMechanics: Record<string, MechanicNode>): Record<string, Set<string>> {
   const byNamespace: Record<string, Set<string>> = {};
   forEachMechanic(builderMechanics, (_key, mech, namespace) => {
     (mech.effects || []).forEach(e => {
-      // Buff and tracker effects both define a reusable name -- resource/time_scale/etc.
-      // effects reuse `name` for something else entirely (e.g. a resource effect's `name` is
-      // a pool key like "energy"/"forte1", not an identifier meant to be referenced elsewhere).
+      // Only buffs and trackers have referenceable names.
       if (!e.name || (e.type && e.type !== 'buff' && e.type !== 'tracker')) return;
-      // As written ("Lumi_Red Light Form"): that's the name the engine matches. Inside a
-      // "@Namespace(" ref the namespace is stripped where it's suggested (namespacedEffectNames).
       (byNamespace[namespace] ??= new Set()).add(e.name);
     });
   });
   return byNamespace;
 }
 
-// A namespace's effect names as they go inside "@Namespace(...)" -- its own prefix off, since
-// flattenDslShorthand puts it back ("@Lumi(Red Light Form)" -> "Lumi_Red Light Form").
+// Effect names with the namespace prefix stripped, for "@Namespace(...)".
 function namespacedEffectNames(builderMechanics: Record<string, MechanicNode>, namespace: string): string[] {
   const names = collectEffectNamesByNamespace(builderMechanics)[namespace];
   return names ? [...new Set([...names].map(name => MechanicKey.stripNamespace(name, namespace)))] : [];
 }
 
-// Bare mechanic names (not @Namespace(...) refs) for mechanics that declare a `cooldown` --
-// these are the only valid targets for a Buff/CD Control effect's cooldown side, since the
-// engine keys a cooldown by the move's plain `.name`, not a namespaced reference.
+// Bare names of mechanics with a `cooldown`.
 function collectCooldownReferences(builderMechanics: Record<string, MechanicNode>, currentNamespace: string | null): SuggestionItem[] {
   const seen = new Set<string>();
   const results: SuggestionItem[] = [];
@@ -139,7 +125,7 @@ export function makePropertyRule(baseStats: BaseStats): MatchRule {
 
 export function makeMethodChainRule(): MatchRule {
   return {
-    // Not DSL properties -- native JS methods on a property that's already a real array/string.
+    // Native JS array/string methods.
     trigger: /@([a-zA-Z]+)\.([A-Za-z]+)\.([a-zA-Z]*)$/,
     matchGroup: 3,
     options: (match) => {
@@ -157,7 +143,6 @@ export function makeMethodChainRule(): MatchRule {
 
 export function makeMathRule(): MatchRule {
   return {
-    // Math is a plain JS global, not DSL syntax -- Math.min/max/floor/etc. already work.
     trigger: /\bMath\.([a-zA-Z]*)$/i,
     matchGroup: 1,
     options: DSL_MATH_METHODS.map(m => ({ val: m, group: 'Math Functions' })),
@@ -168,7 +153,7 @@ export function makeMathRule(): MatchRule {
 export function makeEventModifierBracketRule(activeChar: string | null, mechanics: Record<string, MechanicNode>): MatchRule {
   const currentNamespace = MechanicKey.toNamespace(activeChar);
   return {
-    // Matches bracketed modifiers/moves (scoped to System + unit), optionally following event args like AfterHit(3)[...].
+    // Bracketed modifiers, optionally after event args: AfterHit(3)[...].
     trigger: /\b(?:On|After)[a-zA-Z]*(?:\([^)]*\))?\[([^\]]*)$/i,
     options: () => [
       ...DSL_MODIFIERS.map(v => ({ val: v, group: 'Modifiers' })),
@@ -180,18 +165,15 @@ export function makeEventModifierBracketRule(activeChar: string | null, mechanic
   };
 }
 
-// Checks if `beforeCursor` is within an IF condition, where ALL/XOR/NOT are valid (ANY works in both).
+// Inside an IF condition (where ALL/XOR/NOT are valid).
 const isInConditionClause = (beforeCursor: string): boolean => / IF |^IF /.test(beforeCursor);
 
-// Events taking (args) and events taking [modifiers]; the rest take neither.
 const PAREN_EVENTS: string[] = ['AfterHit', 'OnTick'];
 const BRACKET_EVENTS: string[] = DSL_EVENTS.filter(
   e => !['ALWAYS', 'OnStart', 'OnSwapIn', 'OnSwapOut', 'OnUnitChange', ...PAREN_EVENTS].includes(e)
 );
-// What to insert after a completed event name.
 const eventOpener = (val: string): string => (PAREN_EVENTS.includes(val) ? '(' : BRACKET_EVENTS.includes(val) ? '[' : ' ');
 
-// Events plus the logic wrappers valid at the cursor.
 export function makeEventListRule(trigger: RegExp): MatchRule {
   const logicWrappers = ['ANY', 'ALL', 'XOR', 'NOT'];
   return {
@@ -212,21 +194,20 @@ export function makeEventListRule(trigger: RegExp): MatchRule {
   };
 }
 
-// Auto-inserts "[" immediately after AfterHit/OnTick close their parens to trigger modifier completion.
+// Offers "[" after AfterHit(...)/OnTick(...).
 export function makeEventArgsCloseRule(): MatchRule {
   return {
     trigger: /\b(?:AfterHit|OnTick)\([^()]*\)()$/i,
     matchGroup: 1,
-    // Uses standard insertion for non-'Continue' groups to reopen suggestions, bypassing the no-op '[' handling.
     options: [{ val: '[', group: 'Syntax', label: '[  (add modifiers)' }],
     prefix: ''
   };
 }
 
-// Autocompletes top-level events immediately inside ANY(...) after the opening paren or commas.
+// Top-level events inside ANY(...).
 export function makeAnyTriggerListRule(): MatchRule {
   return {
-    // Captures preceding ANY(...) content in group 1, isolating the active trailing token in group 2 for replacement.
+    // 1: preceding ANY content; 2: the token being typed.
     trigger: /\bANY\(([\s\S]*?)([A-Za-z]*)$/i,
     matchGroup: 2,
     options: (match) => {
@@ -238,13 +219,13 @@ export function makeAnyTriggerListRule(): MatchRule {
         if (ch === '(' || ch === '[') depth++;
         else if (ch === ')' || ch === ']') {
           depth--;
-          // Unmatched closing paren terminates ANY(...); remaining text belongs to subsequent clauses (e.g., ' IF (...)').
+          // ANY(...) already closed.
           if (depth < 0) return [];
         } else if (ch === ',' && depth === 0) {
           lastTopLevelComma = i + 1;
         }
       }
-      // Skips completion if nested (`depth > 0`) or mid-entry; inner arg, bracket, or boundary rules handle those positions.
+      // Only at top level, at the start of an entry.
       if (depth !== 0 || inner.slice(lastTopLevelComma).trim() !== '') return [];
       return DSL_EVENTS.map(v => ({ val: v, group: 'Events' }));
     },
@@ -253,7 +234,7 @@ export function makeAnyTriggerListRule(): MatchRule {
   };
 }
 
-// 'general' mode: completing inside an already-typed "@Namespace(" reference -- mechanics + effect names.
+// 'general': inside a typed "@Namespace(" reference.
 export function makeNamespaceRefRule(mechanics: Record<string, MechanicNode>): MatchRule {
   return {
     trigger: /@([a-zA-Z0-9_ ]+)\(([^)]*)$/,
@@ -273,14 +254,12 @@ export function makeNamespaceRefRule(mechanics: Record<string, MechanicNode>): M
   };
 }
 
-// 'eff-name' mode: an effect's own reusable `name` field -- own unit's effects first, then
-// System's, with an explicit "@Namespace(" opt-in for referencing another namespace's effect.
+// 'eff-name': own unit's effect names, then System's; "@" for other namespaces.
 export function makeEffectNameRules(activeChar: string | null, mechanics: Record<string, MechanicNode>): MatchRule[] {
   const currentNamespace = MechanicKey.toNamespace(activeChar);
   return [
     {
-      // Completing inside a typed "@Namespace(" shorthand. Namespace allows spaces since some
-      // echo names carry them (e.g. "Impermanence Heron").
+      // Inside "@Namespace(" (namespaces may contain spaces).
       trigger: /@([a-zA-Z0-9_ ]+)\(([^)]*)$/,
       matchGroup: 2,
       options: (match) => {
@@ -291,8 +270,7 @@ export function makeEffectNameRules(activeChar: string | null, mechanics: Record
       append: ')'
     },
     {
-      // Plain typing (no leading @, the overwhelmingly common case): this unit's own existing
-      // effect names first, then System's -- not every character in the game.
+      // Plain typing: own effects, then System's.
       trigger: /^([a-zA-Z0-9_ ]*)$/,
       options: () => {
         const byNamespace = collectEffectNamesByNamespace(mechanics);
@@ -302,8 +280,7 @@ export function makeEffectNameRules(activeChar: string | null, mechanics: Record
       prefix: ''
     },
     {
-      // Explicit opt-in only (typing "@"): the @Namespace(Name) shorthand that flattenDslShorthand
-      // turns into the "Namespace_Name" convention some effects use -- not the default suggestion.
+      // Typing "@": @Namespace(Name) shorthand.
       trigger: /^@([a-zA-Z]*)$/,
       options: () => {
         const base = [{ val: `${SYSTEM_NAMESPACE}(`, group: 'Namespaces' }];
@@ -318,7 +295,7 @@ export function makeEffectNameRules(activeChar: string | null, mechanics: Record
   ];
 }
 
-// 'eff-cd-name' mode: bare mechanic names for the cooldown side of a Buff/CD Control effect.
+// 'eff-cd-name': bare mechanic names with cooldowns.
 export function makeCooldownNameRule(activeChar: string | null, mechanics: Record<string, MechanicNode>): MatchRule {
   const currentNamespace = MechanicKey.toNamespace(activeChar);
   return {
@@ -328,7 +305,7 @@ export function makeCooldownNameRule(activeChar: string | null, mechanics: Recor
   };
 }
 
-// 'eff-stat' mode: sheet stats, unscoped combat modifiers, and per-element/move-type modifiers.
+// 'eff-stat': sheet stats and combat modifiers.
 export function makeStatRule(statOptions: string[], dmgOptions: string[]): MatchRule {
   const sheetStats = (statOptions.length > 0 ? statOptions : BuilderState.STAT_OPTIONS).map(v => ({
     val: v,
@@ -344,13 +321,12 @@ export function makeStatRule(statOptions: string[], dmgOptions: string[]): Match
     });
   });
 
-  // First of each value wins.
   const seen = new Set<string>();
   const uniqueStats = [...sheetStats, ...combatMods, ...specificMods].filter(item => !seen.has(item.val) && !!seen.add(item.val));
   return { trigger: /(.*)/, options: uniqueStats, prefix: '' };
 }
 
-// 'eff-target' mode: every DSL pointer as an '@Pointer' target value.
+// 'eff-target': every DSL pointer.
 export function makeTargetRule(): MatchRule {
   return {
     trigger: /(.*)/,
@@ -359,8 +335,7 @@ export function makeTargetRule(): MatchRule {
   };
 }
 
-// 'eff-applies-during' mode: Cast Type or a move ref -- never a dmg type/element, already scoped
-// by a Stat Modifier like "Fusion DMG Bonus".
+// 'eff-applies-during': cast types or move refs.
 export function makeAppliesDuringRule(activeChar: string | null, mechanics: Record<string, MechanicNode>): MatchRule {
   const castTypes = Object.keys(CAST_TYPE_COLORS).map(ct => ({ val: ct, group: 'Cast Type' }));
   const currentNamespace = MechanicKey.toNamespace(activeChar);

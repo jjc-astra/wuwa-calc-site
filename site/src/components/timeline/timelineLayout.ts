@@ -1,5 +1,4 @@
-// Pure layout math for the rotation Timeline -- no React/DOM here.
-// Reads off already-recalculated rows (see TimelineEngine.ts for field meanings).
+// Pure layout math for the rotation Timeline.
 import { getCharacterThemeColor, uiScale } from '../../utils/Common';
 import { DataLoader } from '../../utils/DataLoader';
 import { INPUT_KEY_MAP } from '../../data/db';
@@ -8,17 +7,13 @@ import { loopEndIndexOf, rowGameEnd } from '../../logic/rotationRows';
 import { SYSTEM_NAMESPACE } from '../../utils/MechanicKey';
 import type { TeamSlot } from '../../types';
 
-// Every evaluated-row field the Timeline reads. A row carries far more (dropdown snapshots, the
-// hit queue, damage breakdowns, back-links to its neighbors -- megabytes for a full rotation), so
-// anything that stores rows just for the Timeline (the Character Guide's cache) keeps only these.
-// Reading a new row field in this folder means adding it here.
+// Row fields the Timeline reads; add any new ones here.
 const TIMELINE_ROW_FIELDS = [
   'unit', 'action', 'moveName', 'input', 'inputType', 'priority', 'timing', '_autoTimingChoice', 'loopEndOverride',
   'gameTimeStart', 'gameTimePassed', 'duration', 'waitTime', 'cdWaitTime', 'freezeTime', 'animationCommitment',
   'motionStopPauses'
 ] as const;
 
-// damageInstances keeps just what the hit dots read (each instance also carries its full buff snapshot).
 export const trimRowsForTimeline = (rows: any[]): any[] =>
   rows.map(row => row && {
     ...Object.fromEntries(TIMELINE_ROW_FIELDS.filter(f => f in row).map(f => [f, row[f]])),
@@ -29,47 +24,39 @@ export const trimRowsForTimeline = (rows: any[]): any[] =>
 
 const PX_PER_SECOND = 50;
 export const HEADER_COL_WIDTH_PX = 140;
-// With effect rows (the Calculator's Timeline), whose names run longer.
+// With effect rows.
 export const EFFECTS_HEADER_COL_WIDTH_PX = 200;
 export const ROW_HEIGHT_PX = 44;
 export const RULER_HEIGHT_PX = 28;
 export const LANE_HEIGHT_PX = 26;
-// Shorter than LANE_HEIGHT_PX so a gap separates each lane's label from the next.
-// Duplicated in timeline.css's .timeline-flag-label -- keep in sync.
+// Keep in sync with .timeline-flag-label.
 export const FLAG_LABEL_HEIGHT_PX = 20;
 export const FLAG_TRACK_MIN_HEIGHT_PX = LANE_HEIGHT_PX;
-// A clip's gap from the top and bottom of its row.
 export const CLIP_INSET_PX = 6;
-// The row less its 1px bottom border and both insets.
 const CLIP_HEIGHT_PX = ROW_HEIGHT_PX - 1 - CLIP_INSET_PX * 2;
-// Hit dots: diameter (duplicated in timeline.css's .timeline-hit-dot), center-to-center gap when
-// stacked, and the clip edge margin a stack squeezes to stay within.
+// Hit dots: size (sync with .timeline-hit-dot), stack gap, edge margin.
 const HIT_DOT_SIZE_PX = 4;
 const HIT_DOT_GAP_PX = 5;
 const HIT_DOT_EDGE_PX = 3;
-// Hits closer than this share a column and stack.
 const HIT_DOT_SAME_TIME_PX = 1;
 
 const FLAG_CHAR_WIDTH_PX = 5.5;
 const FLAG_LABEL_PADDING_PX = 2;
 const FLAG_MIN_WIDTH_PX = 12;
 const FLAG_LANE_GAP_PX = 6;
-// Larger than the clip fill's gap inset so a narrow segment's insets can't cross and vanish it.
 const MIN_CLIP_WIDTH_PX = 4;
 
-// Screen pixels per timeline design pixel: devicePixelRatio times the zoom RotationTimeline
-// applies (the UI scale). Read fresh each call; both can change after load.
+// Screen pixels per design pixel (devicePixelRatio x UI scale).
 function getDevicePixelRatio(): number {
   return ((typeof window !== 'undefined' && window.devicePixelRatio) || 1) * uiScale();
 }
 
-// Rounds to whole screen pixels, so edges stay crisp under fractional scaling (e.g. 125%).
+// Rounds to whole screen pixels.
 export function snapToDevicePixel(px: number): number {
   const dpr = getDevicePixelRatio();
   return Math.round(px * dpr) / dpr;
 }
 
-// One screen pixel, in design px.
 export function hairlinePx(): number {
   return snapToDevicePixel(1);
 }
@@ -81,8 +68,7 @@ function timeToPx(frames: number): number {
   return snapToDevicePixel(framesToSeconds(toFrames(frames)) * PX_PER_SECOND);
 }
 
-// Fixed width for the Ending Rotation "fast forward" jump, deliberately not proportional to the
-// real (potentially huge) time it represents -- see compressedTimeToPx.
+// Fixed width of the Ending Rotation jump.
 const ENDING_ROTATION_CUT_WIDTH_PX = 48;
 
 export interface TimeCompression {
@@ -91,8 +77,7 @@ export interface TimeCompression {
   compressedWidthPx: number;
 }
 
-// Mirrors RotationBuilder/RotationTimeline's loopEndOverride + row-adjacency logic, so the row
-// table and Timeline agree on split location. Null if no split, or gap < compressed width.
+// Ending Rotation gap to compress; null if none or too small.
 export function buildTimeCompression(evaluatedRows: any[]): TimeCompression | null {
   const loopEndIndex = loopEndIndexOf(evaluatedRows);
   if (loopEndIndex === -1) return null;
@@ -109,8 +94,7 @@ export function buildTimeCompression(evaluatedRows: any[]): TimeCompression | nu
   return { gapStartFrames, gapEndFrames, compressedWidthPx: ENDING_ROTATION_CUT_WIDTH_PX };
 }
 
-// Like timeToPx, but frames inside the gap collapse to a fixed compressedWidthPx band and
-// everything after shifts left -- all layout here should route through this, not timeToPx.
+// timeToPx with the Ending Rotation gap compressed. Use instead of timeToPx.
 export function compressedTimeToPx(frames: number, compression: TimeCompression | null): number {
   if (!compression) return timeToPx(frames);
   const { gapStartFrames, gapEndFrames, compressedWidthPx } = compression;
@@ -120,15 +104,13 @@ export function compressedTimeToPx(frames: number, compression: TimeCompression 
     const realGapWidthPx = timeToPx(gapEndFrames) - gapStartPx;
     return timeToPx(frames) - realGapWidthPx + compressedWidthPx;
   }
-  // Inside the gap (only reached by a tick about to be filtered, see generateTicks) -- interpolate
-  // proportionally within the compressed band.
+  // Inside the gap: interpolate.
   const gapFrames = gapEndFrames - gapStartFrames;
   const frac = gapFrames > 0 ? (frames - gapStartFrames) / gapFrames : 0;
   return gapStartPx + frac * compressedWidthPx;
 }
 
-// Inverse of compressedTimeToPx: the game time (frames) at an x position. Inside the compressed
-// band, interpolated across the gap.
+// Inverse of compressedTimeToPx.
 export function pxToCompressedTime(px: number, compression: TimeCompression | null): number {
   const pxToTime = (x: number) => secondsToFrames(Math.max(0, x) / PX_PER_SECOND);
   if (!compression) return pxToTime(px);
@@ -141,7 +123,7 @@ export function pxToCompressedTime(px: number, compression: TimeCompression | nu
 
 export type SegmentType = 'onfield' | 'offfield' | 'wait' | 'motionstop';
 
-// Another unit's motion stop pausing this row's move (TimelineEngine._applyMotionStop).
+// Another unit's motion stop pausing this row's move.
 export interface MotionStopPause {
   gameTime: number;
   frames: number;
@@ -154,7 +136,6 @@ export interface TimelineSegment {
   xPx: number;
   widthPx: number;
   row: any;
-  // Only for a 'motionstop' segment.
   pause?: MotionStopPause;
 }
 
@@ -166,12 +147,10 @@ export interface SimultaneousLine {
 
 export interface HitDot {
   xPx: number;
-  // From the top of the row.
   yPx: number;
   row: any;
-  // 1-based, in time order within its row.
+  // 1-based within its row.
   hitNumber: number;
-  // When it lands.
   gameTime: number;
 }
 
@@ -182,9 +161,7 @@ export interface UnitRowData {
   segments: TimelineSegment[];
   simultaneousLines: SimultaneousLine[];
   hitDots: HitDot[];
-  // Whether hitDots (and its tooltip's hit list) include System hits.
   withSystemHits: boolean;
-  // For reading the game time under the cursor (pxToCompressedTime).
   compression: TimeCompression | null;
 }
 
@@ -192,23 +169,21 @@ function deriveSegments(rows: any[], compression: TimeCompression | null): Timel
   const segments: TimelineSegment[] = [];
   const pauseSegments: TimelineSegment[] = [];
   for (const row of rows) {
-    // gameTimePassed (not row.duration) is the freeze-adjusted end, since duration is real-time.
+    // gameTimePassed is freeze-adjusted; duration is real time.
     const onStartX = compressedTimeToPx(row.gameTimeStart, compression);
     const onTrueEndX = compressedTimeToPx(row.gameTimeStart + row.gameTimePassed, compression);
-    // Below min-width, extend rightward so the start stays anchored to the wait segment before it.
+    // Min width extends rightward.
     const onWidthPx = Math.max(MIN_CLIP_WIDTH_PX, onTrueEndX - onStartX);
     const onRenderedEndX = onStartX + onWidthPx;
     segments.push({ type: 'onfield', xPx: onStartX, widthPx: onWidthPx, row });
 
     if (row.waitTime > 0 && row.timing !== 'Simultaneous') {
-      // Extended backward when floored so it can't creep into the on-field clip it precedes.
       const waitTrueStartX = compressedTimeToPx(row.gameTimeStart - row.waitTime, compression);
       const waitWidthPx = Math.max(MIN_CLIP_WIDTH_PX, onStartX - waitTrueStartX);
       segments.push({ type: 'wait', xPx: onStartX - waitWidthPx, widthPx: waitWidthPx, row });
     }
 
-    // Off-field tail, anchored to onRenderedEndX so a floored on-field clip can't overlap it.
-    // Motion stops it sat through push its end back by their length.
+    // Off-field tail, extended by motion stops.
     const pauses: MotionStopPause[] = row.motionStopPauses || [];
     const pausedFrames = pauses.reduce((sum, p) => sum + p.frames, 0);
     const offEndFrames = row.gameTimeStart + Math.max(0, row.animationCommitment - (row.freezeTime || 0)) + pausedFrames;
@@ -223,12 +198,11 @@ function deriveSegments(rows: any[], compression: TimeCompression | null): Timel
       pauseSegments.push({ type: 'motionstop', xPx: startX, widthPx: Math.max(MIN_CLIP_WIDTH_PX, endX - startX), row, pause });
     }
   }
-  // Last, so they draw over every clip, including a later row's wait.
+  // Last, to draw on top.
   return [...segments, ...pauseSegments];
 }
 
-// Thin bottom-of-row line for a Simultaneous action's duration, separate from its normal
-// on/off-field clip. Runs until its animation ends, or (Hold) until the matching Release row.
+// Line for a Simultaneous action, until its animation ends or its Release.
 function deriveSimultaneousLines(rows: any[], compression: TimeCompression | null): SimultaneousLine[] {
   const lines: SimultaneousLine[] = [];
   rows.forEach((row, i) => {
@@ -245,23 +219,19 @@ function deriveSimultaneousLines(rows: any[], compression: TimeCompression | nul
   return lines;
 }
 
-// A System mechanic's hit (a negative status tick, Tune Break...), by its move pointer.
-/** A System move that takes no game time (it all plays during freeze, e.g. Tune Break): with
- * effect rows shown, it's drawn in its System Effects row instead of the unit's. */
+/** A System move that takes no game time (e.g. Tune Break). */
 export const isInstantSystemRow = (row: any): boolean =>
   typeof row?.action === 'string' && row.action.startsWith(`${SYSTEM_NAMESPACE}_`) && !(row.gameTimePassed > 0);
 
 export const isSystemHit = (hit: any): boolean => typeof hit.moveRef === 'string' && hit.moveRef.startsWith(`@${SYSTEM_NAMESPACE}(`);
 
-// The hits a row's damage breakdown lists, in time order -- less System hits when they're drawn
-// on their own rows instead (the Calculator's System Effects).
+// A row's hits in time order, optionally without System hits.
 export const rowHits = (row: any, withSystemHits = true): any[] =>
   (row.damageInstances || [])
     .filter((hit: any) => withSystemHits || !isSystemHit(hit))
     .sort((a: any, b: any) => (a.gameTime ?? 0) - (b.gameTime ?? 0));
 
-// Spreads dots at the same time into a vertical stack centered in a band (top, height), squeezing
-// together rather than spilling past it. `dots` must be sorted by x.
+// Stacks same-time dots vertically within a band. `dots` must be sorted by x.
 export function stackDots<T extends { xPx: number; yPx: number }>(dots: T[], bandTop: number, bandHeight: number): T[] {
   const centerY = bandTop + bandHeight / 2;
   const maxSpan = bandHeight - HIT_DOT_EDGE_PX * 2 - HIT_DOT_SIZE_PX;
@@ -278,7 +248,6 @@ export function stackDots<T extends { xPx: number; yPx: number }>(dots: T[], ban
   return dots;
 }
 
-// A dot per hit at the time it lands, centered on the clip.
 function deriveHitDots(rows: any[], compression: TimeCompression | null, withSystemHits: boolean): HitDot[] {
   const dots: HitDot[] = rows.flatMap(row => rowHits(row, withSystemHits).map((hit, i) => ({
     xPx: compressedTimeToPx(hit.gameTime ?? row.gameTimeStart, compression),
@@ -291,9 +260,7 @@ function deriveHitDots(rows: any[], compression: TimeCompression | null, withSys
   return stackDots(dots, CLIP_INSET_PX, CLIP_HEIGHT_PX);
 }
 
-// Each team member's row of clips, Simultaneous lines and hit dots. `withSystemHits: false`
-// leaves System hits (and instant System moves) off the unit rows, for a Timeline that gives them
-// rows of their own.
+// Per-unit clips, Simultaneous lines and hit dots.
 export function buildUnitRows(
   evaluatedRows: any[],
   team: TeamSlot[],
@@ -303,7 +270,6 @@ export function buildUnitRows(
   const unitRows: UnitRowData[] = [];
   team.forEach((slot, slotIndex) => {
     if (!slot.character) return;
-    // Without System hits here, they have rows of their own, and so do instant System moves.
     const rows = evaluatedRows.filter(r => r.unit === slot.character && (withSystemHits || !isInstantSystemRow(r)));
     unitRows.push({
       unit: slot.character,
@@ -321,16 +287,15 @@ export function buildUnitRows(
 
 export type FlagType = 'swap' | 'input';
 
-// Whether this row's input is safe to mash ahead of time ('spam') or must be waited for ('wait').
+// Whether an input can be mashed early ('spam') or must wait ('wait').
 export type SpamState = 'spam' | 'wait';
 
 export interface TimelineFlag {
   type: FlagType;
   timeFrames: number;
   label: string;
-  // Only for a Hold/Release input flag.
   prefix?: 'Hold' | 'Release';
-  // Renders this glyph instead of the key text (e.g. mouse icon instead of "Left Click").
+  // Glyph shown instead of key text.
   icon?: 'mouse-left';
   spamState?: SpamState;
   row: any;
@@ -343,14 +308,10 @@ export interface LaidOutFlag extends TimelineFlag {
   lane: number;
 }
 
-// The flag track's height: enough lanes for every flag.
 export const flagTrackHeightPx = (flags: LaidOutFlag[]): number =>
   Math.max(FLAG_TRACK_MIN_HEIGHT_PX, (Math.max(-1, ...flags.map(f => f.lane)) + 1) * LANE_HEIGHT_PX);
 
-// Priority order Basic < Heavy < Skill < Echo < Dodge/Jump < Liberation < Intro < Outro (see
-// GAME_DEFAULTS) -- if the previous row outranks this one, it's safe to mash early ('spam');
-// otherwise mashing risks cutting the current move short ('wait'). Same (input, inputType) as
-// prev = combo continuation, always 'spam'.
+// 'spam' if the previous move outranks this one or it's a combo continuation; else 'wait'.
 function describeSpamState(prevRow: any, row: any): SpamState | undefined {
   if (!prevRow) return undefined;
   if (prevRow.input === row.input && (prevRow.inputType || 'Press') === (row.inputType || 'Press')) return 'spam';
@@ -359,7 +320,7 @@ function describeSpamState(prevRow: any, row: any): SpamState | undefined {
   return prevPriority > priority ? 'spam' : 'wait';
 }
 
-// The flag track's flags: one per key input, plus a unit number on each swap.
+// One flag per input, plus a unit number on each swap.
 export function buildFlags(evaluatedRows: any[], team: TeamSlot[]): TimelineFlag[] {
   const flags: TimelineFlag[] = [];
   let prevUnit: string | null = null;
@@ -378,7 +339,6 @@ export function buildFlags(evaluatedRows: any[], team: TeamSlot[]): TimelineFlag
 
     if (row.input) {
       const prefix = row.inputType === 'Hold' || row.inputType === 'Release' ? row.inputType : undefined;
-      // Basic (left click), the most frequent input, gets a compact mouse icon instead of text.
       const icon = row.input === 'Basic' ? 'mouse-left' : undefined;
       const spamState = describeSpamState(prevRow, row);
       flags.push({ type: 'input', timeFrames: row.gameTimeStart, label: describeInput(row), prefix, icon, spamState, row, themeColor });
@@ -391,8 +351,7 @@ export function buildFlags(evaluatedRows: any[], team: TeamSlot[]): TimelineFlag
   return flags;
 }
 
-// Character-count heuristic instead of measureText -- label vocabulary is small and fixed, and
-// generous padding tolerates the estimate's slack.
+// Character-count estimate instead of measureText.
 function estimateLabelWidthPx(label: string): number {
   return Math.max(FLAG_MIN_WIDTH_PX, label.length * FLAG_CHAR_WIDTH_PX + FLAG_LABEL_PADDING_PX * 2);
 }
@@ -400,15 +359,13 @@ function estimateLabelWidthPx(label: string): number {
 const ICON_SIZE_PX = 11;
 const ICON_GAP_PX = 3;
 
-// A flag's width, estimated from its label (see FLAG_CHAR_WIDTH_PX).
 function estimateFlagWidthPx(flag: TimelineFlag): number {
   if (!flag.icon) return estimateLabelWidthPx(flag.label);
   const prefixWidth = flag.prefix ? flag.prefix.length * FLAG_CHAR_WIDTH_PX + ICON_GAP_PX : 0;
   return Math.max(FLAG_MIN_WIDTH_PX, prefixWidth + ICON_SIZE_PX + FLAG_LABEL_PADDING_PX * 2);
 }
 
-// Greedy interval-partitioning: sort by x, place each flag in the first lane whose last edge
-// has cleared this flag's start, else open a new lane.
+// Greedy lane assignment by x.
 export function assignFlagLanes(flags: TimelineFlag[], compression: TimeCompression | null = null): LaidOutFlag[] {
   const positioned = flags
     .map(f => ({ ...f, xPx: compressedTimeToPx(f.timeFrames, compression), widthPx: estimateFlagWidthPx(f) }))
@@ -436,11 +393,10 @@ export interface Tick {
   label?: string;
 }
 
-// The ruler's ticks across `totalFrames` -- every quarter second, labeled each second -- skipping the compressed gap.
+// Ruler ticks every 0.25s, labeled each second.
 export function generateTicks(totalFrames: number, compression: TimeCompression | null = null): Tick[] {
   const ticks: Tick[] = [];
   for (let f = 0; f <= totalFrames; f += FPS / 4) {
-    // Skip ticks inside the compressed gap -- illegible there, and spacing no longer means real time.
     if (compression && f > compression.gapStartFrames && f < compression.gapEndFrames) continue;
     const tier: TickTier = f % FPS === 0 ? 'major' : f % (FPS / 2) === 0 ? 'secondary' : 'minor';
     ticks.push({
@@ -453,7 +409,7 @@ export function generateTicks(totalFrames: number, compression: TimeCompression 
   return ticks;
 }
 
-// Rounded up to the next whole second so the ruler's last major tick covers the full width.
+// Rounded up to a whole second.
 export function computeTotalDurationFrames(evaluatedRows: any[]): number {
   let max = 0;
   for (const row of evaluatedRows) {
@@ -463,7 +419,6 @@ export function computeTotalDurationFrames(evaluatedRows: any[]): number {
   return Math.ceil(max / FPS) * FPS;
 }
 
-// A row's input for tooltips, e.g. "Hold E".
 export function describeInput(row: any): string {
   if (!row.input) return 'None';
   const keyLabel = INPUT_KEY_MAP[row.input] || row.input;

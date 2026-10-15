@@ -1,4 +1,4 @@
-// Shared formatting/lookup helpers used across MechanicNodeCard and its split-out sub-panels.
+// Helpers for MechanicNodeCard and its sub-panels.
 import type { Effect, MechanicNode } from '../../types';
 import { CAST_TYPE_COLORS } from '../../data/db';
 import { elementColorOf } from '../../utils/Common';
@@ -7,15 +7,13 @@ import { parseTimeInput } from '../../utils/Frames';
 import { forteLabel } from '../../utils/ForteNames';
 import { forteSlotOf } from '../../utils/ResourceKeys';
 
-// "@Namespace(Name)" -> "Namespace_Name", the key form effect names use.
+// "@Namespace(Name)" -> "Namespace_Name"
 export const flattenDslShorthand = (v: string): string =>
   v.replace(NAMESPACE_REF, (_match, p1, p2) => `${p1}_${p2.trim()}`);
 
-// A dmg tag's color: its element's (exact or substring), else its cast type's.
 export const dmgTagColor = (tag: string): string => elementColorOf(tag) ?? CAST_TYPE_COLORS[tag] ?? '#999999';
 export const castTagColor = (tag: string): string => CAST_TYPE_COLORS[tag] || '#dca54c';
 
-// Short labels for resource-key chips/summaries (On Cast / Resources columns).
 export function resAbbr(key: string): string {
   const slot = forteSlotOf(key);
   if (slot !== null) return `F${slot}`;
@@ -23,7 +21,6 @@ export function resAbbr(key: string): string {
   return map[key] || key.slice(0, 2).toUpperCase();
 }
 
-// Full name for tooltips -- resAbbr's "ER" etc. is for compact chip labels only.
 export function resFullName(key: string, stats?: Record<string, any>): string {
   const slot = forteSlotOf(key);
   if (slot !== null) return forteLabel(stats, slot);
@@ -37,15 +34,13 @@ export const sumNumeric = (v: string | number | number[] | undefined): number =>
 };
 
 
-// Adds unit suffix ("30f"/"12s") to a plain numeric value so the field reads unambiguous.
-// A DSL string (e.g. "@Default.SwapTime") is shown untouched.
+// Adds "f"/"s" to numbers; DSL unchanged.
 export const displayTimeVal = (v: number | string | undefined, unit: 'f' | 's'): string => {
   if (v === undefined || v === '') return '';
   return typeof v === 'number' ? `${v}${unit}` : v;
 };
 
-// Effects Array chip label -- every set field, ordered like TriggerRuleEffectsPanel's own
-// fields, so it reads as a full summary. Unset fields are omitted to avoid empty segments.
+// Effect chip label summarizing every set field.
 export function effectLabel(eff: Effect): string {
   const parts: string[] = [String(eff.type || '').toUpperCase()];
   if (eff.name) parts.push(eff.name);
@@ -69,8 +64,7 @@ export function effectLabel(eff: Effect): string {
   return parts.join(' | ');
 }
 
-// Normalizes a timing field's text ("30f"/"0.5s"/DSL) on blur, not every keystroke -- raw
-// typed text is committed on onChange so mid-type values like "1." aren't clobbered.
+// Normalizes timing text on blur.
 export const makeTimeBlur = (
   data: MechanicNode,
   updateNode: (patch: Partial<MechanicNode>) => void,
@@ -83,8 +77,7 @@ export const makeTimeBlur = (
   if (parsed !== raw) updateNode({ [field]: parsed } as Partial<MechanicNode>);
 };
 
-// Resolves a Timing Modifiers field to a display number, evaluating DSL like
-// "@Default.BasicPriority + 1". Only @Default resolves without a live rotation context.
+// Display number for a timing field; only @Default DSL resolves.
 export function resolveDefaultNum(v: number | string | undefined, dslEvalCtx: Record<string, any>): number | null {
   if (v === undefined || v === '') return null;
   return typeof v === 'number' ? v : DSLParser.evaluateMath(v, dslEvalCtx);

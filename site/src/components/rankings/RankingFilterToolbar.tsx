@@ -7,20 +7,17 @@ import { colorForLabel } from '../results/chartPalette';
 import { ELEMENTS } from '../../data/gameVocab';
 import type { CastType, ElementName } from '../../data/gameVocab';
 
-// 6 elements + 5 castType categories only -- Intro/Outro/status dmgTypes rarely drive a team's
-// *majority* damage, the filter's key (see useRankingsStore.ts's majorityDmgTypes).
 export type RankingElement = Exclude<ElementName, 'Physical'>;
 export const RANKING_ELEMENTS: readonly RankingElement[] = ELEMENTS.filter((element): element is RankingElement => element !== 'Physical');
 export const RANKING_DMG_CATEGORIES = ['Basic', 'Heavy', 'Skill', 'Liberation', 'Echo'] as const satisfies readonly CastType[];
 export type RankingDmgCategory = typeof RANKING_DMG_CATEGORIES[number];
 
 export interface RankingFilters {
-  // One range per team slot: [Main DPS, Sub DPS, Support] -- team[0..2].
+  // [Main DPS, Sub DPS, Support]
   sequenceRanges: [RangeValue, RangeValue, RangeValue];
   rotationStyle: 'any' | 'linear' | 'quickswap';
   bestOnly: boolean;
-  // Faceted-checkbox convention: all checked = no filtering, unchecking narrows, none checked =
-  // nothing passes. Matched against each entry's *majority* element/category (majorityDmgTypes).
+  // All checked = no filter. Matched against the majority element/category.
   elements: RankingElement[];
   dmgCategories: RankingDmgCategory[];
 }
@@ -47,7 +44,6 @@ interface DmgTypeColumnProps<T extends string> {
   onChange: (next: T[]) => void;
 }
 
-// One checkbox list (Element or Category) with Select All / Hide All.
 function DmgTypeColumn<T extends string>({ title, options, selected, colorFor, onChange }: DmgTypeColumnProps<T>) {
   const toggle = (option: T) => {
     onChange(selected.includes(option) ? selected.filter(o => o !== option) : [...selected, option]);
@@ -68,9 +64,6 @@ function DmgTypeColumn<T extends string>({ title, options, selected, colorFor, o
           className="ranking-dmgtype-checkbox-row"
           style={{ '--tag-color': colorFor(option) } as React.CSSProperties}
         >
-          {/* Same hidden-input + custom box pattern as Rotation Row's checkbox
-              (.check-wrap/.check-visual) -- not absolutely positioned here, tinted per option
-              instead of always --accent. */}
           <span className="ranking-dmgtype-check-wrap">
             <input type="checkbox" checked={selected.includes(option)} onChange={() => toggle(option)} />
             <span className="ranking-dmgtype-check-visual" />
@@ -87,7 +80,6 @@ interface RankingFilterToolbarProps {
   onChange: (next: RankingFilters) => void;
 }
 
-// One range slider per team slot.
 export const SequenceRangeFilters: React.FC<RankingFilterToolbarProps> = ({ filters, onChange }) => {
   const updateSeq = (slotIdx: number, next: RangeValue) => {
     const ranges = [...filters.sequenceRanges] as RankingFilters['sequenceRanges'];
@@ -107,7 +99,6 @@ export const SequenceRangeFilters: React.FC<RankingFilterToolbarProps> = ({ filt
   );
 };
 
-/** Rotation style filter: Any / Linear / Quickswap. */
 export const RotationStyleToggle: React.FC<RankingFilterToolbarProps> = ({ filters, onChange }) => (
   <SegmentedToggle
     ariaLabel="Rotation style"
@@ -121,7 +112,6 @@ export const RotationStyleToggle: React.FC<RankingFilterToolbarProps> = ({ filte
   />
 );
 
-/** All rotations, or only the best per team + sequences. */
 export const BestOnlyToggle: React.FC<RankingFilterToolbarProps> = ({ filters, onChange }) => (
   <SegmentedToggle
     ariaLabel="Best rotation only"
@@ -134,7 +124,6 @@ export const BestOnlyToggle: React.FC<RankingFilterToolbarProps> = ({ filters, o
   />
 );
 
-/** The Rankings filters: slot sequences, rotation style, element and damage category. */
 export const RankingFilterToolbar: React.FC<RankingFilterToolbarProps> = ({ filters, onChange }) => {
   return (
     <div className="ranking-toolbar">
@@ -143,8 +132,6 @@ export const RankingFilterToolbar: React.FC<RankingFilterToolbarProps> = ({ filt
 
       <div className="panel-header-tiny">Rotation Type</div>
       <RotationStyleToggle filters={filters} onChange={onChange} />
-      {/* Grouped with Rotation Type, not DMG Type -- both describe the rotation itself, applied
-          last in RotationRankingsPage's filter order regardless of position here. */}
       <BestOnlyToggle filters={filters} onChange={onChange} />
 
       <div className="panel-header-tiny">DMG Type</div>

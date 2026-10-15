@@ -3,23 +3,23 @@ export type DSLDataType = 'number' | 'string' | 'string[]' | 'boolean' | 'method
 export interface DSLPropertyDef {
   propName: string;
   type: DSLDataType;
-  /** Generic parser target suffix (e.g. '.hp'), used as pointer.targetVar + targetKey. Omit when fullOverride is set. */
+  /** Suffix after targetVar (e.g. '.hp'). */
   targetKey?: string;
-  /** Exact parser substitution for '@Pointer.PropName', for the cases targetVar+targetKey doesn't hold (see dslRegistry.ts). */
+  /** Exact substitution, replacing targetVar + targetKey. */
   fullOverride?: string;
-  /** Regex fragment matched in place of propName, for variant spellings (e.g. 'CastTypes?', '(Unit|name)'). */
+  /** Regex in place of propName (e.g. 'CastTypes?'). */
   regexPattern?: string;
   isMethod?: boolean;
-  /** For methods: the function on the evaluation context that '.PropName(arg)' compiles to, e.g. 'getBuffStacks'. */
+  /** Methods: the compiled function name. */
   jsName?: string;
   tooltip?: string;
 }
 
 export interface DSLPointerDef {
   pointer: string;
-  /** What bare '@Pointer' compiles to. Absent only for System, which is call-only. */
+  /** What bare '@Pointer' compiles to. */
   targetVar?: string;
-  /** True only for System: '@System(Name)' rather than '@System.Prop'. */
+  /** '@System(Name)' form. */
   usesCallSyntax?: boolean;
   tooltip: string;
   properties: DSLPropertyDef[];
@@ -30,11 +30,11 @@ export interface SuggestionItem {
   group: string;
   prefix?: string;
   append?: string;
-  /** Lookup key into tooltip data when it differs from `val` (e.g. a pointer's trailing '.'/'(' stripped). */
+  /** Tooltip key when it differs from `val`. */
   tooltipKey?: string;
-  /** For the Properties group: which pointer (Self/Enemy/Move/...) this property belongs to. */
+  /** Owning pointer, for properties. */
   pointer?: string;
-  /** Display text, when it should differ from the text actually inserted (`val`). */
+  /** Display text, if different from `val`. */
   label?: string;
 }
 
@@ -45,8 +45,7 @@ export interface MatchRule {
   prefix?: string;
   append?: string;
   dynamicAppend?: (val: string) => string | null;
-  /** Marks a rule where multiple comma-separated values can be typed. */
   commaList?: boolean;
-  /** Bracket-close char the "Continue" prompt offers too; omitted with no enclosing bracket (e.g. Applies During). */
+  /** Closing bracket offered after an entry. */
   commaCloses?: string;
 }

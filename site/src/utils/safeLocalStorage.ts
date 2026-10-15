@@ -1,6 +1,4 @@
-// A localStorage StateStorage for Zustand's persist middleware that swallows QuotaExceededError
-// (and any other storage failure): a failed save only means the change won't survive a reload,
-// never a crash of the action that caused it. Every persisted store shares one quota.
+// localStorage for Zustand persist that swallows storage errors.
 import { createJSONStorage, type StateStorage } from 'zustand/middleware';
 
 const safeLocalStorage: StateStorage = {
@@ -15,5 +13,4 @@ const safeLocalStorage: StateStorage = {
   removeItem: (name) => localStorage.removeItem(name)
 };
 
-// What every persisted store passes as its `storage`: JSON in safeLocalStorage.
 export const persistStorage = <S,>() => createJSONStorage<S>(() => safeLocalStorage);

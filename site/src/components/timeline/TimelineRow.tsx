@@ -9,40 +9,35 @@ import { useLinkedRowStore, scrollIntoContainer, subscribeLinkedScroll } from '.
 
 interface TimelineRowProps {
   data: UnitRowData;
-  // A caret beside the unit's pill that shows/hides the rows nested under it (its effects).
+  // Toggles the unit's effect rows.
   expander?: { open: boolean; count: number; onToggle: () => void };
-  // Linked to the rotation table (useLinkedRowStore): hovering a move highlights its table row,
-  // and hovering a table row highlights (and scrolls to) its clips here.
+  // Link hover with the rotation table.
   linked?: boolean;
 }
 
-/** One unit's row: icon, name, clips and hit dots. Hovering near a dot snaps the tooltip to that hit. */
+/** One unit's row of clips and hit dots. */
 export const TimelineRow: React.FC<TimelineRowProps> = ({ data, expander, linked = false }) => {
   const markActive = useActiveMarker();
   const trackRef = useRef<HTMLDivElement>(null);
   const hover = useLinkedRowStore(s => s.hover);
 
-  // Clips of the linked rows highlighted, toggled on the DOM rather than rendered: re-rendering the
-  // row (every clip and hit dot) on each hover change made hovering Timeline buffs stutter.
+  // Linked-clip highlight, toggled on the DOM.
   useLayoutEffect(() => {
     const applyLinked = (rowIds: string[]) => {
       const ids = new Set(linked ? rowIds : []);
       trackRef.current?.querySelectorAll<HTMLElement>('.timeline-clip-hit').forEach(clip =>
         clip.classList.toggle('is-linked', !!clip.dataset.rowId && ids.has(clip.dataset.rowId)));
     };
-    // Now (a re-render rewrites the clips' className), then on every hover change.
     applyLinked(useLinkedRowStore.getState().rowIds);
     return useLinkedRowStore.subscribe((s, prev) => { if (s.rowIds !== prev.rowIds) applyLinked(s.rowIds); });
   });
   const hoverRow = (row: any) => { if (linked) hover(row?.id ? [row.id] : [], 'timeline'); };
 
-  // A table row hovered: bring its first clip into view. Subscribed rather than selected, so a
-  // table hover doesn't re-render the row.
+  // Scroll to a table-hovered row's clip without re-rendering.
   useEffect(() => {
     if (!linked) return;
     return subscribeLinkedScroll(s => (s.source === 'table' ? s.rowIds[0] : undefined), id => {
       const clip = trackRef.current?.querySelector<HTMLElement>(`[data-row-id="${CSS.escape(id)}"]`);
-      // Past the sticky name column, not under it.
       const names = trackRef.current?.previousElementSibling?.getBoundingClientRect().width ?? 0;
       if (clip) scrollIntoContainer(clip, clip.closest<HTMLElement>('.timeline-scroll'), { insetLeft: names });
     });
@@ -61,7 +56,7 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({ data, expander, linked
     }
 
     markActive(null);
-    // Later segments draw on top, so the last one under the cursor wins.
+    // Last segment under the cursor wins.
     const inClipBand = pointer.y >= CLIP_INSET_PX && pointer.y <= ROW_HEIGHT_PX - CLIP_INSET_PX;
     const segment = inClipBand ? [...data.segments].reverse().find(s => pointer.x >= s.xPx && pointer.x < s.xPx + s.widthPx) : undefined;
     hoverRow(segment?.row);
@@ -90,7 +85,6 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({ data, expander, linked
     >
       <div className="timeline-row-header" style={{ width: 'var(--timeline-header-width)' }}>
         {expander ? (
-          // The whole label opens/closes the unit's effects, like a section header.
           <button
             type="button"
             className={`timeline-expander ${expander.open ? 'is-open' : ''}`}

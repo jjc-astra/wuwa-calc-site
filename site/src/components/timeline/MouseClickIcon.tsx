@@ -1,5 +1,4 @@
-// Mouse glyph, left button filled -- stands in for "Left Click" text in cramped flag pills.
-// currentColor throughout, so it inherits each flag's theme color like other icons do.
+// Left-click glyph for flag pills; uses currentColor.
 import React from 'react';
 
 export const MouseClickIcon: React.FC<{ size?: number }> = ({ size = 11 }) => (

@@ -11,12 +11,12 @@ interface TimelineClipProps {
   segment: TimelineSegment;
 }
 
-// "Hit #n: x dmg" for hit `onlyHit` (1-based); none when not snapped to a hit.
+// "Hit #n: x dmg" for `onlyHit` (1-based).
 function buildHitLinesHtml(row: any, onlyHit: number | undefined, withSystemHits: boolean): string {
   if (onlyHit === undefined) return '';
   const lines = rowHits(row, withSystemHits).flatMap((hit, i) => {
     if (i + 1 !== onlyHit) return [];
-    // A proc names its mechanic, e.g. "[Proc] Forte Detonate (Hit 2)" -> "(Forte Detonate)".
+    // "[Proc] Forte Detonate (Hit 2)" -> "(Forte Detonate)"
     const proc = typeof hit.title === 'string' && hit.title.startsWith('[Proc] ')
       ? ` (${hit.title.slice(7).replace(/ \(Hit \d+\)$/, '')})`
       : '';
@@ -25,8 +25,7 @@ function buildHitLinesHtml(row: any, onlyHit: number | undefined, withSystemHits
   return lines.length > 0 ? `<div class="timeline-tooltip-hits">${lines.join('')}</div>` : '';
 }
 
-/** Tooltip for a row's clip at game time `atFrames` (the cursor's, or a snapped hit's), listing
- * hit `onlyHit` (1-based) only when snapped to its dot. */
+/** Clip tooltip at `atFrames`; lists `onlyHit` when snapped. */
 export function buildClipTooltipHtml(
   { type, row, pause }: Pick<TimelineSegment, 'type' | 'row' | 'pause'>,
   atFrames: number,
@@ -58,12 +57,9 @@ export function buildClipTooltipHtml(
   );
 }
 
-/** One segment of a unit's row (on-field, off-field or wait). Hover, and the linked-row highlight
- * (`is-linked`), are handled by TimelineRow. Memoized: hovering re-renders the row, not its clips. */
+/** One segment of a unit's row (on-field, off-field or wait). */
 export const TimelineClip = React.memo<TimelineClipProps>(({ segment }) => {
-  // Outer box is the true, unmodified hit target. The fill's gap from its neighbor (same idea as
-  // StackedContributionBar's .ranking-bar-fill gap) is computed here, not a static CSS inset, so
-  // it uses the same device-pixel-snapped hairline as every other edge.
+  // Pixel-snapped gap between fills.
   const hairline = hairlinePx();
   const fillWidth = Math.max(0, segment.widthPx - hairline * 2);
 

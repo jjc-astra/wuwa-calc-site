@@ -10,11 +10,9 @@ import { LibraryCard } from './common/LibraryGrid';
 
 interface LandingPageProps {
   onNavigate: (view: ViewId) => void;
-  // The databases have loaded: Latest Characters reads rarities from the character DB.
   dataReady: boolean;
 }
 
-// An in-app page link inside an FAQ answer.
 const PageLink: React.FC<{ view: ViewId; children: React.ReactNode }> = ({ view, children }) => (
   <RouteLink href={viewPath(view)} onNavigate={() => goTo(viewPath(view))}>{children}</RouteLink>
 );
@@ -23,7 +21,7 @@ const DataRepoLink: React.FC = () => (
   <a href={SITE_LINKS.DATA_REPO_URL} target="_blank" rel="noopener noreferrer">wuwa-calc-data</a>
 );
 
-// Also the page's crawlable description of what the calculator does, and where to go for what.
+// Also serves as crawlable site description.
 const FAQ: { question: string; answer: React.ReactNode }[] = [
   {
     question: 'What is WuWa Calculator?',
@@ -65,7 +63,6 @@ const FAQ: { question: string; answer: React.ReactNode }[] = [
   }
 ];
 
-// LATEST_CHARACTERS, each opening its guide.
 const LatestCharacters: React.FC = () => (
   <>
     {LATEST_CHARACTERS.map(name => (
@@ -80,7 +77,7 @@ const LatestCharacters: React.FC = () => (
   </>
 );
 
-/** The home page: hero and a card per page on the left; latest characters and an FAQ on the right. */
+/** Home page. */
 export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, dataReady }) => {
   return (
     <div className="landing-page">
@@ -121,7 +118,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, dataReady 
         <section className="landing-section landing-faq">
           <h2 className="panel-header-main">FAQ</h2>
           {FAQ.map(({ question, answer }) => (
-            // Shared name: the browser keeps only one answer open at a time.
+            // Shared name: one answer open at a time.
             <details key={question} name="landing-faq">
               <summary>{question}</summary>
               <p>{answer}</p>

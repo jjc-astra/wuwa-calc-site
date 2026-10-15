@@ -7,7 +7,7 @@ import { usePositionedSelectPopup } from '../../hooks/usePositionedSelectPopup';
 
 export interface IconSelectOption {
   value: string;
-  // Shown in place of `value` (e.g. when values are ids rather than names).
+  // Display text when `value` is an id.
   label?: string;
   // Icon name, when it isn't `value`.
   icon?: string;
@@ -20,23 +20,20 @@ interface IconSelectProps {
   options: IconSelectOption[];
   onChange: (value: string) => void;
   iconFolder: ImageFolder;
-  /** 'circle' matches .avatar-sm alone, 'rect' adds .avatar-rect -- same shapes as the roster card avatars. */
   iconShape: 'circle' | 'rect';
   placeholder: string;
   className?: string;
   disabled?: boolean;
-  /** Adds a text filter at the top of the popup, for long option lists (e.g. the character list). */
+  /** Adds a search filter. */
   searchable?: boolean;
-  /** Replaces the trigger's value/placeholder label, for a picker that isn't a field (e.g. an add button). */
+  /** Replaces the trigger label. */
   triggerContent?: React.ReactNode;
   triggerTooltip?: string;
 }
 
 const POPUP_MAX_HEIGHT = 260;
 
-/** <select> replacement that renders each option with its icon (styled like roster card
- * avatars) -- native <select> can't reliably show images in its popup cross-browser. Portaled
- * to <body>, fixed-positioned, so it escapes clipping ancestors (e.g. .char-row's overflow-x). */
+/** <select> replacement with an icon per option. */
 export const IconSelect: React.FC<IconSelectProps> = ({
   value, options, onChange, iconFolder, iconShape, placeholder, className = '', disabled = false, searchable = false,
   triggerContent, triggerTooltip
@@ -63,19 +60,17 @@ export const IconSelect: React.FC<IconSelectProps> = ({
     popupMaxHeight: POPUP_MAX_HEIGHT,
     activeOptionSelector: '.icon-select-option.is-active',
     findInitialActiveIndex: () => filteredOptions.findIndex(o => o.value === value),
-    // Search box replaces letter-by-letter typeahead -- see the activeIndex reset below instead.
+    // Search replaces typeahead.
     findTypeaheadMatch: term => (searchable ? -1 : filteredOptions.findIndex(o => (o.label ?? o.value).toLowerCase().startsWith(term))),
     onSelectIndex: index => selectOption(filteredOptions[index])
   });
 
-  // Fresh search + focus each time the popup opens.
   useEffect(() => {
     if (!isOpen) return;
     setSearchTerm('');
     if (searchable) requestAnimationFrame(() => searchInputRef.current?.focus());
   }, [isOpen, searchable]);
 
-  // Highlights the first match as the list narrows.
   useEffect(() => {
     if (searchable && isOpen) setActiveIndex(filteredOptions.length > 0 ? 0 : -1);
     // eslint-disable-next-line react-hooks/exhaustive-deps

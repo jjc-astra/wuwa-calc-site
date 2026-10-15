@@ -10,7 +10,7 @@ import type { DpsWindowKey } from '../../types/results';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
-/** Rotation Rankings page: every ranked rotation, filtered, sorted and paged. */
+/** Rotation Rankings: filtered, sorted and paged. */
 export const RotationRankingsPage: React.FC = () => {
   const {
     status, entries, error, load,
@@ -32,10 +32,7 @@ export const RotationRankingsPage: React.FC = () => {
 
   const maxDps = visibleEntries.length > 0 ? (visibleEntries[0].dpsStats[dpsFieldOf(activeWindow)] ?? 0) : 0;
 
-  // New search/filter/window -- reset to page 1 (avoid landing mid-list/past-the-end). Skipped
-  // before rehydration (values are still pre-persistence defaults) and on the render right after
-  // hydration lands (persist swaps in new refs then, which would look like a change and stomp
-  // the just-restored page back to 1).
+  // Reset to page 1 on filter changes, but not on rehydration.
   const skippedHydrationRun = useRef(false);
   useEffect(() => {
     if (!hasHydrated) return;
@@ -44,8 +41,7 @@ export const RotationRankingsPage: React.FC = () => {
   }, [search, filters, activeWindow, hasHydrated, setPage]);
 
   const totalPages = Math.max(1, Math.ceil(visibleEntries.length / pageSize));
-  // Clamped, not trusted outright -- entries can shrink out from under an already-deep page
-  // (e.g. a stale result evicted by a freshness reload) between the effect above and this render.
+  // Entries can shrink under the current page.
   const safePage = Math.min(page, totalPages);
   const pageEntries = visibleEntries.slice((safePage - 1) * pageSize, safePage * pageSize);
 

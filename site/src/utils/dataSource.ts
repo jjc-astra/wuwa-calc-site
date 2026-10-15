@@ -1,42 +1,34 @@
-// Where game data and images are fetched from. All dev-only WIP mirror logic lives here.
+// Data and image URLs, including the dev-only WIP mirror.
 
-// Production builds ship the data repo's data/ and images/ with the site (the deploy workflow
-// copies them in), so they're served from its own origin. Dev builds read the repo straight from
-// raw GitHub (public owner/repo/branch -- not a secret).
+// Prod: same origin. Dev: raw GitHub.
 const DATA_REPO_BASE_URL = import.meta.env.DEV
   ? 'https://raw.githubusercontent.com/jjc-astra/wuwa-calc-data/main'
   : import.meta.env.BASE_URL.replace(/\/$/, '');
 
-// Gitignored local mirror of the data repo's data/ and images/ folders (site/public/wip-data/),
-// for testing a unit before it is pushed to the data repo.
+// Gitignored local mirror for testing unpublished data.
 const WIP_BASE_URL = '/wip-data';
 
-// Build-time constant, so WIP branches are stripped from prod bundles.
 export const WIP_ENABLED = import.meta.env.DEV;
 
-// Dev builds try the WIP mirror first and fall back to the real repo on a miss
-// (DataLoader.loadJSON for data, installWipImageFallback for images).
+// Dev: WIP mirror first, falling back to the real repo.
 const preferredBase = WIP_ENABLED ? WIP_BASE_URL : DATA_REPO_BASE_URL;
 export const imageUrl = (path: string): string => `${preferredBase}/images/${path}`;
 export const dataUrl = (path: string): string => `${preferredBase}/data/${path}`;
 
-// Bypass WIP. loadMergedDB needs both: a WIP copy of a combined DB file (db_characters.json)
-// is merged on top of the real one, never swapped in, or entries it omits would vanish.
+// Bypasses WIP (for loadMergedDB).
 export const realDataUrl = (path: string): string => `${DATA_REPO_BASE_URL}/data/${path}`;
 export const wipDataUrl = (path: string): string => `${WIP_BASE_URL}/data/${path}`;
 
-// Dev server endpoint: the WIP mirror's manifest, path -> content hash (wipFilesPlugin in vite.config.ts).
+// Dev server WIP manifest endpoint.
 export const WIP_FILES_URL = '/__wip-files';
 
 export const isWipUrl = (url: string): boolean => WIP_ENABLED && url.startsWith(WIP_BASE_URL);
 export const wipToRealUrl = (url: string): string => url.replace(WIP_BASE_URL, DATA_REPO_BASE_URL);
-// The path inside data/ (the manifest key), from either source.
+// Path inside data/ (the manifest key).
 export const dataRelPath = (url: string): string =>
   url.replace(`${WIP_BASE_URL}/data/`, '').replace(`${DATA_REPO_BASE_URL}/data/`, '');
 
-// Swaps a failed WIP image to the real repo. <img> error events don't bubble but do fire in the
-// capture phase, so one capturing listener on `window` covers every image. It runs before
-// components' own onError handlers and stops them, so they only see a failure from the real repo.
+// Retries failed WIP images from the real repo via one capturing error listener.
 export function installWipImageFallback(): void {
   if (!WIP_ENABLED) return;
   const wipOrigin = window.location.origin + WIP_BASE_URL;

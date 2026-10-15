@@ -1,5 +1,4 @@
-// Styled confirmation prompt for destructive actions (Restore Rotation, Reset Cache, etc.) --
-// reuses the site's .modal-* CSS instead of the browser's plain confirm().
+// Styled confirm() replacement for destructive actions.
 import React from 'react';
 
 interface ConfirmDialogProps {

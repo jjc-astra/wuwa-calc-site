@@ -1,5 +1,4 @@
-/* Single source of truth for every color token in the app. Deliberate one-offs (syntax
-   highlighting, per-element/character theming, chart colors) live outside this system. */
+/* App color, spacing and type tokens. */
 
 :root {
     /* --- Surfaces (solid) --- */
@@ -21,7 +20,7 @@
 
     /* --- Accent (gold) --- */
     --accent: #dca54c;
-    /* Tinted accent backgrounds, increasing strength -- named by role, not just by number. */
+    /* Accent tints, increasing strength. */
     --accent-hover:     rgba(220, 165, 76, 0.1);
     --accent-selected:  rgba(220, 165, 76, 0.12);
     --accent-focus:     rgba(220, 165, 76, 0.15);
@@ -32,8 +31,7 @@
     --accent-underline: rgba(220, 165, 76, 0.45);
 
     /* --- Semantic status --- */
-    /* Two-tone reds: -text for emphasized inline text (deltas, values), plain for structural
-       use (borders, icons, buttons). Success/warning are single-tone. */
+    /* -text variant for inline text; plain for borders, icons, buttons. */
     --danger:      #ff5555;
     --danger-text: #ff6666;
     --success:     #66ff66;
@@ -41,17 +39,14 @@
     --danger-tint:  rgba(255, 85, 85, 0.1);
     --warning-tint: rgba(255, 204, 0, 0.1);
 
-    /* --- Translucent overlays (the "card" system) --- */
-    /* Every content card darkens the page by this same amount, instead of its own flat fill. */
+    /* --- Translucent overlays --- */
     --surface-card: rgba(0, 0, 0, 0.2);
     --surface-card-flat: color-mix(in srgb, black 20%, var(--bg-dark));
-    /* A card nested inside another --surface-card lightens instead of darkening further. */
+    /* For cards nested in --surface-card. */
     --surface-lighten:        rgba(255, 255, 255, 0.03);
     --surface-lighten-strong: rgba(255, 255, 255, 0.06);
 
     /* --- Overlay scale --- */
-    /* Generic elevation steps -- the "translucent panel" family picks one rung instead of
-       each declaring its own one-off rgba(). Named by relative strength, not a single role. */
     --overlay-w1: rgba(255, 255, 255, 0.02);
     --overlay-w2: rgba(255, 255, 255, 0.05);
     --overlay-w3: rgba(255, 255, 255, 0.08);
@@ -65,11 +60,11 @@
     --overlay-b6: rgba(0, 0, 0, 0.7);
     --overlay-b7: rgba(0, 0, 0, 0.8);
 
-    /* --- One-off UI colors, still centralized here rather than inlined --- */
+    /* --- One-off UI colors --- */
     --tooltip-bg:   rgba(20, 20, 20, 0.98);
     --gauge-glow:   #ffaa00;
     --accent-light: #f0d8a8;
-    /* Per-character row theming mixes --char-theme-raw into these fixed formula endpoints. */
+    /* Mixed with --char-theme-raw for row theming. */
     --row-theme-base:        #161616;
     --row-theme-select-base: #202022;
     --row-theme-neutral:     #808085;
@@ -77,7 +72,7 @@
     --neutral-tint:   rgba(17, 17, 17, 0.55);
     --neutral-border: rgba(255, 255, 255, 0.14);
 
-    /* --- Spacing scale -- snap padding/margin/gap values onto these instead of one-off px. --- */
+    /* --- Spacing scale --- */
     --space-1: 0.25rem;
     --space-2: 0.375rem;
     --space-3: 0.5rem;
@@ -85,10 +80,7 @@
     --space-5: 1rem;
     --space-6: 1.25rem;
 
-    /* --- Type scale -- the site's text roles; pick one instead of a one-off size. ---
-       Label: bold uppercase row/column names (OPENER, R1, SUBSTATS). Tag: tiny bold uppercase
-       badges, units and chip captions. Value: primary numbers and names. Secondary: %, min/max,
-       legends and small controls. Card titles and section headers keep their own sizes. */
+    /* --- Type scale --- */
     --font-label: 0.7rem;
     --font-tag: 0.65rem;
     --font-value: 0.8rem;

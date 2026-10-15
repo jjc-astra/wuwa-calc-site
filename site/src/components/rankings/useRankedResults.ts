@@ -4,12 +4,7 @@ import { DataLoader } from '../../utils/DataLoader';
 import type { ResultsFile, RosterSlot } from '../../types/results';
 import type { RankingEntry } from '../../store/useRankingsStore';
 
-/**
- * A ranked rotation's results file -- its team details, author and contribution, which the
- * rankings index leaves out. Loaded when the row renders (a page of rows at a time); with
- * `inViewOf`, only once that element scrolls into view, for an unpaged list. Null until loaded.
- * DataLoader caches each file, so it's fetched once.
- */
+/** A ranked rotation's results file; null until loaded. `inViewOf`: wait until in view. */
 export function useRankedResults(entry: RankingEntry, inViewOf?: RefObject<Element | null>): ResultsFile | null {
   const [results, setResults] = useState<ResultsFile | null>(null);
 
@@ -33,7 +28,7 @@ export function useRankedResults(entry: RankingEntry, inViewOf?: RefObject<Eleme
   return results;
 }
 
-/** The team to show for a row: its results file's, or until that loads, just who's in it. */
+/** The results file's team, or the index roster until it loads. */
 export const rosterOf = (entry: RankingEntry, results: ResultsFile | null): RosterSlot[] =>
   results?.team ?? entry.characters.map((character, i) => ({
     character, sequence: entry.sequences[i] ?? 0, weapon: '', rank: 1,

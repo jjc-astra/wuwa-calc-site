@@ -1,5 +1,4 @@
-/* Rotation Rankings page -- reuses the site's existing tokens/components throughout
-   (ChromeTabs, .segmented-toggle, TooltipManager) rather than one-off styles. */
+/* Rotation Rankings page. */
 
 /* =========================================
    1. PAGE LAYOUT
@@ -75,7 +74,7 @@
     color: var(--text-dim);
 }
 
-/* --- DMG Type Filter (two independent checkbox facets: Element, Category) --- */
+/* --- DMG Type Filter --- */
 .ranking-dmgtype-columns { display: flex; gap: var(--space-3); }
 .ranking-dmgtype-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .ranking-dmgtype-col-header {
@@ -217,7 +216,6 @@
     border: 1px solid var(--border);
     border-radius: 0.5rem;
     cursor: pointer;
-    /* Queried by its own children (below) to restack when the row is narrow. */
     container-type: inline-size;
 }
 .ranking-row.is-expanded {
@@ -245,9 +243,7 @@
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .ranking-row-badges { display: flex; align-items: center; gap: 0.375rem; flex-shrink: 0; }
-/* Narrow row (e.g. the Character Guide's stacked layout): the name + DMG bar drop to their own
-   full-width line under the team, the menu stays on the top line, and the team's slots wrap
-   rather than run past the panel edge. */
+/* Narrow row: name and bar move under the team. */
 @container (max-width: 50rem) {
     .ranking-row-icons { flex: 1 1 0; min-width: 0; flex-wrap: wrap; }
     .ranking-row-main { order: 1; flex-basis: 100%; }
@@ -291,7 +287,7 @@
 .ranking-row-menu-btn:hover { color: var(--accent); background: var(--surface-lighten-strong); }
 .ranking-row-menu-btn svg { display: block; }
 
-/* --- DPS Bar (stacked bar within a scaled bar) --- */
+/* --- DPS Bar --- */
 .ranking-bar-track {
     position: relative;
     height: 1.625rem;
@@ -357,9 +353,8 @@
 .ranking-tooltip-value { color: var(--text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* =========================================
-   MOBILE LAYOUT (must stay last -- overriding rules earlier in this file at equal specificity)
+   MOBILE LAYOUT (must stay last)
    ========================================= */
-/* Stacks sidebar above the main content on narrow viewports to prevent child elements from crushing the rankings table. */
 @media (max-width: 860px) {
     .rankings-page-body {
         flex-direction: column;
@@ -367,6 +362,5 @@
         padding: var(--space-4);
     }
     .rankings-sidebar { width: 100%; }
-    /* Uses flex:1 instead of width:100% so the slider consumes remaining row space without overflowing past the label. */
     .range-slider { flex: 1; width: auto; }
 }

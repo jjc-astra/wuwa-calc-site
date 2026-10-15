@@ -1,5 +1,4 @@
-// The per-row damage breakdown: one accordion section per hit the row dealt, each with its
-// crit/non-crit/average values, tags, formula, buff totals and the active buffs grouped by provider.
+// Per-row damage breakdown, one accordion section per hit.
 import React, { useState } from 'react';
 import type { PanelConfig } from '../../data/db';
 import { useRosterStore } from '../../store/useRosterStore';

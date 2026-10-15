@@ -20,7 +20,6 @@ interface DialGaugeProps {
   max?: number;
 }
 
-/** A round gauge for one resource. */
 export const DialGauge: React.FC<DialGaugeProps> = ({ name, value = 0, max = 100 }) => {
   const pct = gaugePercent(value, max);
   const isFull = pct >= 99.9;
@@ -43,7 +42,6 @@ interface VerticalGaugeProps {
   max?: number;
 }
 
-/** A vertical bar gauge for one resource. */
 export const VerticalGauge: React.FC<VerticalGaugeProps> = ({ name, value = 0, max = 100 }) => {
   const pct = gaugePercent(value, max);
   const isFull = pct >= 99.9;
@@ -73,9 +71,7 @@ export const MultiForteGauge: React.FC<MultiForteGaugeProps> = ({ unit, stateDat
   const dbChar: Record<string, any> = unit ? DataLoader.characterDB[unit] || {} : {};
   const forteCount = dbChar.forteCount || 1;
 
-  // The active hold's own Release mechanic, so the cursor overlay below uses its real
-  // cursorSpeed/cursorMode/forteSlot instead of the generic defaults. Hold_Input (stamped at
-  // press time) disambiguates which Release this is, for a character with more than one Hold.
+  // The active hold's Release, matched by Hold_Input.
   const holdStart = stateData?.trackers?.Hold_Start;
   const holdOwnedByUnit = stateData?.trackers?.Hold_Unit === unit;
   const d = MECHANICS_NOTATION.HOLD_DEFAULTS;
@@ -99,9 +95,7 @@ export const MultiForteGauge: React.FC<MultiForteGaugeProps> = ({ unit, stateDat
           if (holdConfig && num === holdForteNum) {
             const mode: string = holdConfig.cursorMode || d.CURSOR_MODE;
             const speed = holdConfig.cursorSpeed ?? d.CURSOR_SPEED;
-            // Clamp ties the cursor to this forte slot -- TimelineEngine already keeps val (above)
-            // in lockstep. Window modes: the cursor is a separate live-timing preview, not the
-            // actual forte pool -- resolve where release would land right now.
+            // Window modes: preview where release would land now.
             if (mode !== 'clamp') {
               const currentHoldDuration = rowGameEnd(stateData) - holdStart;
               val = CommonUtils.resolveHoldCursorAtTime(stateData.trackers.Cursor_Accumulated || 0, currentHoldDuration, speed, mode, max);

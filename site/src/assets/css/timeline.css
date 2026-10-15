@@ -1,7 +1,4 @@
-/* The reusable "video editor" rotation Timeline -- page-agnostic, not scoped to any one page.
-   Unlike the rest of the site, sizes inside .timeline-content are px: the timeline's geometry is
-   laid out in px (timelineLayout.ts) and RotationTimeline zooms the whole content by the UI scale,
-   so text and boxes scale together. Rem here would be scaled twice. */
+/* Rotation Timeline. Sizes inside .timeline-content are px: the content is zoomed by the UI scale. */
 
 .timeline-root { width: 100%; }
 
@@ -37,11 +34,9 @@
     left: 0;
     z-index: 5;
     overflow: hidden;
-    /* No fill: the clips scroll under it, and only the pill covers them. */
     pointer-events: none;
 }
-/* The unit's tag (.outline-badge look, tinted with its color), floating over the track.
-   Opaque fill so clips passing under it don't show through; px sizes, see top of file. */
+/* Unit tag over the track; opaque so clips don't show through. */
 .timeline-row-pill {
     display: flex;
     align-items: center;
@@ -63,7 +58,7 @@
 .timeline-row-track { flex: 1; min-width: 0; position: relative; }
 
 /* --- Effect sections (Calculator Timeline: RotationTimeline withEffects) --- */
-/* A unit's label as its show/hide-its-effects toggle: caret, pill and effect count, all one button. */
+/* Unit label as its effects toggle. */
 .timeline-expander {
     display: flex; align-items: center; gap: 5px;
     min-width: 0; padding: 0;
@@ -85,12 +80,11 @@
 .timeline-expander-count { font-size: 9.6px; font-weight: 700; color: var(--text-disabled); }
 
 .timeline-section-row { background: var(--surface-lighten); }
-/* A unit's effect group (Weapon, Echo Sets): a quieter header, indented under the unit's own effects. */
+/* Nested effect group header. */
 .timeline-section-row.is-nested { background: none; }
 .timeline-section-row.is-nested .timeline-section-toggle { margin-left: 8px; color: var(--text-dim); }
 .timeline-section-row.is-nested .timeline-section-title { font-size: 9.6px; }
 .timeline-effect-row.is-nested .timeline-effect-label { margin-left: 18px; }
-/* A hovered move (here or in the table) received this buff. */
 .timeline-effect-row.is-linked { background: color-mix(in srgb, var(--char-theme-raw) 5%, rgba(255, 255, 255, 0.055)); }
 .timeline-section-toggle {
     display: flex; align-items: center; gap: 6px;
@@ -103,7 +97,6 @@
     font-size: 10.4px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
 }
 
-/* An effect row's name: a small tag in its provider's color, indented under the unit pills. */
 .timeline-effect-label {
     max-width: 100%;
     margin-left: 8px; padding: 1px 7px;
@@ -123,12 +116,10 @@
     border: 1px solid var(--char-theme-raw);
 }
 .timeline-effect-bar.is-permanent { background: color-mix(in srgb, var(--char-theme-raw) 25%, transparent); }
-/* A cooldown ticking, not an effect in play: lighter, with a dashed edge. */
 .timeline-effect-cooldown .timeline-effect-bar {
     background: color-mix(in srgb, var(--char-theme-raw) 18%, transparent);
     border-style: dashed;
 }
-/* Centered on its (left, top): a stack count or tracker value change. */
 .timeline-effect-point {
     position: absolute;
     width: 5px; height: 5px;
@@ -152,7 +143,6 @@
     pointer-events: none;
 }
 
-/* top/bottom inset set inline (CLIP_INSET_PX). */
 .timeline-clip-hit { position: absolute; }
 .timeline-clip {
     position: absolute;
@@ -169,25 +159,23 @@
     background: var(--danger-tint);
     border: 1px dashed var(--danger);
 }
-/* Its rotation row is hovered (here or in the table). */
 .timeline-clip-hit.is-linked .timeline-clip,
 .timeline-clip.is-linked {
     box-shadow: 0 0 0 1.5px var(--text-main);
     filter: brightness(1.2);
 }
-/* Paused by another unit's motion stop -- the wait bar's look, in grey. */
+/* Motion stop pause. */
 .timeline-clip-motionstop {
     background: color-mix(in srgb, var(--text-disabled) 25%, var(--surface-card-flat));
     border: 1px dashed var(--text-dim);
 }
 
-/* Centered on its (left, top). Size duplicated in timelineLayout.ts's HIT_DOT_SIZE_PX. */
+/* Sync size with HIT_DOT_SIZE_PX. */
 .timeline-hit-dot {
     position: absolute;
     width: 4px; height: 4px;
     margin: -2px 0 0 -2px;
     border-radius: 50%;
-    /* The unit's color, a step lighter than its bar. */
     background: color-mix(in srgb, var(--char-theme-raw) 60%, #fff);
     pointer-events: none;
     transition: transform 0.08s;
@@ -199,7 +187,6 @@
     z-index: 1;
 }
 
-/* Hit line in a clip's tooltip (only when snapped to a hit). */
 .timeline-tooltip-hits {
     margin-top: 4px;
     padding-top: 4px;
@@ -221,7 +208,6 @@
     border-top: 1px solid var(--border);
     flex-shrink: 0;
 }
-/* Lines the track up with the rows' header column. No fill: content scrolls freely under it. */
 .timeline-ruler-spacer { flex-shrink: 0; }
 .timeline-ruler-track { flex: 1; min-width: 0; position: relative; height: 100%; }
 

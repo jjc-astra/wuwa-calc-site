@@ -6,19 +6,16 @@ interface CollapsibleSectionProps {
   isOpen: boolean;
   onToggle: () => void;
   title: string;
-  /** DOM ids for the three pieces, which scroll helpers and stylesheets address directly. */
   ids: { wrapper: string; header: string; content: string };
-  /** Beside the title, in the header (e.g. a team preview that shows while collapsed). */
+  /** Beside the title. */
   headerExtra?: React.ReactNode;
-  /** Right side of the header (Import / Export buttons). */
   headerRight?: React.ReactNode;
-  /** Rendered inside the wrapper but outside the collapsing content, so a dialog stays reachable
-   * (and un-aria-hidden) while the section is collapsed. */
+  /** Outside the collapsing content, so dialogs stay reachable. */
   overlays?: React.ReactNode;
   children: React.ReactNode;
 }
 
-/** A calculator step: a header with a collapse arrow, over content that animates open and shut. */
+/** A collapsible calculator step. */
 export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
   isOpen, onToggle, title, ids, headerExtra, headerRight, overlays, children
 }) => {
@@ -28,8 +25,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
   const animDone = useAccordionAnimDone(isOpen, wrapperRef);
   const maxHeight = useCollapseMaxHeight(isOpen, contentRef);
 
-  // The arrow and the bare header toggle; any other button or input in the header (Import,
-  // Export) is its own control.
+  // Header controls don't toggle.
   const handleHeaderClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.classList.contains('toggle-icon') || (target.tagName !== 'BUTTON' && target.tagName !== 'INPUT')) onToggle();

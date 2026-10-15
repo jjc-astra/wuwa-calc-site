@@ -11,7 +11,7 @@ import { guidePath, viewPath } from '../config/routes';
 import { goTo } from '../hooks/useRoute';
 import { RouteLink } from './common/RouteLink';
 
-// The Support menu's entries; one whose SITE_LINKS url is blank is left out.
+// Entries with a blank URL are skipped.
 const supportLinks = [
   {
     key: 'patreon',
@@ -38,31 +38,28 @@ const supportLinks = [
 interface HeaderProps {
   currentView: ViewId;
   onNavClick: (view: ViewId) => void;
-  // The character the guide is open on, if any.
   guideCharacter?: string;
 }
 
-/** The site nav bar: home, page links, and the current page's Back to Library. Once the page links don't fit on the brand's row, they fold into a menu button. */
+/** Site nav bar; links fold into a menu when they don't fit. */
 export const Header: React.FC<HeaderProps> = ({ currentView, onNavClick, guideCharacter }) => {
   const { activeChar, setActiveChar } = useBuilderStore();
-  // The route the phone menu was opened on: navigating anywhere (back/forward included) closes it.
+  // Any navigation closes the menu.
   const routeKey = `${currentView}/${guideCharacter ?? ''}`;
   const [menuOpenOn, setMenuOpenOn] = useState<string | null>(null);
   const menuOpen = menuOpenOn === routeKey;
-  // Also closes it for a tap on the page already open, which changes no route.
   const navigateTo = (view: ViewId) => {
     setMenuOpenOn(null);
     onNavClick(view);
   };
 
-  // Compact (menu button) whenever the full layout would push a page link off the brand's row.
   const headerRef = useRef<HTMLDivElement>(null);
   const [compact, setCompact] = useState(false);
   useLayoutEffect(() => {
     const header = headerRef.current;
     if (!header) return;
     const measure = () => {
-      // Lays out the full header for the reading, then restores it -- all before paint, so no flicker.
+      // Measure the full layout before paint, then restore.
       const restore = header.className;
       header.classList.remove('is-compact', 'is-menu-open');
       const rowMiddle = (el: Element) => { const r = el.getBoundingClientRect(); return r.top + r.height / 2; };
@@ -76,7 +73,6 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavClick, guideCh
     const observer = new ResizeObserver(measure);
     observer.observe(header);
     return () => observer.disconnect();
-    // The right-hand group (Back to Library) changes with these, taking or freeing room on the row.
   }, [currentView, guideCharacter, activeChar]);
 
   const navLink = (id: ViewId, label: string, Icon: ComponentType<IconProps>, className = '') => (

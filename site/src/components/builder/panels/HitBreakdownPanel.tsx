@@ -14,41 +14,35 @@ interface HitBreakdownPanelProps {
   forteOptions: DropdownOption[];
 }
 
-/** Builder sub-panel: scalar stat, per-hit multipliers and per-hit resources. */
 export const HitBreakdownPanel: React.FC<HitBreakdownPanelProps> = ({ nodeId, data, updateNode, forteOptions }) => {
-  // Which resource type "Add Hit Resource" will add next.
   const [newHitResType, setNewHitResType] = useState('energy');
-  // Raw text mirror of hitMults, kept separate so typing isn't clobbered by the round-tripped parse.
+  // Raw text so typing isn't clobbered by parsing.
   const [multText, setMultText] = useState<string>(() => (data.hitMults ? JSON.stringify(data.hitMults) : ''));
   useEffect(() => {
     setMultText(data.hitMults ? JSON.stringify(data.hitMults) : '');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodeId]);
 
-  // Same raw-text-mirror trick per hit-resource cell (keyed "resKey_hitIndex") -- onChange
-  // parses immediately for live calc, but the cell displays raw text so mid-typing isn't clobbered.
+  // Raw text per cell ("resKey_hitIndex").
   const [hitResRaw, setHitResRaw] = useState<Record<string, string>>({});
   useEffect(() => {
     setHitResRaw({});
   }, [nodeId]);
 
-  // Timeline preview: the engine's own hitFrameOffsets. Hit 1's frame is damageTimeframe.start, the
-  // last hit's damageTimeframe.end, and any hit between can be pinned (hitFrames) -- the rest spread.
+  // Hit timing preview via hitFrameOffsets.
   const hitMultsArr = Array.isArray(data.hitMults) ? data.hitMults : [];
   const hitCount = hitMultsArr.length;
-  // actionDuration is only the dmg-window's fallback end when damageTimeframe.end is unset --
-  // a passive/proc'd mechanic has no actionDuration but can still set damageTimeframe directly.
+  // Fallback end when damageTimeframe.end is unset.
   const durationFrames = typeof data.actionDuration === 'number' ? data.actionDuration : null;
   const tfStart = typeof data.damageTimeframe?.start === 'number' ? data.damageTimeframe.start : 0;
   const tfEnd = typeof data.damageTimeframe?.end === 'number' ? data.damageTimeframe.end : (durationFrames ?? 0);
-  // A DSL override can't be previewed without a row; it shows as spread.
+  // DSL overrides preview as spread.
   const hitFrameOverrides = (data.hitFrames || []).map(v => (typeof v === 'number' ? v : undefined));
   const hitOffsets = hitFrameOffsets(hitCount, tfStart, tfEnd, hitFrameOverrides);
   const cancelFrames = (data.cancelTimings || []).map(ct => ct.time).filter((t): t is Frames => typeof t === 'number');
   const timelineMax = Math.max(durationFrames || 0, tfEnd, ...cancelFrames, ...hitOffsets, 1);
   const hitResourceKeys = Object.keys(data.hitResources || {});
 
-  // A hit's frame field: the first and last are the damage window's start/end, the rest hitFrames.
   const isWindowEdge = (i: number) => i === 0 || i === hitCount - 1;
   const hitFrameValue = (i: number) =>
     i === 0 ? data.damageTimeframe?.start : i === hitCount - 1 ? data.damageTimeframe?.end : data.hitFrames?.[i - 1] ?? undefined;
@@ -93,8 +87,7 @@ export const HitBreakdownPanel: React.FC<HitBreakdownPanelProps> = ({ nodeId, da
     ...forteOptions,
     { value: 'tune', label: 'Tune' }
   ].filter(o => data.hitResources?.[o.value] === undefined);
-  // Selection can go stale when its value is added/removed elsewhere -- fall back to the
-  // first available option, and use that same resolved value when actually adding.
+  // Fall back to the first option if the selection is stale.
   const effectiveNewHitResType = availableHitResTypes.some(o => o.value === newHitResType)
     ? newHitResType
     : availableHitResTypes[0]?.value;
@@ -183,7 +176,6 @@ export const HitBreakdownPanel: React.FC<HitBreakdownPanelProps> = ({ nodeId, da
                         onChange={e => setHitFrame(i, e.target.value)}
                         onBlur={handleHitFrameBlur(i)}
                         placeholder={`${hitOffsets[i]}f`}
-                        // Grows with its text (monospace, so 1ch a character); CSS keeps it between a min and max.
                         style={{ width: `${frameText.length + 1}ch` }}
                         {...tip(frameText.length > 4 ? `${frameTip}<br>${escapeHtml(frameText)}` : frameTip)}
                       />

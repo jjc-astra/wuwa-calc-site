@@ -10,29 +10,25 @@ import type { EffectAction, EffectBar, EffectLane, EffectPoint } from './effectL
 
 interface TimelineEffectRowProps {
   lane: EffectLane;
-  // Inside a unit's effect group (Weapon, Echo Sets): indented one more step.
   nested?: boolean;
-  // The timeline's rows, when linked to the rotation table: hovering a buff highlights the rows it reached.
+  // Set when linked to the rotation table.
   linkRows?: any[];
 }
 
-// An instant System move's clip: drawn this wide, centered on its time, and hoverable this far
-// either side of it.
+// Instant System move clip width and hover margin.
 const ACTION_WIDTH_PX = 3;
 const ACTION_HOVER_PX = 3;
 
 const timeRange = (start: number, end: number) =>
   `${formatFramesAsSeconds(toFrames(start))} – ${formatFramesAsSeconds(toFrames(end))}`;
 
-// What a marker shows: "x4" for stacks, "1/2" charges in use for a cooldown, a tracker's value.
+// "x4" stacks, "1/2" charges, or a tracker value.
 const pointLabel = (lane: EffectLane, bar: EffectBar, value: number) =>
   lane.kind === 'tracker' ? formatValue(value) : lane.kind === 'cooldown' ? `${value}/${bar.info.maxStacks}` : `x${value}`;
 
-// A marker at the bar's start only says something when the buff stacks / the move has charges.
 const showsPoint = (lane: EffectLane, bar: EffectBar, index: number) =>
   index > 0 || lane.kind === 'tracker' || bar.info.maxStacks > 1;
 
-// "At" and "Remaining" lines for the cursor's time: how long the buff/cooldown has left there.
 function cursorLines(point: EffectPoint, cursorFrames: number): string {
   const at = line('At', formatFramesAsSeconds(toFrames(cursorFrames)));
   if (point.remaining === undefined) return at;
@@ -54,7 +50,7 @@ function barTooltipHtml(lane: EffectLane, bar: EffectBar, point: EffectPoint, cu
       time + cursorLines(point, cursorFrames)
     );
   }
-  // "DMG Bonus → 40%", like the Applies to line.
+  // "DMG Bonus → 40%"
   const effect = [info.stat, barValueAt(bar, cursorFrames)].filter(v => v !== undefined && v !== '').join(' → ');
   return (
     `<div>${escapeHtml(info.label && info.label !== info.name ? `${lane.label} (${info.label})` : lane.label)}</div>` +
@@ -68,34 +64,27 @@ function barTooltipHtml(lane: EffectLane, bar: EffectBar, point: EffectPoint, cu
   );
 }
 
-// The game time under the cursor, inside a bar (a bar never spans the Ending Rotation's
-// compressed gap, so px and frames are linear across it).
+// Game time under the cursor within a bar.
 const framesAt = (bar: EffectBar, x: number): number =>
   bar.widthPx > 0
     ? bar.startFrames + Math.min(1, Math.max(0, (x - bar.xPx) / bar.widthPx)) * (bar.endFrames - bar.startFrames)
     : bar.startFrames;
 
-/** One effect's row: a bar per stretch it held steady (a refresh or value change starts a new
- * one), stack/value changes marked inside it -- the same for a cooldown ticking -- or a System
- * mechanic's hits. Memoized: the timeline re-renders as its row window scrolls. */
+/** One effect's row of bars and markers, or a System mechanic's hits. */
 export const TimelineEffectRow = React.memo<TimelineEffectRowProps>(({ lane, nested = false, linkRows }) => {
   const markActive = useActiveMarker();
   const hover = useLinkedRowStore(s => s.hover);
-  // The bar (or instant System move) last linked, so moving within it doesn't re-scan the rows.
   const linked = useRef<EffectBar | EffectAction | undefined>(undefined);
   const hoverLinked = (target: EffectBar | EffectAction | undefined) => {
     if (!linkRows || target === linked.current) return;
     linked.current = target;
-    // An instant System move links like a unit's move (the table scrolls to it); a buff's rows don't scroll.
     if (target && 'row' in target) return hover(target.row?.id ? [target.row.id] : [], 'timeline');
     hover(target ? rowsReceivingBar(linkRows, lane, target) : [], 'timeline', false);
   };
 
-  // A move hovered (in the table, or its clip here): each buff row it received is highlighted,
-  // name and background (rowsReceivingLane). Toggled on the DOM, like TimelineRow's linked clips.
+  // Highlights this row when a hovered move received the buff. Toggled on the DOM.
   const trackRef = useRef<HTMLDivElement>(null);
   const rowRef = useRef<HTMLDivElement>(null);
-  // Built on first use.
   const receivedBy = useRef<{ lane: EffectLane; rows: any[]; ids: Set<string> } | null>(null);
   useLayoutEffect(() => {
     if (!linkRows) return;
@@ -106,7 +95,6 @@ export const TimelineEffectRow = React.memo<TimelineEffectRowProps>(({ lane, nes
       return rowIds.some(id => receivedBy.current!.ids.has(id));
     };
     const apply = ({ rowIds, source, scroll }: ReturnType<typeof useLinkedRowStore.getState>) => {
-      // A buff's rows (scroll: false) are what's hovered there, not a move.
       const moveIds = source === 'table' || (source === 'timeline' && scroll) ? rowIds : [];
       rowRef.current?.classList.toggle('is-linked', moveIds.length > 0 && lane.kind === 'buff' && received(moveIds));
       trackRef.current?.querySelectorAll<HTMLElement>('[data-row-id]').forEach(el =>
@@ -116,13 +104,11 @@ export const TimelineEffectRow = React.memo<TimelineEffectRowProps>(({ lane, nes
     return useLinkedRowStore.subscribe((s, prev) => { if (s !== prev) apply(s); });
   });
 
-  // Snap targets: stack/value changes after a bar's start, and hits.
   const markers = [
     ...lane.bars.flatMap(bar => bar.points.slice(1).map(point => ({ xPx: point.xPx, yPx: point.yPx, bar, point }))),
     ...lane.hits.map(hit => ({ xPx: hit.xPx, yPx: hit.yPx, hit }))
   ];
   const firstHitMarker = markers.length - lane.hits.length;
-  // Each bar's first marker index (its points after the first are markers).
   const barMarkerStart = lane.bars.map((_, b) => lane.bars.slice(0, b).reduce((n, bar) => n + bar.points.length - 1, 0));
 
   const move = useFrameMove(e => {
@@ -149,7 +135,6 @@ export const TimelineEffectRow = React.memo<TimelineEffectRowProps>(({ lane, nes
     const bar = [...lane.bars].reverse().find(b => pointer.x >= b.xPx && pointer.x < b.xPx + b.widthPx);
     hoverLinked(bar);
     if (!bar) return TooltipManager.hide();
-    // The stack count under the cursor.
     const point = [...bar.points].reverse().find(p => p.xPx <= pointer.x) ?? bar.points[0];
     TooltipManager.showAtPoint(e.clientX, e.clientY, barTooltipHtml(lane, bar, point, framesAt(bar, pointer.x)));
    });

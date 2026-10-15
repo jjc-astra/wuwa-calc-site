@@ -28,7 +28,7 @@ interface DropdownProps {
   placeholder?: string;
   className?: string;
   disabled?: boolean;
-  // Overrides the default gold popup highlight -- e.g. a rotation row's character theme color.
+  // Overrides the popup highlight color.
   accentColor?: string;
 }
 
@@ -37,9 +37,7 @@ const POPUP_MAX_HEIGHT = 420;
 const isGrouped = (options: DropdownOption[] | DropdownGroup[]): options is DropdownGroup[] =>
   options.length > 0 && (options[0] as DropdownGroup).options !== undefined;
 
-/** <select> replacement with a fully CSS-styled popup (native popups use OS styling CSS can't
- * override). Portaled to <body>, positioned in fixed coords to escape clipping ancestors --
- * same approach as IconSelect, minus the icon, plus optgroup grouping. */
+/** Styleable <select> replacement with optgroups. */
 export const Dropdown: React.FC<DropdownProps> = ({
   value, options, onChange, placeholder = '', className = '', disabled = false, accentColor
 }) => {

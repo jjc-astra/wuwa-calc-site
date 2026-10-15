@@ -1,4 +1,4 @@
-// Client for calc.worker.ts: one main lane for interactive calcs, plus a small pool for batch work.
+// calc.worker.ts client: a main lane for interactive calcs, a pool for batch work.
 import CalcWorker from './calc.worker.ts?worker';
 import { buildBuilderPayload } from './builderOverridePayload';
 import { getTeamEntityRefs } from '../utils/TeamUtils';
@@ -6,9 +6,7 @@ import { DataLoader } from '../utils/DataLoader';
 import { toPersistedRow } from '../logic/rotationRows';
 import type { TeamSlot, EnemyStats } from '../types';
 
-// One worker and its request queue. Requests run one at a time: the worker's TimelineEngine and
-// DataLoader share stateful caches that concurrent calls could leave half-populated. The worker
-// is created on first use, so pages that never calculate don't start one.
+// One lazily created worker running requests one at a time.
 class WorkerLane {
   private worker: Worker | null = null;
   private queue: Promise<void> = Promise.resolve();
@@ -23,7 +21,7 @@ class WorkerLane {
     this.worker = null;
   }
 
-  // Sends one request straight to the worker; callers must not overlap requests on a lane.
+  // Callers must not overlap requests.
   dispatch(id: number, type: string, payload: unknown): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       const w = this.getWorker();
@@ -38,16 +36,14 @@ class WorkerLane {
     });
   }
 
-  // Queues a request behind this lane's earlier ones.
   run(id: number, type: string, payload: unknown): Promise<any> {
     const result = this.queue.then(() => this.dispatch(id, type, payload));
-    // Settle either way, so one failed request doesn't block the rest of the queue.
+    // A failure mustn't block the queue.
     this.queue = result.then(() => {}, () => {});
     return result;
   }
 }
 
-// Rejects a pool request that was cancelled while queued.
 export class CancelledError extends Error {
   constructor() {
     super('Calculation cancelled.');
@@ -55,15 +51,11 @@ export class CancelledError extends Error {
   }
 }
 
-// Shared by every interactive caller (Calculator, Rankings, Comparison).
 const mainLane = new WorkerLane();
 
-// Extra lanes for batch work (the Character Guide's comparisons), run in parallel and never ahead
-// of the main lane. Capped: each lane loads its own databases and mechanics.
-// Measured: Guide throughput stops climbing past ~8 workers (each extra one only costs memory).
+// Batch lanes (Character Guide). Capped at 8; more adds no throughput.
 const POOL_SIZE = Math.max(1, Math.min(8, (navigator.hardwareConcurrency || 2) - 1));
-// A pool lane plus the entities its worker has loaded mechanics for (approximate: the worker can
-// still evict some for stale data or Builder edits).
+// A pool lane and the entities it has loaded (approximate).
 interface PoolLane {
   lane: WorkerLane;
   loaded: Set<string>;
@@ -71,12 +63,11 @@ interface PoolLane {
 const poolLanes: PoolLane[] = [];
 const idleLanes: PoolLane[] = [];
 
-// Pool requests wait here until a lane is free, so a lane that finishes early takes the next one
-// instead of idling while another lane works through a backlog.
+// A queued pool request, taken by the next free lane.
 interface PoolJob {
   id: number;
   payload: unknown;
-  // The job team's entities, as `folder/name`.
+  // `folder/name`
   entities: string[];
   isCancelled?: () => boolean;
   resolve: (value: any) => void;
@@ -90,8 +81,7 @@ function spawnPoolLane(): PoolLane {
   return pooled;
 }
 
-// The queued job sharing the most loaded entities with this lane (earliest on ties), so lanes
-// reuse mechanics they already fetched and parsed.
+// Picks the job sharing the most loaded entities with this lane.
 function takeJobFor(pooled: PoolLane): PoolJob {
   let best = 0;
   let bestScore = -1;
@@ -105,13 +95,12 @@ function takeJobFor(pooled: PoolLane): PoolJob {
   return poolQueue.splice(best, 1)[0];
 }
 
-// Hands queued jobs to free lanes, adding a lane while all are busy (up to POOL_SIZE).
+// Hands jobs to free lanes, adding lanes up to POOL_SIZE.
 function pumpPool(): void {
   while (poolQueue.length > 0) {
     const pooled = idleLanes.pop() ?? (poolLanes.length < POOL_SIZE ? spawnPoolLane() : null);
     if (!pooled) return;
     const job = takeJobFor(pooled);
-    // Checked at pickup, so a queued request nobody wants is dropped.
     if (job.isCancelled?.()) {
       idleLanes.push(pooled);
       job.reject(new CancelledError());
@@ -127,23 +116,16 @@ function pumpPool(): void {
   }
 }
 
-/**
- * Starts the main lane's and every pool lane's worker loading its databases ahead of the first
- * batch, seeded with the page's already-fetched files, so the batch doesn't pay each worker's
- * startup on its critical path. Safe to call repeatedly.
- */
+/** Pre-loads databases in every lane, seeded from the page. Idempotent. */
 export function warmWorkerPool(): void {
-  // Spawned now so a batch arriving first still reuses them (unseeded); not marked busy, since a
-  // warm-up only awaits the database load that a real request on the same worker shares.
+  // Not marked busy; warm-up shares the database load with real requests.
   const fresh: PoolLane[] = [];
   while (poolLanes.length < POOL_SIZE) {
     const pooled = spawnPoolLane();
     idleLanes.push(pooled);
     fresh.push(pooled);
   }
-  // Lanes live for the session, so this seeds once; later calls have nothing new to warm.
   if (fresh.length === 0) return;
-  // A fresh manifest first, so the seed's file text is checked against current hashes.
   void DataLoader.ready.then(() => DataLoader.refreshManifest()).then(() => {
     const payload = { seed: DataLoader.dataSeed() };
     if (!mainLaneSeeded) {
@@ -164,8 +146,7 @@ if (import.meta.hot) {
 
 let requestSeq = 0;
 
-// What the worker needs to run a rotation. The team's Builder overrides ride along on every request
-// (postToWorker adds them), so callers only describe the rotation.
+// A worker request. Builder overrides are added automatically.
 export interface WorkerRequest {
   rows: any[];
   team: TeamSlot[];
@@ -173,27 +154,24 @@ export interface WorkerRequest {
   enemy: EnemyStats;
   endingRotationEnabled?: boolean;
   endRotationStartsEarlier?: boolean;
-  // 'recalculate' only: also fill each row's damage breakdown, and how to fold the expanded rows back.
+  // 'recalculate' only: also fill damage breakdowns.
   includeDamage?: boolean;
   collapseMap?: number[];
-  // 'calculateDamage' only: where the loop starts, in `rows`' (expanded) index space.
+  // 'calculateDamage' only: loop start in expanded rows.
   loopStartIndex?: number;
-  // 'calculateDamage' only: false skips substat worth (the toolbar's Substat Worth toggle).
+  // 'calculateDamage' only: false skips substat worth.
   substatWorth?: boolean;
 }
 
-// The page's manifests ride along on every request, so the worker reloads changed data by its
-// current hash (callers just refreshed them via checkTeamFreshness). Rows go as their authored
-// fields only: the engine recomputes everything else, and evaluated rows are ~40 KB each to copy.
+// Adds manifests and builder overrides; sends authored row fields only.
 function requestPayload(request: WorkerRequest) {
   const rows = request.rows.map(row => ({ ...(row.id && { id: row.id }), ...toPersistedRow(row) }));
   return { ...request, rows, ...buildBuilderPayload(request.team), manifests: DataLoader.currentManifests() };
 }
 
-// Whether the main lane's worker has been sent a seed (see DataLoader.dataSeed).
 let mainLaneSeeded = false;
 
-// Runs a request on the main lane. Its first request carries the seed.
+// Runs a request on the main lane.
 export function postToWorker(
   type: 'recalculate' | 'calculateDamage',
   request: WorkerRequest
@@ -204,8 +182,7 @@ export function postToWorker(
   return { seq, result: mainLane.run(seq, type, payload), builderOverrides: payload.builderOverrides };
 }
 
-// Runs 'calculateDamage' on the next free pool lane. Rejects with CancelledError if cancelled
-// while queued.
+// Runs 'calculateDamage' on a pool lane. Rejects with CancelledError if cancelled while queued.
 export function postToWorkerPool(request: WorkerRequest & { summaryOnly?: boolean }, isCancelled?: () => boolean): Promise<any> {
   const payload = requestPayload(request);
   const entities = getTeamEntityRefs(request.team, { includeSystem: false, dedupe: true }).map(ref => `${ref.folder}/${ref.name}`);

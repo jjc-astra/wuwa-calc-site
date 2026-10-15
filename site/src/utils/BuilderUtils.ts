@@ -5,7 +5,7 @@ import { MECHANICS_NOTATION } from '../data/db';
 import { getStanceChanges } from './Stance';
 
 export const BuilderUtils = {
-  /** A node as saved JSON: default-valued optional fields dropped, numeric strings as numbers. */
+  /** Node as saved JSON: defaults dropped, numeric strings as numbers. */
   cleanMechanicNode: (node: MechanicNode, activeChar: string | null): Record<string, any> => {
     const clean: Record<string, any> = { name: node.name };
     if (node.category) clean.category = node.category;
@@ -43,7 +43,7 @@ export const BuilderUtils = {
         if (cfg.cursorSpeed !== undefined && cfg.cursorSpeed !== d.CURSOR_SPEED) holdCfg.cursorSpeed = cfg.cursorSpeed;
         if (cfg.forteSlot && cfg.forteSlot !== d.FORTE_SLOT) holdCfg.forteSlot = cfg.forteSlot;
         if (cfg.retainCursor) holdCfg.retainCursor = true;
-        // Clamp has no window -- these are hidden in the Builder and meaningless once clamped.
+        // Clamp has no window.
         if (mode !== 'clamp') {
           const wCenter = cfg.windowCenter !== undefined ? String(cfg.windowCenter).trim() : '';
           if (wCenter && wCenter !== d.WINDOW_CENTER) holdCfg.windowCenter = wCenter;
@@ -72,8 +72,7 @@ export const BuilderUtils = {
       if (motionStop !== undefined) clean.motionStop = motionStop;
     }
 
-    // Unlike the scheduling fields above, damageTimeframe is read by both normal hit-spread
-    // (_resolveTimings) and proc'd mechanic dmg delay (_queueProccedMechanic) -- must survive cleaning.
+    // Also read by procs; must survive cleaning.
     const dmgStart = CommonUtils.parseMixed(node.damageTimeframe?.start);
     const dmgEnd = CommonUtils.parseMixed(node.damageTimeframe?.end);
     if (dmgStart !== undefined || dmgEnd !== undefined) {
@@ -81,7 +80,7 @@ export const BuilderUtils = {
       if (dmgStart !== undefined) clean.damageTimeframe.start = dmgStart;
       if (dmgEnd !== undefined) clean.damageTimeframe.end = dmgEnd;
     }
-    // Per-hit overrides, same readers: blanks become null (spread evenly), trailing ones dropped.
+    // Blanks become null; trailing blanks dropped.
     if (Array.isArray(node.hitFrames)) {
       const hitFrames = node.hitFrames.map(v => CommonUtils.parseMixed(v) ?? null);
       while (hitFrames.length > 0 && hitFrames[hitFrames.length - 1] === null) hitFrames.pop();
@@ -91,7 +90,6 @@ export const BuilderUtils = {
     return clean;
   },
 
-  /** A node's Builder category from its cast types, for nodes without one. */
   guessCategory: (mechData: MechanicNode): string => {
     const casts = mechData.castTypes || [];
     if (casts.includes('Basic') || casts.includes('Heavy') || casts.includes('Dodge')) return 'Basic Attack';
@@ -103,7 +101,7 @@ export const BuilderUtils = {
     return 'Inherent Skill';
   },
 
-  /** JSON text as highlighted HTML, one `.code-line` div per line. */
+  /** Highlighted HTML, one `.code-line` per line. */
   syntaxHighlight: (str: string): string => {
     const escaped = str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const highlighted = escaped.replace(
@@ -127,7 +125,7 @@ export const BuilderUtils = {
       .join('');
   },
 
-  /** The Builder's output pane text: the base-stats line and the mechanics file, raw and highlighted. */
+  /** Output pane text, raw and highlighted. */
   formatJSONOutput: (
     activeChar: string | null,
     baseStats: Record<string, any>,

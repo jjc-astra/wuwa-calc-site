@@ -1,6 +1,6 @@
 import { createContext } from 'react';
 
-/** Node classes used by the About diagrams, in legend order. Colors may be palette vars. */
+/** Diagram node classes, in legend order. */
 export const NODE_KINDS = [
   { id: 'ui', label: 'UI component / hook', fill: 'var(--bg-card)', stroke: 'var(--border)', color: 'var(--text-main)' },
   { id: 'store', label: 'Zustand store', fill: '#3b3221', stroke: 'var(--accent)', color: 'var(--accent-light)' },
@@ -10,25 +10,25 @@ export const NODE_KINDS = [
   { id: 'alert', label: 'Stale / error path', fill: '#3a2222', stroke: 'var(--danger)', color: '#ffdddd' }
 ];
 
-/** Per-section "Actual size" toggle: natural size with scrolling instead of fit to width. */
+/** Per-section "Actual size" toggle. */
 export const ActualSizeContext = createContext(false);
 
-// Mermaid needs literal colors, so palette vars are read off :root.
+// Mermaid needs literal colors.
 const resolveColor = (value: string): string => {
   const match = /^var\((--[\w-]+)\)$/.exec(value);
   return match ? getComputedStyle(document.documentElement).getPropertyValue(match[1]).trim() : value;
 };
 
-// Loaded on first use, so mermaid stays out of the main bundle.
+// Lazy-loaded, out of the main bundle.
 let mermaidReady: Promise<{ mermaid: typeof import('mermaid').default; classDefs: string }> | null = null;
 
-/** Mermaid, initialized with the site palette, plus classDef lines for NODE_KINDS. */
+/** Mermaid with the site palette, plus classDefs for NODE_KINDS. */
 export const loadMermaid = () => {
   mermaidReady ??= import('mermaid').then(({ default: mermaid }) => {
     const c = resolveColor;
     mermaid.initialize({
       startOnLoad: false,
-      // Labels break only at their own <br/>s; mermaid 11 wraps them at 200px otherwise.
+      // Break labels only at <br/>.
       markdownAutoWrap: false,
       theme: 'base',
       themeVariables: {

@@ -1,6 +1,4 @@
-// Persists a character's guide calcs -- every view opened, not just the default -- so coming
-// back to the page reuses them instead of rerunning them. A saved copy records exactly what its
-// results were calculated from (GuideDeps) and is dropped whole if any of it has changed since.
+// Persists a character's guide calcs, dropped if any dependency changed.
 import calcVersion from 'virtual:calc-version';
 import { DataLoader, RANKINGS_DIR } from '../../utils/DataLoader';
 import { getTeamEntityRefs } from '../../utils/TeamUtils';
@@ -12,15 +10,14 @@ import type { PanelResults, RotationSummary } from '../../types/results';
 import type { GuideEntry, GuideJob } from './guideModel';
 
 export interface CachedFullRun {
-  // Saved without dmgOverTimeSeries: the guide has no DMG Over Time panel.
+  // Without dmgOverTimeSeries.
   results: PanelResults;
-  // Only drawn by the Timeline, so saved trimmed to its fields (trimRowsForTimeline).
+  // Trimmed to Timeline fields.
   evaluatedRows: any[];
   loopStartIndex: number;
 }
 
-// What a set of results was calculated from: the calc code, each data file's content version
-// (ranked runs, databases, mechanics) and a hash of the local Mechanics Builder edits per entity.
+// Calc code version, data file versions, and Builder edit hashes.
 export interface GuideDeps {
   calcVersion: string;
   files: Record<string, string>;
@@ -29,20 +26,18 @@ export interface GuideDeps {
 
 export interface GuideCacheRecord {
   deps: GuideDeps;
-  // Keyed by GuideJob.key, least recently used first.
+  // By GuideJob.key, LRU first.
   summaries: Record<string, RotationSummary>;
   full: Record<string, CachedFullRun>;
 }
 
 const STORE = 'guide-cache';
-// Base stats, weapon stats, set/echo data and recommended builds.
 const DATABASE_FILES = ['db_characters.json', 'db_weapons.json', 'db_echoes.json', 'db_builds.json'];
-// Full runs are ~35 KB each (summaries ~2.5 KB); only the most recently used are kept.
+// Full runs are ~35 KB each.
 const MAX_FULL_RUNS = 20;
 const MAX_SUMMARIES = 400;
 
-// The data files and Builder entities the given jobs are calculated from. The character's ranked
-// runs (and the index the default team is picked from) always count: they decide what every job is.
+// Files and Builder entities the jobs depend on.
 export function depsOf(entries: GuideEntry[], jobs: GuideJob[]): { files: string[]; entities: string[] } {
   const refs = getTeamEntityRefs(jobs.flatMap(j => j.team), { includeSystem: true, dedupe: true });
   const files = [
@@ -54,7 +49,6 @@ export function depsOf(entries: GuideEntry[], jobs: GuideJob[]): { files: string
   return { files: [...new Set(files)], entities: [...new Set(refs.map(r => r.name))] };
 }
 
-// The current versions of the given dependencies.
 export async function readDeps(files: string[], entities: string[]): Promise<GuideDeps> {
   await DataLoader.refreshManifest();
   const { getTeamOverrides } = useBuilderStore.getState();
@@ -63,7 +57,7 @@ export async function readDeps(files: string[], entities: string[]): Promise<Gui
   return { calcVersion, files: Object.fromEntries(fileVersions), builderEdits: Object.fromEntries(editHashes) };
 }
 
-// Which of `saved`'s dependencies `current` has a different version of (empty = still valid).
+// Changed dependencies (empty = still valid).
 export function changedDeps(saved: GuideDeps, current: GuideDeps): string[] {
   const changed = saved.calcVersion !== current.calcVersion ? ['calc code'] : [];
   Object.entries(saved.files).forEach(([path, v]) => { if (current.files[path] !== v) changed.push(path); });

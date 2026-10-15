@@ -13,15 +13,14 @@ interface SubPanelProps {
   row: any;
 }
 
-/** A row's detail panel for its clicked cell: damage, timeline, offset or a gauge. */
+/** A row's detail panel for the clicked cell. */
 export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row }) => {
   const config = PANEL_CONFIG[trigger];
   if (!config) return null;
 
-  // --- 1. DAMAGE PANEL ---
   if (config.type === 'complex_dmg') return <DamageBreakdownPanel config={config} row={row} />;
 
-  // --- 2. ADVANCED TIMELINE PANEL ---
+  // Timeline
   if (config.type === 'complex_time') {
     return (
       <div className="sub-panel is-open">
@@ -38,7 +37,7 @@ export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row }) => {
               <div className="panel-content-grid">
                 {group.fields.map((f) => {
                   const rawVal = row[f.key] !== undefined ? row[f.key] : f.default;
-                  // Every field here is a Frames value, shown as seconds.
+                  // Frames shown as seconds.
                   const genericVal = typeof rawVal === 'number' ? CommonUtils.trimNumber(rawVal) : rawVal;
                   const displayVal =
                     typeof rawVal === 'number' && f.suffix === 's'
@@ -54,7 +53,7 @@ export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row }) => {
     );
   }
 
-  // --- 3. OFFSET BREAKDOWN PANEL ---
+  // Offset
   if (trigger === 'offset') {
     const reasons = row.offsetReasons || [];
     const offsetVal = framesToSeconds(toFrames(row.offset || 0));
@@ -92,7 +91,7 @@ export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row }) => {
     );
   }
 
-  // --- 4. STANDARD GAUGE & RESOURCE PANELS ---
+  // Gauges and resources
   const u = row.unit;
   const forteSlot = forteSlotOf(trigger);
   const title = forteSlot !== null ? `${forteLabel(DataLoader.characterDB[u], forteSlot)} Breakdown` : config.title;
@@ -107,7 +106,7 @@ export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row }) => {
             stateVal = stateVal[u];
           }
 
-          // Not on the row itself: a per-move tracker (the resource deltas).
+          // Per-move resource delta trackers.
           const trackerVal = row.trackers?.[f.key] ?? row.dropdownState?.trackers?.[f.key];
           const rawVal = stateVal ?? trackerVal ?? f.default;
 

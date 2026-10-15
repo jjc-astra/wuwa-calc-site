@@ -17,29 +17,23 @@ interface ComparisonState {
   pinned: PinnedRotation | null;
   status: 'idle' | 'loading';
   pinFromFile: (file: File) => Promise<void>;
-  // History entries already carry dmgOverTimeSeries from the Calculate press that produced
-  // them -- pins instantly, no recalculation.
+  // Instant; no recalculation.
   pinFromHistoryEntry: (team: Array<{ character?: string }>, results: Pick<RotationResults, 'dpsStats' | 'dmgOverTimeSeries'>) => void;
-  // Rankings entries only carry dpsStats/contribution, never dmgOverTimeSeries -- re-runs the
-  // calc worker on the entry's ranked run, like pinFromFile does for a file.
+  // Recalculates the ranked run.
   pinFromRankingEntry: (entry: { id: string; rotationFile: string }) => Promise<void>;
   unpin: () => void;
 }
 
-// Character names only, no weapon initials -- unlike the export filename, this sits in a
-// fixed-width chip and runs out of room fast with "Name-WI" pairs for 3 units.
+// Character names only, to fit the chip.
 function labelFromTeam(team: Array<{ character?: string }> | undefined): string {
   if (!team) return 'Imported Rotation';
   const names = teamCharacters(team);
   return names.length > 0 ? names.join(' / ') : 'Imported Rotation';
 }
 
-// The Calculator's pinned comparison rotation.
 export const useComparisonStore = create<ComparisonState>()(
   persist(
     (set) => {
-      // Shared by pinFromFile and pinFromRankingEntry -- same calc-worker round trip, just
-      // sourced from a File vs. a ranked run.
       const recalcAndPin = async (label: string, input: CalcInput) => {
         set({ status: 'loading' });
         try {
@@ -59,8 +53,7 @@ export const useComparisonStore = create<ComparisonState>()(
         pinned: null,
         status: 'idle',
 
-        // A pinned rotation file carries rotation/team/settings but no results; the chart needs
-        // real per-hit points anyway, so this always runs the calc worker.
+        // Always recalculates.
         pinFromFile: async (file: File) => {
           const text = await file.text();
           let parsed: any;

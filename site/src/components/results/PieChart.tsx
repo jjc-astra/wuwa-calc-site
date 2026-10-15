@@ -5,7 +5,7 @@ export interface PieSlice {
   label: string;
   value: number;
   color: string;
-  /** Overrides the legend label's text color (e.g. a character's theme color); defaults to the standard text token. */
+  /** Legend label color override. */
   labelColor?: string;
 }
 

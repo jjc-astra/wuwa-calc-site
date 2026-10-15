@@ -1,4 +1,4 @@
-// Unified registry for buff-stat scopes, sheet field mappings, and classification rules.
+// Buff-stat scopes, sheet mappings, and classification rules.
 import type { BuffTotals } from '../../types';
 import { ELEMENTS, elementBonusKey } from '../../data/gameVocab';
 
@@ -7,21 +7,20 @@ const ELEMENT_SCOPES: readonly string[] = ELEMENTS.map(element => element.toLowe
 
 export const ALL_SCOPES: readonly string[] = [...CAST_SCOPES, ...ELEMENT_SCOPES];
 
-// Maps scopes to hit-tags in aggregateBuffTotals; accepts both 'liberation' and 'lib'.
+// Scope -> hit tags.
 export const SCOPE_HIT_TAGS: Record<string, string[]> = {
   ...Object.fromEntries(CAST_SCOPES.map(scope => [scope, [scope]])),
   lib: ['liberation', 'lib'],
   ...Object.fromEntries(ELEMENT_SCOPES.map(scope => [scope, [scope]]))
 };
 
-// Maps scopes to sheet properties for flat "<Scope> DMG Bonus" (calculateFinalStats only). Intro,
-// Outro and Coordinated have no sheet stat -- only a buff can scope to them.
+// Scope -> sheet DMG Bonus stat.
 export const SHEET_DMG_BONUS_KEY: Record<string, string> = {
   ...Object.fromEntries((['basic', 'heavy', 'skill', 'lib'] as const).map(scope => [scope, `${scope}DmgBonus`])),
   ...Object.fromEntries(ELEMENTS.map(element => [element.toLowerCase(), elementBonusKey(element)]))
 };
 
-// The sheet DMG Bonus stat a hit's dmg type draws on ("Liberation" -> libDmgBonus), if it has one.
+// "Liberation" -> libDmgBonus
 export const sheetDmgBonusKeyForType = (dmgType: string): string | undefined => {
   const tag = dmgType.toLowerCase();
   const scope = Object.keys(SCOPE_HIT_TAGS).find(s => SCOPE_HIT_TAGS[s].includes(tag));
@@ -30,7 +29,7 @@ export const sheetDmgBonusKeyForType = (dmgType: string): string | undefined => 
 
 type MultiplierBucket = keyof BuffTotals;
 
-// First match wins. Must precede bare atk/hp/def and DMG_BONUS_FALLBACK checks (e.g. DEF Shred -> reduceDef).
+// First match wins; checked before bare stats and DMG_BONUS_FALLBACK.
 export const MULTIPLIER_BUCKET_RULES: { aliases: string[]; bucket: MultiplierBucket }[] = [
   { aliases: ['amp', 'deepen'], bucket: 'dmgAmp' },
   { aliases: ['taken'], bucket: 'dmgTaken' },
@@ -46,7 +45,7 @@ export const MULTIPLIER_BUCKET_RULES: { aliases: string[]; bucket: MultiplierBuc
 
 export const DMG_BONUS_FALLBACK_ALIASES = ['dmg bonus', 'dmg%', 'damage bonus', 'dmg'];
 
-// Builder autocomplete suggestions (eff-stat mode). Excludes crit and base stats.
+// eff-stat suggestions, excluding crit and base stats.
 export const UNSCOPED_MOD_LABELS = [
   'DMG Bonus', 'DMG Amp', 'Deepen', 'DMG Taken', 'Reduce RES', 'RES Shred',
   'Ignore RES', 'RES Pen', 'Reduce DEF', 'DEF Shred', 'Ignore DEF', 'Additive Mult', 'Multiplicative Mult'
@@ -56,12 +55,8 @@ export const SCOPEABLE_MOD_LABELS = [
   'DMG Bonus', 'DMG Amp', 'Deepen', 'DMG Taken', 'Ignore RES', 'Ignore DEF', 'Additive Mult', 'Multiplicative Mult'
 ] as const satisfies readonly (typeof UNSCOPED_MOD_LABELS[number])[];
 
-// Hover copy for those labels. Typed against UNSCOPED_MOD_LABELS (which already includes every
-// scopeable one), so a label can't be offered without a tooltip.
-// Formula (CombatCalculator.ts): baseDmg * critMult * (1+DMG Bonus) * (1+DMG Amp/Deepen) *
-// (1+DMG Taken) * (1+Multiplicative Mult) * resMult * defMult.
-// Any cast type containing "tune" (TuneBreak/TuneRupture/TuneHack/...) routes to calcTuneDmg:
-// skips DMG Bonus/crit/scalar; uses the unit's Tune Break Boost instead of Amp/Deepen.
+// Tooltips for UNSCOPED_MOD_LABELS.
+// Formula: baseDmg * critMult * (1+Bonus) * (1+Amp) * (1+Taken) * (1+Mult) * resMult * defMult.
 export const MOD_LABEL_TOOLTIPS: Record<typeof UNSCOPED_MOD_LABELS[number], string> = {
   'DMG Bonus': 'Adds to the additive damage-bonus multiplier (1 + Base DMG Bonus + this), applied before crit.',
   'DMG Amp': 'Multiplies final damage by (1 + this). Shares the same multiplier bucket as Deepen.',
@@ -78,7 +73,7 @@ export const MOD_LABEL_TOOLTIPS: Record<typeof UNSCOPED_MOD_LABELS[number], stri
   'Multiplicative Mult': 'A separate multiplicative layer on final damage: (1 + this), alongside DMG Amp/Deepen and DMG Taken.'
 };
 
-// Guards against autocomplete and parser alias drift in dev.
+// Dev check for autocomplete/parser alias drift.
 if (import.meta.env?.DEV) {
   [...new Set([...UNSCOPED_MOD_LABELS, ...SCOPEABLE_MOD_LABELS])].forEach(label => {
     const sLower = label.toLowerCase();

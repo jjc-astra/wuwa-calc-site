@@ -1,6 +1,4 @@
-// Dual-handle range slider (min+max, one track): two overlapping native <input type="range">
-// elements with transparent tracks (CSS) over a static div drawing the fill. Tick marks
-// (step=1) double as labels -- gold inside [min,max], dim outside.
+// Dual-handle range slider: two overlapping range inputs over a fill div.
 import React from 'react';
 import { CommonUtils } from '../../utils/Common';
 

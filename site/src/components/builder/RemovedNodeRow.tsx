@@ -1,5 +1,4 @@
-// A node deleted with Delete Node, still listed where it was: dimmed and dotted, with Restore and
-// a discard ×. It's out of the mechanics (so the JSON and calc) until restored.
+// A deleted node shown in place, with Restore and discard.
 import React from 'react';
 import { useBuilderStore } from '../../store/useBuilderStore';
 import { tip, TooltipManager } from '../../utils/Common';
@@ -13,7 +12,7 @@ interface RemovedNodeRowProps {
 
 export const RemovedNodeRow: React.FC<RemovedNodeRowProps> = ({ nodeId, node }) => {
   const { restoreRemovedNode, discardRemovedNode } = useBuilderStore();
-  // Either button unmounts this row, so no mouseleave fires to hide its tooltip.
+  // Unmounting skips mouseleave.
   const restore = () => { TooltipManager.hide(); restoreRemovedNode(nodeId); };
   const discard = () => { TooltipManager.hide(); discardRemovedNode(nodeId); };
   return (

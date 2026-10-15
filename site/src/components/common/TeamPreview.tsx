@@ -1,4 +1,4 @@
-// Mini character + weapon (+ echo set) avatar row: the roster's collapsed header, Rankings and History rows.
+// Compact character/weapon/set avatar row.
 import React from 'react';
 import { CommonUtils, getCharacterThemeColor, tip } from '../../utils/Common';
 import { useImageStatus } from '../../hooks/useImageStatus';
@@ -29,7 +29,6 @@ const PreviewIcon: React.FC<{ name: string; folder: ImageFolder }> = ({ name, fo
 
 interface TeamPreviewProps {
   team: Array<Pick<TeamSlot, 'character' | 'sequence' | 'weapon' | 'rank'> & Partial<Pick<TeamSlot, 'mainSet'>>>;
-  // Adds each slot's main echo set.
   showSets?: boolean;
 }
 

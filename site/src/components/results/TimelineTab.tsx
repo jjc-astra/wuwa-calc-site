@@ -5,8 +5,7 @@ import { useRosterStore } from '../../store/useRosterStore';
 import { useTimelineViewStore } from '../../store/useTimelineViewStore';
 import { tip } from '../../utils/Common';
 
-/** The Results panel's Timeline tab: the rotation's moves, every unit's buffs, enemy and System
- * effects, and trackers. */
+/** The Results panel's Timeline tab. */
 export const TimelineTab: React.FC = () => {
   const timelineRows = useRotationStore(s => s.timelineRows);
   const loopStartIndex = useRotationStore(s => s.timelineLoopStartIndex);
@@ -15,7 +14,7 @@ export const TimelineTab: React.FC = () => {
   const showPermanent = useTimelineViewStore(s => s.showPermanent);
   const setShowPermanent = useTimelineViewStore(s => s.setShowPermanent);
 
-  // Hit dots need priced hits, which recalculating only does while this tab is open.
+  // Hit dots need priced hits.
   useEffect(() => {
     setTimelineActive(true);
     return () => setTimelineActive(false);

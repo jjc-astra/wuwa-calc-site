@@ -1,5 +1,4 @@
-// Warning badge on a mechanic's summary row when it differs from its saved (pristine) copy.
-// Clicking opens a small menu with a per-row revert.
+// Changed-node badge with a revert menu.
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useBuilderStore, nodeChangeKind } from '../../store/useBuilderStore';
@@ -68,7 +67,7 @@ export const NodeChangeBadge: React.FC<NodeChangeBadgeProps> = ({ nodeId }) => {
         </svg>
       </button>
       {isOpen && createPortal(
-        // Portaled, but React events still bubble through the tree to the summary cell's onClick.
+        // React events bubble through portals.
         <div ref={popupRef} className="dropdown-popup" style={pos} onClick={e => e.stopPropagation()}>
           <div className="dropdown-option mech-revert-option" onMouseDown={e => e.preventDefault()} onClick={revert}>
             <span className="dropdown-option-label">{actionLabel}</span>

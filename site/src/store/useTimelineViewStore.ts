@@ -3,13 +3,13 @@ import { persist } from 'zustand/middleware';
 import { persistStorage } from '../utils/safeLocalStorage';
 
 interface TimelineViewState {
-  // Effects active the entire rotation (always-on passives and the like) shown.
+  // Show always-on effects.
   showPermanent: boolean;
-  // Collapsed effect sections, by id (see RotationTimeline's effect sections). Open by default.
+  // Collapsed section ids (open by default).
   collapsed: string[];
-  // Units whose effects are shown, by id. Collapsed by default: just their moves.
+  // Expanded unit ids (collapsed by default).
   expandedUnits: string[];
-  // Rotation table's Time column counts down from 2:00 instead of up from 0.
+  // Time column counts down from 2:00.
   timeCountdown: boolean;
   setShowPermanent: (show: boolean) => void;
   toggleCollapsed: (id: string) => void;
@@ -17,10 +17,9 @@ interface TimelineViewState {
   toggleTimeCountdown: () => void;
 }
 
-// `list` with `id` added, or taken out if it's there.
 const toggled = (list: string[], id: string): string[] => (list.includes(id) ? list.filter(c => c !== id) : [...list, id]);
 
-/** The Calculator's Timeline and rotation table view choices, kept across visits. */
+/** Persisted Timeline and rotation table view options. */
 export const useTimelineViewStore = create<TimelineViewState>()(
   persist(
     set => ({

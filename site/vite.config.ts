@@ -7,12 +7,8 @@ import { dirname, join, relative } from 'node:path'
 import { SITE_URL, SITE_NAME, PAGE_META, VIEW_IDS, viewPath, calculatorPath, guidePath, guideCharacterMeta } from './src/config/routes.ts'
 import type { PageMeta } from './src/config/routes.ts'
 
-// `virtual:calc-version`: a hash of every non-UI source file (src/**/*.ts -- the calc engine,
-// workers, data tables, stores, guide model), so caches of calculated results can tell when the
-// code that produced them changed. Recomputed on every load. In dev, editing one of those files
-// only marks it for recompute on the next full page load -- it doesn't push a hot update, which
-// would reload the page on every save. Holding the old value until then is still right: the calc
-// runs in a worker, and workers keep their old code until a full reload too.
+// `virtual:calc-version`: hash of src/**/*.ts, for invalidating cached results.
+// Dev: recomputed on the next full reload, not hot-updated.
 function calcVersionPlugin(): Plugin {
   const id = 'virtual:calc-version'
   const resolvedId = '\0' + id
@@ -42,9 +38,7 @@ function calcVersionPlugin(): Plugin {
   }
 }
 
-// Dev only: GET /__wip-files (WIP_FILES_URL in src/utils/dataSource.ts) is the WIP mirror's own
-// manifest -- each data file's path inside data/ and a hash of its content -- so the site can tell
-// which entities have WIP mechanics and notice a WIP file being added, edited or deleted.
+// Dev only: GET /__wip-files serves the WIP mirror's manifest.
 function wipFilesPlugin(): Plugin {
   const dataDir = join(import.meta.dirname, 'public', 'wip-data', 'data')
   const listFiles = (dir: string): string[] => {
@@ -53,7 +47,7 @@ function wipFilesPlugin(): Plugin {
         e.isDirectory() ? listFiles(join(dir, e.name)) : e.name.endsWith('.json') ? [join(dir, e.name)] : []
       )
     } catch {
-      return [] // no WIP mirror
+      return []
     }
   }
 
@@ -78,8 +72,7 @@ const ROUTE_META_MARKER = '<!--route-meta-->'
 const escapeAttr = (text: string) =>
   text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
-// Link-preview scrapers (Discord, Slack, iMessage) read these from the raw HTML with no JS, so
-// every URL must be absolute. `canonicalPath` null: a noindex page (404.html).
+// Meta tags for link previews; URLs must be absolute. null `canonicalPath`: noindex.
 function routeMetaTags({ title, description }: PageMeta, canonicalPath: string | null): string {
   const t = escapeAttr(title)
   const d = escapeAttr(description)
@@ -108,13 +101,10 @@ function routeMetaTags({ title, description }: PageMeta, canonicalPath: string |
 interface RoutePage {
   path: string
   meta: PageMeta
-  // Where search engines should index this page's content; null for 404.html.
   canonicalPath: string | null
 }
 
-// Characters with a ranked rotation (the ones the Character Guide library opens), from the data
-// repo's rankings index. WUWA_DATA_DIR (the data repo's data/) is set by the deploy workflow; without
-// it, guide characters fall back to 404.html like any other unknown path.
+// Ranked characters from WUWA_DATA_DIR's rankings index (empty without it).
 function rankedGuideCharacters(): string[] {
   const dataDir = process.env.WUWA_DATA_DIR
   if (!dataDir) return []
@@ -124,16 +114,12 @@ function rankedGuideCharacters(): string[] {
 
 function routePages(): RoutePage[] {
   const views: RoutePage[] = VIEW_IDS.map(view => ({ path: viewPath(view), meta: PAGE_META[view], canonicalPath: viewPath(view) }))
-  // Same page as /calculator/, so they point search engines there.
   const steps: RoutePage[] = ([1, 2] as const).map(step => ({ path: calculatorPath(step), meta: PAGE_META.calculator, canonicalPath: viewPath('calculator') }))
   const guides: RoutePage[] = rankedGuideCharacters().map(name => ({ path: guidePath(name), meta: guideCharacterMeta(name), canonicalPath: guidePath(name) }))
   return [...views, ...steps, ...guides]
 }
 
-// Build only: GitHub Pages has no SPA rewrites, so each route gets a real <path>/index.html (a copy
-// of the app with that route's title, description and canonical URL baked in, for crawlers and
-// link previews), plus 404.html for every other path, and a sitemap.xml + robots.txt listing them.
-// Dev serves index.html for every path, with the landing page's tags.
+// Build only: per-route index.html, 404.html, sitemap.xml and robots.txt (GitHub Pages has no rewrites).
 function routePagesPlugin(): Plugin {
   return {
     name: 'route-pages',
@@ -162,8 +148,7 @@ function routePagesPlugin(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
-  // Served from wuwacalc.com's root via the custom domain, not the github.io/wuwa-calc-site/
-  // subpath, so assets resolve from '/' for both dev and production builds.
+  // Served from the custom domain's root.
   base: '/',
   plugins: [react(), calcVersionPlugin(), wipFilesPlugin(), routePagesPlugin()],
 })

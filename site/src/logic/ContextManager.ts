@@ -9,19 +9,14 @@ import { isDslExpr, scopedKey } from './engineValues';
 import { DSLParser } from './dsl/dslParser';
 import { MechanicKey } from '../utils/MechanicKey';
 
-// A buff still in effect: it has time left or stacks.
 const isBuffLive = (buff: any): boolean => !!buff && (buff.duration > 0 || buff.stacks > 0);
 
-// @Move.IsNextInCombo checks in progress (by unit + move), so a rule that itself reads it can't recurse.
+// In-progress IsNextInCombo checks, to prevent recursion.
 const comboChecks = new Set<string>();
 
-// Builds the `ctx` DSL rules and math evaluate against.
+// Builds the `ctx` that DSL rules evaluate against.
 export const ContextManager = {
-  // Seconds until `actionName` (bare move name) next has a use available for `unitName`, given
-  // TimelineEngine's cooldown state (`cooldowns` for a plain single-timer move, `chargeCooldowns`
-  // for maxCharges > 1) -- 0 if available right now. Shared by TimelineEngine's own pre-cast wait
-  // and this file's own @Self.Cooldown()/checkCooldown DSL reads, so both agree on availability.
-  // Keep in sync with TimelineEngine's _startCooldown, which writes the state this reads.
+  // Seconds until a use is available (0 if now). Sync with TimelineEngine._startCooldown.
   cooldownRemaining: (
     state: { cooldowns?: Record<string, number>; chargeCooldowns?: Record<string, number[]> } | undefined,
     unitName: string,
@@ -37,12 +32,7 @@ export const ContextManager = {
     return Math.max(0, state?.cooldowns?.[key] || 0);
   },
 
-  /**
-   * @Move.IsNextInCombo: whether the move being cast is what its input does right now -- no
-   * higher-priority move of `unit` on the same input and input type, castable in its stance, passes
-   * its own trigger rule (as a combo's next step would). Lets a combo starter (Basic Attack 1)
-   * require that no step above it is available, without listing them.
-   */
+  /** @Move.IsNextInCombo: no higher-priority move on the same input is castable. */
   isNextInCombo: (state: any, unit: string, team: any[]): boolean => {
     const currentKey = state.action || '';
     const current = DataLoader.mechanicsDB[currentKey];
@@ -66,7 +56,6 @@ export const ContextManager = {
         if (!move.triggerRule) return true;
         if (!move._compiledRule || typeof move._compiledRule.evaluate !== 'function') move._compiledRule = DSLParser.compile(move.triggerRule);
         if (!move._compiledRule || typeof move._compiledRule.evaluate !== 'function') return false;
-        // Its rule reads its own move (ctx.move), not the one being cast.
         return !!move._compiledRule.evaluate(ContextManager.buildContext({ ...state, action: key }, unit, team), unit);
       });
     } finally {
@@ -84,8 +73,6 @@ export const ContextManager = {
       console.warn('[ContextManager] WARNING: activeUnitName is missing.');
     }
     try {
-      // The state as it is now -- a caller wanting a row's pre-cast state (its action dropdown)
-      // passes row.dropdownState itself.
       const activeState = stateData || {};
       const teamNames = teamCharacters(team);
 
@@ -93,9 +80,7 @@ export const ContextManager = {
         buff.target === activeUnitName || buff.target === '@Team' || buff.target === 'Active'
       );
 
-      // Only worked out if a rule reads a stat or HP -- most never do. Callers evaluate the context
-      // right away (or, like EventManager.emit, before any of the buffs change), so it's the same
-      // result as computing it up front.
+      // Lazy: only computed when a rule reads stats or HP.
       let finalStatsMemo: ReturnType<typeof CombatCalculator.calculateFinalStats> | undefined;
       const finalStats = () => (finalStatsMemo ??= CombatCalculator.calculateFinalStats(activeUnitName, validBuffs as any, team, activeState));
       const comboDict = activeState.prevRow ? (activeState.prevRow.unitCombos || {}) : (activeState.unitCombos || {});
@@ -108,10 +93,9 @@ export const ContextManager = {
 
       const onFieldUnit = activeState.onFieldUnit || activeState.unit || activeUnitName;
       const isActive = (onFieldUnit === activeUnitName);
-      // A buff by its owner-prefixed key, falling back to the bare name.
       const lookupBuff = (owner: string, buffName: string) =>
         activeState.activeBuffs?.[scopedKey(owner, buffName)] || activeState.activeBuffs?.[buffName];
-      // The copies of a buff that reach this unit: its own, a team-wide one, and an on-field aura while it's on field.
+      // Own, team-wide, and on-field aura copies of a buff.
       const reachingCopies = (buffName: string) => [
         lookupBuff(activeUnitName, buffName),
         activeState.activeBuffs?.[scopedKey('@Team', buffName)],
@@ -171,9 +155,7 @@ export const ContextManager = {
       return {
         self: selfContext,
         active: { name: onFieldUnit },
-        // timeStart/gameTimeStart/duration/gameTimePassed/freezeTime/motionStop/damageTimeframe/swapTiming
-        // are all FRAMES, not seconds -- DSL math against @Move.* should treat them as frame
-        // counts. Cooldown pointers (@Self.Cooldown etc) stay SECONDS -- a deliberate exception.
+        // Times are frames; cooldowns are seconds.
         move: {
           id: actionId,
           name: activeState.moveName || actionId,
@@ -190,7 +172,7 @@ export const ContextManager = {
           baseMult: activeState.baseMult || 0,
           hitMults: activeState.hitMults || [],
           isInHoldWindow: activeState.isInForteWindow || false,
-          // Lazy: only worked out when a rule reads it.
+          // Lazy
           get isNextInCombo() { return ContextManager.isNextInCombo(activeState, activeUnitName, team); }
         },
         enemy: {
@@ -203,7 +185,7 @@ export const ContextManager = {
           getBuffMaxStacks: (debuffName: string) => lookupBuff('Enemy', debuffName)?.maxStacks || 1,
           hasBuff: (debuffName: string) => isBuffLive(lookupBuff('Enemy', debuffName)) ? 1 : 0
         },
-        // Still the roster's names (@Team.includes(...)), plus HasBuff across the whole team.
+        // Roster names, plus HasBuff across the team.
         team: Object.assign([...teamNames], {
           hasBuff: (buffName: string) => ([
             ...teamNames.map(name => lookupBuff(name, buffName)),

@@ -20,12 +20,11 @@ interface CharacterSlotProps {
 export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
   const { team, setSlotField, applyRecommendedBuild, clearSlot, importUnit } = useRosterStore();
   const unitInputRef = useRef<HTMLInputElement>(null);
-  // Subscribed (not just read) so Builder edits -- which can make an entity selectable -- re-render the pickers.
+  // Subscribed so Builder edits re-render the pickers.
   const { editedBaseStats } = useBuilderStore();
   const slot = team[index];
 
-  // Builder edits only replay onto DataLoader.characterDB once opened in the Builder
-  // (setActiveChar) -- so un-opened edits still need overlaying here (e.g. isDualMode).
+  // Overlay Builder edits not yet replayed onto DataLoader.
   const charData = slot.character
     ? { ...(DataLoader.characterDB[slot.character] || {}), ...(editedBaseStats[slot.character] || {}) }
     : null;
@@ -40,7 +39,6 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
 
   const setOptions = selectableOptions('set', DataLoader.sonataSets);
 
-  // One "icon + select" row for a set or echo slot.
   const renderItemRow = (
     field: 'mainSet' | 'subSet' | 'subSet2a' | 'subSet2b' | 'mainEcho',
     opts: { folder: ImageFolder; placeholder: string; rowClass?: string; selectClass: string; options: IconSelectOption[] }
@@ -59,7 +57,6 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
     </div>
   );
 
-  // A unit file replaces this slot's options outright.
   const handleImportUnit = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -77,7 +74,6 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
 
   return (
     <div className={`char-row ${hasMode ? 'has-mode' : ''}`} style={{ '--char-theme-raw': themeColor } as React.CSSProperties}>
-      {/* 1. Character Column */}
       <div className="panel-col" style={{ position: 'relative' }}>
         <button
           type="button"
@@ -112,7 +108,6 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
           </svg>
         </button>
 
-        {/* Same file as Export Team's single-unit pick. */}
         <button
           type="button"
           className="base-btn icon-btn"
@@ -181,7 +176,6 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
         </div>
       </div>
 
-      {/* 2. Weapon Column */}
       <div className="panel-col">
         <AvatarIcon name={slot.weapon} folder={IMAGE_FOLDERS.WEAPONS} className="avatar-lg avatar-rect mb-sm" />
         <div className="flex-col gap-sm" style={{ marginTop: 'auto' }}>
@@ -202,7 +196,6 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
         </div>
       </div>
 
-      {/* 3. Echo Sets Column */}
       <div className="panel-col sets-col">
         <div className="set-header">Sonata Sets</div>
         <div className="flex-col gap-sm">
@@ -227,7 +220,6 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
         </div>
       </div>
 
-      {/* 4. Echo Grid */}
       <div className="echo-container">
         {[0, 1, 2, 3, 4].map(i => (
           <EchoCard key={i} slotIndex={index} echoIndex={i} />

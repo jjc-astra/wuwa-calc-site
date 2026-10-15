@@ -8,21 +8,18 @@ import { dpsFieldOf } from '../data/dpsWindows';
 import { DEFAULT_RANKING_FILTERS, RANKING_ELEMENTS, RANKING_DMG_CATEGORIES } from '../components/rankings/RankingFilterToolbar';
 import type { RankingFilters, RankingElement, RankingDmgCategory } from '../components/rankings/RankingFilterToolbar';
 
-// A ranked rotation as the index has it -- what search, filters and sort read. Rows load the rest
-// (team details, author, contribution) from its results file (useRankedResults).
+// A ranked rotation as listed in the index.
 export type RankingEntry = RankingIndexEntry;
 
 export const ROTATION_TYPE_LABELS = { linear: 'Linear', quickswap: 'Quickswap', unclassified: 'Unclassified' } as const;
 export const rotationTypeLabel = (type: RankingEntry['rotationType']): string => ROTATION_TYPE_LABELS[type ?? 'unclassified'];
 
-// "Same rotation" for Best Only: same characters, same slots, same sequence.
-// Gear/echoes and button order don't factor in.
+// Best Only grouping: same characters, slots and sequences.
 function rotationGroupKey(entry: RankingEntry): string {
   return entry.characters.map((character, i) => `${character}@S${entry.sequences[i] ?? 0}`).join('|');
 }
 
-/** Applies sequence/style/search filters, then Best Only dedupe and DPS-descending sort.
- * Shared by the Rankings page and Pin Comparison picker. */
+/** Filters, Best Only dedupe, then DPS-descending sort. */
 export function filterRankingEntries(
   entries: RankingEntry[],
   filters: RankingFilters,
@@ -30,16 +27,14 @@ export function filterRankingEntries(
   activeWindow: DpsWindowKey
 ): RankingEntry[] {
   const searchLower = search.trim().toLowerCase();
-  // All boxes checked = facet inactive.
   const elementFilterActive = filters.elements.length < RANKING_ELEMENTS.length;
   const categoryFilterActive = filters.dmgCategories.length < RANKING_DMG_CATEGORIES.length;
 
-  // Sequence/style/search/DMG Type narrow candidates first; Best Only (below) only dedupes
-  // within what survives, so a group's best isn't hidden by an already-filtered duplicate.
+  // Filter before Best Only dedupe.
   let candidates = entries.filter(entry => {
     for (let i = 0; i < 3; i++) {
       const slotChar = entry.characters[i];
-      // 4-star units are effectively always S6, so a 5-star-meaningful sequence range doesn't apply.
+      // Sequence filters skip 4-stars.
       const rarity = slotChar ? DataLoader.characterDB[slotChar]?.rarity : undefined;
       if (rarity === 4) continue;
       const seq = entry.sequences[i] ?? 0;
@@ -78,11 +73,10 @@ interface RankingsState {
   status: 'idle' | 'loading' | 'ready' | 'error';
   entries: RankingEntry[];
   error: string | null;
-  // No-op if already loading/ready -- safe to call from every mount of the Rankings page.
+  // No-op if already loading or ready.
   load: () => Promise<void>;
 
-  // Persisted (see partialize below) so revisiting the page doesn't reset a filter setup.
-  // `entries`/`status`/`error` aren't persisted -- cheap to recompute, could go stale otherwise.
+  // Persisted.
   activeWindow: DpsWindowKey;
   search: string;
   filters: RankingFilters;
@@ -90,19 +84,17 @@ interface RankingsState {
   setSearch: (search: string) => void;
   setFilters: (filters: RankingFilters) => void;
 
-  // Persisted so a reload lands on the same page. RotationRankingsPage still resets page to 1
-  // when search/filters/activeWindow change.
+  // Persisted; reset to 1 on filter changes.
   page: number;
   pageSize: number;
   setPage: (page: number) => void;
   setPageSize: (pageSize: number) => void;
 
-  // True once persist middleware finishes restoring localStorage. RotationRankingsPage's
-  // reset-page-on-filter-change effect needs this to tell rehydration from a real user change.
+  // True once rehydrated.
   hasHydrated: boolean;
 }
 
-// Rankings entries, plus the page's persisted filter / paging state.
+// Rankings entries plus persisted filter/paging state.
 export const useRankingsStore = create<RankingsState>()(
   persist(
     (set, get) => ({
@@ -119,13 +111,12 @@ export const useRankingsStore = create<RankingsState>()(
   page: 1,
   pageSize: 10,
   setPage: (page) => set({ page }),
-  // A page-size change shifts what "page 2" means, so reset to page 1.
   setPageSize: (pageSize) => set({ pageSize, page: 1 }),
 
   hasHydrated: false,
 
   load: async () => {
-    // Evicts changed result files; force a real reload if that touched anything already 'ready'.
+    // Reload if result files changed.
     if (await checkResultsFreshness()) set({ status: 'idle', entries: [] });
 
     if (get().status === 'loading' || get().status === 'ready') return;
@@ -151,9 +142,7 @@ export const useRankingsStore = create<RankingsState>()(
         page: state.page,
         pageSize: state.pageSize
       }),
-      // zustand's merge is shallow -- an old persisted `filters` (pre DMG-Type-filter) would
-      // replace the default wholesale and crash on undefined .length/.includes. Deep-merge
-      // filters so missing fields fall back.
+      // Deep-merge filters so missing fields get defaults.
       merge: (persistedState, currentState) => {
         const persisted = (persistedState || {}) as Partial<RankingsState>;
         return {
@@ -162,8 +151,7 @@ export const useRankingsStore = create<RankingsState>()(
           filters: { ...currentState.filters, ...(persisted.filters || {}) }
         };
       },
-      // Deferred: restoring from localStorage finishes while the store is still being created,
-      // when `useRankingsStore` isn't assigned yet.
+      // Deferred until the store exists.
       onRehydrateStorage: () => () => {
         queueMicrotask(() => useRankingsStore.setState({ hasHydrated: true }));
       }

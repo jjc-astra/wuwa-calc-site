@@ -1,5 +1,4 @@
-// Rankings for teams with this unit, with the Rankings page's sequence, rotation-style and Best
-// Only filters (kept separately from that page's own filter state).
+// Rankings for teams with this unit, with their own filter state.
 import React, { useMemo, useState } from 'react';
 import { filterRankingEntries } from '../../store/useRankingsStore';
 import type { RankingEntry } from '../../store/useRankingsStore';
@@ -17,7 +16,7 @@ const PAGE_SIZE = 10;
 interface GuideRankingsProps {
   unit: string;
   entries: RankingEntry[];
-  // The default rotation's live result; every row reads as a % of it.
+  // Rows show % of this.
   baseline: RotationSummary | undefined;
   onShowInGuide: (entry: RankingEntry) => void;
 }

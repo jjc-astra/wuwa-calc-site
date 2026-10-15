@@ -1,7 +1,4 @@
-// Floating "Pin from History/Rankings" panel -- mirrors those pages' row lists but strips
-// every action except picking a row (no favorite, menu, or tooltips). Click a row to pin
-// and close. Reuses each source's own row markup/CSS and, for Rankings, its exact
-// search/filter logic -- a shell around the same data, not a reimplementation.
+// Pin picker over History or Rankings rows; clicking a row pins it.
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useComparisonStore } from '../../store/useComparisonStore';
@@ -28,8 +25,7 @@ interface PickerRankingRowProps {
   onPick: (entry: RankingEntry) => void;
 }
 
-// A Rankings row, pick-only. This list isn't paged, so its results file (team details,
-// contribution) loads once the row scrolls into view.
+// Pick-only Rankings row; loads its results when scrolled into view.
 const PickerRankingRow: React.FC<PickerRankingRowProps> = ({ rank, entry, activeWindow, maxDps, onPick }) => {
   const rowRef = useRef<HTMLDivElement>(null);
   const results = useRankedResults(entry, rowRef);
@@ -78,9 +74,7 @@ interface PanelRect {
   height: number;
 }
 
-// History's row is a simple single-column list -- reads better at its natural width (the
-// History tab's) than stretched across the full Step 1/2 footprint. Rankings' row has a full
-// DPS bar that gets crushed at half width, so it gets the full footprint instead.
+// History: its tab's width. Rankings: the full steps area.
 function measurePanelRect(source: 'history' | 'rankings'): PanelRect | null {
   const stepsEl = document.querySelector('.calculator-steps');
   if (!stepsEl) return null;
@@ -95,8 +89,7 @@ function measurePanelRect(source: 'history' | 'rankings'): PanelRect | null {
   return { top: stepsRect.top, left: stepsRect.left, width, height: stepsRect.height };
 }
 
-// Floats over Step 1/Step 2 (measured off .calculator-steps, plus .results-panel for History)
-// rather than a page-centered modal, so the Results panel stays visible beside it.
+// Floats over the steps, leaving Results visible.
 export const PinComparisonPicker: React.FC<PinComparisonPickerProps> = ({ source, onClose }) => {
   const [rect, setRect] = useState<PanelRect | null>(null);
 
@@ -201,8 +194,7 @@ const RankingsPickerBody: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const maxDps = visibleEntries.length > 0 ? (visibleEntries[0].dpsStats[dpsFieldOf(activeWindow)] ?? 0) : 0;
 
   const pick = (entry: RankingEntry) => {
-    // Async (recalculates via the worker; RankingEntry never carries dmgOverTimeSeries) but not
-    // awaited -- matches pinFromFile's UX: close immediately, let "Calculating..." carry the rest.
+    // Not awaited; close immediately.
     pinFromRankingEntry(entry);
     onClose();
   };

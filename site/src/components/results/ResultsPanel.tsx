@@ -12,11 +12,11 @@ const TABS: ChromeTabDef[] = [
 ];
 
 interface ResultsPanelProps {
-  /** Collapses the panel to a thin rail -- its info only matters while working in Step 2. */
+  /** Collapses to a thin rail. */
   collapsed: boolean;
 }
 
-/** The Calculator's Results column: Results, Timeline and History tabs. The Timeline widens it. */
+/** Results column: Results, Timeline and History tabs. */
 export const ResultsPanel: React.FC<ResultsPanelProps> = ({ collapsed }) => {
   const [activeTab, setActiveTab] = useState('results');
   const isTimeline = activeTab === 'timeline';

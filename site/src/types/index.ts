@@ -28,7 +28,6 @@ export interface CharacterData extends BaseStats {
   skillGroupNames?: Record<string, string>;
   forteCount?: number;
   // Two-mode character (e.g. Strain/Rupture).
-  // mode1Name/mode2Name label the mode dropdown and modeScope's toggle.
   isDualMode?: boolean;
   mode1Name?: string;
   mode2Name?: string;
@@ -54,10 +53,9 @@ export interface EchoSlotData {
   substats: SubstatEntry[];
 }
 
-// The mechanics-data folders a team-slot field or Builder grid section can resolve to.
 export type EntityFolder = 'characters' | 'weapons' | 'sets' | 'echoes' | 'system';
 
-// A loadable/checkable mechanics entity -- one team slot's equipped item, or the System namespace.
+// A mechanics entity: a slot's equipped item, or System.
 export interface EntityRef {
   folder: EntityFolder;
   name: string;
@@ -73,8 +71,7 @@ export interface TeamSlot {
   layout: string;
   mainSet: string;
   subSet: string;
-  // Only used when mainSet is a 1pc set (DataLoader.onePcSets) -- the two extra sets covering
-  // the 4 non-main echo slots, either two independent 2pc sets or one 3pc (trigger) set.
+  // 1pc mainSet only: sets for the other 4 echoes.
   subSet2a: string;
   subSet2b: string;
   mainEcho: string;
@@ -82,7 +79,6 @@ export interface TeamSlot {
   echoStats: Record<string, number>;
 }
 
-// The target's stats the user can set (see ENEMY_DEFAULTS for the rest).
 export interface EnemyStats {
   level: number;
   res: number;
@@ -106,16 +102,15 @@ export interface Effect {
   action?: 'add' | 'set' | 'copy' | 'consume' | 'detonate' | 'remove' | 'delete' | 'pause' | 'resume' | 'extend';
   provider?: string;
   source?: string;
-  // The entity it came from: a character, weapon, echo, echo set or System (the Timeline groups by it).
+  // Source entity (character, weapon, echo, set or System).
   sourceOwner?: string;
-  // The selector a buff was applied with (@Team, @Next...); `target` is the unit it landed on.
+  // Original selector (@Team, @Next...).
   appliesTo?: string;
   linkedTracker?: string;
   isPaused?: boolean;
   maxDuration?: number;
   durations?: number[];
-  // A resource effect made from a move's hitResources: scaled by Energy Regen / buildup rate.
-  // Every other resource effect is a flat amount.
+  // From hitResources: scaled by Energy Regen / buildup rate.
   rateScaled?: boolean;
   [key: string]: any;
 }
@@ -123,11 +118,10 @@ export interface Effect {
 export interface HoldConfig {
   cursorSpeed?: number;
   cursorMode?: 'pingpong' | 'clamp' | 'loop';
-  // Whether releasing carries the cursor's position into the next hold (Cursor_Accumulated).
+  // Carry the cursor into the next hold.
   retainCursor?: boolean;
-  // The forte slot (e.g. 'forte1') that sets the cursor's max and 'clamp' mode's full/empty.
+  // Forte slot setting the cursor max.
   forteSlot?: string;
-  // 'clamp' mode has no window.
   windowCenter?: string;
   windowSize?: string;
 }
@@ -150,8 +144,7 @@ export interface MechanicNode {
   provider?: string;
   isPassive?: boolean;
   isSwapInDefault?: boolean;
-  // Restricts to one of a dual-mode character's two modes (CharacterData.isDualMode).
-  // Omitted/'both' = available in either mode.
+  // Dual-mode restriction; omitted means both.
   modeScope?: 'mode1' | 'mode2' | 'both';
   triggerRule?: string;
   castTypes?: string[];
@@ -160,27 +153,23 @@ export interface MechanicNode {
   hitResources?: Record<string, string | number | number[]>;
   hitMults?: (number | string)[];
   scalar?: ScalarStat;
-  // Duration fields below are Frames; `cooldown` is the exception and stays in seconds.
-  // See TimelineEngine.ts's _processGameTimeDecay for where the two domains cross.
+  // Durations are Frames, except `cooldown` (seconds).
   actionDuration?: Frames | string;
   cooldown?: number | string;
-  // >1 uses means separate, independently-recharging charges (not one shared timer) -- each use
-  // consumes one and starts its own `cooldown`-length recharge. Always full at combat start.
+  // Independent charges, each with its own recharge. Full at combat start.
   maxCharges?: number | string;
-  // Bare name of another of this unit's own mechanics. Casting this move also starts that
-  // move's own cooldown (using ITS OWN cooldown/maxCharges, not this move's value) -- kept in
-  // sync bidirectionally by CooldownPanel, not meant for hand-authoring both sides separately.
+  // Another move whose cooldown starts with this one. Kept symmetric by CooldownPanel.
   shareCooldownWith?: string;
   swapTiming?: Frames | string;
-  // Time stop: the world's clock (buffs, cooldowns) pauses while the move plays.
+  // Pauses buffs and cooldowns while the move plays.
   freezeTime?: Frames | string;
-  // Other units pause their moves (animations and pending hits) for this long after the cast.
+  // Pauses other units' moves after the cast.
   motionStop?: Frames | string;
   comboWindow?: Frames | string;
   stanceReq?: 'Any' | 'Grounded' | 'Midair';
-  // Stance flips after the move starts, each at `time` frames in. Read through getStanceChanges.
+  // Read through getStanceChanges.
   stanceChanges?: StanceChange[];
-  // Legacy single change; superseded by stanceChanges.
+  // Legacy; use stanceChanges.
   stanceResult?: 'Retain' | 'Grounded' | 'Midair';
   stanceTime?: Frames | string;
   input?: string;
@@ -191,11 +180,10 @@ export interface MechanicNode {
   cancelTimings?: CancelTiming[];
   effects?: Effect[];
   damageTimeframe?: { start?: Frames | string; end?: Frames | string };
-  // Frame overrides for the hits between the first and last, from the second (hitFrames[0] is hit 2):
-  // null = spread evenly. The first and last hits are damageTimeframe's start/end.
+  // Frames for middle hits (hitFrames[0] is hit 2); null spreads evenly.
   hitFrames?: Array<Frames | string | null>;
   allowedHits?: number;
-  // Checked as each hit lands (IF (...), for the caster): a hit that fails it doesn't happen.
+  // Checked per hit; failing hits don't happen.
   hitCondition?: string;
   _compiledRule?: any;
 }
@@ -222,8 +210,7 @@ export interface BuffTotals {
   ignoreDef: number;
 }
 
-// Where a move comes from: the unit its hits and effects are attributed to, the namespace it
-// lives under (character, echo, weapon, set or System), and its "@Owner(Move Name)" pointer.
+// A move's caster, namespace and "@Owner(Move Name)" pointer.
 export interface MoveOrigin {
   caster: string;
   owner: string;
@@ -240,20 +227,17 @@ export interface HitConfig {
   isOpen?: boolean;
   actionId?: string;
   moveName?: string;
-  // "@Owner(Move Name)" pointer for this hit's move, as built by MechanicKey.ref.
   moveRef?: string;
   gameTime?: Frames;
-  // The DSL multiplier hitMult was resolved from, when it reads the caster's stats -- worked out
-  // again for another team's stats by a `restat` pricing (substat worth).
+  // Stat-reading DSL multiplier, for `restat` pricing.
   statScaledMult?: string;
-  // Sub-hit index within actionId (0 for single-hit, 0/1/2... for multi-hit).
-  // actionId+hitIndex together ID "the same move slot" across an Avg Loop's repeats.
+  // Sub-hit index within actionId.
   hitIndex?: number;
 }
 
 export interface DamageInstanceResult {
   title: string;
-  // The average hit (crit chance included); nonCrit/crit are the two outcomes.
+  // Crit-averaged.
   total: number;
   nonCrit: number;
   crit: number;

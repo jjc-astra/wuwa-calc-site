@@ -1,4 +1,4 @@
-// The icon-grid library shared by the Mechanics Builder and the Character Guide.
+// Icon-grid library for the Builder and Character Guide.
 import React from 'react';
 import { CommonUtils, TooltipManager, tip } from '../../utils/Common';
 import { useImageStatus } from '../../hooks/useImageStatus';
@@ -11,7 +11,6 @@ interface LibrarySearchInputProps {
   placeholder: string;
 }
 
-/** The library's search box. */
 export const LibrarySearchInput: React.FC<LibrarySearchInputProps> = ({ value, onChange, placeholder }) => (
   <div style={{ padding: '1.25rem 1.25rem 1rem 1.25rem', flexShrink: 0 }}>
     <input
@@ -32,7 +31,6 @@ export const LibrarySearchInput: React.FC<LibrarySearchInputProps> = ({ value, o
   </div>
 );
 
-// Case-insensitive substring match against the trimmed search box.
 export const matchesLibrarySearch = (item: string, search: string): boolean =>
   item.toLowerCase().includes(search.toLowerCase().trim());
 
@@ -41,7 +39,6 @@ interface LibrarySectionProps {
   children: React.ReactNode;
 }
 
-/** A titled grid of library cards. */
 export const LibrarySection: React.FC<LibrarySectionProps> = ({ title, children }) => (
   <div className="grid-section" style={{ width: '100%' }}>
     <div
@@ -68,17 +65,14 @@ export const LibrarySection: React.FC<LibrarySectionProps> = ({ title, children 
 interface LibraryCardProps {
   itemName: string;
   imgFolder: ImageFolder;
-  // Characters/weapons get a rarity-colored frame; other folders ignore it.
   rarity?: number;
-  // Greys the card out; dimmedTooltip explains why.
   dimmed?: boolean;
   dimmedTooltip?: string;
   onClick: () => void;
-  // Corner overlay, e.g. the Builder's unsaved-changes badge.
+  // Corner overlay.
   badge?: React.ReactNode;
 }
 
-/** One entity's card: its icon (rarity-framed for characters and weapons) and name. */
 export const LibraryCard: React.FC<LibraryCardProps> = ({ itemName, imgFolder, rarity = 5, dimmed = false, dimmedTooltip, onClick, badge }) => {
   const iconPath = CommonUtils.getIconPath(itemName, imgFolder);
   const { loaded: imgLoaded, errored: imgError, onLoad: onImgLoad, onError: onImgError } = useImageStatus(iconPath);
@@ -92,7 +86,7 @@ export const LibraryCard: React.FC<LibraryCardProps> = ({ itemName, imgFolder, r
     <div
       className={`char-grid-card ${dimmed ? 'is-unimplemented' : ''}`}
       onClick={() => {
-        // Grid unmounts on selection -- no natural mouseleave fires, so hide tooltip explicitly.
+        // Unmounting skips mouseleave.
         TooltipManager.hide();
         onClick();
       }}

@@ -1,5 +1,4 @@
-// The per-row damage breakdown panel's buff cards (DamageBreakdownPanel): which card each active
-// buff belongs on, and what its row says.
+// Buff card grouping and labels for DamageBreakdownPanel.
 import type { TeamSlot } from '../../types';
 import { CommonUtils } from '../../utils/Common';
 import { SYSTEM_NAMESPACE } from '../../utils/MechanicKey';
@@ -19,7 +18,6 @@ const tokenize = (str: string): string[] => (str || '')
   .split(/\s+/)
   .filter(Boolean);
 
-// Words that say nothing about which effect a buff is.
 const NOISE_WORDS = [
   'buff', 'effect', 'slot', 'main', 'stat', 'bonus', 'amp', 'tier',
   'team', 'self', 'next', 'active', 'enemy', 'others', 'all', 'group'
@@ -28,7 +26,7 @@ const NOISE_WORDS = [
 const escapeForRegex = (text: string) => text.replace(/[^a-zA-Z0-9]/g, '\\$&');
 const trimSeparators = (text: string) => text.replace(/^[-:_:=]+\s*/, '').replace(/\s*[-:_:=]+$/, '').trim();
 
-// Which card a buff sits on: the weapon, a set, the main echo, or (failing those) its source mechanic.
+// Card for a buff: weapon, set, main echo, else its source mechanic.
 function cardHeaderFor(b: any, sourceMech: string, slot: TeamSlot, weaponNames: string[]): string {
   const wepName = slot.weapon ? slot.weapon.trim() : '';
   const mainSet = slot.mainSet ? slot.mainSet.trim() : '';
@@ -76,8 +74,7 @@ function cardHeaderFor(b: any, sourceMech: string, slot: TeamSlot, weaponNames: 
   return cardHeader;
 }
 
-// What a buff's row says: its stat, or the effect's name with everything the card and stat already
-// say stripped out (falling back to the stat when nothing distinct is left).
+// Row label: the effect name minus redundant words, else the stat.
 function rowLabelFor(b: any, sourceMech: string, cardHeader: string, unitName: string): string {
   const knownWords = new Set([...tokenize(cardHeader), ...tokenize(unitName), ...tokenize(b.stat), ...NOISE_WORDS]);
 
@@ -112,9 +109,7 @@ function rowLabelFor(b: any, sourceMech: string, cardHeader: string, unitName: s
   return b.stat ? `${displayEffName} (${b.stat})` : displayEffName;
 }
 
-/** One unit's active buffs, grouped into the cards they're shown on (a weapon, a set, the main
- * echo, or a mechanic), each buff a labelled row. `weaponNames` are every weapon in the game, so a
- * buff sourced from a weapon the slot doesn't hold (another unit's) still lands on that weapon's card. */
+/** A unit's active buffs grouped into cards. `weaponNames`: every weapon in the game. */
 export function groupBuffsBySource(
   unitBuffs: any[],
   slot: TeamSlot,

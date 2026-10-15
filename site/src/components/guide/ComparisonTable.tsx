@@ -1,5 +1,4 @@
-// Variant rows, each showing raw values and their % of a baseline (100%). Shared by the Sequence,
-// Weapon and Echo comparisons.
+// Variant rows with raw values and % of a baseline.
 import React from 'react';
 import { AvatarIcon } from '../common/AvatarIcon';
 import { tip, TooltipManager } from '../../utils/Common';
@@ -15,23 +14,21 @@ export interface ComparisonRow {
   key: string;
   label: React.ReactNode;
   icon?: { name: string; folder: ImageFolder; rect?: boolean };
-  // Raw metric values, one per column. undefined = still calculating, null = not applicable.
+  // One per column. undefined: calculating; null: n/a.
   values: Array<number | null | undefined>;
-  // Short note beside the label (e.g. "S2 rotation").
+  // e.g. "S2 rotation"
   tag?: string;
   tagTooltip?: string;
   isSelected?: boolean;
   error?: string;
-  // Hover text for the label (e.g. the full set + main echo behind a shortened name).
   labelTooltip?: string;
-  // Shows a remove (X) button on the row, calling the table's onRemoveRow.
   removable?: boolean;
 }
 
 interface ComparisonTableProps {
   columns: ComparisonColumn[];
   rows: ComparisonRow[];
-  // The raw value that reads as 100%: one for all columns, or one per column.
+  // 100% value, shared or per column.
   baseline: Baseline | Baseline[];
   onSelectRow?: (key: string) => void;
   onRemoveRow?: (key: string) => void;
@@ -49,9 +46,7 @@ export const ComparisonTable: React.FC<ComparisonTableProps> = ({ columns, rows,
   };
 
   return (
-    // Multi-column tables stack each % under its value to fit a half-width panel.
     <div className={`guide-cmp-table ${columns.length > 1 ? 'is-multi' : ''}`} style={{ '--guide-cmp-cols': columns.length } as React.CSSProperties}>
-      {/* A single column needs no heading; the panel title names it. */}
       {columns.length > 1 && (
         <div className="guide-cmp-head caps-label">
           <span />

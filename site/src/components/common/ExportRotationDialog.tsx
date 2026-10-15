@@ -1,5 +1,4 @@
-// Export Rotation / History's Export: names and classifies the rotation file, optionally names and
-// picks the build of a results file, credits the author on both, then calculates and downloads them.
+// Exports a rotation file and optionally a results file.
 import React, { useState } from 'react';
 import { SegmentedToggle } from './SegmentedToggle';
 import { CommonUtils, tip } from '../../utils/Common';
@@ -25,7 +24,7 @@ export const ExportRotationDialog: React.FC<ExportRotationDialogProps> = ({ sour
   const [includeResults, setIncludeResults] = useState(true);
   const [build, setBuild] = useState<ResultsBuild>('default');
   const [rotationType, setRotationType] = useState<RotationTypeChoice>('unclassified');
-  // Presets end in the rotation type (none when unclassified) and follow it until edited; null = the preset.
+  // Name presets end in the rotation type; null = preset.
   const typeSuffix = rotationType === 'unclassified' ? '' : `_${ROTATION_TYPE_LABELS[rotationType]}`;
   const defaultRotationName = CommonUtils.exportFilename('Rotation', source.team, typeSuffix);
   const defaultResultsName = CommonUtils.exportFilename('Results', source.team, typeSuffix);
@@ -103,7 +102,6 @@ export const ExportRotationDialog: React.FC<ExportRotationDialogProps> = ({ sour
             </>
           )}
 
-          {/* Credited in both files. */}
           <hr className="modal-divider" />
 
           <div className="modal-field">

@@ -12,7 +12,7 @@ export interface NavItem {
   icon: ComponentType<IconProps>;
 }
 
-// The site's main pages, in nav bar / landing grid order. About sits apart, in the Header's right side.
+// Main pages, in nav order.
 export const NAV_ITEMS: NavItem[] = [
   {
     id: 'calculator',

@@ -3,7 +3,6 @@ import { MermaidDiagram } from './MermaidDiagram';
 import { ActualSizeContext, NODE_KINDS } from './mermaidSetup';
 import { DIAGRAMS } from './aboutDiagrams';
 
-// Jump bar entries, in page order.
 const SECTIONS = [
   ['layers', 'Architecture'],
   ['boot', 'Boot + routing'],
@@ -24,12 +23,10 @@ const SECTIONS = [
 const sectionEl = (id: string) => document.getElementById(`about-${id}`);
 const scrollToSection = (id: string) => sectionEl(id)?.scrollIntoView({ block: 'start' });
 
-// In-page link to another section.
 const SectionLink: React.FC<{ to: string; children: React.ReactNode }> = ({ to, children }) => (
   <button type="button" className="about-link" onClick={() => scrollToSection(to)}>{children}</button>
 );
 
-// One area of the codebase: header with an Actual size toggle, then notes and diagrams.
 const AboutSection: React.FC<{ id: string; title: string; tag: string; children: React.ReactNode }> = ({ id, title, tag, children }) => {
   const [actualSize, setActualSize] = useState(false);
   return (
@@ -50,11 +47,9 @@ const AboutSection: React.FC<{ id: string; title: string; tag: string; children:
   );
 };
 
-/** About page: how the site works, one flowchart section per area of the codebase. */
+/** About page: one flowchart section per area of the codebase. */
 export const AboutPage: React.FC = () => {
-  // The jump bar highlights the last section whose top has scrolled past the top of the page.
   const [activeId, setActiveId] = useState<string | null>(null);
-  // The jump bar's shadow only shows once content is scrolled under it.
   const [scrolled, setScrolled] = useState(false);
   const onScroll = (e: React.UIEvent<HTMLDivElement>) => {
     setScrolled(e.currentTarget.scrollTop > 0);

@@ -1,5 +1,4 @@
-// Mounted once at App root; renders when useFreshnessConflictStore has a pending conflict --
-// server data changed while the user has unsaved local edits, so it can't be silently evicted.
+// Shown when server data changed under unsaved Builder edits.
 import React from 'react';
 import { useFreshnessConflictStore } from '../../utils/dataFreshness';
 

@@ -1,4 +1,4 @@
-/* About page: the codebase flowcharts. Sections reuse the calculator's .section-wrapper shell. */
+/* About page. */
 
 .about-page {
     flex: 1 1 auto;
@@ -6,14 +6,13 @@
     display: flex; flex-direction: column;
 }
 
-/* Jump links to each section: a second header bar above the scroll area, styled like .global-nav-header. */
+/* Section jump links. */
 .about-jump-bar {
     flex-shrink: 0;
     display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-1);
     padding: var(--space-2) 1.25rem;
     background: var(--bg-deep);
     border: 1px solid var(--border); border-radius: 0.5rem;
-    /* Sits right on the scroll area; the shadow falls over the content scrolling under it. */
     position: relative; z-index: 20;
     transition: box-shadow 0.15s;
 }
@@ -34,7 +33,6 @@
 .about-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-3) var(--space-4); }
 .about-legend .pill-badge { border-width: 1px; }
 
-/* Static sections: no collapse, so no clickable header. */
 .about-section { flex: none; }
 .about-section .section-header { cursor: default; gap: var(--space-5); }
 .about-section .section-header:hover { background: rgba(0, 0, 0, 0.4); }

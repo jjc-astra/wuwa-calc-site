@@ -1,7 +1,4 @@
-// Shared shapes for the Rotation Calculator's Results panel.
-// Used by both the real calc path (logic/ResultsCalculator.ts) and the comparison-pin path
-// (store/useComparisonStore.ts), which recalculates a pinned file through the same worker
-// pipeline into these same shapes.
+// Results panel shapes.
 
 import type { Frames } from '../utils/Frames';
 import type { DpsWindowKey } from '../data/dpsWindows';
@@ -19,9 +16,7 @@ export interface DpsStats {
 export interface DmgOverTimePoint {
   t: Frames;
   dmg: number;
-  // Damage source: character name, or a status dmgType label (e.g. "Aero Erosion") for
-  // non-attributable ticks. Same identity as TeamDmgSlice.label (shared color lookup).
-  // Absent on the t=0 point and on DPS-mode's rolling-average points.
+  // Character name or status label; matches TeamDmgSlice.label.
   label?: string;
 }
 
@@ -30,8 +25,7 @@ export interface DmgOverTimeSeries {
   points: DmgOverTimePoint[];
   bossMaxHp: number;
   killTime: Frames | null;
-  // Nominal window duration (openerEndTime, loopDuration, etc.) -- sizes the chart's x-axis to
-  // that width, rather than wherever the last real hit landed (can undershoot near the boundary).
+  // Nominal window length; sizes the x-axis.
   windowEnd: Frames;
 }
 
@@ -42,9 +36,9 @@ export interface SubstatWorthValues {
 }
 
 export interface SubstatWorthDirection {
-  // % change of the whole team's 2-min total damage -- this roll's worth to the whole rotation.
+  // % of team 2-min damage.
   team: SubstatWorthValues;
-  // % change of just this unit's own 2-min damage -- this roll's worth to that unit alone.
+  // % of this unit's 2-min damage.
   personal: SubstatWorthValues;
 }
 
@@ -53,8 +47,7 @@ export interface SubstatWorthRow {
   min: number;
   max: number;
   default: number;
-  // % change in the basis metric per roll of this substat. "minus" = losing a roll you have,
-  // "plus" = gaining one. Each direction has a team-relative and a personal percentage.
+  // minus: losing a roll; plus: gaining one.
   minus: SubstatWorthDirection;
   plus: SubstatWorthDirection;
 }
@@ -71,44 +64,34 @@ export interface TeamDmgSlice {
 
 export interface ContributionForWindow {
   team: TeamDmgSlice[];
-  // Per-unit cast-type breakdown, keyed by character name.
   units: Record<string, CastTypeSlice[]>;
-  // Seconds each unit spent on field (the controlled character), keyed by character name, and
-  // the window's own length in seconds. Missing on results saved before they existed.
+  // On-field seconds per unit, and the window length.
   fieldTime?: Record<string, number>;
   duration?: number;
 }
 
 export interface RotationResults {
   dpsStats: DpsStats;
-  // Same 4 windows as `contribution` below -- lets the chart zoom into one window's timeline.
   dmgOverTimeSeries: Record<DpsWindowKey, DmgOverTimeSeries>;
   contribution: Record<DpsWindowKey, ContributionForWindow>;
-  // Per-unit substat worth rows, keyed by character name. Null when the Calculate press skipped
-  // it (the toolbar's Substat Worth toggle).
+  // Null when skipped.
   substatWorth: Record<string, SubstatWorthRow[]> | null;
-  // Per unit that spends Energy, keyed by character name. Missing on results saved before it existed.
   energyRequirements?: Record<string, EnergyRequirement>;
 }
 
-// The Energy Regen a unit needs for every Energy-spending cast in the rotation (its Liberations)
-// to have enough Energy -- found over the whole simulated run, so the cast with the least Energy
-// gained since the one before it (the bottleneck) sets it, not just the first.
+// Energy Regen needed for every Energy-spending cast; set by the bottleneck cast.
 export interface EnergyRequirement {
-  // Energy Regen % from gear (base 100 + stats, before temporary buffs) that's enough everywhere.
-  // null: some cast can't be reached at any Energy Regen (no Energy gained before it).
+  // Gear ER % (before buffs). null: unreachable at any ER.
   required: number | null;
-  // The unit's current Energy Regen % from gear, on the same basis.
   current: number;
-  // The cast that needs the most. `segment` is where it falls: Opener, Loop N or Ending.
+  // `segment`: Opener, Loop N or Ending.
   bottleneck: { action: string; time: number; segment: string } | null;
 }
 
-// What the Results panels read. The chart series is optional: the Character Guide has no DMG Over
-// Time panel, so its cached results leave the series out.
+// What Results panels read; the chart series is optional.
 export type PanelResults = Omit<RotationResults, 'dmgOverTimeSeries'> & Partial<Pick<RotationResults, 'dmgOverTimeSeries'>>;
 
-// DPS + contribution only: what Rankings rows and the Character Guide's comparisons read.
+// DPS + contribution only.
 export type RotationSummary = Pick<RotationResults, 'dpsStats' | 'contribution'>;
 
 // --- Saved rotation / results files (data repo: character_results/) ---
@@ -122,7 +105,6 @@ export interface RotationSettings {
   endRotationStartsEarlier?: boolean;
 }
 
-// What a calculation runs on: a rotation, a team, its settings and the target.
 export interface CalcInput {
   rotation: any[];
   team: TeamSlot[];
@@ -130,56 +112,45 @@ export interface CalcInput {
   enemy: EnemyStats;
 }
 
-// rotations/<name>.json: the rotation, roster and target as submitted.
+// rotations/<name>.json
 export interface RotationFile extends CalcInput {
   format: 2;
-  // Short hash of { rotation, team, settings, enemy }; a results file repeats it to show it was
-  // calculated from exactly this file.
+  // Hash of rotation, team, settings, enemy; links results files.
   hash: string;
   author?: string;
-  // Absent when unclassified. The rankings index reads the results file's copy.
   rotationType?: RotationType;
 }
 
-// 'default': each unit on its recommended build's default substats and its weapon at R1 (everything
-// else as submitted), against the default target -- what Rankings ranks. 'custom': the submitted
-// build and target, for sharing.
+// default: recommended substats, R1, default target (ranked). custom: as submitted.
 export type ResultsBuild = 'default' | 'custom';
 
-// results/<name>.json: one calculation of a rotation file, linked to it only by `hash` (so either
-// file can be renamed); the rankings index resolves which rotation file that is.
+// results/<name>.json, linked to its rotation file by `hash`.
 export interface ResultsFile {
   format: 2;
   hash: string;
   build: ResultsBuild;
   author?: string;
   rotationType?: RotationType;
-  // The exact team and target the results were calculated with.
   team: TeamSlot[];
   enemy: EnemyStats;
   results: RotationSummary;
 }
 
-// A ranking row only needs who was on the team, not their echoes.
 export type RosterSlot = Pick<TeamSlot, 'character' | 'sequence' | 'weapon' | 'rank' | 'mainSet' | 'subSet' | 'subSet2a' | 'subSet2b' | 'mainEcho' | 'layout'>;
 
-// One row of the generated index.json: a default-build results file, trimmed for Rankings.
-// What a ranked rotation's damage leaned on, over its 2-minute window: the element its team
-// members dealt the most as, and the DMG Type category they dealt the most of. Null when none.
+// Dominant element and DMG Type over 2 minutes; null when none.
 export interface RankingMajority {
   element: string | null;
   category: string | null;
 }
 
-// One rankings index entry: only what search, filters and sort read. The rest (team details,
-// author, contribution) is in its results file, loaded per visible row.
+// One index.json entry: only what search, filters and sort read.
 export interface RankingIndexEntry {
-  // The results file's name.
   id: string;
   rotationFile: string;
   hash: string;
   rotationType: RotationType;
-  // Slot order: [main DPS, sub DPS, support], '' and 0 for an empty slot.
+  // [main DPS, sub DPS, support]; '' for empty.
   characters: string[];
   sequences: number[];
   dpsStats: DpsStats;

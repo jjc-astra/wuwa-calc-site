@@ -1,10 +1,7 @@
-// A tiny key/value store on IndexedDB, for cached data too big for localStorage (e.g. a full
-// calc's evaluated rows). Every failure -- private browsing, blocked storage, a version race --
-// resolves to "nothing stored" / a skipped write: callers treat it as a cache, never as the
-// only copy of anything.
+// IndexedDB key/value cache. Failures resolve to "nothing stored".
 const DB_NAME = 'wuwa-calc';
 const DB_VERSION = 1;
-// Every store the app uses, since stores can only be created while opening a new DB version.
+// All stores, created on open.
 const STORES = ['guide-cache'] as const;
 type StoreName = typeof STORES[number];
 

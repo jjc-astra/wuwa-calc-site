@@ -25,7 +25,6 @@ interface AutocompleteInputProps extends React.InputHTMLAttributes<HTMLInputElem
   dmgOptions?: string[];
 }
 
-// Resolves an autocomplete item to its tooltip description, if one is configured for its group.
 function resolveTooltip(item: SuggestionItem, group: string): string | undefined {
   const key = item.tooltipKey ?? item.val;
   switch (group) {
@@ -50,15 +49,13 @@ function resolveTooltip(item: SuggestionItem, group: string): string | undefined
     case 'Specific Modifiers':
       return (MOD_LABEL_TOOLTIPS as Record<string, string>)[key];
     case 'Continue':
-      // Comma-separated entries are an AND filter (EventManager.ts's requiredModifiers check).
       return key === ',' ? 'Combines with AND — the action must match every listed modifier, not just one.' : undefined;
     default:
       return undefined;
   }
 }
 
-// Splits a commaList's captured content on ',': the segment being typed (search/replace)
-// vs already-committed segments (excluded from suggestions).
+// Splits on ',' into the term being typed and committed terms.
 function getCommaSegmentInfo(fullCaptured: string): { currentTerm: string; replaceLength: number; chosenTerms: string[] } {
   const segments = fullCaptured.split(',');
   const rawLast = segments[segments.length - 1];
@@ -92,14 +89,13 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
   const popupRef = useRef<HTMLDivElement>(null);
   const { mechanics, baseStats, activeChar } = useBuilderStore();
 
-  // Portaled to <body> (like Dropdown.tsx) to escape clipping, positioned via the real input's rect.
+  // Portaled to <body>, positioned from the input's rect.
   const POPUP_MAX_HEIGHT = 260;
   const positionPopup = () => {
     if (inputRef.current) setPopupPos(computePopupPosition(inputRef.current.getBoundingClientRect(), { maxHeight: POPUP_MAX_HEIGHT, gap: 2 }));
   };
 
-  // Can't cheaply track every scrollable ancestor -- close instead of drifting off-anchor (same as Dropdown.tsx).
-  // The input's own text-scroll fires 'scroll' too (syncScroll's job) -- ignored, or the popup closes while typing.
+  // Close on ancestor scroll, ignoring the input's own scroll.
   usePopupDismiss(isOpen, () => setIsOpen(false), { popupRef, ignoreScrollFrom: [inputRef] });
 
   const tokens = useMemo(() => tokenizeDSL(value, forteAliases(baseStats)), [value, baseStats]);
@@ -110,12 +106,12 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
     syncScroll();
   }, [value]);
 
-  // Closing (select/blur/Escape) can unmount a hovered item without mouseleave firing, leaving a stuck tooltip.
+  // Hide the tooltip on close (no mouseleave fires).
   useEffect(() => {
     if (!isOpen) TooltipManager.hide();
   }, [isOpen]);
 
-  // Auto-scroll popup container to keep the active keyboard selection in view
+  // Keep the active item in view.
   useEffect(() => {
     if (!isOpen || !popupRef.current) return;
     const activeItem = popupRef.current.querySelector('.autocomplete-item.is-active');
@@ -132,7 +128,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
     if (mode === 'eff-applies-during') return [makeAppliesDuringRule(activeChar, mechanics)];
 
     if (mode === 'dsl-value') {
-      // Math-only fields (Priority, Combo/Freeze/Swap Time): pointer+property completion, no events/brackets.
+      // Math-only fields: pointers and properties.
       return [
         makePointerRootRule(),
         makePropertyRule(baseStats),
@@ -141,15 +137,13 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
       ];
     }
 
-    // General DSL Input Rules
     return [
       makeEventModifierBracketRule(activeChar, mechanics),
       makeEventArgsCloseRule(),
       makeAnyTriggerListRule(),
       makePointerRootRule(),
       makeNamespaceRefRule(mechanics),
-      // A word being typed where an event or logic word can go (start, after ( , ! & | or a
-      // space) -- from its first letter. Not after "." or "@": those are properties/pointers.
+      // A word where an event or logic word can go.
       makeEventListRule(/(?:^|[(,!&|]\s*|\s)([a-zA-Z]+)$/),
       makePropertyRule(baseStats),
       makeMethodChainRule(),
@@ -228,8 +222,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
     if (!matched) setIsOpen(false);
   };
 
-  // After one comma-list entry, offer add-another or close-bracket rather than guessing.
-  // closeChar is omitted for a bracket-less field (e.g. Applies During).
+  // After a comma-list entry: offer add-another or close.
   const showContinueOptions = (closeChar?: string) => {
     const items: SuggestionItem[] = [{ val: ',', group: 'Continue', label: ',  (add another)' }];
     if (closeChar) items.push({ val: closeChar, group: 'Continue', label: `${closeChar}  (close)` });
@@ -290,7 +283,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
       const matchLength = match[groupIdx] !== undefined ? match[groupIdx].length : match[0].length;
       const replaceStart = cursorPos - matchLength;
 
-      // rule.prefix (e.g. '@') is in `val` only if the regex matched it outside the capture group; else insert it here.
+      // Insert rule.prefix unless already matched.
       const matchedExtra = match[0].length - matchLength;
       const needsPrefix = !!rule.prefix && matchedExtra < rule.prefix.length;
       const insertedPrefix = needsPrefix ? rule.prefix! : '';

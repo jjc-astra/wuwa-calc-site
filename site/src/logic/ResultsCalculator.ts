@@ -1,5 +1,4 @@
-// Turns one Calculate press into the Results panel's data -- builds one flat, time-ordered hit
-// list from an extended opener+N-loop simulation. Every output below just filters/aggregates it.
+// Results panel data, from one time-ordered hit list over an opener + N-loop simulation.
 import { TimelineEngine } from './TimelineEngine';
 import { CombatCalculator, carriesStatScaledBuffFrom } from './CombatCalculator';
 import { resourceCap } from './resources';
@@ -24,7 +23,7 @@ import type {
   ContributionForWindow
 } from '../types/results';
 
-// Fixed avg-loop sample size: first loop + 2 more, regardless of how short a loop is.
+// Loops sampled for Avg Loop.
 const AVG_LOOP_REPS = 3;
 
 interface RotationHit {
@@ -33,29 +32,23 @@ interface RotationHit {
   provider: string;
   dmgTypes: string[];
   formulaUsed: string;
-  // Kept for substat-worth re-sim, which re-runs just the formula per hit with a stat-patched team.
+  // For substat-worth re-pricing.
   config: HitConfig;
   context: any;
 }
 
-// A non-Standard-formula hit (Tune Break, negative status) is labeled by dmgType (e.g. "Aero
-// Erosion") unless it's from the provider's own kit (Rebecca's Hack Response), which stays theirs.
-// Shared by the pie and dmg-over-time chart.
+// Chart label: non-Standard hits use their dmgType unless from the provider's own kit.
 function hitLabel(h: RotationHit): string {
   if (h.formulaUsed === 'Standard' || h.config.moveRef?.startsWith(`@${h.provider}(`)) return h.provider;
   return h.dmgTypes[0] || 'Status Effect';
 }
 
-// One simulated timeline: the end time of each of its loop reps, and of each sub-loop within them
-// (the loop windows' units: First Loop is the first sub-loop, Avg Loop averages per sub-loop).
-// Both null without a loop; cycleEnds matches loopEnds when the loop has no splits.
+// One simulated run with loop and sub-loop end times (null without a loop).
 interface SimRun { evaluatedRows: any[]; loopEnds: LoopEnds; cycleEnds: LoopEnds; cyclesPerLoop: number }
 
-// Opener + N loop reps run through the real engine. `loop` feeds the opener and loop windows (at
-// least AVG_LOOP_REPS reps); `twoMin` is the 2-minute fight. They're the same run unless Ending
-// Rotation starts before the AVG_LOOP_REPS-th loop: then the 2-min run is opener + its fewer reps
-// (and sub-loops) + Ending Rotation, as the table shows it, and the loop windows get a plain run
-// of their own.
+// Simulates opener + N loops.
+// - loop: opener and loop windows (>= AVG_LOOP_REPS reps)
+// - twoMin: the 2-minute fight; separate only if Ending Rotation starts earlier
 function buildExtendedTimeline(
   rows: any[],
   team: any[],
@@ -69,7 +62,6 @@ function buildExtendedTimeline(
   const contentRows = rows.filter(r => r && r.unit);
   const { openerRows, loopTemplate, endingRows } = splitLoopSegments(contentRows, loopStartIndex, endingRotationEnabled);
 
-  // `rows` is already-recalculated, so its timing fields can be read directly.
   const { openerEnd, loopDuration } = loopTiming(openerRows, loopTemplate);
   const openerEndTime = toFrames(openerEnd);
 
@@ -84,13 +76,11 @@ function buildExtendedTimeline(
   if (loopDuration === 0) return single(runSimple([...openerRows, ...loopTemplate, ...endingRows]));
 
   const bounds = loopCycleBounds(loopTemplate, team[0]?.character);
-  // Each rep's real end, read off the run: a later rep can take longer than the table's single
-  // one (e.g. waiting on a cooldown the opener's timing didn't), so the loop windows can't
-  // assume every rep matches loopDuration.
-  // `tail` runs after the reps: Ending Rotation and any partial loop in front of it.
+  // Rep ends are read from the run; reps can differ in length.
+  // `tail`: Ending Rotation and any partial loop before it.
   const simulate = (reps: number, tail: any[]): SimRun => {
     const content = repeatLoop(openerRows, loopTemplate, reps, tail);
-    // The Ending Rotation preview may have run this exact timeline already.
+    // Reuse the Ending Rotation preview's run if it matches.
     const previewRun = shared?.run;
     const reusable = previewRun && previewRun.reps === reps && previewRun.contentLength === content.length;
     const evaluatedRows = reusable ? previewRun.evaluatedRows : runSimple(content);
@@ -116,8 +106,7 @@ function buildExtendedTimeline(
   return { openerEndTime, loop, twoMin };
 }
 
-// Prices every row's queued hits in order against the enemy's running HP (each hit reads the HP
-// left by the ones before it), handing each result to `onPriced`.
+// Prices hits in order against the enemy's running HP.
 function priceHits(
   rows: any[],
   team: any[],
@@ -135,29 +124,20 @@ function priceHits(
   });
 }
 
-// Fills each row's `damageInstances` (the per-row damage breakdown dropdown) from a short pass over
-// the literal authored rows. Mutates rows in place; runs independent of the Results panel's
-// extended (opener + N-loop) pass, and starts from full enemy HP.
+// Fills each row's `damageInstances` from the authored rows. Mutates in place.
 export function populateDamageInstances(rows: any[], enemyConfig: { hp: number }, team: any[]): void {
   rows.forEach((row: any) => { row.damageInstances = []; });
-  // Who and what dealt it, for the Timeline (a System hit gets its own row there).
   priceHits(rows, team, enemyConfig, (row, hit, result) => row.damageInstances.push({
     ...result, provider: hit.config.provider, moveName: hit.config.moveName, moveRef: hit.config.moveRef, dmgTypeList: hit.config.dmgTypes || []
   }));
 }
 
-// The Ending Rotation preview and the Results pass simulate the same opener + N loops + ending
-// timeline whenever they pick the same N. The preview records its run here so the Results pass
-// can reuse it instead of simulating again.
+// Ending Rotation preview run, reused by the Results pass when N matches.
 export interface SharedExtendedRun {
-  // openerLength/loopLength locate each rep's rows in evaluatedRows (content rows only).
   run?: { reps: number; contentLength: number; evaluatedRows: any[]; openerLength: number; loopLength: number };
 }
 
-// Live-preview counterpart to buildExtendedTimeline, used by calc.worker.ts's cheap
-// 'recalculate' pass. Re-derives when Ending Rotation actually starts (after enough whole
-// loops fill 120s, not right after the table's single loop rep) and splices it onto
-// evaluatedRows' tail.
+// Re-times Ending Rotation for the live preview and splices it onto evaluatedRows.
 export function previewEndingRotationTiming(
   evaluatedRows: any[],
   team: any[],
@@ -181,13 +161,11 @@ export function previewEndingRotationTiming(
   const previewEvaluated = TimelineEngine.recalculateState(toRunInput(extendedContent), team, { ...options, mode: 'full' }, enemyConfig);
   if (shared) shared.run = { reps: repsToSimulate, contentLength: extendedContent.length, evaluatedRows: previewEvaluated, openerLength: openerRows.length, loopLength: loopTemplate.length };
 
-  // So Ending Rotation's re-timed rows get their own DMG column too.
   if (populateDamage) populateDamageInstances(previewEvaluated, enemyConfig, team);
 
   const evaluatedEndingRows = previewEvaluated.filter((r: any) => r && r.unit).slice(-endingRows.length);
 
-  // Overwrites just the Ending Rotation tail with its re-timed counterparts, preserving the
-  // loopStartOverride/loopEndOverride/loopSplit flags toRunInput strips out.
+  // Replace the Ending Rotation tail, keeping loop marker flags.
   const endingStartContentIdx = openerRows.length + loopTemplate.length;
   let contentIdx = 0;
   return evaluatedRows.map(row => {
@@ -199,7 +177,7 @@ export function previewEndingRotationTiming(
   });
 }
 
-// Prices every queued hit over the extended timeline (rather than the literal authored rows).
+// Prices every hit over the extended timeline.
 function buildHitList(evaluatedRows: any[], team: any[], enemyConfig: EnemyStats): RotationHit[] {
   const hits: RotationHit[] = [];
   priceHits(evaluatedRows, team, enemyConfig, (_row, hit, result) => {
@@ -214,8 +192,7 @@ function buildHitList(evaluatedRows: any[], team: any[], enemyConfig: EnemyStats
     });
   });
 
-  // A hit's origin row isn't its global resolve order (delayed procs/DoT ticks can land after
-  // a later row's instant hit) -- sort once here instead of trusting row order.
+  // Delayed hits can land after later rows' hits.
   return hits.sort((a, b) => a.gameTime - b.gameTime);
 }
 
@@ -233,24 +210,21 @@ function groupSum(hits: RotationHit[], keyFn: (h: RotationHit) => string): Recor
   return out;
 }
 
-// The pie's cast-type bucket for a hit; one naming none of PRIMARY_DMG_TYPES is "Other".
+// Pie bucket for a hit ("Other" if none match).
 function primaryDmgType(dmgTypes: string[]): string {
   for (const p of PRIMARY_DMG_TYPES) if (dmgTypes.includes(p)) return p;
   return 'Other';
 }
 
-// The slice of the extended simulation a DPS window covers: hits after `start` up to and
-// including `end`, plus the length its DPS is measured over. null for a loop window when the
-// rotation has no loop to measure.
+// DPS window: hits in (start, end] over `length`.
 interface WindowSpan { start: number; end: Frames; length: Frames }
 
-// End time of each simulated loop rep (or sub-loop), in order; null when the rotation has no loop.
+// Loop (or sub-loop) end times; null without a loop.
 type LoopEnds = Frames[] | null;
 
-// How many loops the Avg Loop window averages over: every sub-loop of its AVG_LOOP_REPS whole loops.
+// Sub-loops averaged by Avg Loop.
 const avgLoopUnits = (run: SimRun): number => AVG_LOOP_REPS * run.cyclesPerLoop;
 
-// First Loop is the first sub-loop; Avg Loop spans AVG_LOOP_REPS whole loops (see avgLoopUnits).
 function windowSpan(key: DpsWindowKey, openerEndTime: Frames, { loopEnds, cycleEnds }: SimRun): WindowSpan | null {
   switch (key) {
     case 'opener':
@@ -267,7 +241,6 @@ function windowSpan(key: DpsWindowKey, openerEndTime: Frames, { loopEnds, cycleE
 }
 
 function buildDpsStats(sim: Simulated): DpsStats {
-  // DPS is damage/second, so each window's frame length converts to seconds at the division.
   const stats: Record<string, number | null> = {};
   for (const window of DPS_WINDOWS) {
     const run = runFor(sim, window.key);
@@ -277,8 +250,7 @@ function buildDpsStats(sim: Simulated): DpsStats {
   return stats as unknown as DpsStats;
 }
 
-// Builds one window's cumulative dmg-over-time series from hits already shifted to
-// window-relative time and already divided down for averaging where that applies, in time order.
+// Cumulative dmg-over-time series from window-relative, time-ordered hits.
 function buildDmgOverTimeForWindow(
   relativeHits: Array<{ t: Frames; total: number; label: string }>,
   bossMaxHp: number,
@@ -302,8 +274,7 @@ function buildDmgOverTimeForWindow(
   return { label, points, bossMaxHp, killTime, windowEnd };
 }
 
-// What each window's chart series is called. It's a separate name from the tab's, since the
-// full-rotation window reads as the current rotation on its own chart.
+// Chart series names per window.
 const SERIES_LABELS: Record<DpsWindowKey, string> = {
   opener: 'Opener',
   firstLoop: 'First Loop',
@@ -311,26 +282,20 @@ const SERIES_LABELS: Record<DpsWindowKey, string> = {
   twoMin: 'Current Rotation'
 };
 
-// Folds the Avg Loop window's loops -- each sub-loop of each of its reps, `periodEnds` -- into one
-// loop-length window, averaging damage and timing per move so rep-to-rep jitter doesn't scatter
-// "the same" hit into near-duplicate points. Sub-loops with different moves (A uses Tune Break once,
-// B twice) each keep their own hits, at their weight in the average loop. Bar mode (deltas between
-// points) inherits one clean step per move for free.
+// Folds Avg Loop's sub-loops into one loop, averaging damage and timing per move.
 function buildAvgLoopDmgOverTime(hits: RotationHit[], openerEndTime: Frames, periodEnds: Frames[], bossMaxHp: number): DmgOverTimeSeries {
   const periods = periodEnds.length;
   const windowHits = windowedHits(hits, openerEndTime, periodEnds[periods - 1]);
-  // Periods can differ in length, so each hit is placed by its own period's start and end.
+  // Periods can differ in length.
   const repStarts = [openerEndTime, ...periodEnds.slice(0, periods - 1)];
   const repIndexOf = (h: RotationHit) => {
     const idx = periodEnds.findIndex(end => h.gameTime <= end);
     return idx === -1 ? periods - 1 : Math.min(periods - 1, idx);
   };
-  // actionId+hitIndex identifies "the same slot" across reps exactly, not by chronological
-  // position (a stray extra/dropped tick near a rep boundary could throw that off).
+  // Matches hits across reps by actionId + hitIndex.
   const moveKey = (h: RotationHit) => `${h.config.actionId ?? h.provider}::${h.config.hitIndex ?? 0}`;
 
-  // One hit-list per rep, split by move key -- so a repeated action within one loop (e.g. two
-  // Basic Attacks) matches by its own occurrence order, not pooled with the other occurrence.
+  // Per-rep hits by move key; repeated actions match by occurrence order.
   const repGroups: Map<string, RotationHit[]>[] = Array.from({ length: periods }, () => new Map());
   for (const h of windowHits) {
     const repIndex = repIndexOf(h);
@@ -352,10 +317,8 @@ function buildAvgLoopDmgOverTime(hits: RotationHit[], openerEndTime: Frames, per
     for (let occ = 0; occ < occurrences; occ++) {
       const matched = perRepLists.map(l => l[occ]).filter((h): h is RotationHit => h !== undefined);
       if (matched.length === 0) continue;
-      // Averages damage and time across whichever reps had this hit -- e.g. a move at 12.0s
-      // in one rep and 12.2s in another folds into one point at 12.1s, not two near-duplicates.
+      // Average time and damage across reps.
       const avgRel = matched.reduce((sum, h) => sum + foldedRel(h), 0) / matched.length;
-      // Summed across the reps here, so divided back down to one loop's worth.
       folded.push({
         t: toFrames(avgRel),
         total: matched.reduce((sum, h) => sum + h.total, 0) / periods,
@@ -381,7 +344,7 @@ function buildAllDmgOverTime(sim: Simulated, bossMaxHp: number): Record<DpsWindo
     } else if (key === 'avgLoop') {
       series[key] = buildAvgLoopDmgOverTime(hits, openerEndTime, run.cycleEnds!.slice(0, avgLoopUnits(run)), bossMaxHp);
     } else {
-      // A loop's chart starts at 0 at the loop's own start; the others run on the rotation's clock.
+      // Loop windows start at 0; others use the rotation clock.
       const points = windowedHits(hits, span.start, span.end).map(h => ({
         t: key === 'firstLoop' ? toFrames(h.gameTime - openerEndTime) : h.gameTime,
         total: h.total,
@@ -393,9 +356,7 @@ function buildAllDmgOverTime(sim: Simulated, bossMaxHp: number): Record<DpsWindo
   return series;
 }
 
-// Seconds each unit is the controlled character within (start, end]. A row holds the field from
-// the start of its wait until its game time runs out; Simultaneous rows play alongside the
-// previous one and don't take control (the engine treats a leading Simultaneous row as normal).
+// On-field seconds per unit within (start, end]. Simultaneous rows don't take the field.
 function fieldTimeInWindow(rows: any[], start: number, end: Frames, divisor: number): Record<string, number> {
   const frames: Record<string, number> = {};
   rows.forEach((row, i) => {
@@ -410,7 +371,7 @@ function fieldTimeInWindow(rows: any[], start: number, end: Frames, divisor: num
 
 function buildContributionForWindow(windowHits: RotationHit[], teamNames: string[], divisor: number): ContributionForWindow {
   const teamGroups = groupSum(windowHits, hitLabel);
-  // Roster slot order, so the legend keeps its order across windows.
+  // Roster order keeps the legend stable.
   const teamNameSet = new Set(teamNames);
   const orderedLabels = [
     ...teamNames.filter(name => teamGroups[name] !== undefined),
@@ -424,7 +385,6 @@ function buildContributionForWindow(windowHits: RotationHit[], teamNames: string
   teamNames.forEach(unit => {
     const unitGroups = groupSum(
       windowHits.filter(h => hitLabel(h) === unit),
-      // A unit's own non-Standard hit (Hack Response) is its own slice, by dmgType.
       h => (h.formulaUsed === 'Standard' ? primaryDmgType(h.dmgTypes) : h.dmgTypes[0] || 'Other')
     );
     units[unit] = Object.entries(unitGroups)
@@ -441,7 +401,6 @@ function buildAllContribution(sim: Simulated): Record<DpsWindowKey, Contribution
     const run = runFor(sim, key);
     const { hits, evaluatedRows: rows } = run;
     const span = windowSpan(key, sim.openerEndTime, run);
-    // The Avg Loop window holds avgLoopUnits loops of damage; report the average one.
     const divisor = key === 'avgLoop' ? avgLoopUnits(run) : 1;
     contribution[key] = {
       ...buildContributionForWindow(span ? windowedHits(hits, span.start, span.end) : [], sim.teamNames, divisor),
@@ -456,14 +415,11 @@ interface WeightedHit { hit: RotationHit; weight: number }
 
 const weightedTotal = (sample: WeightedHit[]): number => sample.reduce((sum, s) => sum + s.hit.total * s.weight, 0);
 
-// What substat worth prices, standing for the 2-min window: the opener, the first loop with each
-// unit's hits weighted to that unit's damage across every whole loop in the window, and the loop
-// cut off at 2 min as it is. No loop, or an opener past 2 min: the 2-min hits as they are.
+// Substat-worth sample for the 2-min window: opener, first loop weighted to all whole loops, cut-off loop.
 function substatWorthSample(hits: RotationHit[], openerEndTime: Frames, loopEnds: LoopEnds): WeightedHit[] {
   const asIs = (start: number, end: Frames) => windowedHits(hits, start, end).map(hit => ({ hit, weight: 1 }));
   if (!loopEnds || openerEndTime >= TWO_MIN) return asIs(-Infinity, TWO_MIN);
   const wholeLoopsEnd = loopEnds.filter(end => end <= TWO_MIN).pop();
-  // The first loop runs past 2 min: it's the cut-off loop.
   if (wholeLoopsEnd === undefined) return asIs(-Infinity, TWO_MIN);
 
   const firstLoop = windowedHits(hits, openerEndTime, loopEnds[0]);
@@ -474,20 +430,14 @@ function substatWorthSample(hits: RotationHit[], openerEndTime: Frames, loopEnds
   return [
     ...asIs(-Infinity, openerEndTime),
     ...firstLoop.map(hit => ({ hit, weight: firstDmg[hit.provider] > 0 ? wholeDmg[hit.provider] / firstDmg[hit.provider] : 1 })),
-    // A unit with no damage in the first loop has nothing to scale: its later loops' hits as they are.
+    // No first-loop damage: later hits unweighted.
     ...wholeLoops.filter(h => h.gameTime > loopEnds[0] && !(firstDmg[h.provider] > 0)).map(hit => ({ hit, weight: 1 })),
     ...asIs(wholeLoopsEnd, TWO_MIN)
   ];
 }
 
-// Basis: 2-min total damage. Each roll's worth = "team" (% of rotation total) and "personal"
-// (% of that unit's own total).
-//
-// Avoids re-running the full sim 78x (13 substats x 3 rolls x 2 dirs): a unit's stats only reach
-// its own hits and the hits carrying a buff of its whose value reads its stats (e.g. DMG Bonus
-// from its ER), so those cached hit/context pairs are just re-priced with a patched team -- along
-// with any multiplier reading the caster's stats. Rotation timing isn't re-simulated. Per hit, what
-// the unit's stats don't touch is worked out once for all its variants (CombatCalculator.repricer).
+// Substat worth as % of 2-min team and personal damage.
+// Re-prices only the hits a unit's stats reach, without re-simulating timing.
 function buildSubstatWorth(sample: WeightedHit[], team: TeamSlot[]): Record<string, SubstatWorthRow[]> {
   const baselineTotal = weightedTotal(sample);
   const out: Record<string, SubstatWorthRow[]> = {};
@@ -498,17 +448,14 @@ function buildSubstatWorth(sample: WeightedHit[], team: TeamSlot[]): Record<stri
     if (!unit) return;
     const unitBaseline = weightedTotal(sample.filter(s => s.hit.provider === unit));
     const reached = sample.filter(s => s.hit.provider === unit || carriesStatScaledBuffFrom(s.hit.context, unit));
-    // What the unit's stats don't touch on each hit, worked out once (CombatCalculator.repricer);
-    // each variant finishes them from its sheet stats and team.
     const repricers = reached.map(({ hit }) => CombatCalculator.repricer(hit.config, hit.context, team, unit));
-    // Any it can't do (Tune/status hits) in full -- a copy of each context, as pricing writes the
-    // enemy's HP onto it. Weighted, as the sample is.
+    // Tune/status hits are priced in full on a context copy.
     const price = (forTeam: TeamSlot[]) => {
       const baseStats = CombatCalculator.calculateFinalStats(unit, [], forTeam);
       return reached.map(({ hit, weight }, i) =>
         (repricers[i]?.(baseStats, forTeam) ?? CombatCalculator.calculateDamageInstance(hit.config, { ...hit.context }, forTeam, { restat: true }).total) * weight);
     };
-    // Re-priced the same way, so only the stat change moves the difference.
+    // Same pricing path, so only the stat change differs.
     const baseline = price(team);
 
     const rows: SubstatWorthRow[] = Object.keys(STAT_DB).map(substat => {
@@ -518,7 +465,6 @@ function buildSubstatWorth(sample: WeightedHit[], team: TeamSlot[]): Record<stri
       const def = values[defaultIndex];
       const statKey = STAT_NAME_MAP[substat];
 
-      // { team, personal } % this roll is worth -- of the rotation's total, of this unit's own.
       const worthFor = (rollValue: number, sign: 1 | -1): { team: number; personal: number } => {
         if (reached.length === 0) return { team: 0, personal: 0 };
         const modifiedTeam = team.map(s =>
@@ -534,7 +480,6 @@ function buildSubstatWorth(sample: WeightedHit[], team: TeamSlot[]): Record<stri
         });
         return { team: (delta / baselineTotal) * 100, personal: unitBaseline > 0 ? (ownDelta / unitBaseline) * 100 : 0 };
       };
-      // Each worth of a min, max and default roll, removed (sign -1) or added (+1), as `scale` reads it.
       const worthsFor = (sign: 1 | -1, scale: (v: number) => number) => {
         const [lo, hi, mid] = [min, max, def].map(roll => worthFor(roll, sign));
         const pick = (part: 'team' | 'personal') => ({ min: scale(lo[part]), max: scale(hi[part]), default: scale(mid[part]) });
@@ -546,9 +491,7 @@ function buildSubstatWorth(sample: WeightedHit[], team: TeamSlot[]): Record<stri
         min,
         max,
         default: def,
-        // What you'd give up without this roll, shown as a magnitude.
         minus: worthsFor(-1, Math.abs),
-        // What an extra roll would add; near-zero if the stat is already overcapped.
         plus: worthsFor(1, v => v)
       };
     });
@@ -570,11 +513,9 @@ type ResultsArgs = [
   shared?: SharedExtendedRun
 ];
 
-// A simulated run with its priced hits.
 interface HitRun extends SimRun { hits: RotationHit[] }
 
-// buildExtendedTimeline's runs, priced: `loop` for the opener and loop windows, `twoMin` for the
-// 2-min window (the same object unless Ending Rotation needed a run of its own).
+// Priced buildExtendedTimeline runs.
 interface Simulated { openerEndTime: Frames; loop: HitRun; twoMin: HitRun; teamNames: string[] }
 
 const runFor = (sim: Simulated, key: DpsWindowKey): HitRun => (key === 'twoMin' ? sim.twoMin : sim.loop);
@@ -586,19 +527,13 @@ function simulateHits(...[rows, team, options, enemyConfig, loopStartIndex, endi
   return { openerEndTime, loop: loopRun, twoMin: twoMin === loop ? loopRun : priced(twoMin), teamNames: teamCharacters(team) };
 }
 
-// DPS + contribution only: skips the dmg-over-time series and substat worth, the costly parts.
+// DPS and contribution only.
 export function buildRotationSummary(...args: ResultsArgs): RotationSummary {
   const sim = simulateHits(...args);
   return { dpsStats: buildDpsStats(sim), contribution: buildAllContribution(sim) };
 }
 
-// Required Energy Regen per unit, from the Energy log TimelineEngine keeps on each row. The run is
-// split at each of the unit's Energy spends (its Liberations); a window's gains (each at its own
-// base amount and the Energy Regen it landed with, buffs included) must add up to the spend. Gains
-// scale linearly with gear Energy Regen G -- a gain lands at base x (G + buffs) / 100 -- so each
-// window solves directly for its G, and the largest window is the bottleneck. At that G every
-// window just fills, so each spend empties the unit and the next window starts from 0; the first
-// starts from the Full Energy setting.
+// Required Energy Regen per unit: solves each window between spends for gear ER; the max wins.
 function buildEnergyRequirements(
   rows: any[], team: TeamSlot[], startEnergy: boolean, openerEndTime: Frames, loopEnds: LoopEnds
 ): Record<string, EnergyRequirement> {
@@ -613,8 +548,9 @@ function buildEnergyRequirements(
     const unit = slot.character;
     if (!unit) return;
     const current = CombatCalculator.calculateFinalStats(unit, [], team).energyRegen || CHARACTER_DEFAULTS.energyRegen;
-    let base = 0;          // sum of this window's gains before Energy Regen
-    let buffWeighted = 0;  // sum of base x the Energy Regen buffs on top of gear when each landed
+    // Gains before ER, and gains x ER buffs at landing.
+    let base = 0;
+    let buffWeighted = 0;
     let have = startEnergy ? resourceCap(unit, 'energy') : 0;
     let worst: { need: number; row: any } | null = null;
     let spent = false;
@@ -622,7 +558,7 @@ function buildEnergyRequirements(
     rows.forEach(row => {
       (row?.energyLog || []).forEach((entry: any) => {
         if (entry.unit !== unit) return;
-        // Effect-granted Energy: the same at any Energy Regen.
+        // Flat (effect-granted) Energy.
         if (entry.flatGain > 0) {
           have += entry.flatGain;
           return;
@@ -656,12 +592,10 @@ function buildEnergyRequirements(
   return out;
 }
 
-// Everything the Calculator's Results panels show. `withSubstatWorth: false` skips substat worth,
-// the costliest part (78 re-priced hit lists per unit), for quick passes over rotation variations.
+// All Results panel data. `withSubstatWorth: false` skips the costliest part.
 export function buildRotationResults(args: Readonly<ResultsArgs>, { withSubstatWorth = true }: { withSubstatWorth?: boolean } = {}): RotationResults {
   const sim = simulateHits(...args);
   const [, team, options, enemyConfig] = args;
-  // Substat worth and Energy Regen read the whole 2-min fight, Ending Rotation included.
   const { hits, evaluatedRows, loopEnds } = sim.twoMin;
 
   return {

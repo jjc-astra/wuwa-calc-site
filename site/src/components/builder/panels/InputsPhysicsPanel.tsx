@@ -8,8 +8,7 @@ import { tip } from '../../../utils/Common';
 import { parseTimeInput, toFrames } from '../../../utils/Frames';
 import { getStanceChanges, stanceChangeFrames } from '../../../utils/Stance';
 
-// Grounded (green) / Midair (red) across the move's length; a stance the move accepts either of
-// (an "Any" start, before its first change) is hatched with both.
+// Grounded (green) / Midair (red) over the move; "Any" is hatched.
 const StanceBar: React.FC<{ data: MechanicNode; changes: StanceChange[] }> = ({ data, changes }) => {
   const duration = typeof data.actionDuration === 'number' ? data.actionDuration : 0;
   const cancelFrames = (data.cancelTimings || []).map(ct => ct.time);
@@ -44,7 +43,7 @@ interface InputsPhysicsPanelProps {
   data: MechanicNode;
   updateNode: (patch: Partial<MechanicNode>) => void;
   forteOptions: DropdownOption[];
-  // Resolved Hold siblings; hides the config box if Repeat is present, ignoring stale Release holdConfig.
+  // A Repeat sibling hides the hold config.
   groupSiblings?: { repeat?: [string, MechanicNode]; release?: [string, MechanicNode] };
 }
 
@@ -55,11 +54,11 @@ export const InputsPhysicsPanel: React.FC<InputsPhysicsPanelProps> = ({ data, up
   const isClamp = (holdCfg.cursorMode || d.CURSOR_MODE) === 'clamp';
 
   const changes = getStanceChanges(data);
-  // Writing stanceChanges also retires the legacy stanceResult/stanceTime pair it was read from.
+  // Clears the legacy stanceResult/stanceTime.
   const setChanges = (next: StanceChange[]) => updateNode({ stanceChanges: next, stanceResult: undefined, stanceTime: undefined });
   const addChange = () => {
     const last = changes.length > 0 ? changes[changes.length - 1].stance : data.stanceReq;
-    // Starts at the animation's end so the new change doesn't alter the move until it's moved earlier.
+    // Starts at the end so it has no effect until moved.
     const endFrame = typeof data.actionDuration === 'number' ? data.actionDuration : '';
     setChanges([...changes, { stance: last === 'Midair' ? 'Grounded' : 'Midair', time: endFrame }]);
   };
@@ -208,7 +207,7 @@ export const InputsPhysicsPanel: React.FC<InputsPhysicsPanelProps> = ({ data, up
               <span>Retain Cursor</span>
             </label>
           </div>
-          {/* Clamp has no window -- full/empty is what "done" means, so center/size don't apply. */}
+          {/* Clamp has no window. */}
           {!isClamp && (
             <div className="flex-row gap-sm w-100">
               <div className="form-group relative flex-1">

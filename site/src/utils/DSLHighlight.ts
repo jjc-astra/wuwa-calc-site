@@ -1,12 +1,10 @@
-// Lightweight tokenizer for the mechanics DSL -- drives the syntax-highlight overlay behind
-// DSL input fields (AutocompleteInput). Purely cosmetic: never feeds DSLParser, so a
-// misclassified token can't break a rule.
+// Cosmetic DSL tokenizer for input highlighting; never feeds DSLParser.
 import { DSL_POINTERS } from '../logic/dsl/dslRegistry';
 
 export interface DSLToken {
   text: string;
   color: string;
-  /** True for an @Pointer or .Property that doesn't match the DSL registry -- rendered with a wavy underline. */
+  /** Unknown @Pointer or .Property. */
   invalid?: boolean;
 }
 
@@ -22,8 +20,7 @@ const DEFAULT_COLOR = 'var(--text-main)';
 
 const POINTER_NAMES = new Set(Object.keys(DSL_POINTERS));
 
-// Self's Forte{N}/MaxForte{N} are synthesized dynamically elsewhere (see dslResolver.ts's
-// makePropertyRule), never listed statically in the registry -- validated by shape instead.
+// Forte{N}/MaxForte{N} aren't in the registry; validated by shape.
 const DYNAMIC_FORTE_PROPERTY = /^(Max)?Forte[0-9]+$/;
 
 function isValidProperty(pointerName: string, propText: string, extraSelfProperties: string[]): boolean {
@@ -33,15 +30,12 @@ function isValidProperty(pointerName: string, propText: string, extraSelfPropert
   return pointer.properties.some(p => p.propName.replace(/\(\)$/, '') === propText);
 }
 
-// Capture groups, in priority order: pointer, property, keyword, event, operator, bracket, number
-// The pointer alternative tries the "@Namespace(" shape first (namespace may carry spaces, e.g.
-// echo names like "@Impermanence Heron(") -- only greedy up to a real "(", via lookahead, so it
-// never swallows unrelated trailing words -- then falls back to a plain "@Word" pointer/property lead-in.
+// Groups: pointer, property, keyword, event, operator, bracket, number.
+// Pointers try "@Namespace(" (spaces allowed) before plain "@Word".
 const TOKEN_REGEX =
   /(@[A-Za-z_][A-Za-z0-9_]*(?:\s[A-Za-z0-9_]+)*(?=\()|@[A-Za-z_][A-Za-z0-9_]*)|(\.[A-Za-z_][A-Za-z0-9_]*)|(\b(?:IF|AND|OR|NOT|ANY|ALL|XOR|ALWAYS|MATH|ABS)\b)|(\b(?:On|After)[A-Za-z]*\b)|(&&|\|\||==|!=|>=|<=|\.\.|[<>+\-*/%])|([()[\]])|(-?\d+(?:\.\d+)?%?)/gi;
 
-// extraSelfProperties: per-character @Self properties (e.g. custom forte names) the static
-// registry can't know about.
+// extraSelfProperties: per-character @Self properties.
 export function tokenizeDSL(input: string, extraSelfProperties: string[] = []): DSLToken[] {
   if (!input) return [];
 
@@ -49,9 +43,7 @@ export function tokenizeDSL(input: string, extraSelfProperties: string[] = []): 
   let lastIndex = 0;
   let depth = 0;
 
-  // Tracks whether we're immediately after "@Pointer" (chainStep 1, next .word validates as a
-  // property) or after "@Pointer.Property" (chainStep 2+, further contiguous .words are native
-  // JS method calls like .includes() -- not DSL properties, not validated).
+  // chainStep 1: next .word is a property; 2+: native methods (not validated).
   let activePointer: string | null = null;
   let chainStep = 0;
 
@@ -69,8 +61,7 @@ export function tokenizeDSL(input: string, extraSelfProperties: string[] = []): 
       const followedByCall = input[match.index + full.length] === '(';
       const pointerName = full.slice(1);
       if (followedByCall) {
-        // Namespace call (@System(...), @CharacterName(...), @EchoName(...)) -- not a DSL
-        // pointer lookup, and not this feature's concern (character/echo/move names, not schema).
+        // Namespace call; not validated.
         tokens.push({ text: full, color: POINTER_COLOR });
         activePointer = null;
         chainStep = 0;
@@ -86,8 +77,7 @@ export function tokenizeDSL(input: string, extraSelfProperties: string[] = []): 
         tokens.push({ text: full, color: PROPERTY_COLOR, invalid: !valid });
         chainStep = 2;
       } else {
-        // Either a chained native method (.includes(), .length, ...) or a disconnected
-        // ".word" with no preceding pointer -- neither is validated.
+        // Native method or detached .word; not validated.
         tokens.push({ text: full, color: PROPERTY_COLOR });
         if (!contiguous) { activePointer = null; chainStep = 0; }
       }

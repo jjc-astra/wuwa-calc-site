@@ -1,6 +1,4 @@
-// Runs the simulation pipeline (TimelineEngine + CombatCalculator + ResultsCalculator) off the
-// main thread, with its own separate DataLoader -- compiled DSL trigger-rule functions can't be
-// structured-cloned, so there's no way to share one instance across postMessage anyway.
+// Runs the simulation pipeline off the main thread, with its own DataLoader.
 import { TimelineEngine } from '../logic/TimelineEngine';
 import { buildRotationResults, buildRotationSummary, populateDamageInstances, previewEndingRotationTiming, type SharedExtendedRun } from '../logic/ResultsCalculator';
 import { DataLoader, type DataSeed } from '../utils/DataLoader';
@@ -8,16 +6,14 @@ import { applyBuilderOverridesToDataLoader, overriddenEntities } from './builder
 import { getTeamEntityRefs } from '../utils/TeamUtils';
 
 let ready: Promise<void> | null = null;
-// A seed only counts on this worker's first message.
 const getReady = (seed?: DataSeed) => ready ?? (ready = DataLoader.initDatabases(seed));
-// Entities the last request's Builder edits were applied to, undone before the next one.
+// Entities edited by the last request; restored before the next.
 let editedEntities: string[] = [];
 
-// The last 'recalculate' run, which a Calculate press on the same inputs reuses instead of
-// simulating the table and Ending Rotation preview again.
+// Last 'recalculate' run, reused by Calculate on the same inputs.
 interface RecalcRun {
   key: string;
-  // The table pass, before the Ending Rotation tail is spliced in (what the results pass reads).
+  // Before the Ending Rotation splice.
   baseRows: any[];
   rows: any[];
   loopStartIndex: number;
@@ -25,8 +21,7 @@ interface RecalcRun {
 }
 let lastRecalc: RecalcRun | null = null;
 
-// Everything a run's output depends on: the rotation, team, settings, Builder edits, and the
-// content versions of the data files it reads. Taken before the run, which mutates rows and team.
+// Cache key over all run inputs. Take before the run mutates them.
 function runKey(payload: any): string {
   const files = [
     ...DATABASE_FILES,
@@ -39,31 +34,21 @@ function runKey(payload: any): string {
 }
 const DATABASE_FILES = ['db_characters.json', 'db_weapons.json', 'db_builds.json', 'db_echoes.json'];
 
-// Main-thread-only reply data: never read on the page, and each queued hit carries a full
-// state snapshot, so it would roughly double what crosses back.
+// Never sent to the page.
 const WORKER_ONLY_KEYS = ['_pendingHits'];
 
-// Carried state the page never reads from a snapshot (it reads it off the row itself), and most of
-// what a reply would copy: each hit's state at the hit (its `data`) and each row's dropdown state
-// hold a full copy.
+// Snapshot keys the page never reads.
 const SNAPSHOT_OMIT = ['energyLog', 'availableTimings', 'offsetReasons', 'timelineEvents', 'damageInstances'];
-// The page reads a hit's buffs and breakdown figures, and a dropdown snapshot's buffs, cooldowns,
-// trackers, combos and links (ContextManager, the Timeline's Ending Rotation seed).
 const HIT_DATA_OMIT = new Set([...SNAPSHOT_OMIT, 'unitCombos', 'nextUnitActions', 'cooldowns', 'chargeCooldowns', 'unitStances', 'dropdownState', 'prevRow', 'nextRow']);
 const DROPDOWN_OMIT = new Set(SNAPSHOT_OMIT);
 
-// The extra keys left out of the object under `key` (held by `holderKey`'s value).
 const omitWithin = (key: string, holderKey: string): ReadonlySet<string> | null =>
   key === 'data' && holderKey === 'damageInstances' ? HIT_DATA_OMIT : key === 'dropdownState' ? DROPDOWN_OMIT : null;
 
-// What the page reads off a row's neighbour (ContextManager's @Prev, @Next and combos): all a link
-// to a row outside the reply carries -- such as an Ending Rotation row's, into the separate run it
-// came from -- instead of that whole run.
+// Stub for links to rows outside the reply.
 const linkStub = (row: any) => ({ unit: row.unit, action: row.action, moveName: row.moveName, castTypes: row.castTypes, unitCombos: row.unitCombos });
 
-// A copy of `rows` for the main thread: without function-valued properties (compiled trigger-rule
-// functions), `omit` keys or the snapshots' unread state, and with outside links cut down to stubs.
-// Structured clone handles the circular prevRow/nextRow links between them fine.
+// Copies rows for postMessage: no functions, `omit` keys, or unread state; outside links stubbed.
 function stripForReply(rows: any[], omit: ReadonlySet<string>): any[] {
   const inReply = new Set(rows);
   const seen = new WeakMap<object, any>();
@@ -74,7 +59,6 @@ function stripForReply(rows: any[], omit: ReadonlySet<string>): any[] {
     const clone: any = Array.isArray(value) ? [] : {};
     seen.set(value, clone);
     const extraOmit = omitWithin(key, holderKey);
-    // An array's items stand in its place: under its key, held by its holder.
     const inArray = Array.isArray(value);
     for (const k of Object.keys(value)) {
       let v = value[k];
@@ -90,15 +74,11 @@ function stripForReply(rows: any[], omit: ReadonlySet<string>): any[] {
   return copy(rows, '', '');
 }
 const REPLY_OMIT = new Set(WORKER_ONLY_KEYS);
-// A plain recalculate's reply leaves damage out too; the page keeps the rows' last damage.
 const REPLY_OMIT_NO_DAMAGE = new Set([...WORKER_ONLY_KEYS, 'damageInstances']);
 
 const worker = self as any;
 
-// The table's own pass: the rows run once (priced when `withDamage`), where the loop starts (the
-// live calculator passes the one it has; one-shot callers leave it to be found), and -- with
-// Ending Rotation on -- that tail re-timed to where it actually lands after the loops, since a
-// plain single pass shows it right after the one loop rep in front of it.
+// Table pass: rows run once, loop start found, Ending Rotation re-timed.
 function runTable(payload: any, withDamage: boolean) {
   const { rows, team, options, enemy } = payload;
   const baseRows = TimelineEngine.recalculateState(rows, team, options, enemy);
@@ -118,33 +98,28 @@ worker.onmessage = async (e: MessageEvent) => {
   try {
     await getReady(payload?.seed);
     if (payload?.manifests) DataLoader.adoptManifests(payload.manifests);
-    // Pre-warm: databases only, so it can overlap a real request on the same worker.
+    // Pre-warm databases only.
     if (type === 'warmup') {
       worker.postMessage({ id, ok: true });
       return;
     }
 
-    // Back to as-fetched, so an edit since removed (Reset Cache, a deleted node) doesn't stick.
     editedEntities.forEach(name => DataLoader.restorePristine(name));
-    // Drops the team's mechanics whose file changed since this worker loaded them (against the
-    // page's manifests, adopted above), so they reload current.
+    // Drop changed mechanics so they reload.
     getTeamEntityRefs(payload.team, { includeSystem: true, dedupe: true }).forEach(ref => {
       if (DataLoader.mechanicChanged(ref.folder, ref.name)) DataLoader.clearMechanicCache(ref.folder, ref.name);
     });
 
     await DataLoader.loadTeamMechanics(payload.team);
-    // The page's current Builder edits for this team, on top of the pristine data.
     applyBuilderOverridesToDataLoader(payload.builderOverrides);
     editedEntities = overriddenEntities(payload.builderOverrides);
 
     if (type === 'recalculate') {
       const key = runKey(payload);
-      // Always priced (it's cheap) so a Calculate press can reuse this run; only sent back when
-      // asked for (the Timeline's hit dots, RotationBuilder's mount-effect refresh).
+      // Always priced so Calculate can reuse it; damage only sent when asked.
       const { baseRows, evaluatedRows, loopStartIndex, loopStartIsOverride, shared } = runTable(payload, true);
       const { team, options, enemy } = payload;
-      // The loop check reads a second loop rep: the preview already simulated one (opener + N
-      // reps + ending) when N >= 2, otherwise analyzeLoop runs opener + 2 reps itself.
+      // Reuse the preview's second rep when it has one.
       const preview = shared.run;
       const { errors: loopErrors, warnings: loopWarnings } = preview && preview.reps >= 2
         ? TimelineEngine.loopIssues(preview.evaluatedRows, preview.openerLength + preview.loopLength, preview.openerLength + 2 * preview.loopLength)
@@ -162,10 +137,7 @@ worker.onmessage = async (e: MessageEvent) => {
     } else if (type === 'calculateDamage') {
       const { team, options, enemy, endingRotationEnabled, endRotationStartsEarlier } = payload;
 
-      // summaryOnly returns just DPS + contribution, skipping the per-row breakdown and timeline rows.
       const summaryOnly = !!payload.summaryOnly;
-      // The live calculator's last recalculate already ran these exact inputs (and the loop start
-      // it passes is that run's).
       const reusable = !summaryOnly && lastRecalc?.key === runKey(payload) && payload.loopStartIndex === lastRecalc.loopStartIndex
         ? lastRecalc
         : null;
@@ -175,16 +147,12 @@ worker.onmessage = async (e: MessageEvent) => {
       let shared: SharedExtendedRun;
       if (reusable) {
         ({ baseRows, rows: evaluatedRows, loopStartIndex } = reusable);
-        // A copy: the results pass may record its own run here.
         shared = { ...reusable.shared };
       } else {
-        // Same Ending Rotation re-timing as the 'recalculate' preview, or Calculate would overwrite
-        // those rows' columns with the plain single-pass evaluation.
         ({ baseRows, evaluatedRows, loopStartIndex, shared } = runTable(payload, !summaryOnly));
       }
 
-      // Extended (opener + N-loop-repetition) pass -- feeds the Results panel. Reuses the Ending
-      // Rotation preview's simulation when it ran the same timeline.
+      // Extended pass for the Results panel.
       const args = [baseRows, team, options, enemy, loopStartIndex, endingRotationEnabled, !!endRotationStartsEarlier, shared] as const;
       if (summaryOnly) {
         worker.postMessage({ id, ok: true, results: buildRotationSummary(...args) });

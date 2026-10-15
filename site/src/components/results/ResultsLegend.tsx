@@ -9,7 +9,7 @@ interface ResultsLegendProps {
   items: ResultsLegendItem[];
 }
 
-/** Shared swatch + label legend row used above any results chart with more than one series. */
+/** Swatch + label legend row. */
 export const ResultsLegend: React.FC<ResultsLegendProps> = ({ items }) => (
   <div className="results-legend caps-tag">
     {items.map(item => (

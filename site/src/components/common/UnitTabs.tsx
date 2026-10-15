@@ -6,12 +6,11 @@ interface UnitTabsProps {
   tabs: string[];
   active: string;
   onSelect: (tab: string) => void;
-  /** Tabs that render without a --unit-theme color, e.g. a non-character "Team" tab. */
+  /** Tabs without a unit theme color (e.g. "Team"). */
   unthemed?: string[];
 }
 
-/** Shared per-unit tab strip for picking "Team" and/or one character -- each themed tab
- * colors itself via the same character theme used elsewhere in results panels. */
+/** Per-unit tab strip, themed by character. */
 export const UnitTabs: React.FC<UnitTabsProps> = ({ tabs, active, onSelect, unthemed = [] }) => (
   <div className="unit-tabs">
     {tabs.map(t => (

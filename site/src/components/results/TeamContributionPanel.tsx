@@ -10,7 +10,7 @@ import { teamCharacters } from '../../utils/TeamUtils';
 import { DpsWindowSelect } from './DpsWindowSelect';
 import { UnitTabs } from '../common/UnitTabs';
 
-/** DMG Contribution: the team's damage by unit, or one unit's by cast type, for a window. */
+/** Damage by unit, or one unit's by cast type. */
 export const TeamContributionPanel: React.FC = () => {
   const { team, results, isStale } = useResultsSource();
   const units = teamCharacters(team);
@@ -27,7 +27,6 @@ export const TeamContributionPanel: React.FC = () => {
   const data =
     tab === 'Team'
       ? teamSlices.map(s => {
-          // Status/mechanic slices (e.g. Aero Erosion) aren't a team unit -- fall through to the generic palette.
           if (units.includes(s.label)) {
             const themeColor = getCharacterThemeColor(DataLoader.characterDB[s.label]);
             return { label: s.label, value: s.dmg, color: themeColor, labelColor: themeColor };

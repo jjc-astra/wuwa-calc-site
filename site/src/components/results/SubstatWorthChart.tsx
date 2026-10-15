@@ -12,7 +12,7 @@ const formatPct = (v: number) => `${v.toFixed(1)}%`;
 type Direction = 'minus' | 'plus';
 type Mode = 'team' | 'personal';
 
-/** Each substat roll's worth to the team or the unit: a min-max range and the default roll. */
+/** Each substat roll's worth: min-max range and the default roll. */
 export const SubstatWorthChart: React.FC = () => {
   const source = useResultsSource();
   const { team, results } = source;
@@ -25,10 +25,7 @@ export const SubstatWorthChart: React.FC = () => {
   const setSubstatWorthEnabled = useRotationStore(s => s.setSubstatWorthEnabled);
   const unit = units.includes(activeUnit) ? activeUnit : units[0] || '';
 
-  // min/max/default are the % DPS worth of a roll at that value, in the selected direction/mode
-  // -- not the substat's own raw roll values (those only pick which value was tested).
-  // Rows with zero effect (overcapped stat, or one this kit never touches) are dropped
-  // instead of shown as a dead 0.0% line.
+  // Values are % DPS worth. Zero-effect rows are dropped.
   const rows = useMemo(() => {
     const raw = unit ? results?.substatWorth?.[unit] ?? [] : [];
     return raw
@@ -44,19 +41,14 @@ export const SubstatWorthChart: React.FC = () => {
   const scaleMax = Math.max(1, ...rows.map(r => r.max)) * 1.08;
   const hasRows = rows.length > 0;
 
-  // Every row's track shares the same CSS Grid column, so one measurement covers them all.
-  // A raw `left: X%` marker lands on a different fractional pixel per row, and anti-aliasing
-  // makes some read thicker than others. Edges are snapped to whole *screen* pixels -- at 125% OS
-  // scaling a CSS pixel is 1.25 of them -- counted from the track's own on-screen position.
+  // One shared track measurement; edges snap to screen pixels for even thickness.
   const trackRef = useRef<HTMLSpanElement>(null);
   const [track, setTrack] = useState({ width: 0, left: 0, dpr: 1 });
 
-  // Re-runs on hasRows too: the track only mounts once there's substat worth to show.
   useLayoutEffect(() => {
     const el = trackRef.current;
     if (!el) return;
-    // Measured synchronously before paint so the first render is already pixel-snapped. Zoom
-    // changes devicePixelRatio and the track's CSS width together, so ResizeObserver covers it.
+    // Before paint; ResizeObserver also covers zoom.
     const measure = () => {
       const rect = el.getBoundingClientRect();
       setTrack({ width: rect.width, left: rect.left, dpr: window.devicePixelRatio || 1 });
@@ -67,10 +59,9 @@ export const SubstatWorthChart: React.FC = () => {
     return () => observer.disconnect();
   }, [unit, hasRows]);
 
-  // A CSS x offset within the track, moved to the nearest screen-pixel boundary.
   const snapX = (pct: number, shiftScreenPx = 0) =>
     Math.round((track.left + (pct / 100) * track.width) * track.dpr - shiftScreenPx) / track.dpr - track.left;
-  // The Default marker: a whole number of screen pixels wide (~3 CSS px), centered on its value.
+  // ~3 CSS px, in whole screen pixels.
   const markerScreenPx = Math.max(2, Math.round(3 * track.dpr));
 
   return (
@@ -125,15 +116,13 @@ export const SubstatWorthChart: React.FC = () => {
                 <span className="substat-col-header">Max</span>
               </div>
               {rows.map((row, idx) => {
-                // Worth doesn't strictly increase with roll size near overcap (e.g. a big Crit Rate
-                // roll can be worth *less* than a smaller one past 100% crit) -- guard edges, don't assume min <= max.
+                // min can exceed max near overcap.
                 const lo = Math.min(row.min, row.max);
                 const hi = Math.max(row.min, row.max);
                 const minPct = (lo / scaleMax) * 100;
                 const maxPct = (hi / scaleMax) * 100;
                 const defPct = (row.default / scaleMax) * 100;
 
-                // Snap the range bar's edges the same way (not raw min%/width%) to avoid the same pixel inconsistency.
                 const rangeLeft = track.width > 0 ? snapX(minPct) : null;
                 const rangeRight = track.width > 0 ? snapX(maxPct) : null;
 

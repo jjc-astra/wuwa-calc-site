@@ -13,15 +13,13 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    /* Top padding + #app-layout's 0.625rem gap under the nav = the var(--space-4) gap below the hero. */
     padding: calc(var(--space-4) - 0.625rem) var(--space-6) var(--space-6);
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
-    /* Queried by .guide-columns, which can't query its own width to pick its column split. */
+    /* Queried by .guide-columns. */
     container: guide-body / inline-size;
 }
-/* No shrinking: overflow-clipped cards like the timeline would collapse. */
 .guide-page-body > * { flex-shrink: 0; width: 100%; max-width: 87.5rem; margin-left: auto; margin-right: auto; box-sizing: border-box; }
 
 /* --- Library (search and grid: common/LibraryGrid) --- */
@@ -33,7 +31,7 @@
 }
 
 /* --- Hero --- */
-/* Flat tint: a low-contrast gradient on this dark surface visibly bands. */
+/* Flat tint; gradients band here. */
 .guide-hero {
     display: flex;
     align-items: center;
@@ -61,17 +59,15 @@
 /* --- Team & investment selector --- */
 .guide-config { display: flex; flex-direction: column; gap: var(--space-3); }
 .guide-config .results-card-header { margin-bottom: 0; }
-/* The site's gold tag colors (e.g. the Builder's .type-tag): gold text and border. */
 .guide-default-badge { color: var(--accent); border-color: var(--accent); }
 .guide-reset-btn { padding: 2px var(--space-3); }
 
 .guide-config-slots {
     display: grid;
-    /* Unit (avatar, name, S) sized to the team's longest, up to half the panel; weapon takes the rest. */
     grid-template-columns: fit-content(50%) minmax(0, 1fr) auto auto;
     gap: var(--space-2);
 }
-/* One line per member: avatar, name, S, weapon, R, set -- columns shared across rows via subgrid. */
+/* One subgrid line per member. */
 .guide-config-slot {
     display: grid;
     grid-column: 1 / -1;
@@ -91,31 +87,27 @@
 }
 .guide-config-slot-weapon { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-2); }
 .guide-config-slot-weapon .avatar { flex-shrink: 0; }
-/* .dropdown is display: contents, so the trigger itself is the flex item to size. */
+/* .dropdown is display: contents. */
 .guide-mini-select { width: 3.25rem; flex: none; }
-/* Icon-only set picker. */
 .guide-config-slot .icon-select:has(.guide-set-select) { width: auto; }
-/* No vertical padding, icon sized to the other dropdowns' height so the underlines line up. */
+/* Aligns underlines with the other dropdowns. */
 .guide-set-select { padding-top: 0; padding-bottom: 0; }
 .guide-set-select .avatar-sm { width: 1.45rem; height: 1.45rem; }
 .guide-set-select:disabled { opacity: 1; cursor: default; }
 
 /* --- Results + timeline --- */
-/* Left: config + its results. Right: comparisons, split 50/50. Stacks to one column when the
-   view is too narrow for two ~560px columns. */
+/* Two columns, stacking when narrow. */
 .guide-columns {
     display: grid;
     grid-template-columns: 1fr;
     gap: var(--space-4) var(--space-6);
-    /* Stretch so the divider spans the taller column; panels inside keep their own height. */
     align-items: stretch;
 }
 .guide-column { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; position: relative; }
-/* Section header atop each column; min-height lines both up whether or not it holds toggles. */
+/* min-height keeps both column headers level. */
 .guide-column-header { display: flex; align-items: center; gap: var(--space-4); min-height: 1.75rem; }
 .guide-column-header .panel-header-main { flex: 1; }
-/* Divider centered in the column gap, shown while the columns sit side by side
-   (2 x 560px + the 20px --space-6 gap). */
+/* Column divider (side-by-side only). */
 @container guide-body (min-width: 71.25rem) {
     .guide-columns { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
     .guide-column + .guide-column::before {
@@ -128,8 +120,7 @@
         background: linear-gradient(to bottom, transparent, var(--border) 8%, var(--border) 92%, transparent);
     }
 }
-/* Stacked (one column): dissolve the two column wrappers so their panels share one list, with
-   the selectors (Team Setup, then Echo Stats) first instead of the Results column's top. */
+/* Stacked: one list, selectors first. */
 @container guide-body (max-width: 71.2488rem) {
     .guide-column { display: contents; }
     .guide-config { order: -2; }
@@ -138,7 +129,6 @@
 .guide-pair-weighted { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: flex-start; }
 .guide-pair-weighted > :first-child { flex: 1 1 15.625rem; min-width: 0; }
 .guide-pair-weighted > :last-child { flex: 2 1 21.25rem; min-width: 0; }
-/* Rotation Time stays compact; DMG Contribution's tabs, legend and pie take the rest. */
 .guide-pair-contribution > :first-child { flex: 0 0 auto; min-width: 14rem; }
 .guide-pair-contribution .results-card-header { white-space: nowrap; }
 .guide-pair-contribution > :last-child { flex-basis: 24rem; }
@@ -148,16 +138,12 @@
     gap: var(--space-4);
     align-items: start;
 }
-/* A titled block below the columns (Timeline, Rankings). */
 .guide-section { display: flex; flex-direction: column; gap: var(--space-3); }
-/* Headers here sit in gapped flex columns, so they drop .panel-header-main's own margin. */
 .guide-page .panel-header-main { margin-bottom: 0; }
 
 /* --- Echo stats --- */
-/* One line per row: a label column, then chips (label over value, or a single value). */
 .guide-echo-stats { display: flex; flex-direction: column; gap: var(--space-2); }
 .guide-echo-stats .results-card-header { margin-bottom: 0; }
-/* Required ER, on the right of the header. */
 .guide-echo-er .caps-label { color: var(--text-dim); }
 .guide-echo-er-value { font-size: var(--font-value); font-weight: bold; font-variant-numeric: tabular-nums; color: var(--accent); }
 .guide-echo-row { display: grid; grid-template-columns: 5.25rem minmax(0, 1fr); align-items: center; gap: var(--space-3); }
@@ -182,10 +168,8 @@
 }
 .guide-cmp-rank-range { display: flex; align-items: center; gap: var(--space-3); }
 .guide-cmp-rank-range .range-slider { width: 7.5rem; }
-/* Label and "+" styled like the Mechanics Builder's add rows (builder.css .mech-add-row). */
 .guide-cmp-controls .form-label { margin: 0; }
 .guide-cmp-add .icon-select { width: auto; }
-/* Remove (X) on a comparison row, pushed to the end of its label cell. */
 .guide-cmp-remove {
     flex-shrink: 0; margin-left: auto; padding: 0 var(--space-1);
     background: none; border: none; cursor: pointer;
@@ -227,7 +211,6 @@
 .guide-cmp-tag { color: var(--accent); background: var(--accent-selected); }
 
 .guide-cmp-value { gap: var(--space-3); justify-content: space-between; }
-/* Same layout as the rankings bar's DPS label (.ranking-bar-dps-value / -unit). */
 .guide-cmp-raw { display: flex; align-items: baseline; gap: 0.25rem; color: var(--text-main); }
 .guide-cmp-raw-value { font-weight: bold; font-size: var(--font-value); font-variant-numeric: tabular-nums; }
 .guide-cmp-raw-unit { opacity: 0.85; }

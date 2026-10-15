@@ -16,8 +16,7 @@ import type { ImageFolder } from '../../data/db';
 import { Dropdown } from '../common/Dropdown';
 import { LibraryCard, LibrarySection, LibrarySearchInput, matchesLibrarySearch } from '../common/LibraryGrid';
 
-// Maps a grid section's image folder to the isContentImplemented() kind to check.
-// 'System' has no implemented-content notion, so it's always treated as implemented.
+// Folder -> isContentImplemented kind. System is always implemented.
 const IMPLEMENTED_KIND_BY_FOLDER: Partial<Record<ImageFolder, ImplementedContentKind>> = {
   [IMAGE_FOLDERS.CHARACTERS]: 'character',
   [IMAGE_FOLDERS.WEAPONS]: 'weapon',
@@ -33,8 +32,7 @@ interface GridCardProps {
   hasChanges: boolean;
 }
 
-// A library card plus the Builder's own state: rarity, "not yet implemented" dimming and the
-// unsaved-changes badge.
+// Library card with rarity, unimplemented dimming and a changes badge.
 const GridCard: React.FC<GridCardProps> = ({ itemName, imgFolder, dbRef, onClick, hasChanges }) => {
   const hasRarity = imgFolder === IMAGE_FOLDERS.CHARACTERS || imgFolder === IMAGE_FOLDERS.WEAPONS;
   const rarity = hasRarity ? dbRef?.[itemName]?.rarity || 5 : 5;
@@ -50,8 +48,7 @@ const GridCard: React.FC<GridCardProps> = ({ itemName, imgFolder, dbRef, onClick
       dimmedTooltip="Not yet implemented -- click to start authoring its mechanics"
       onClick={() => onClick(rarity)}
       badge={hasChanges && (
-        // Sibling of .char-icon (not a child) -- .char-icon clips via overflow:hidden for its
-        // rounded corners, so this lets the badge hang half outside like a real notification badge.
+        // Sibling of .char-icon so it isn't clipped.
         <span className="char-grid-dirty-badge" {...tip('Has locally cached changes')}>
           <svg viewBox="0 0 24 24">
             <path className="dirty-badge-shape" d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
@@ -64,7 +61,7 @@ const GridCard: React.FC<GridCardProps> = ({ itemName, imgFolder, dbRef, onClick
   );
 };
 
-// Groups each Hold with its Repeat/Release siblings into one card: by holdGroupId, else by shared input + category.
+// Groups each Hold with its Repeat/Release by holdGroupId, else input + category.
 function resolveHoldGroups(allMechs: Record<string, MechanicNode>) {
   const entries = Object.entries(allMechs);
   const skipIds = new Set<string>();
@@ -75,7 +72,6 @@ function resolveHoldGroups(allMechs: Record<string, MechanicNode>) {
     let repeat: [string, MechanicNode] | undefined;
     let release: [string, MechanicNode] | undefined;
 
-    // holdGroupId first; a sibling without one can still match below.
     if (holdNode.holdGroupId) {
       entries.forEach(([id, m]) => {
         if (id === holdId || m.holdGroupId !== holdNode.holdGroupId) return;
@@ -83,7 +79,6 @@ function resolveHoldGroups(allMechs: Record<string, MechanicNode>) {
         else if (m.inputType === 'Release') release = [id, m];
       });
     }
-    // Ungrouped nodes match on input and category, so a Basic charged attack can't claim another group's Release.
     entries.forEach(([id, m]) => {
       if (id === holdId || m.holdGroupId || m.input !== holdNode.input || m.category !== holdNode.category) return;
       if (m.inputType === 'Repeat' && !repeat) repeat = [id, m];
@@ -100,11 +95,11 @@ function resolveHoldGroups(allMechs: Record<string, MechanicNode>) {
   return { skipIds, groupSiblings };
 }
 
-/** Mechanics Builder page: the entity library, or the open entity's node tables and output. */
+/** Mechanics Builder: entity library, or the open entity's nodes and output. */
 export const MechanicsBuilder: React.FC = () => {
   const { activeChar, setActiveChar, mechanics, setMechanicNode, reorderMechanicNode, baseStats, setBaseStat, hasChanges, removedNodes } = useBuilderStore();
   const { skipIds: holdGroupSkipIds, groupSiblings: holdGroupSiblings } = resolveHoldGroups(mechanics);
-  // The nodes, with each one deleted via Delete Node back where it was (`removed`), as a ghost row.
+  // Nodes, with deleted ones as ghost rows in place.
   const listedNodes: [string, MechanicNode, boolean][] = Object.entries(mechanics).map(([id, node]) => [id, node, false]);
   Object.entries(removedNodes).forEach(([id, { node, after, before }]) => {
     if (id in mechanics || !MechanicKey.belongsTo(id, MechanicKey.toNamespace(activeChar))) return;
@@ -116,8 +111,7 @@ export const MechanicsBuilder: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTemplates, setSelectedTemplates] = useState<Record<string, string>>({});
 
-  // Drag-to-reorder for the summary table rows -- one dragged id + drop target shared across
-  // every category table, since only one drag gesture can be in flight at a time.
+  // Row drag state, shared across category tables.
   const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
   const [dragOverInfo, setDragOverInfo] = useState<{ nodeId: string; position: 'before' | 'after' } | null>(null);
 
@@ -166,8 +160,7 @@ export const MechanicsBuilder: React.FC = () => {
               imgFolder={imgFolder}
               dbRef={dbRef}
               onClick={async rarity => {
-                // Check cached mechanic JSON isn't stale before opening -- silently evicted and
-                // refetched (by setActiveChar below), unless unsaved edits raise a conflict dialog.
+                // Freshness check before opening.
                 await checkBuilderItemFreshness(mechFolderFor(imgFolder), itemName);
                 setActiveChar(itemName, imgFolder, rarity);
               }}

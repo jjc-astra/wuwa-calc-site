@@ -7,23 +7,19 @@ import { usePopupDismiss } from './usePopupDismiss';
 interface UsePositionedSelectPopupOptions {
   itemCount: number;
   popupMaxHeight: number;
-  /** CSS selector (scoped to the popup) for the currently-active option, used to scroll it into view. */
+  /** Selector for the active option. */
   activeOptionSelector: string;
-  /** Index to seed activeIndex with when the popup opens -- typically the currently selected option. */
+  /** Initial active index (usually the selected option). */
   findInitialActiveIndex: () => number;
-  /** Given the accumulated lowercase typeahead term, return a matching item index or -1. */
+  /** Index matching a lowercase typeahead term, or -1. */
   findTypeaheadMatch: (term: string) => number;
-  /** Fired on Enter with the active index -- callers apply their own disabled-option guard here. */
+  /** Enter handler; callers guard disabled options. */
   onSelectIndex: (index: number) => void;
-  /** Horizontal anchor: 'left' (default) aligns the popup's left edge to the trigger's (for a
-   * <select>-style trigger). 'right' aligns the popup's right edge instead, for a narrow
-   * icon-only trigger pinned to the row's right (e.g. "..." menu), so it doesn't hang off. */
+  /** Edge aligned to the trigger (default 'left'). */
   align?: 'left' | 'right';
 }
 
-/** Shared lifecycle for a <select> replacement popup (portaled, fixed-position divs, not a
- * native popup): open/close, click-outside and scroll/resize auto-close, flip-upward
- * placement, active-index + scroll-into-view, and keyboard nav. Used by IconSelect and Dropdown. */
+/** Portaled <select>-replacement popup: positioning, dismissal, keyboard nav. */
 export function usePositionedSelectPopup({
   itemCount, popupMaxHeight, activeOptionSelector, findInitialActiveIndex, findTypeaheadMatch, onSelectIndex,
   align = 'left'
@@ -45,8 +41,7 @@ export function usePositionedSelectPopup({
   }, [isOpen, popupMaxHeight, align]);
 
   useEffect(() => {
-    // Closing without a natural mouseleave (click-select, outside-click, Escape) would
-    // otherwise leave a hovered disabled-option tooltip stuck on screen.
+    // Hide the tooltip on close (no mouseleave fires).
     if (!isOpen) {
       TooltipManager.hide();
       return;
@@ -61,8 +56,7 @@ export function usePositionedSelectPopup({
     if (activeEl) activeEl.scrollIntoView({ block: 'nearest' });
   }, [activeIndex, isOpen]);
 
-  // HTMLElement, not HTMLButtonElement -- IconSelect's searchable variant also wires this to a
-  // popup <input>, and only .key/.preventDefault() are used here, both element-agnostic.
+  // Also used on an <input>.
   const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
     if (!isOpen) {
       if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {

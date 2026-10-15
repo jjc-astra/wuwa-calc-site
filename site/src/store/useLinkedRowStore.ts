@@ -3,19 +3,16 @@ import { create } from 'zustand';
 const NONE: string[] = [];
 
 export interface LinkedRowState {
-  // The rotation rows (by row id) under the cursor in the table, or tied to what's under it on the
-  // Calculator Timeline (a move's row, or the rows a buff reached). The first is scrolled to.
+  // Hovered row ids; the first is scrolled to.
   rowIds: string[];
-  // Where the hover is, so only the other view scrolls.
   source: 'table' | 'timeline' | null;
-  // Whether the other view scrolls to the first row (a move: yes; a buff's rows: no).
   scroll: boolean;
   hover: (rowIds: string[], source: 'table' | 'timeline', scroll?: boolean) => void;
 }
 
 const sameIds = (a: string[], b: string[]) => a.length === b.length && a.every((id, i) => id === b[i]);
 
-/** Links the rotation table and the Calculator Timeline: hovering a move in one highlights it in both. */
+/** Links hover highlights between the rotation table and the Timeline. */
 export const useLinkedRowStore = create<LinkedRowState>()(set => ({
   rowIds: NONE,
   source: null,
@@ -27,12 +24,10 @@ export const useLinkedRowStore = create<LinkedRowState>()(set => ({
   ))
 }));
 
-// The other view scrolls to the hovered move at most this often: a smooth scroll on every hover
-// change while sweeping across moves repainted the whole table (or Timeline) every frame.
+// Scroll throttle.
 const SCROLL_INTERVAL_MS = 150;
 
-/** Calls `scrollTo` with the row `target` picks from the state, throttled to once per
- * SCROLL_INTERVAL_MS (the latest target wins). Returns the unsubscribe. */
+/** Throttled scroll-to-row subscription. Returns the unsubscribe. */
 export function subscribeLinkedScroll(target: (s: LinkedRowState) => string | undefined, scrollTo: (id: string) => void): () => void {
   let timer = 0;
   let lastAt = -Infinity;
@@ -51,10 +46,7 @@ export function subscribeLinkedScroll(target: (s: LinkedRowState) => string | un
   return () => { clearTimeout(timer); unsubscribe(); };
 }
 
-/**
- * Scrolls `el` into view inside its scroll container `container` only (never the page), by the least
- * amount. `insetLeft` is container width covered on the left (a sticky name column).
- */
+/** Minimally scrolls `el` into view within `container` only. `insetLeft`: sticky column width. */
 export function scrollIntoContainer(el: HTMLElement, container: HTMLElement | null, { margin = 8, insetLeft = 0 } = {}): void {
   if (!container) return;
   const box = container.getBoundingClientRect();

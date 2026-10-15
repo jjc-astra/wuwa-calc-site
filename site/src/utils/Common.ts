@@ -5,12 +5,10 @@ import { imageUrl, dataUrl } from './dataSource';
 import type { ElementName } from '../data/gameVocab';
 import { SYSTEM_NAMESPACE } from './MechanicKey';
 
-/** Current UI scale (root font-size / 16) set by the fluid `html` rule in components.css --
- * turns a measured px size back into the 16px-rem "design units" the layout is written in. */
+/** Current UI scale (root font-size / 16). */
 export const uiScale = (): number =>
   parseFloat(getComputedStyle(document.documentElement).fontSize) / 16 || 1;
 
-/** Hex SHA-256 of a string. */
 export async function sha256Hex(text: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
@@ -29,24 +27,20 @@ export const ELEMENT_COLORS: Record<string, string> = ({
   Physical: '#aaaaaa'
 } satisfies Record<ElementName, string>);
 
-/** The color of the element a dmg/status tag names ("Glacio", "Glacio Chafe"), if any. */
+/** Element color for a dmg/status tag ("Glacio", "Glacio Chafe"). */
 export const elementColorOf = (tag: string): string | undefined =>
   ELEMENT_COLORS[tag] ?? ELEMENT_COLORS[Object.keys(ELEMENT_COLORS).find(el => tag.includes(el)) ?? ''];
 
-/** A character's brand color, falling back through element color to a neutral gray. */
+/** Character color, falling back to element color, then gray. */
 export function getCharacterThemeColor(dbChar: Record<string, any> | undefined): string {
   if (!dbChar) return '#555555';
   return dbChar.themeColor || dbChar.color || ELEMENT_COLORS[dbChar.element] || '#555555';
 }
 
 type TooltipSize = { width: number; height: number };
-// Where the tooltip goes for a given size of it.
 type TooltipPlacement = (size: TooltipSize) => { left: number; top: number };
 
-/** The app's one hover tooltip: a single viewport-aware DOM node shared by every caller.
- * Hover moves stay cheap: content is written only when it changes, the size comes from a
- * ResizeObserver (after the browser's own layout) instead of a forced measure, and it's moved
- * with a transform, which needs no layout. */
+/** The app's shared hover tooltip: one viewport-aware node, positioned by transform. */
 class TooltipManagerClass {
   private el: HTMLDivElement | null = null;
   private html: string | null = null;
@@ -58,7 +52,6 @@ class TooltipManagerClass {
       const el = document.createElement('div');
       el.className = 'global-tooltip';
       document.body.appendChild(el);
-      // A new size (new content, or shown again) re-places it before it paints.
       new ResizeObserver(([entry]) => {
         const box = entry.borderBoxSize?.[0];
         this.size = box ? { width: box.inlineSize, height: box.blockSize } : { width: el.offsetWidth, height: el.offsetHeight };
@@ -99,7 +92,7 @@ class TooltipManagerClass {
     });
   }
 
-  /** Like show(), but anchored to raw cursor coords -- for crosshair-style hover on a chart. */
+  /** Like show(), anchored to cursor coords. */
   showAtPoint(x: number, y: number, html: string | null): void {
     if (!html) return;
     this.open(html, ({ width, height }) => {
@@ -121,40 +114,38 @@ class TooltipManagerClass {
 
 export const TooltipManager = new TooltipManagerClass();
 
-/** A number for a label: whole as is, else to two places ("3", "1.25"). */
+/** "3", "1.25" */
 export const formatNum = (n: number): string => (Number.isInteger(n) ? String(n) : n.toFixed(2));
 
-/** Text made safe to put in tooltip HTML. */
 export const escapeHtml = (text: unknown): string =>
   String(text ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 
-/** One "Key: value" line of tooltip HTML (the value escaped; a "→" in it lifted to sit level with capitals). */
+/** One "Key: value" tooltip line. */
 export const tooltipLine = (key: string, value: unknown): string =>
   `<div><span class="tooltip-key">${key}:</span> <span class="tooltip-val">${escapeHtml(value).replace(/→/g, '<span class="tooltip-arrow">→</span>')}</span></div>`;
 
-/** Spread onto an element instead of `title="..."` to use the shared TooltipManager. */
+/** Spread onto an element in place of `title`. */
 export const tip = (text: string) => ({
   onMouseEnter: (e: MouseEvent) => TooltipManager.show(e.currentTarget as Element, text),
   onMouseLeave: () => TooltipManager.hide()
 });
 
 export const CommonUtils = {
-  /** `val` clamped to [min, max]; NaN reads as min. */
+  /** NaN reads as min. */
   clampToRange: (val: number, min: number, max: number): number => {
     if (isNaN(val)) return min;
     return Math.min(max, Math.max(min, val));
   },
 
-  /** An entity's icon URL in `folder` (a transparent pixel for no name). */
+  /** Icon URL; a transparent pixel for no name. */
   getIconPath: (name: string, folder: ImageFolder): string => {
     if (!name) return TRANSPARENT_PIXEL;
-    // The data repo's icon for the 'System' entity is still filed under its old name, Generic.
+    // System's icon is filed as Generic.
     const n = name.startsWith('Rover') ? 'Rover' : name === SYSTEM_NAMESPACE ? 'Generic' : name;
     return CommonUtils.getImage(`${folder}/Icon_${n.replaceAll(' ', '')}${EXTENSION}`);
   },
 
-  // True if `src` is already in the browser's image cache -- lets an icon that remounts (e.g.
-  // switching pages) skip straight to its loaded state instead of replaying the fade-in.
+  // True if `src` is already cached (skips the fade-in).
   isImageCached: (src: string): boolean => {
     if (!src) return false;
     const img = new Image();
@@ -162,8 +153,7 @@ export const CommonUtils = {
     return img.complete;
   },
 
-  // Cursor position for a Hold's pingpong/loop/clamp physics, given elapsed progress in cursor
-  // units. The one copy TimelineEngine and Gauge both use.
+  // Hold cursor position for pingpong/loop/clamp.
   resolveHoldCursor: (progress: number, mode: string, maxVal: number): number => {
     if (mode === 'clamp') return Math.max(0, Math.min(progress, maxVal));
     if (mode === 'loop') return ((progress % maxVal) + maxVal) % maxVal;
@@ -172,25 +162,21 @@ export const CommonUtils = {
     return wrapped > maxVal ? doubleMax - wrapped : wrapped;
   },
 
-  // Cursor position `holdDurationFrames` after a hold started, from progress already
-  // `accumulated` (a retained cursor) and the hold's own cursorSpeed/mode/max.
+  // Hold cursor position after `holdDurationFrames`.
   resolveHoldCursorAtTime: (accumulated: number, holdDurationFrames: number, speed: number, mode: string, maxVal: number): number => {
     const progress = accumulated + framesToSeconds(toFrames(holdDurationFrames)) * speed;
     return CommonUtils.resolveHoldCursor(progress, mode, maxVal);
   },
 
-  // Whether a hold's cursor is where its release lands: in the window, or for 'clamp' (no
-  // window) full when it fills (speed >= 0) or empty when it drains.
+  // True when the cursor is in the window (clamp: full or empty).
   isHoldCursorDone: (cursor: number, hold: { mode: string; speed: number; maxVal: number; center: number; size: number }): boolean =>
     hold.mode === 'clamp'
       ? (hold.speed >= 0 ? cursor >= hold.maxVal : cursor <= 0)
       : Math.abs(cursor - hold.center) <= hold.size / 2,
 
-  // Where data/images come from (data repo, or the dev WIP mirror first) is dataSource.ts's concern.
   getImage: imageUrl,
   getData: dataUrl,
 
-  /** A number if `val` reads as one, else its trimmed text; undefined when empty. */
   parseMixed: (val: any): number | string | undefined => {
     if (val === undefined || val === null || val === '') return undefined;
     if (typeof val === 'number') return isNaN(val) ? undefined : val;
@@ -200,10 +186,7 @@ export const CommonUtils = {
     return trimmed;
   },
 
-  /**
-   * Parses slash-delimited weapon/rank values (e.g. "12/15/18/21/24%") for a given rank (1-5).
-   */
-  // True for a plain per-rank list ("8/10/12/14/16", "20%/25%/..."), as opposed to DSL math with a '/'.
+  // True for a per-rank list ("8/10/12/14/16"), not DSL math.
   isRankValue: (val: unknown): val is string =>
     typeof val === 'string' && /^\s*-?[\d.]+%?(\s*\/\s*-?[\d.]+%?)+\s*$/.test(val),
 
@@ -216,11 +199,7 @@ export const CommonUtils = {
     return resolved;
   },
 
-  /**
-   * Builds "Name-WI-S#" id fragments for exported rotation/team filenames, one per team slot
-   * with a character. Appends weapon initials (if set), then sequence (if above S0, since it
-   * affects damage output) -- so exports of the same character/weapon stay distinguishable.
-   */
+  /** "Name-WI-S#" filename fragments per team slot. */
   buildTeamIds: (team: Array<{ character?: string; weapon?: string; sequence?: number }>): string[] => {
     return team
       .filter(s => !!s.character)
@@ -235,16 +214,15 @@ export const CommonUtils = {
       });
   },
 
-  /** A number without float noise (1.4700000001 -> 1.47): whole numbers as they are, others rounded to `digits` places. */
+  /** Strips float noise (1.4700000001 -> 1.47). */
   trimNumber: (value: number, digits = 3): number => (Number.isInteger(value) ? value : parseFloat(value.toFixed(digits))),
 
-  /** "Rotation_Lumi-RC_Sanhua.json"-style name for exporting a team; "Rotation_Config.json" for an empty one. */
+  /** e.g. "Rotation_Lumi-RC_Sanhua.json". */
   exportFilename: (prefix: string, team: Array<{ character?: string; weapon?: string; sequence?: number }>, suffix = ''): string => {
     const names = CommonUtils.buildTeamIds(team);
     return `${prefix}_${names.length > 0 ? names.join('_') : 'Config'}${suffix}.json`;
   },
 
-  /** The text of a file the user picked. */
   readTextFile: (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -253,7 +231,7 @@ export const CommonUtils = {
       reader.readAsText(file);
     }),
 
-  /** Triggers a browser download of `data` as a pretty-printed JSON file named `filename`. */
+  /** Downloads `data` as pretty-printed JSON. */
   downloadJson: (data: unknown, filename: string): void => {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -265,10 +243,8 @@ export const CommonUtils = {
   },
 
   /**
-   * Parses multiplier strings ("150%", "[50%, 100%]", "120") into numbers/percent strings.
-   * Keeps the '%' suffix ("N%") -- CombatCalculator.calculateDamageInstance uses it to tell a
-   * scaling hit mult ("150%" -> pctMult) from a flat one ("120" -> flatMult, e.g. Tune Break).
-   * Don't strip '%' here; that would silently turn percent mults into flat values.
+   * Parses multipliers ("150%", "[50%, 100%]", "120").
+   * Keeps '%': it separates scaling mults from flat ones.
    */
   parseMultiplierString: (raw: any): (number | string)[] | undefined => {
     if (raw === undefined || raw === null || raw === '') return undefined;

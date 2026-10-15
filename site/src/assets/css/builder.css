@@ -125,19 +125,14 @@
 
 /* --- Editor Split Pane --- */
 .editor-pane { flex: 3; padding: 0.625rem; min-height: 0; }
-/* No min-height: 0 here or on .output-pane: once the code blocks hit their one-line minimums
-   (.code-blocks), the pane stops shrinking and .builder-view scrolls instead. */
+/* No min-height: 0, so the view scrolls once code blocks hit their minimums. */
 .output-pane-wrapper {
     flex: 2;
     display: flex;
     flex-direction: column;
     padding: 0.625rem;
 }
-/* Import/Export JSON on the left, the "MECHANICS CHANGED" badge + Reset Cache on the right --
-   neither side wraps or shrinks on its own, so once the badge appears in a narrower
-   .output-pane-wrapper (the stacked mobile layout, but this can bite anywhere the pane is
-   narrow), Reset Cache gets pushed straight off the edge of the panel instead of onto its own
-   line. */
+/* Wrap so Reset Cache isn't pushed off narrow panes. */
 .outputs-actions-row { flex-wrap: wrap; row-gap: 0.5rem; }
 
 .output-pane {
@@ -171,8 +166,7 @@
     --wrap-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='14 12 19 17 14 22'/%3E%3Cpath d='M5 2v11a4 4 0 0 0 4 4h10'/%3E%3C/svg%3E");
 }
 
-/* Matches .code-edit-input::selection's amber, since read-only text (unlike the transparent
-   edit-mode textarea) stays visible while selected -- only the background needs to match. */
+/* Matches .code-edit-input::selection. */
 .code-editor ::selection,
 .code-editor::selection { background: rgba(220, 165, 76, 0.35); }
 
@@ -200,18 +194,10 @@
 .code-highlighted { background-color: rgba(220, 165, 76, 0.25); transition: background-color 0.1s ease; }
 .code-field-highlighted { box-shadow: inset 0 0 0 624.9375rem rgba(220, 165, 76, 0.25); }
 
-/* --- Editable output (click a block to edit its raw JSON; live-applies to the Builder's
-   nodes/base stats as you type). Editing keeps syntax coloring via the classic transparent-
-   textarea-over-a-highlighted-backdrop trick: the backdrop <pre> renders the same syntax-
-   highlighted HTML as the read-only view (re-highlighted live from the draft text), the
-   textarea sits exactly on top with transparent text/background so only its caret and
-   selection are visible, and font/padding/line-height are identical on both (line-height/
-   font inherited from the wrapper's own .code-editor rules) so characters line up exactly. */
-/* No min-height: 0 -- it keeps both blocks' one-line minimums; past that the page scrolls. */
+/* --- Editable output: transparent textarea over a highlighted backdrop; metrics must match. --- */
+/* No min-height: 0, to keep one-line minimums. */
 .code-blocks { flex: 1; display: flex; flex-direction: column; gap: var(--space-3); }
-/* Stats get 20% of the output pane's height and mechanics the rest, each scrolling on its own --
-   but never less than one line (.code-editor's line + padding + border), or a short pane would
-   squeeze a block below its own padding and spill it into the other. */
+/* Stats 20%, mechanics the rest; each at least one line. */
 .code-block-char,
 .code-block-mech { display: flex; flex-direction: column; min-height: calc(0.85rem * 1.5 + 0.9375rem * 2 + 2px); }
 .code-block-char { flex: 1 1 0; }
@@ -242,14 +228,12 @@
     pointer-events: none;
     color: inherit;
 }
-/* The textarea can't hang-indent wrapped lines or hide its scrollbar, so the backdrop must wrap
-   at the same columns and width, or text, caret and selection drift apart on long lines. */
+/* Backdrop must wrap exactly like the textarea. */
 .code-edit-backdrop,
 .code-edit-input { scrollbar-gutter: stable; }
 .code-edit-backdrop .code-line { padding-left: 0; text-indent: 0; }
 .code-edit-backdrop .code-line::before { display: none; }
-/* Wrap arrows for the edit view sit in the left padding, since the textarea's continuation lines
-   start at the text column and can't take a hanging indent. Positioned by EditableCodeBlock. */
+/* Wrap arrows in the left padding; positioned by EditableCodeBlock. */
 .code-wrap-arrows { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 .code-wrap-arrow {
     position: absolute;
@@ -316,8 +300,7 @@
 }
 .builder-view .form-group.relative { position: relative; }
 
-/* Also the Character Guide's Weapon Comparison controls (Ranks, Add Weapon), which mirror the
-   sub-panels' add rows below. */
+/* Also used by the Character Guide's weapon controls. */
 .builder-view .form-label,
 .guide-cmp-controls .form-label {
     display: block;
@@ -325,7 +308,6 @@
     margin-bottom: var(--space-2);
 }
 
-/* .library-search-input: common/LibraryGrid's search box, which also appears outside the Builder. */
 .builder-view .form-input,
 .library-search-input {
     background: transparent;
@@ -451,7 +433,7 @@
     opacity: 0.7;
 }
 .builder-view .type-tag-remove:hover { opacity: 1; }
-/* A removed effect, kept on screen so it can be restored: dimmed, dotted outline. */
+/* Removed effect, restorable. */
 .builder-view .type-tag.is-removed { opacity: 0.45; border-style: dotted; }
 .builder-view .type-tag.is-removed:hover { opacity: 0.75; }
 
@@ -737,8 +719,7 @@
 .builder-view .mech-row.is-draggable { cursor: grab; }
 .builder-view .mech-row.is-draggable:active { cursor: grabbing; }
 .builder-view .mech-row.is-dragging { opacity: 0.4; }
-/* box-shadow on the cells, not the <tr> itself -- table rows don't reliably paint their own
-   box-shadow across browsers. Matches .rotation-row's drag-over-top/bottom indicator. */
+/* On cells: <tr> box-shadow is unreliable. */
 .builder-view .mech-row.drag-over-top td { box-shadow: inset 0 2px 0 var(--accent); }
 .builder-view .mech-row.drag-over-bottom td { box-shadow: inset 0 -2px 0 var(--accent); }
 .builder-view .mech-row td {
@@ -833,7 +814,6 @@
 .builder-view .mech-changed-badge:hover { animation: none; }
 .mech-revert-option { color: var(--danger); }
 
-/* Outline style matching the "MECHANICS CHANGED" strip's icon (.calc-warning-msg svg). */
 .builder-view .mech-changed-badge { color: var(--warning); }
 .builder-view .mech-changed-badge svg {
     width: 100%;
@@ -880,7 +860,7 @@
     text-overflow: ellipsis;
 }
 
-/* Square "+" variant of .base-btn for the sub-panels' add rows (and the guide's, see .form-label). */
+/* Square "+" .base-btn variant. */
 .builder-view .mech-add-icon-btn,
 .guide-cmp-add .mech-add-icon-btn {
     flex-shrink: 0;
@@ -943,7 +923,7 @@
 }
 .builder-view .cell-value::placeholder { color: var(--text-disabled); font-style: italic; }
 .builder-view .mech-hit-table .cell-value { width: 2.375rem; font-size: 0.68rem; }
-/* Width set inline from its text (a DSL frame can be long); this is its floor and ceiling. */
+/* Width is set inline; these are its bounds. */
 .builder-view .mech-hit-table .mech-hit-frame { min-width: 2.375rem; max-width: 18rem; }
 
 .builder-view .mech-detail-cell {
@@ -951,7 +931,7 @@
     background: transparent;
 }
 
-/* Indented child row prefixed with a wrap-arrow matching .code-line::before to visually link to the parent Hold row. */
+/* Indented child of a Hold row. */
 .builder-view .mech-name-display.mech-child-name {
     padding-left: 1rem;
     position: relative;
@@ -992,7 +972,6 @@
     color: var(--text-dim);
 }
 
-/* Segments: tinted fill + 1px border; "Any" uses the timeline's fast-forward stripes. */
 .builder-view .mech-stance-bar {
     display: flex;
     gap: 0.1875rem;
@@ -1008,7 +987,6 @@
 }
 .builder-view .mech-stance-seg.is-grounded { background-color: rgba(50, 220, 50, 0.15); border-color: var(--success); }
 .builder-view .mech-stance-seg.is-midair { background-color: rgba(220, 50, 50, 0.15); border-color: var(--danger-text); }
-/* Stripes reuse the two segments' fills; the border is alternating green/red dashes. */
 .builder-view .mech-stance-seg.is-any {
     --dash-x: repeating-linear-gradient(90deg, var(--success) 0 0.375rem, transparent 0.375rem 0.5625rem, var(--danger-text) 0.5625rem 0.9375rem, transparent 0.9375rem 1.125rem);
     --dash-y: repeating-linear-gradient(180deg, var(--success) 0 0.375rem, transparent 0.375rem 0.5625rem, var(--danger-text) 0.5625rem 0.9375rem, transparent 0.9375rem 1.125rem);
@@ -1035,7 +1013,7 @@
 .builder-view .mech-stance-bar .mech-timeline-label:first-of-type { left: 0.5rem !important; }
 .builder-view .mech-stance-bar .mech-timeline-label:last-of-type { right: 0.5rem !important; }
 
-/* Add-row and stance dropdowns take the roster's underlined look instead of the Builder's boxed selects. */
+/* Underlined roster-style selects. */
 .builder-view .mech-stance-table .base-select,
 .builder-view .mech-add-row .base-select {
     border: none;
@@ -1104,20 +1082,19 @@
 .builder-view .mech-list-remove:hover { color: var(--accent); }
 
 /* =========================================
-   MOBILE LAYOUT (must stay last -- overriding rules earlier in this file at equal specificity)
+   MOBILE LAYOUT (must stay last)
    ========================================= */
 
-/* Stacks setup/output panes vertically below 1150px (including phone desktop-mode viewports ~980-1024px) while preserving internal scrolling. */
+/* Stack panes vertically. */
 @media (max-width: 1150px) {
     #view-editor.builder-view { flex-direction: column; }
 
-    /* Splits stacked panes evenly (1:1) so outputs have sufficient vertical space for JSON inspection. */
-    /* The editor keeps its half when the outputs hit their minimum, so the page scrolls instead. */
+    /* Even split; the page scrolls past the minimums. */
     .editor-pane { flex: 1; min-height: 50%; }
     .output-pane-wrapper { flex: 1; }
 }
 
-/* Allows category header controls to wrap, preventing the row from forcing card width on narrow viewports. */
+/* Let category header controls wrap. */
 @media (max-width: 640px) {
     .builder-view .mechanic-header {
         flex-wrap: wrap;
@@ -1128,8 +1105,7 @@
     .builder-view .w-150px { width: 8.125rem; }
 }
 
-/* RemovedNodeRow: a node deleted with Delete Node, kept listed to restore -- dimmed, dotted outline
-   (like a removed effect's .type-tag.is-removed). */
+/* RemovedNodeRow */
 .builder-view .mech-removed-row td { opacity: 0.5; padding: 0.25rem 0.375rem; }
 .builder-view .mech-removed-row:hover td { opacity: 0.8; }
 .builder-view .mech-removed-node {

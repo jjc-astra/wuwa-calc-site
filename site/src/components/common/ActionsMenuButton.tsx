@@ -4,7 +4,7 @@ import { tip } from '../../utils/Common';
 import { usePositionedSelectPopup } from '../../hooks/usePositionedSelectPopup';
 
 export interface ActionsMenuItem {
-  /** Only needed when two items could share a label (e.g. one "Open X Guide" item per unit). */
+  /** Needed only when labels can repeat. */
   key?: string;
   label: React.ReactNode;
   onClick: () => void;
@@ -15,28 +15,20 @@ interface ActionsMenuButtonProps {
   items: ActionsMenuItem[];
   triggerClassName: string;
   iconSize?: number;
-  /** Overrides the default 3-dot icon -- e.g. a labeled "Support ▾"-style trigger. */
+  /** Replaces the 3-dot icon. */
   triggerContent?: React.ReactNode;
   triggerTooltip?: string;
-  /** Extra class on the popup -- e.g. to override .pin-menu's min-width for a shorter-item menu. */
   popupClassName?: string;
-  /** Pins the popup to the trigger's own rendered width instead of shrink-wrapping to the
-   * items' content -- for a wide labeled trigger (e.g. "Export JSON") whose items read as
-   * individually shorter text. */
+  /** Popup width matches the trigger. */
   matchTriggerWidth?: boolean;
 }
 
-// Ceiling on popup height -- usePositionedSelectPopup only ever shrinks it to available room
-// (its maxHeight clamp), so this just needs to cover the menu's realistic max content.
 const MENU_MAX_HEIGHT = 240;
 
-/** Shared "..." actions-menu trigger: 3-dot icon button opening a `.pin-menu` list.
- * Reuses usePositionedSelectPopup for portal positioning (same as Dropdown/IconSelect).
- * Item clicks close the menu before running onClick, to avoid racing an async handler. */
+/** "..." actions menu. Closes before running an item's onClick. */
 export const ActionsMenuButton: React.FC<ActionsMenuButtonProps> = ({
   items, triggerClassName, iconSize = 14, triggerContent, triggerTooltip, popupClassName, matchTriggerWidth = false
 }) => {
-  // Only the default 3-dot icon needs a tooltip -- custom triggerContent is assumed self-explanatory.
   const resolvedTooltip = triggerTooltip ?? (triggerContent ? undefined : 'More actions');
   const selectItem = (index: number) => {
     setIsOpen(false);
@@ -48,13 +40,10 @@ export const ActionsMenuButton: React.FC<ActionsMenuButtonProps> = ({
   } = usePositionedSelectPopup({
     itemCount: items.length,
     popupMaxHeight: MENU_MAX_HEIGHT,
-    // No persistent "selected" option (unlike Dropdown/IconSelect) -- only used for
-    // keyboard-nav bookkeeping this component doesn't otherwise need.
     activeOptionSelector: '.pin-menu-item.is-active',
     findInitialActiveIndex: () => -1,
     findTypeaheadMatch: () => -1,
     onSelectIndex: selectItem,
-    // Right-anchored so the menu opens back over the row, not off its right edge.
     align: 'right'
   });
 

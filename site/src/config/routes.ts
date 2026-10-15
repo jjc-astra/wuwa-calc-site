@@ -1,4 +1,4 @@
-// Dependency-free: vite.config.ts imports this too, to emit each route's static HTML page.
+// No imports: vite.config.ts uses this too.
 
 export type ViewId = 'landing' | 'calculator' | 'builder' | 'rankings' | 'guide' | 'about';
 
@@ -12,7 +12,7 @@ export interface PageMeta {
   description: string;
 }
 
-/** Each view's <title> and meta description: baked into its static page at build, and set on navigation. */
+/** <title> and meta description per view. */
 export const PAGE_META: Record<ViewId, PageMeta> = {
   landing: {
     title: 'WuWa Calculator | Wuthering Waves Damage & Rotation Calculator',
@@ -40,13 +40,12 @@ export const PAGE_META: Record<ViewId, PageMeta> = {
   }
 };
 
-/** A Character Guide character's page: its own static page at build when it has ranked rotations. */
 export const guideCharacterMeta = (character: string): PageMeta => ({
   title: `${character} Guide | ${SITE_NAME}`,
   description: `${character} builds and teams for Wuthering Waves: weapon, echo and sequence comparisons calculated from optimized ranked rotations.`
 });
 
-// Paths end in "/" to match GitHub Pages' <view>/index.html files, which it 301s to otherwise.
+// Trailing "/" matches GitHub Pages' index.html paths.
 export const viewPath = (view: ViewId): string => (view === 'landing' ? '/' : `/${view}/`);
 
 export const calculatorPath = (step: 1 | 2): string => `/calculator/step-${step}/`;

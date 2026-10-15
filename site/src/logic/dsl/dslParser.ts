@@ -6,7 +6,6 @@ export interface CompiledDSL {
   evaluate: (ctx: unknown, equipper?: string) => boolean;
 }
 
-// Index of the ')' matching the '(' at `openIdx`, or -1 if it never closes.
 function findClosingParen(str: string, openIdx: number): number {
   let depth = 0;
   for (let i = openIdx; i < str.length; i++) {
@@ -27,7 +26,6 @@ function validatePointerRegistry(): void {
         if (!prop.jsName) {
           console.warn(`[DSLParser] "${pointer.pointer}.${prop.propName}" is a method with no jsName -- it will not evaluate.`);
         } else if (jsNameByMethod.get(prop.propName) !== undefined && jsNameByMethod.get(prop.propName) !== prop.jsName) {
-          // Methods translate the same whichever pointer they follow, so one name can't compile two ways.
           console.warn(`[DSLParser] "${prop.propName}" maps to both "${jsNameByMethod.get(prop.propName)}" and "${prop.jsName}".`);
         } else {
           jsNameByMethod.set(prop.propName, prop.jsName);
@@ -39,8 +37,7 @@ function validatePointerRegistry(): void {
   }
 }
 
-// DSL_POINTERS as regex -> JS substitutions: full overrides ahead of bare pointer roots (so a
-// root can't swallow a longer property), then the generic suffixes.
+// Regex substitutions from DSL_POINTERS: overrides before bare roots, then suffixes.
 function buildTranslationMaps(): { pointerMap: Record<string, string>; scalarMap: Record<string, string> } {
   validatePointerRegistry();
   const pointerMap: Record<string, string> = {};
@@ -58,8 +55,7 @@ function buildTranslationMaps(): { pointerMap: Record<string, string>; scalarMap
     if (pointer.targetVar) pointerMap[`@${pointer.pointer}`] = pointer.targetVar;
   }
 
-  // Generic (pointer-agnostic) suffixes, longest-pattern-first so e.g. .MaxHP/.HPPct are matched
-  // before the shorter .HP that would otherwise partially consume them.
+  // Longest suffix first (.MaxHP before .HP).
   const scalarEntries: Array<[string, string]> = [];
   const seen = new Set<string>();
   for (const pointer of Object.values(DSL_POINTERS)) {
@@ -83,8 +79,7 @@ const { pointerMap, scalarMap } = buildTranslationMaps();
 const POINTER_RULES = Object.entries(pointerMap).map(([key, val]) => [new RegExp(key + '(?![A-Za-z0-9_])', 'gi'), val] as const);
 const SCALAR_RULES = Object.entries(scalarMap).map(([key, val]) => [new RegExp(key, 'gi'), val] as const);
 
-// '.BuffStacks(arg)' -> '.getBuffStacks("arg")' and its siblings, one rule per distinct method the
-// registry declares. Matched case-insensitively, like the pointer rules.
+// '.BuffStacks(arg)' -> '.getBuffStacks("arg")', case-insensitive.
 const METHOD_RULES: Array<{ pattern: RegExp; jsName: string }> = [];
 for (const pointer of Object.values(DSL_POINTERS)) {
   for (const prop of pointer.properties) {
@@ -95,8 +90,7 @@ for (const pointer of Object.values(DSL_POINTERS)) {
   }
 }
 
-/** "@Namespace(Move Name)": spaces allowed in the namespace (echo names), one level of nested
- * parens in the name ("@Sanhua(Forte Hold (Release))"). Groups: namespace, name. */
+/** "@Namespace(Move Name)", allowing one level of nested parens. Groups: namespace, name. */
 export const NAMESPACE_REF = /@([A-Za-z0-9_ ]+)\(((?:[^)(]+|\([^)(]*\))*)\)/g;
 
 type CompiledMathFn = (ctx: unknown, equipper: string | undefined, statusMult: typeof getNegativeStatusMult) => number;
@@ -124,7 +118,6 @@ export const DSLParser = {
     }
 
     let triggers: Array<{ event: string; modifiers: string[]; args: (string | number)[] }>;
-    // Any case, like the condition wrappers (_resolveLogicalWrappers).
     if (/^ANY\(/i.test(triggerStr) && triggerStr.endsWith(')')) {
       const inner = triggerStr.substring(4, triggerStr.length - 1);
       triggers = DSLParser._splitArgs(inner).map(t => DSLParser._parseTrigger(t));
@@ -159,8 +152,7 @@ export const DSLParser = {
     if (modMatch) {
       modifiers = modMatch[1].split(',').map(s => {
         let mStr = s.trim();
-        // Keeps @Namespace(Move Name) shape intact (lowercased/trimmed) rather than flattening
-        // to Namespace_MoveName -- must match TimelineEngine's castModifiers format exactly.
+        // Must match TimelineEngine's castModifiers format.
         mStr = mStr.replace(NAMESPACE_REF, (_, p1, p2) => `@${p1}(${p2.trim()})`);
         return mStr.toLowerCase();
       });
@@ -221,10 +213,7 @@ export const DSLParser = {
     return jsStr;
   },
 
-  // '@StatusMult(Aero Erosion, @Self.Tracker(Stacks))' becomes 'statusMult("Aero Erosion", (@Self.Tracker(Stacks)))'.
-  // The stack count can be any expression, so the call's closing paren is found by balancing rather
-  // than by regex, and this has to run before the generic '@Name(...)' rule, which would turn the
-  // whole call into a string. The stack expression is left as DSL for the later passes to translate.
+  // '@StatusMult(X, expr)' -> 'statusMult("X", (expr))'. Runs before the generic '@Name(...)' rule.
   _translateStatusMult: (jsStr: string): string => {
     const call = /@StatusMult\(/i;
     let found = call.exec(jsStr);
@@ -240,10 +229,7 @@ export const DSLParser = {
     return jsStr;
   },
 
-  // Frames vs seconds: @Move.TimeStart/Duration/GameTime/FreezeTime/MotionStop/DamageStart/DamageEnd/
-  // SwapTime, and scalarMap's Time/GameTimeStart/SwapTime/ComboWindow/EchoSummonTime suffixes,
-  // are all FRAMES. .Cooldown()/.PermanentDuration stay SECONDS -- see TimelineEngine's
-  // _processGameTimeDecay for where the two domains cross.
+  // Times are frames; .Cooldown() and .PermanentDuration are seconds.
   _translatePointers: (jsStr: string): string => {
     if (typeof jsStr !== 'string') return jsStr;
     let processing = true;

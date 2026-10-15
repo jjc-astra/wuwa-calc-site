@@ -2,20 +2,8 @@ import type { DSLPointerDef, DSLDataType } from './dslTypes';
 import { CAST_TYPES, ELEMENTS, NEGATIVE_STATUSES } from '../../data/gameVocab';
 import type { CastType } from '../../data/gameVocab';
 
-// Single source of truth for the mechanics DSL's vocabulary: dslParser.ts derives its
-// pointer/scalar translation tables from DSL_POINTERS, and AutocompleteInput.tsx (via
-// dslResolver.ts) derives its suggestion lists from the same data.
-//
-// Most properties translate generically as `pointer.targetVar + '.' + targetKey`. These can't:
-//   - Prev/Next: the BARE pointer (`@Prev`, `@Next`) resolves to their "identity" property
-//     (`ctx.prev.unit`, `ctx.next.name`), not a plain container -- so every OTHER property on
-//     them (Action, CastTypes, Priority) must be its own full override, since deriving from the
-//     bare targetVar would nest incorrectly (`ctx.prev.unit.action`).
-//   - Enemy.Name compiles to the literal string `"Enemy"`, not a ctx field.
-//   - Move.SwapTime targets `ctx.move.swapTiming` -- note the spelling differs from
-//     Default.SwapTime's generic `.swapTime` suffix, so Move's properties can't fall back to the
-//     generic suffix table without colliding with that name.
-// Each such property carries `fullOverride` instead of `targetKey`.
+// DSL vocabulary, used by the parser and autocomplete.
+// Properties translate as `targetVar.targetKey`; irregular ones use `fullOverride`.
 export const DSL_EVENTS = [
   'ALWAYS', 'OnStart', 'OnCast', 'OnHit', 'AfterHit',
   'OnSwapIn', 'OnSwapOut', 'OnUnitChange', 'OnTick',
@@ -77,7 +65,7 @@ export const DSL_MODIFIER_TOOLTIPS: Record<string, string> = {
   ...Object.fromEntries(NEGATIVE_STATUSES.map(status => [status, `Matches the ${status} status.`]))
 };
 
-// Logic wrappers: ANY(...) works for events and conditions; ALL/XOR/NOT are condition-only (offered after ' IF ').
+// ANY works anywhere; ALL/XOR/NOT are condition-only.
 export const DSL_LOGIC_TOOLTIPS: Record<string, string> = {
   ANY: 'Before IF: fires on any of several events. Inside a condition: true if any comma-separated argument is true (an OR).',
   ALL: 'Condition wrapper — true only if every comma-separated argument is true (an AND).',
@@ -90,8 +78,7 @@ export const DSL_FUNCTION_TOOLTIPS: Record<string, string> = {
   'StatusMult()': 'Function — returns the negative-status damage multiplier for a given status and stack count, e.g. @StatusMult(Aero Erosion, @Self.Tracker(Stacks)).'
 };
 
-// Native JS methods on a property that resolves to a real array/string (a compiled rule is plain
-// JS). Listed only for autocomplete; not part of translation.
+// Native JS array/string methods, for autocomplete only.
 export const DSL_TYPE_METHODS: Record<DSLDataType, Array<{ name: string; tooltip: string }>> = {
   'string[]': [
     { name: 'includes()', tooltip: "Native JS method -- true if the list/text contains the given value, e.g. @Prev.CastTypes.includes(Outro)." },
@@ -160,7 +147,6 @@ export const DSL_POINTERS: Record<string, DSLPointerDef> = {
       { propName: 'HasBuff()', type: 'method', isMethod: true, jsName: 'hasBuff', tooltip: 'Method — returns true if the enemy currently has the given debuff/status.' },
       { propName: 'Tune', type: 'number', targetKey: '.tune', tooltip: "Returns the enemy's current Tune (stagger) gauge value." },
       { propName: 'MaxTune', type: 'number', targetKey: '.maxTune', tooltip: "Returns the enemy's maximum Tune (stagger) gauge value." },
-      // True irregularity -- compiles to the literal string "Enemy", not a ctx field.
       { propName: 'Name', type: 'string', fullOverride: '"Enemy"', tooltip: "Returns the enemy's display name." }
     ]
   },
@@ -187,9 +173,7 @@ export const DSL_POINTERS: Record<string, DSLPointerDef> = {
       { propName: 'IsNextInCombo', type: 'boolean', fullOverride: 'ctx.move.isNextInCombo', tooltip: "True if this move is what its input does right now: no higher-priority move on the same input (a combo's next step) passes its rule. E.g. IF (@Move.IsNextInCombo) on Basic Attack 1." }
     ]
   },
-  // Prev's bare form already resolves to its identity (the acting unit) -- ctx.prev.unit, not a
-  // plain container -- so every other property is its own full override rather than a suffix on
-  // the bare targetVar (which would nest as ctx.prev.unit.action).
+  // Bare @Prev is ctx.prev.unit, so other properties need full overrides.
   Prev: {
     pointer: 'Prev',
     targetVar: 'ctx.prev.unit',
@@ -200,7 +184,7 @@ export const DSL_POINTERS: Record<string, DSLPointerDef> = {
       { propName: 'CastTypes', type: 'string[]', fullOverride: 'ctx.prev.castTypes', regexPattern: 'CastTypes?', tooltip: 'Returns the cast-type tags of the previous action.' }
     ]
   },
-  // Same irregularity as Prev: bare @Next is the incoming character's name.
+  // Same as Prev.
   Next: {
     pointer: 'Next',
     targetVar: 'ctx.next.name',
@@ -240,7 +224,6 @@ export const DSL_POINTERS: Record<string, DSLPointerDef> = {
       { propName: 'OutroPriority', type: 'number', targetKey: '.outroPriority', tooltip: 'Default action-priority value for Outro Skills.' }
     ]
   },
-  // Bare-only pointers: no dot-properties.
   Team: {
     pointer: 'Team',
     targetVar: 'ctx.team',
@@ -251,13 +234,11 @@ export const DSL_POINTERS: Record<string, DSLPointerDef> = {
   },
   TeamOthers: { pointer: 'TeamOthers', targetVar: 'ctx.teamOthers', tooltip: 'All team members except Self.', properties: [] },
   Equipper: { pointer: 'Equipper', targetVar: 'equipper', tooltip: 'The character this weapon or echo is equipped on.', properties: [] },
-  // Call-only: @System(Name) resolves via the generic @Namespace(...) string-literal rule in
-  // DSLParser, not a pointerMap entry -- no targetVar.
+  // Call-only: @System(Name).
   System: { pointer: 'System', usesCallSyntax: true, tooltip: 'Global effects not tied to a specific character.', properties: [] }
 };
 
-// Parser-only suffixes: @Self.Forte{N}/MaxForte{N} for any N. Autocomplete lists them per
-// character from its forteCount (dslResolver's makePropertyRule).
+// @Self.Forte{N}/MaxForte{N} for any N.
 export const DSL_PARSER_SCALAR_EXTRAS: Record<string, string> = {
   '\\.MaxForte([0-9]+)': '.maxForte$1',
   '\\.Forte([0-9]+)': '.forte$1'

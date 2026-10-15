@@ -19,7 +19,6 @@ export const TimingModsPanel: React.FC<TimingModsPanelProps> = ({ data, updateNo
 
   const handleAddCancelTiming = () => {
     if (!cancelTime) return;
-    // cancelTimings[].time is frames-domain -- accepts "30f"/"0.5s"/a bare number (frames).
     const obj: any = { time: Math.round(Number(parseTimeInput(cancelTime, 'frames'))) };
     if (cancelHits) obj.hits = parseInt(cancelHits, 10);
     if (cancelRule.trim()) obj.triggerRule = cancelRule.trim();

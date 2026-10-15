@@ -8,8 +8,7 @@ import { ConfirmDialog } from '../common/ConfirmDialog';
 import { ActionsMenuButton } from '../common/ActionsMenuButton';
 import type { MechanicNode } from '../../types';
 
-// Applies/clears the whole-node hover highlight.
-// scroll=true only on real highlightedNodeId change; self-heal re-apply must never scroll.
+// Applies/clears the whole-node highlight. `scroll` only on a real change.
 function applyNodeHighlight(outBox: HTMLElement, nodeId: string | null, scroll: boolean): void {
   outBox.querySelectorAll('.code-highlighted').forEach(el => el.classList.remove('code-highlighted'));
   if (!nodeId) return;
@@ -32,7 +31,7 @@ function applyNodeHighlight(outBox: HTMLElement, nodeId: string | null, scroll: 
     }
 
     if (scroll) {
-      // Aligns to top, not centered -- centering pushed a tall node's start line off-screen.
+      // Top-aligned so tall nodes stay visible.
       const outBoxRect = outBox.getBoundingClientRect();
       const lineRect = startLine.getBoundingClientRect();
       outBox.scrollTo({ top: outBox.scrollTop + (lineRect.top - outBoxRect.top) - 12, behavior: 'auto' });
@@ -41,8 +40,7 @@ function applyNodeHighlight(outBox: HTMLElement, nodeId: string | null, scroll: 
   }
 }
 
-// Applies/clears field-level highlight for hovered sub-panel fields
-// (see MechanicNodeCard's enter/leaveFieldHover). Never scrolls.
+// Applies/clears field-level highlight. Never scrolls.
 function applyFieldHighlight(
   outBox: HTMLElement,
   highlight: { nodeId: string; fields: string[] } | null
@@ -57,8 +55,7 @@ function applyFieldHighlight(
   const nodeStartLine = nodeKeySpan.closest('.code-line') as HTMLElement | null;
   if (!nodeStartLine) return;
 
-  // Collect the node's own lines first, so field search can't cross into another
-  // node with the same field name (e.g. every node has "name").
+  // Limit the search to this node's lines.
   const nodeLines: HTMLElement[] = [];
   let nodeCursor: HTMLElement | null = nodeStartLine;
   let nodeDepth = 0;
@@ -80,7 +77,7 @@ function applyFieldHighlight(
     const fieldStartLine = fieldKeySpan.closest('.code-line') as HTMLElement | null;
     if (!fieldStartLine) return;
 
-    // Scalar value: highlights just this line. Object/array: walks its full block (like applyNodeHighlight).
+    // Scalars: one line. Objects/arrays: the whole block.
     let fieldCursor: HTMLElement | null = fieldStartLine;
     let fieldDepth = 0;
     let opened = false;
@@ -96,11 +93,7 @@ function applyFieldHighlight(
   });
 }
 
-// The character offset into `sourceText` (what syntaxHighlight rendered into `container`) under a
-// click, so edit mode opens with the caret there.
-// - Finds the clicked `.code-line` and the offset within it, then adds the preceding lines'
-//   lengths from `sourceText` itself.
-// - Summing the DOM's text instead would drift: lines are separate divs with no '\n' between them.
+// Caret offset into `sourceText` at a click, computed from `sourceText` line lengths.
 function getFlatCaretOffset(container: HTMLElement, sourceText: string, x: number, y: number): number | null {
   const doc = document as any;
   let node: Node | null;
@@ -156,17 +149,14 @@ interface EditableCodeBlockProps {
   preRef?: React.RefObject<HTMLPreElement | null>;
 }
 
-// Read-only view (syntax-highlighted <pre>) <-> edit view (transparent textarea layered over a
-// backdrop <pre> that re-highlights the draft live) -- see builder.css's .code-editor-editing
-// comment for how the two layers stay pixel-aligned.
+// Read-only <pre> <-> textarea over a live-highlighted backdrop.
 const EditableCodeBlock: React.FC<EditableCodeBlockProps> = ({
   className, highlightedHTML, visualText, isEditing, draft, draftHighlightedHTML, error, caretOffset,
   onStartEdit, onDraftChange, onBlur, preRef
 }) => {
   const backdropRef = useRef<HTMLPreElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  // The read-only <pre> and the edit textarea swap in and out, each mounting at scrollTop 0, so
-  // the scroll position is carried across the swap here.
+  // Carries scroll position across the view swap.
   const readOnlyPreRef = useRef<HTMLPreElement>(null);
   const scrollPosRef = useRef({ top: 0, left: 0 });
   const setPreRef = (el: HTMLPreElement | null) => {
@@ -174,9 +164,7 @@ const EditableCodeBlock: React.FC<EditableCodeBlockProps> = ({
     if (preRef) (preRef as React.RefObject<HTMLPreElement | null>).current = el;
   };
 
-  // Applies the click-computed caret position once the textarea mounts (autoFocus alone can't
-  // place the cursor mid-text), then never again -- caretOffset is only meaningful at mount.
-  // Also restores the scroll position captured from whichever element was showing just before.
+  // On mount: place the caret and restore scroll.
   useEffect(() => {
     if (!isEditing) {
       if (readOnlyPreRef.current) {
@@ -199,9 +187,7 @@ const EditableCodeBlock: React.FC<EditableCodeBlockProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditing]);
 
-  // Wrapped continuation rows in the backdrop (tops in its scroll space), for the arrow gutter.
-  // The textarea can't hang-indent, so the backdrop wraps like it does and the arrows are drawn
-  // beside the text instead.
+  // Wrapped-line positions for the arrow gutter.
   const arrowsInnerRef = useRef<HTMLDivElement>(null);
   const [wrapArrowTops, setWrapArrowTops] = useState<number[]>([]);
 
@@ -292,7 +278,7 @@ const EditableCodeBlock: React.FC<EditableCodeBlockProps> = ({
   );
 };
 
-/** The Builder's output: the entity's JSON as saved, with import/export and inline editing. */
+/** The entity's JSON, with import/export and inline editing. */
 export const JsonOutputPane: React.FC = () => {
   const {
     activeChar, activeFolder, baseStats, mechanics, resetCache, highlightedNodeId, hoveredFieldHighlight, hasChanges,
@@ -300,22 +286,17 @@ export const JsonOutputPane: React.FC = () => {
   } = useBuilderStore();
   const codeEditorRef = useRef<HTMLPreElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
-  // Which menu item triggered the (shared) file picker -- read once the picker resolves.
   const pendingImportKind = useRef<'character' | 'mechanics' | null>(null);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const isWeapon = activeChar ? !!DataLoader.weaponDB[activeChar] : false;
-  // Echoes/sets have no db_characters.json (or db_weapons.json) entry -- the character JSON
-  // block below only makes sense for an actual character or weapon.
   const isCharOrWeapon = activeChar ? (!!DataLoader.characterDB[activeChar] || isWeapon) : false;
   const isDirty = activeChar ? hasChanges(activeChar) : false;
-  // Must match the folder DataLoader.loadMechanic/clearMechanicCache use.
   const mechFolder = mechFolderFor(activeFolder);
 
   const [formatted, setFormatted] = useState(() =>
     BuilderUtils.formatJSONOutput(activeChar, baseStats, mechanics, isWeapon, mechFolder)
   );
 
-  // Re-formats 50ms after the last edit.
   useEffect(() => {
     const timer = setTimeout(() => {
       setFormatted(BuilderUtils.formatJSONOutput(activeChar, baseStats, mechanics, isWeapon, mechFolder));
@@ -330,31 +311,26 @@ export const JsonOutputPane: React.FC = () => {
   const charVisual = !activeChar ? '' : charBody ? `${charCommentLine}\n${charBody}` : '// No base stats set yet -- fill in Base Stats above';
   const charHighlightedHTML = BuilderUtils.syntaxHighlight(charVisual);
 
-  // Body text kept byte-identical between the read-only view and the edit draft (comment line
-  // + '\n' as a separate, known-length prefix) so a click's flat text offset can be mapped onto
-  // the draft just by subtracting that prefix's length -- see EditableCodeBlock/getFlatCaretOffset.
+  // Body matches the edit draft byte-for-byte, so click offsets map by subtracting the prefix.
   const mechCommentLine = `// Save this exact JSON to: data/${activeChar ? DataLoader.mechanicPath(mechFolder, activeChar) : ''}`;
   const mechBody = formatted.mechJsonString || '';
   const mechVisual = mechBody ? `${mechCommentLine}\n${mechBody}` : (charBody || !activeChar ? '// Add mechanic nodes to generate output!' : '');
   const mechPrefixLen = mechBody ? mechCommentLine.length + 1 : 0;
   const mechHighlightedHTML = BuilderUtils.syntaxHighlight(mechVisual);
 
-  // Highlight full node block on hover (scrolls -- only on a genuine highlightedNodeId change).
   useEffect(() => {
     const outBox = codeEditorRef.current;
     if (!outBox) return;
     applyNodeHighlight(outBox, highlightedNodeId, true);
   }, [highlightedNodeId, mechHighlightedHTML]);
 
-  // Highlight the specific fields currently hovered, on top of the whole-node highlight.
   useEffect(() => {
     const outBox = codeEditorRef.current;
     if (!outBox) return;
     applyFieldHighlight(outBox, hoveredFieldHighlight);
   }, [hoveredFieldHighlight, mechHighlightedHTML]);
 
-  // Self-healing re-apply: dangerouslySetInnerHTML swaps in fresh .code-line elements
-  // that drop highlight classes -- watches the DOM for that and reapplies without scrolling.
+  // Re-applies highlights after innerHTML replaces the lines.
   const highlightStateRef = useRef({ highlightedNodeId, hoveredFieldHighlight });
   useEffect(() => {
     highlightStateRef.current = { highlightedNodeId, hoveredFieldHighlight };
@@ -395,8 +371,7 @@ export const JsonOutputPane: React.FC = () => {
     downloadText(formatted.mechJsonString, filename);
   };
 
-  // Tolerates a raw copy of the preview panel's own Character JSON line ('"Name": {...},'),
-  // which isn't valid standalone JSON -- wraps it and drops the trailing comma before retrying.
+  // Also accepts a pasted '"Name": {...},' line.
   const parseImportedJson = (text: string): any => {
     try {
       return JSON.parse(text);
@@ -426,7 +401,7 @@ export const JsonOutputPane: React.FC = () => {
       throw new Error('No mechanic nodes found in file.');
     }
     const prefix = MechanicKey.prefix(activeChar);
-    // Re-homes a node authored under a different provider onto the entity currently open here.
+    // Re-keys nodes onto the open entity.
     const rekey = (key: string): string =>
       key.startsWith(prefix) ? key : MechanicKey.build(activeChar, MechanicKey.parse(key).name);
 
@@ -436,8 +411,7 @@ export const JsonOutputPane: React.FC = () => {
       importedKeys.add(finalKey);
       setMechanicNode(finalKey, node);
     });
-    // Full replace, matching what loading a real file for this entity would look like --
-    // drop whatever nodes existed before that the import doesn't carry forward.
+    // Full replace.
     Object.keys(mechanics).forEach(key => {
       if (!importedKeys.has(key)) removeMechanicNode(key);
     });
@@ -469,11 +443,7 @@ export const JsonOutputPane: React.FC = () => {
     setResetConfirmOpen(false);
   };
 
-  // --- Inline editing of the mechanics block (the character block stays read-only):
-  // - Clicking swaps in a textarea over a live-highlighted backdrop (EditableCodeBlock).
-  // - The draft is parsed as you type; a valid parse applies through Import JSON's path.
-  // - The draft matches the read-only text byte for byte (mechBody), so a click's offset maps
-  //   onto it by subtracting the comment-prefix length.
+  // Inline editing of the mechanics block; valid drafts apply as you type.
   const [mechDraft, setMechDraft] = useState<string | null>(null);
   const [mechError, setMechError] = useState<string | null>(null);
   const [mechCaret, setMechCaret] = useState<number | null>(null);
@@ -512,8 +482,6 @@ export const JsonOutputPane: React.FC = () => {
     setMechDraft(null);
   };
 
-  // Re-highlighted live (no debounce -- syntaxHighlight is cheap on entity-sized JSON) so the
-  // backdrop's coloring tracks every keystroke, not just what's already been applied.
   const mechDraftHighlightedHTML = mechDraft !== null ? BuilderUtils.syntaxHighlight(mechDraft) : '';
 
   return (

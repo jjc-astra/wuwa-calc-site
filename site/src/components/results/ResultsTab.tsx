@@ -6,7 +6,6 @@ import { DmgOverTimeChart } from './DmgOverTimeChart';
 import { TeamContributionPanel } from './TeamContributionPanel';
 import { SubstatWorthChart } from './SubstatWorthChart';
 
-/** The Results tab: the result panels, or a prompt to Calculate. */
 export const ResultsTab: React.FC = () => {
   const { results } = useResultsSource();
 
@@ -22,7 +21,6 @@ export const ResultsTab: React.FC = () => {
   return <ResultsGrid />;
 };
 
-// The result panels.
 export const ResultsGrid: React.FC = () => {
   const { results } = useResultsSource();
   if (!results) return null;

@@ -1,5 +1,4 @@
-// The selected build's echoes for one unit: each substat summed across all five echoes, every
-// echo's main stat in layout order, and the Energy Regen the rotation needs from them.
+// A unit's summed substats, main stats, and required Energy Regen.
 import React from 'react';
 import { CommonUtils } from '../../utils/Common';
 import { STAT_DB, formatStatValue } from '../../data/db';
@@ -18,7 +17,6 @@ export const EchoStatsPanel: React.FC<EchoStatsPanelProps> = ({ slot }) => {
     const value = parseFloat(String(sub.value));
     if (!isNaN(value)) totals[sub.name] = (totals[sub.name] || 0) + value;
   }));
-  // STAT_DB order (no empty slots), and only substats the build actually rolls.
   const substats = Object.keys(STAT_DB).filter(stat => totals[stat] > 0);
   const { results, isStale } = useResultsSource();
   const energy = results?.energyRequirements?.[slot.character];

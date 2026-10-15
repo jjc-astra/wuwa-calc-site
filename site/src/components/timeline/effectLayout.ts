@@ -1,5 +1,4 @@
-// Layout for the Calculator Timeline's effect rows: buffs/debuffs, System hits and trackers, read
-// off the engine's change log (TimelineEngine._logTimeline -> row.timelineEvents). Pure, no DOM.
+// Layout for the Timeline's effect rows (buffs, System hits, trackers), from row.timelineEvents.
 import { elementColorOf, getCharacterThemeColor } from '../../utils/Common';
 import { DataLoader } from '../../utils/DataLoader';
 import { isTimelineTracker, timelineBuffInfo, timelineCooldownInfo } from '../../logic/TimelineEngine';
@@ -13,20 +12,17 @@ import type { TeamSlot } from '../../types';
 
 export const SECTION_ROW_HEIGHT_PX = 24;
 export const EFFECT_ROW_HEIGHT_PX = 24;
-// A bar's gap from the top and bottom of its row.
 export const EFFECT_BAR_INSET_PX = 4;
-// A point label's character width (9px bold digits, timeline.css's .timeline-effect-point-label).
+// Sync with .timeline-effect-point-label.
 const POINT_LABEL_CHAR_PX = 5.5;
-// The row less its 1px bottom border and both insets.
 const EFFECT_BAR_HEIGHT_PX = EFFECT_ROW_HEIGHT_PX - 1 - EFFECT_BAR_INSET_PX * 2;
 const SYSTEM_COLOR = '#8a8a8a';
 const TRACKER_COLOR = '#dca54c';
 
-/** What a bar is: one buff's state between two changes. */
+/** One buff's state between two changes. */
 export interface EffectInfo {
   name: string;
   provider?: string;
-  // The unit (or Enemy) it landed on, and the selector it was applied with (@Team, @Next...).
   target?: string;
   appliesTo?: string;
   stat?: string;
@@ -35,27 +31,24 @@ export interface EffectInfo {
   maxStacks: number;
   permanent: boolean;
   source?: string;
-  // The entity it came from (a character, weapon, echo, echo set or System).
   sourceOwner?: string;
 }
 
-/** What kind of entity an effect came from; a unit's effects are grouped by it. */
 export type EffectSourceKind = 'character' | 'weapon' | 'echo' | 'set' | 'system';
 
-/** A unit's effect sub-groups, after its own (character) effects; the main echo's go with its sets'. */
+/** A unit's effect sub-groups after its character effects. */
 export const UNIT_EFFECT_GROUPS: Array<{ id: string; kinds: EffectSourceKind[]; title: string }> = [
   { id: 'weapon', kinds: ['weapon'], title: 'Weapon' },
   { id: 'set', kinds: ['echo', 'set'], title: 'Echo Sets' }
 ];
 
-/** A stack count (or charges in use) change inside a bar -- or a tracker's value; the first is the
- * bar's start. */
+/** A stack/charge change within a bar, or a tracker value. */
 export interface EffectPoint {
   frames: number;
   xPx: number;
   yPx: number;
   value: number;
-  // Seconds the buff/cooldown had left at this point, if it runs out at all.
+  // Seconds left, if finite.
   remaining?: number;
 }
 
@@ -66,14 +59,13 @@ export interface EffectBar {
   widthPx: number;
   info: EffectInfo;
   points: EffectPoint[];
-  // A DSL value as evaluated for each hit the buff reached during the bar, in time order.
+  // DSL value as evaluated per hit, in time order.
   values?: Array<{ frames: number; value: string | number }>;
 }
 
 const isDslValue = (value: unknown): boolean => typeof value === 'string' && value.includes('@');
 
-/** A bar's value at `frames`: a DSL value as the latest hit at or before then evaluated it (else
- * its first hit), or the expression itself if no hit carried it. */
+/** A bar's value at `frames`, from the latest hit's evaluation (else the expression). */
 export function barValueAt(bar: EffectBar, frames: number): string | number | undefined {
   if (!isDslValue(bar.info.value) || !bar.values?.length) return bar.info.value;
   let at = bar.values[0];
@@ -92,7 +84,7 @@ export interface EffectHit {
   moveName: string;
 }
 
-// An instant System move's clip (isInstantSystemRow), drawn in its hits row.
+// An instant System move's clip, drawn in its hits row.
 export interface EffectAction {
   xPx: number;
   row: any;
@@ -102,7 +94,7 @@ export type EffectLaneKind = 'buff' | 'cooldown' | 'tracker' | 'hits';
 
 export interface EffectLane {
   id: string;
-  // The row's name, without its owner's prefix; fullName keeps it (the name's hover tooltip).
+  // Name without its owner prefix; fullName keeps it.
   label: string;
   fullName: string;
   color: string;
@@ -110,15 +102,13 @@ export interface EffectLane {
   bars: EffectBar[];
   hits: EffectHit[];
   actions: EffectAction[];
-  // In effect the whole rotation, start to end with no gaps (hidden by the Permanent toggle) --
-  // not just permanent-duration, which can still switch on and off. A tracker also never changes value.
+  // Active the whole rotation with no gaps (hidden by the Permanent toggle).
   alwaysOn: boolean;
-  // Buffs: what kind of entity it came from.
   sourceKind?: EffectSourceKind;
 }
 
 export interface EffectTimelineData {
-  // Buffs on each unit, then its cooldowns, keyed by unit name.
+  // Per unit: buffs, then cooldowns.
   unitLanes: Record<string, EffectLane[]>;
   enemy: EffectLane[];
   system: EffectLane[];
@@ -127,7 +117,7 @@ export interface EffectTimelineData {
 
 const barCenterY = EFFECT_BAR_INSET_PX + EFFECT_BAR_HEIGHT_PX / 2;
 
-// Every entity the team brings, by name: its characters, weapons, main echoes, echo sets, System.
+// Every entity the team brings, by name.
 function teamEntityKinds(team: TeamSlot[]): Map<string, EffectSourceKind> {
   const kinds = new Map<string, EffectSourceKind>([[SYSTEM_NAMESPACE, 'system']]);
   team.forEach(slot => {
@@ -140,8 +130,7 @@ function teamEntityKinds(team: TeamSlot[]): Map<string, EffectSourceKind> {
   return kinds;
 }
 
-// An effect's name without its owner's prefix ("Lumi_S6 Team ATK" -> "S6 Team ATK"), for any
-// entity the team brings. Longest names first, so one that's another's prefix can't cut short.
+// Strips the owner prefix ("Lumi_S6 Team ATK" -> "S6 Team ATK"). Longest names first.
 function labelWithoutOwner(name: string, entityNames: string[]): string {
   const owner = entityNames.find(entity => name.startsWith(`${entity}_`) && name.length > entity.length + 1);
   return owner ? name.slice(owner.length + 1) : name;
@@ -150,7 +139,7 @@ function labelWithoutOwner(name: string, entityNames: string[]): string {
 const providerColor = (provider: string | undefined): string =>
   !provider || provider === SYSTEM_NAMESPACE ? SYSTEM_COLOR : getCharacterThemeColor(DataLoader.characterDB[provider]);
 
-// One open bar per buff key / tracker name; closing it fixes its px geometry.
+// One open bar per buff/tracker; closing fixes its geometry.
 class LaneBuilder {
   lanes = new Map<string, EffectLane & { section: string; firstFrames: number }>();
   private open = new Map<string, EffectBar>();
@@ -190,8 +179,7 @@ class LaneBuilder {
     if (bar) bar.points.push({ frames, xPx: this.px(frames), yPx: barCenterY, value, remaining });
   }
 
-  // `dropEmpty`: a bar that didn't last a frame shows nothing -- always so for a tracker value (set
-  // and cleared at once).
+  // `dropEmpty`: drop zero-length bars.
   end(laneId: string, frames: number, dropEmpty = false): void {
     const bar = this.open.get(laneId);
     if (!bar) return;
@@ -211,8 +199,7 @@ class LaneBuilder {
   }
 }
 
-// Whether bars run from the start to `endFrames` with no gaps (a frame of slack each way). The
-// Ending Rotation's compressed gap doesn't count: every bar is closed at it and reopened after.
+// True when bars cover start to `endFrames` with no gaps (ignoring the Ending Rotation gap).
 function coversWholeRotation(bars: EffectBar[], endFrames: number, compression: TimeCompression | null): boolean {
   let reach = 0;
   for (const bar of [...bars].sort((a, b) => a.startFrames - b.startFrames)) {
@@ -223,7 +210,7 @@ function coversWholeRotation(bars: EffectBar[], endFrames: number, compression: 
   return bars.length > 0 && reach >= endFrames - 1;
 }
 
-/** The effect rows for a Calculator Timeline: each buff by who it's on, System hits, trackers. */
+/** Effect rows: buffs by target, System hits, trackers. */
 export function buildEffectTimeline(rows: any[], team: TeamSlot[], compression: TimeCompression | null): EffectTimelineData {
   const units = new Set(team.map(s => s.character).filter(Boolean));
   const entityKinds = teamEntityKinds(team);
@@ -237,9 +224,8 @@ export function buildEffectTimeline(rows: any[], team: TeamSlot[], compression: 
       : info.provider === SYSTEM_NAMESPACE ? 'system'
       : units.has(target) ? `unit:${target}`
       : 'system';
-    // Off in System Effects, a buff on something other than a unit or the enemy names what it's on.
     const onWhat = section === 'system' && target && target !== 'Enemy' && !units.has(target) ? ` (${target})` : '';
-    // No owner on record (e.g. a buff picked back up at the Ending Rotation) reads as the character's own.
+    // No owner: treat as the character's own.
     const sourceKind = (info.sourceOwner && entityKinds.get(info.sourceOwner)) || 'character';
     return {
       section,
@@ -267,8 +253,7 @@ export function buildEffectTimeline(rows: any[], team: TeamSlot[], compression: 
     else builder.start(ev.key, ev.t, info, ev.stacks, remaining);
   };
 
-  // A cooldown's bar runs while it's ticking; a restart or reduction starts a new one, and for a
-  // charge-based move each change in charges in use is a point.
+  // Restarts/reductions start a new bar; charge changes add points.
   const applyCooldownEvent = (ev: any) => {
     const id = `cd:${ev.key}`;
     if (ev.change === 'end') {
@@ -301,17 +286,14 @@ export function buildEffectTimeline(rows: any[], team: TeamSlot[], compression: 
       builder.end(id, frames);
       return;
     }
-    // Each value is its own bar, labeled with it.
     trackerLane(name, frames);
     builder.start(id, frames, { name, maxStacks: 1, permanent: false }, value);
   };
 
-  // `shown` drops events inside the Ending Rotation's skip: the last loop's late hits land after it
-  // starts (hidden by it), and the Ending Rotation's first wait runs before it ends (already in the
-  // state it's seeded from).
+  // `shown`: drops events inside the Ending Rotation gap.
   const applyEvents = (from: any[], shown: (t: number) => boolean = () => true) => {
     const events = from.flatMap(r => r?.timelineEvents || []).filter(ev => shown(ev.t));
-    // Stable: same-time events keep the order they happened in.
+    // Stable sort keeps same-time order.
     events.sort((a, b) => a.t - b.t);
     events.forEach(ev => {
       if (ev.kind === 'buff') applyBuffEvent(ev);
@@ -320,14 +302,11 @@ export function buildEffectTimeline(rows: any[], team: TeamSlot[], compression: 
     });
   };
 
-  // An Ending Rotation's rows come from a separate run, after loops that have no rows of their
-  // own (the compressed gap): close everything at the gap, and pick its state back up from the
-  // first Ending Rotation row's snapshot.
+  // Close everything at the gap; resume from the first Ending Rotation row's snapshot.
   const loopEndIndex = loopEndIndexOf(rows);
   const endingStart = compression && loopEndIndex !== -1 ? loopEndIndex + 1 : rows.length;
   applyEvents(rows.slice(0, endingStart), compression && endingStart < rows.length ? t => t <= compression.gapStartFrames : undefined);
   if (compression && endingStart < rows.length) {
-    // A bar that only just started at the skip picks up again after it.
     builder.endAll(compression.gapStartFrames, true);
     lastValue.clear();
     const snapshot = rows[endingStart]?.dropdownState;
@@ -355,18 +334,17 @@ export function buildEffectTimeline(rows: any[], team: TeamSlot[], compression: 
   const endFrames = computeTotalDurationFrames(rows);
   builder.endAll(endFrames);
 
-  // System hits: one row per mechanic, in its element's color.
+  // System hits: one row per mechanic, in element color.
   rows.forEach(row => (row?.damageInstances || []).filter(isSystemHit).forEach((hit: any) => {
     const frames = hit.gameTime ?? row.gameTimeStart;
     const moveName = hit.moveName || hit.title || SYSTEM_NAMESPACE;
-    // "Glacio Chafe" -> Glacio's.
     const color = (hit.dmgTypeList || []).map(elementColorOf).find(Boolean) ?? SYSTEM_COLOR;
     const lane = builder.lane(`hits:${moveName}`, () => ({
       section: 'system', label: moveName, fullName: moveName, color, kind: 'hits' as const
     }), frames);
     lane.hits.push({ frames, xPx: compressedTimeToPx(frames, compression), yPx: 0, total: hit.total || 0, moveName });
   }));
-  // Instant System moves (Tune Break): their clip joins their hits' row, off the unit's.
+  // Instant System moves join their hits' row.
   rows.filter(isInstantSystemRow).forEach(row => {
     const moveName = row.moveName || SYSTEM_NAMESPACE;
     const lane = builder.lane(`hits:${moveName}`, () => ({
@@ -375,7 +353,7 @@ export function buildEffectTimeline(rows: any[], team: TeamSlot[], compression: 
     lane.actions.push({ xPx: compressedTimeToPx(row.gameTimeStart, compression), row });
   });
 
-  // Each DSL-valued buff's evaluated value at every hit that carried it (CombatCalculator records it).
+  // DSL buff values per hit.
   const dslLanes = [...builder.lanes.entries()].filter(([, lane]) => lane.kind === 'buff' && lane.bars.some(bar => isDslValue(bar.info.value)));
   if (dslLanes.length > 0) {
     const valuesByKey = new Map<string, Array<{ frames: number; value: string | number }>>(dslLanes.map(([key]) => [key, []]));
@@ -384,7 +362,7 @@ export function buildEffectTimeline(rows: any[], team: TeamSlot[], compression: 
         valuesByKey.get(key)?.push({ frames: hit.gameTime ?? row.gameTimeStart, value: buff.value });
       });
     }));
-    // A bar no hit reached (e.g. its unit off-field): evaluated on the state of the row it starts in.
+    // No hits: evaluate on the starting row's state.
     const rowAt = (frames: number) => rows.reduce((at, row) => (row?.unit && (row.gameTimeStart ?? 0) <= frames ? row : at), rows.find(row => row?.unit));
     dslLanes.forEach(([key, lane]) => {
       const values = valuesByKey.get(key)!.sort((a, b) => a.frames - b.frames);
@@ -397,7 +375,7 @@ export function buildEffectTimeline(rows: any[], team: TeamSlot[], compression: 
   }
 
   const data: EffectTimelineData = { unitLanes: {}, enemy: [], system: [], trackers: [] };
-  // In order of appearance, a section's cooldowns after its buffs.
+  // Appearance order, cooldowns after buffs.
   [...builder.lanes.values()]
     .sort((a, b) => Number(a.kind === 'cooldown') - Number(b.kind === 'cooldown') || a.firstFrames - b.firstFrames)
     .filter(lane => lane.bars.length > 0 || lane.hits.length > 0 || lane.actions.length > 0)
@@ -414,19 +392,17 @@ export function buildEffectTimeline(rows: any[], team: TeamSlot[], compression: 
   return data;
 }
 
-/** Whether a point's label fits before the next point, or the bar's end: a short bar's value is
- * left to its tooltip rather than drawn over its neighbour (or the Ending Rotation's skip). */
+/** True when a point's label fits before the next point or the bar's end. */
 export function pointLabelFits(bar: EffectBar, index: number, label: string): boolean {
   const start = bar.points[index].xPx + (index > 0 ? 4 : 3);
   const end = bar.points[index + 1]?.xPx ?? bar.xPx + bar.widthPx;
   return end - start >= label.length * POINT_LABEL_CHAR_PX;
 }
 
-// The same effect on both sides of a refresh: only its timer restarted.
 const sameEffect = (a: EffectInfo, b: EffectInfo) =>
   a.stat === b.stat && a.value === b.value && a.label === b.label && a.target === b.target;
 
-// The stretch `bar` belongs to, through refreshes: back-to-back bars of the same effect.
+// Span of `bar` through back-to-back refreshes.
 function refreshSpan(lane: EffectLane, bar: EffectBar): { start: number; end: number } {
   const bars = [...lane.bars].sort((a, b) => a.startFrames - b.startFrames);
   const i = bars.indexOf(bar);
@@ -438,11 +414,7 @@ function refreshSpan(lane: EffectLane, bar: EffectBar): { start: number; end: nu
   return { start: bars[first].startFrames, end: Math.max(...bars.slice(first, last + 1).map(b => b.endFrames)) };
 }
 
-/**
- * The rotation rows (ids, in order) a buff bar reached, through refreshes: those whose hits during
- * it used the buff. A buff no hit used (not a damage stat) falls back to its target's moves cast during
- * it -- anyone's, on the Enemy.
- */
+/** Row ids a buff bar reached (hits that used it, else its target's casts). */
 export function rowsReceivingBar(rows: any[], lane: EffectLane, bar: EffectBar): string[] {
   if (lane.kind !== 'buff') return [];
   const ids = new Set<string>();
@@ -456,18 +428,13 @@ export function rowsReceivingBar(rows: any[], lane: EffectLane, bar: EffectBar):
   const target = bar.info.target;
   rows.forEach(row => {
     if (!row?.id || !row.unit || (target !== 'Enemy' && row.unit !== target)) return;
-    // Cast while it was up -- a move's full animation can run on past the next move's start.
     const start = row.gameTimeStart ?? 0;
     if (start >= span.start && start < span.end) ids.add(row.id);
   });
   return [...ids];
 }
 
-/**
- * The rotation rows (ids) that received a buff lane at all: those with a hit that used it. A buff no
- * hit used (not a damage stat) falls back to its target's moves cast while it was up -- anyone's,
- * on the Enemy. For highlighting a hovered move's buffs (rowsReceivingBar is the per-bar inverse).
- */
+/** Row ids that received a buff lane at all. */
 export function rowsReceivingLane(rows: any[], lane: EffectLane): Set<string> {
   const ids = new Set<string>();
   if (lane.kind !== 'buff') return ids;
@@ -483,8 +450,7 @@ export function rowsReceivingLane(rows: any[], lane: EffectLane): Set<string> {
   return ids;
 }
 
-// "Self" / "Team -> Sanhua" / "Next -> Lumi": the selector a buff was applied with, and where it
-// landed when that isn't obvious from the selector.
+// "Self" / "Team -> Sanhua" / "Next -> Lumi"
 export function describeAppliesTo(info: EffectInfo): string {
   const selector = info.appliesTo;
   const target = info.target;

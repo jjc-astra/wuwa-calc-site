@@ -1,6 +1,4 @@
-// Semantic equality for MechanicNodes: ignores runtime-only `_` fields (e.g. _compiledRule) and
-// treats unset/empty values (undefined, null, '', [], {}) as equal, since the Builder's edit
-// paths leave those behind when a field is cleared.
+// MechanicNode equality ignoring `_` fields; empty values are equal.
 function normalize(value: unknown): unknown {
   if (Array.isArray(value)) {
     const arr = value.map(normalize);
@@ -16,7 +14,7 @@ function normalize(value: unknown): unknown {
     return Object.keys(out).length === 0 ? undefined : out;
   }
   if (value === null || value === '') return undefined;
-  // Time/number fields round-trip between "41" and 41 as they're edited.
+  // "41" equals 41.
   if (typeof value === 'string' && /^-?\d+(\.\d+)?$/.test(value)) return Number(value);
   return value;
 }

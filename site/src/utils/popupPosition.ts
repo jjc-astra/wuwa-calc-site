@@ -1,14 +1,9 @@
 import type React from 'react';
 
-/** Fixed-position style for a popup anchored to `rect` (its trigger's bounding box): below it, or
- * flipped above when there's too little room below and more above.
- *
- * `align: 'left'` (default) lines the popup's left edge up with the trigger's, for a <select>-style
- * trigger; 'right' lines up the right edge instead, for a narrow icon-only trigger pinned to a
- * row's right (e.g. a "..." menu), so it doesn't hang off.
- *
- * Every branch sets both sides of each offset pair (top/bottom, left/right), so a caller's CSS
- * default (e.g. .pin-menu's top/right) can't combine with it and squash the popup to 0 height. */
+/**
+ * Fixed-position style below `rect`, flipped above when there's more room.
+ * Sets both sides of each offset pair so CSS defaults can't interfere.
+ */
 export function computePopupPosition(
   rect: DOMRect,
   { maxHeight, gap = 4, align = 'left' }: { maxHeight: number; gap?: number; align?: 'left' | 'right' }

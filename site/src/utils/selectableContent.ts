@@ -1,12 +1,11 @@
-// Which characters / weapons / sets / echoes a picker lets you choose. Pickers list everything and
-// grey out what can't be calculated yet, rather than hiding it.
+// What pickers allow; the rest is greyed out.
 import { DataLoader, type ImplementedContentKind } from './DataLoader';
 import { useBuilderStore } from '../store/useBuilderStore';
 import type { IconSelectOption } from '../components/common/IconSelect';
 
 const NOT_IMPLEMENTED_TIP = 'Not yet implemented';
 
-// Has mechanics in the data repo, or was given some through the Mechanics Builder.
+// Has mechanics in the data or the Builder.
 export const isSelectableContent = (kind: ImplementedContentKind, name: string): boolean =>
   DataLoader.isContentImplemented(kind, name) || useBuilderStore.getState().hasChanges(name);
 

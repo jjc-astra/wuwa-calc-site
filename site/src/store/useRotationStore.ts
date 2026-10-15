@@ -31,27 +31,20 @@ import {
   loopTiming, endingPlacement, loopCycleBounds
 } from '../logic/rotationRows';
 import type { RotationRow, RotationRowFields } from '../logic/rotationRows';
-// Row shapes and views live in logic/rotationRows.ts; components import them from here.
 export type { RotationRow, RotationRowFields };
 export { toClipboardRow, toSavedRow, toPersistedRow };
 
 function repeatCrossesLoopBoundary(repStartRaw: number, repEndRaw: number, loopStart: number, loopEnd: number | null): boolean {
   const repStart = Math.min(repStartRaw, repEndRaw);
   const repEnd = Math.max(repStartRaw, repEndRaw);
-  // loopStartOverride is located post-expansion by the FIRST occurrence of that row, so it's only
-  // safe when it lands exactly on the block's own start (correctly the earliest point of the
-  // whole repeated block) -- anywhere else inside the block strands part of a repetition as an
-  // unintended "opener" before the loop.
+  // Loop start is only safe exactly at the block's start.
   if (repStart < loopStart && repEnd >= loopStart) return true;
-  // loopEndOverride has no equivalent safe spot: wherever inside the block it lands, the FIRST
-  // occurrence match ends the loop after just the block's first repetition instead of all of them.
+  // Loop end is never safe inside a block.
   if (loopEnd !== null && repStart <= loopEnd && repEnd >= loopEnd) return true;
   return false;
 }
 
-// True when moving a loop marker to `loopIndex` would land inside any existing repeat block's
-// range in a way that breaks post-expansion lookup (see repeatCrossesLoopBoundary above for why
-// loop start/end aren't symmetric: start is safe exactly at a block's own startIdx, end never is).
+// True when a loop marker at `loopIndex` would break a repeat block.
 function loopMarkerCrossesAnyRepeatBlock(rows: RotationRow[], loopIndex: number, role: 'start' | 'end'): boolean {
   for (const block of findBlocks(rows).values()) {
     if (!isValidBlock(block)) continue;
@@ -64,10 +57,7 @@ function loopMarkerCrossesAnyRepeatBlock(rows: RotationRow[], loopIndex: number,
   return false;
 }
 
-// When deleting rows, a repeat block's start/end marker row might be among them. If rows from
-// that block still survive the delete, the marker relocates to the new boundary row instead of
-// just vanishing with the deleted row -- the label should only disappear once the block has
-// nothing left in it.
+// Moves repeat block markers onto surviving rows after a delete.
 function computeRepeatBlockRebalanceOnDelete(
   rows: RotationRow[],
   indicesToDelete: number[]
@@ -85,13 +75,13 @@ function computeRepeatBlockRebalanceOnDelete(
     for (let i = block.startIdx; i <= block.endIdx; i++) {
       if (!deletedSet.has(i)) surviving.push(i);
     }
-    if (surviving.length === 0) return; // whole block deleted -- nothing left to relabel
+    if (surviving.length === 0) return;
 
     const newStart = surviving[0];
     const newEnd = surviving[surviving.length - 1];
 
     if (newStart === newEnd && startDeleted && endDeleted) {
-      // Block shrinks to a single surviving row -- it becomes both the start and end marker.
+      // Single surviving row is both start and end.
       edits.push({
         index: newStart,
         oldValues: pickFields(rows[newStart], REPEAT_FIELDS),
@@ -128,15 +118,11 @@ interface RotationState {
   startConcerto: boolean;
   canUndo: boolean;
   canRedo: boolean;
-  // Serialized undo/redo stacks, mirrored here purely so persist's partialize can pick them up
-  // -- nothing selects these directly (canUndo/canRedo drive the UI), so writing them on every
-  // history change doesn't cost extra re-renders. Revived back into historyManager's real
-  // stacks in onRehydrateStorage below.
+  // Serialized undo/redo stacks, for persistence only.
   undoStackData: SerializedCommand[];
   redoStackData: SerializedCommand[];
   isStale: boolean;
-  // JSON snapshot of the Builder overrides baked into `results` as of the last Calculate press
-  // -- see checkBuilderStaleness.
+  // Builder overrides as of the last Calculate press.
   builderOverridesSnapshot: string | null;
   selectedIndices: number[];
   clipboard: RotationRowFields[];
@@ -145,27 +131,22 @@ interface RotationState {
   loopErrors: string[];
   loopWarnings: string[];
   endingRotationEnabled: boolean;
-  // True: sim one fewer loop rep before the Ending Rotation splice, so it replaces/extends
-  // the final loop instead of tacking on after it.
+  // Ending Rotation replaces the final loop rep instead of following it.
   endRotationStartsEarlier: boolean;
-  // Calculate also works out substat worth -- off by default for quicker presses while
-  // trying out variations of a rotation.
+  // Calculate includes substat worth (off by default; slow).
   substatWorthEnabled: boolean;
   results: RotationResults | null;
   isCalculating: boolean;
-  // The last calc's rows as the engine ran them (Hold Repeat blocks expanded, each repeat its
-  // own row), for the Timeline -- `rows` is the table's collapsed view. Not persisted.
+  // Last calc's expanded rows, for the Timeline. Not persisted.
   timelineRows: any[];
   timelineLoopStartIndex: number | null;
-  // While the Timeline is open, every recalculate also prices its hits, for the hit dots.
+  // Timeline open: recalculate also prices hits.
   timelineActive: boolean;
 
   setStartEnergy: (val: boolean) => void;
   setTimelineActive: (active: boolean) => void;
   setStartConcerto: (val: boolean) => void;
-  // Dims (isStale=true) instead of silently recalculating when a Mechanics Builder edit
-  // relevant to the current team happened since the last Calculate press. Call on returning to
-  // the Rotation Calculator -- a no-op if nothing changed or there's nothing calculated yet.
+  // Marks results stale if relevant Builder edits happened since the last Calculate.
   checkBuilderStaleness: () => void;
   setSelectedIndices: (indices: number[]) => void;
 
@@ -173,44 +154,33 @@ interface RotationState {
   deleteRows: (indices: number[]) => void;
   moveRows: (indicesToMove: number[], targetIndex: number) => void;
   pasteRows: () => void;
-  // Returns whether it did anything (no selection is a no-op).
   copySelectedRows: () => boolean;
   insertRowAboveSelection: () => boolean;
   insertRowBelowSelection: () => boolean;
   updateRowField: (index: number, field: string, value: any) => void;
   updateRowFields: (index: number, fields: Record<string, any>) => void;
-  // Sets a row's unit (clearing `action`, since the old action rarely applies to the new unit)
-  // and, when this is currently the last row, appends a fresh blank end row -- both as one
-  // undo/redo step, since they're one user action (picking a unit for the trailing row).
+  // Sets a row's unit (clears action); appends a blank row if it was the last. One undo step.
   setRowUnit: (index: number, newUnit: string) => void;
   setLoopStartOverride: (index: number) => void;
   resetLoopStart: () => void;
   setLoopEndOverride: (index: number) => void;
   resetLoopEnd: () => void;
-  // A row's loopSplit (see rotationRows' loopSplitStarts): true splits there, false suppresses an
-  // auto-detected split, undefined follows auto-detection.
+  // true: split here; false: suppress auto split; undefined: auto.
   setLoopSplit: (index: number, value: boolean | undefined) => void;
-  // Wraps rows [startIndex, endIndex] as a new, independent Hold Repeat block (its own groupId,
-  // so it doesn't disturb any other block already in the rotation).
+  // Wraps rows [startIndex, endIndex] in a new Hold Repeat block.
   addRepeatBlock: (startIndex: number, endIndex: number) => void;
   removeRepeatBlock: (groupId: string) => void;
   setRepeatCount: (groupId: string, count: number) => void;
   setRepeatFinalTiming: (groupId: string, timing: string | undefined) => void;
-  // Drag-reposition an existing block's start/end marker (mirrors setLoopStartOverride/setLoopEndOverride).
   setRepeatBlockStartIndex: (groupId: string, index: number) => void;
   setRepeatBlockEndIndex: (groupId: string, index: number) => void;
-  // Enabling tags the last content row as loop end and appends a copy of the sub-loop that crosses
-  // 2 minutes (the whole loop without splits) as "Ending Rotation" content. Disabling removes the
-  // tag and appended rows.
+  // Enabling appends a copy of the sub-loop crossing 2 minutes; disabling removes it.
   setEndingRotationEnabled: (val: boolean) => void;
-  // No-op while there's no active Ending Rotation split.
   setEndRotationStartsEarlier: (val: boolean) => void;
-  // Takes effect on the next Calculate press; no recalculate.
   setSubstatWorthEnabled: (val: boolean) => void;
 
-  // markStale: false for an informational refresh that shouldn't flip isStale back on.
-  // includeDamage: true only for the one-time mount refresh, so DMG column populates without
-  // every live-preview recalc paying for the extra damage pass.
+  // markStale: false keeps isStale unchanged.
+  // includeDamage: also fill the DMG column.
   recalculate: (markStale?: boolean, includeDamage?: boolean) => Promise<void>;
   calculateDamage: () => Promise<void>;
   undo: () => void;
@@ -218,7 +188,6 @@ interface RotationState {
   importRotation: (rows: RotationRowFields[], settings?: RotationSettingsInput) => void;
 }
 
-// A saved rotation's settings, any of which may be missing.
 type RotationSettingsInput = { startEnergy?: boolean; startConcerto?: boolean } & Partial<EndingRotationFlags>;
 
 const historyManager = new HistoryManager();
@@ -230,9 +199,7 @@ interface RevivalContext {
   onComplete: () => void;
 }
 
-// Rebuilds a live Command from its persisted description (see Command.serialize) -- used only
-// at rehydration, against the current store's own getRows/setRows/setFlags, never against the
-// closures the command was originally created with (those don't survive a reload).
+// Rebuilds a Command from its serialized form on rehydration.
 function reviveCommand(data: SerializedCommand, ctx: RevivalContext): Command {
   switch (data.type) {
     case 'add':
@@ -260,11 +227,10 @@ function reviveCommand(data: SerializedCommand, ctx: RevivalContext): Command {
   }
 }
 
-// Tracked per request type, not globally -- a background recalculate() can't invalidate a
-// just-landed calculateDamage() (Calculate press).
+// Latest request per type, so recalculate() can't invalidate calculateDamage().
 const latestSeqByType: Record<'recalculate' | 'calculateDamage', number> = { recalculate: 0, calculateDamage: 0 };
 
-// The Calculator's rotation table, its undo history and the last results.
+// Rotation table, undo history, and last results.
 export const useRotationStore = create<RotationState>()(
   persist(
     (set, get) => {
@@ -280,7 +246,7 @@ export const useRotationStore = create<RotationState>()(
       const getRawRows = () => get().rows;
       const setRawRows = (rows: RotationRow[]) => set({ rows });
 
-      // Coalesces same-tick recalculate() calls (e.g. a multi-row paste) into one microtask.
+      // Coalesces same-tick recalculate() calls.
       let recalcScheduled = false;
       const triggerRecalc = () => {
         if (recalcScheduled) return;
@@ -291,8 +257,7 @@ export const useRotationStore = create<RotationState>()(
         });
       };
 
-      // Every command below runs against the store's own rows and ends by recalculating.
-      // `onComplete` overrides that where a command also has selection to update.
+      // Commands recalculate on completion unless `onComplete` is given.
       const cmd = {
         add: (row: RotationRow, index?: number) => new AddRowCommand(getRawRows, setRawRows, row, index, triggerRecalc),
         remove: (deletedData: { row: any; index: number }[], onComplete: () => void = triggerRecalc) =>
@@ -311,21 +276,18 @@ export const useRotationStore = create<RotationState>()(
           new SetRepeatBlockEndCommand(getRawRows, setRawRows, groupId, newIndex, prevIndex, triggerRecalc)
       };
 
-      // One undo step: the lone command itself, or several bundled together.
+      // Runs commands as one undo step.
       const runCommands = (commands: Command[]) => {
         if (commands.length === 0) return;
         historyManager.execute(commands.length === 1 ? commands[0] : new CompositeCommand(commands));
       };
 
-      // A delete's onComplete: the deleted rows were the selection.
       const clearSelectionAndRecalc = () => {
         set({ selectedIndices: [] });
         triggerRecalc();
       };
 
-      // One worker round trip over the current rows: freshness check, Hold Repeat expansion, the
-      // request, and folding the reply back onto `rows`' own positions. Resolves to null when the
-      // request failed, or a newer one of the same type replaced it while this was in flight.
+      // One worker round trip. Null on failure or when superseded.
       const runWorkerCalc = async (
         type: 'recalculate' | 'calculateDamage',
         extra: (collapseMap: number[]) => Partial<WorkerRequest>
@@ -335,13 +297,10 @@ export const useRotationStore = create<RotationState>()(
         const { startEnergy, startConcerto, rows, endingRotationEnabled, endRotationStartsEarlier } = get();
         const options = { startEnergy, startConcerto };
 
-        // Evicts stale mechanic JSONs so this runs against current data (a mechanics-file change is
-        // picked up without a reload), and refreshes the manifests the worker checks its own against.
+        // Evict stale mechanics and refresh manifests.
         await checkTeamFreshness(team);
 
-        // Hold Repeat blocks are authoring/display sugar -- TimelineEngine only ever sees
-        // `expanded` (each block's row range cloned `repeatCount` times); the reply gets folded
-        // back onto `rows`' original positions below via collapseMap.
+        // The engine runs expanded rows; results fold back via collapseMap.
         const { expanded, collapseMap } = expandRepeatBlocks(rows);
 
         set({ isCalculating: true });
@@ -357,19 +316,15 @@ export const useRotationStore = create<RotationState>()(
           if (seq === latestSeqByType[type]) set({ isCalculating: false });
           return null;
         }
-        // A newer request of this type already landed -- drop this stale result.
         if (seq !== latestSeqByType[type]) return null;
 
         const evaluatedRows = collapseRepeatResults(data.evaluatedRows, collapseMap, rows);
         evaluatedRows.forEach((row: any, i: number) => {
-          // Guarantees every committed row has an id, independent of whatever `rows[i]` has.
           if (!row.id) row.id = rows[i]?.id || crypto.randomUUID();
         });
         return { data, evaluatedRows, collapseMap, rows, team, options, endingRotationEnabled, endRotationStartsEarlier, builderOverrides };
       };
 
-      // Shared by addRepeatBlock/setRepeatBlockStartIndex/setRepeatBlockEndIndex -- same check
-      // against the CURRENT loop, just from three different call sites moving different edges.
       const repeatBlockCrossesCurrentLoop = (startIndex: number, endIndex: number): boolean =>
         repeatCrossesLoopBoundary(startIndex, endIndex, get().loopStartIndex, SetLoopEndCommand.findPrevIndex(get().rows));
 
@@ -401,7 +356,7 @@ export const useRotationStore = create<RotationState>()(
         setTimelineActive: (active: boolean) => {
           if (get().timelineActive === active) return;
           set({ timelineActive: active });
-          // Hit dots need priced hits, which a plain recalculate skips.
+          // Hit dots need priced hits.
           if (active) get().recalculate(false, true);
         },
 
@@ -462,10 +417,7 @@ export const useRotationStore = create<RotationState>()(
         },
 
         moveRows: (indicesToMove: number[], targetIndex: number) => {
-          // Authored fields + id only -- damageInstances/dropdownState/prevRow/nextRow don't
-          // need to survive an undo, since onComplete always triggers a recalculate afterward
-          // regardless. This snapshot sits in the persisted undo stack indefinitely (until
-          // MAX_HISTORY_SIZE evicts it), so keeping it light matters for localStorage quota.
+          // Authored fields only; keeps the persisted undo stack small.
           const previousRowsSnapshot = get().rows.map(r => ({ id: r.id, ...toPersistedRow(r) }));
           historyManager.execute(new MoveRowsCommand(getRawRows, setRawRows, indicesToMove, targetIndex, previousRowsSnapshot, (newIndices?: number[]) => {
             set({ selectedIndices: newIndices || [] });
@@ -473,8 +425,8 @@ export const useRotationStore = create<RotationState>()(
           }));
         },
 
-        // 1-to-1 overwrite of selected rows; extra clipboard rows insert; leftover selected
-        // rows delete. Nothing selected -- rows insert before the trailing blank row.
+        // Overwrites selected rows 1:1, inserts extras, deletes leftovers.
+        // No selection: inserts before the trailing blank row.
         pasteRows: () => {
           const state = get();
           const clipboard = state.clipboard;
@@ -485,7 +437,7 @@ export const useRotationStore = create<RotationState>()(
           const startIndex = hasSelection ? selectedIndices[0] : Math.max(0, rows.length - 1);
           const maxEdits = hasSelection ? Math.min(clipboard.length, selectedIndices.length) : 0;
 
-          // A pasted repeat block gets group id(s) of its own -- one remapper across every clipboard row.
+          // Pasted repeat blocks get fresh group ids.
           const remapGroupId = createGroupIdRemapper();
           const pasted = clipboard.map(row => withRemappedGroupIds(row, remapGroupId));
 
@@ -523,7 +475,7 @@ export const useRotationStore = create<RotationState>()(
           if (oldValue === value) return;
           const commands: Command[] = [cmd.editValue(index, field, oldValue, value)];
 
-          // Speeds up authoring a rotation: picking a move carries the row's unit forward
+          // Carry the unit forward to the next row.
           if (field === 'action' && value && row?.unit) {
             const nextRow = get().rows[index + 1];
             const moveData = DataLoader.mechanicsDB[value];
@@ -631,7 +583,7 @@ export const useRotationStore = create<RotationState>()(
           if (prevIndex === index) return;
           const endIdx = SetRepeatBlockEndCommand.findIndexForGroup(rows, groupId);
           if (endIdx !== null) {
-            if (index > endIdx) return; // start can't land below its own block's end
+            if (index > endIdx) return;
             if (repeatBlockCrossesCurrentLoop(index, endIdx)) return;
           }
           historyManager.execute(cmd.setRepeatStart(groupId, index, prevIndex));
@@ -644,18 +596,16 @@ export const useRotationStore = create<RotationState>()(
           if (prevIndex === index) return;
           const startIdx = SetRepeatBlockStartCommand.findIndexForGroup(rows, groupId);
           if (startIdx !== null) {
-            if (index < startIdx) return; // end can't land above its own block's start
+            if (index < startIdx) return;
             if (repeatBlockCrossesCurrentLoop(startIdx, index)) return;
           }
           historyManager.execute(cmd.setRepeatEnd(groupId, index, prevIndex));
         },
 
-        // Removes the whole Ending Rotation split (tag + appended rows), not just the tag.
-        // Shared by the row marker's reset button and unchecking the toolbar checkbox.
+        // Removes the Ending Rotation tag and its appended rows.
         resetLoopEnd: () => {
           const { rows, endingRotationEnabled, endRotationStartsEarlier } = get();
           const endIdx = loopEndIndexOf(rows);
-          // Flag flip rides in the same CompositeCommand, so undo restores both together.
           const flagCommand = new SetEndingRotationFlagsCommand(
             vals => set(vals),
             { endingRotationEnabled, endRotationStartsEarlier },
@@ -694,7 +644,6 @@ export const useRotationStore = create<RotationState>()(
 
           const lastContentIdx = rows.reduce((last, r, i) => (r.unit ? i : last), -1);
           if (lastContentIdx === -1) {
-            // Nothing to tag/copy yet -- just flip the flag.
             set({ endingRotationEnabled: true });
             return;
           }
@@ -702,8 +651,7 @@ export const useRotationStore = create<RotationState>()(
           const commands: Command[] = [cmd.setLoopEnd(lastContentIdx, null)];
           const loopStart = get().loopStartIndex;
           const fullLoopRows = rows.slice(loopStart, lastContentIdx + 1);
-          // Prefilled with just the sub-loop that crosses 2 minutes, where Ending Rotation will start
-          // (the whole loop when it has no splits).
+          // Prefill with the sub-loop crossing 2 minutes.
           const contentRows = rows.slice(0, lastContentIdx + 1);
           const { loopDuration } = loopTiming(contentRows.slice(0, loopStart), fullLoopRows);
           const mainDps = useRosterStore.getState().team[0]?.character;
@@ -712,10 +660,8 @@ export const useRotationStore = create<RotationState>()(
             : { partialRows: 0 };
           const crossingEnd = loopCycleBounds(fullLoopRows, mainDps).find(bound => bound > partialRows) ?? fullLoopRows.length;
           const loopRows = fullLoopRows.slice(partialRows, crossingEnd);
-          // Repeat blocks in the loop are copied as independent blocks (fresh group ids).
           const remapGroupId = createGroupIdRemapper();
           loopRows.forEach((r, i) => {
-            // Only the authored fields carry over -- `r` also carries TimelineEngine's runtime state.
             commands.push(cmd.add(makeRow(withRemappedGroupIds(toClipboardRow(r), remapGroupId)), lastContentIdx + 1 + i));
           });
           runCommands(commands);
@@ -728,13 +674,13 @@ export const useRotationStore = create<RotationState>()(
           triggerRecalc();
         },
 
-        // Recalculates timeline/gauges/timings only -- does not run combat damage.
+        // Timings and gauges only; no damage.
         recalculate: async (markStale: boolean = true, includeDamage: boolean = false) => {
           const run = await runWorkerCalc('recalculate', collapseMap => ({ includeDamage: includeDamage || get().timelineActive, collapseMap }));
           if (!run) return;
           const { data, evaluatedRows, collapseMap } = run;
 
-          // Preserves existing damageInstances unless fresh, keying by row ID rather than index to guard against in-flight row mutations during worker round trips.
+          // Keep existing damageInstances by row id.
           const existingDamageMap = new Map(get().rows.filter(r => r.id).map(r => [r.id, r.damageInstances]));
           evaluatedRows.forEach((row: any) => {
             row.damageInstances = (row.damageInstances && row.damageInstances.length > 0)
@@ -755,12 +701,11 @@ export const useRotationStore = create<RotationState>()(
           });
         },
 
-        // Runs full combat damage -- only triggered by the "Calculate" button.
+        // Full damage calculation (Calculate button).
         calculateDamage: async () => {
           const { loopStartIndex } = get();
           const run = await runWorkerCalc('calculateDamage', collapseMap => {
-            // loopStartIndex was computed against the original (collapsed) rows -- translate it to
-            // where that same content now sits in the expanded rows the worker runs the loop over.
+            // Map loopStartIndex onto the expanded rows.
             const expandedLoopStartIndex = collapseMap.indexOf(loopStartIndex);
             return {
               loopStartIndex: expandedLoopStartIndex === -1 ? loopStartIndex : expandedLoopStartIndex,
@@ -780,7 +725,6 @@ export const useRotationStore = create<RotationState>()(
             builderOverridesSnapshot: JSON.stringify(builderOverrides)
           });
 
-          // One history row per successful Calculate press, in the same shape Export Rotation uses.
           useRotationHistoryStore.getState().addEntry({
             team,
             rotation: rows.map(toSavedRow),
@@ -827,7 +771,6 @@ export const useRotationStore = create<RotationState>()(
         endingRotationEnabled: state.endingRotationEnabled,
         endRotationStartsEarlier: state.endRotationStartsEarlier,
         substatWorthEnabled: state.substatWorthEnabled,
-        // Last Calculate press's output, so a reload still shows Results instead of "No Results Yet".
         results: state.results,
         isStale: state.isStale,
         builderOverridesSnapshot: state.builderOverridesSnapshot,
@@ -839,17 +782,12 @@ export const useRotationStore = create<RotationState>()(
         undoStackData: state.undoStackData,
         redoStackData: state.redoStackData
       }),
-      // Persisted rows never carry an id (see toPersistedRow), but the row list is keyed by it.
-      // Done here, not in onRehydrateStorage below: that callback runs while the store is still
-      // being created, so it can't reach `useRotationStore` yet.
+      // Assign row ids (persisted rows have none).
       merge: (persisted, current) => {
         const merged = { ...current, ...(persisted as Partial<RotationState>) };
         return { ...merged, rows: merged.rows.map(r => (r.id ? r : { ...r, id: crypto.randomUUID() })) };
       },
-      // Rebuilds historyManager's real stacks from the persisted descriptions -- restoreStacks
-      // just assigns them (no execute()/undo() side effects), since `rows` above is already the
-      // up-to-date result of those commands having run before the reload. `ctx` only touches
-      // `useRotationStore` lazily, once a revived command actually runs.
+      // Restores undo/redo stacks without re-running commands.
       onRehydrateStorage: () => state => {
         if (!state) return;
         const ctx: RevivalContext = {
@@ -862,8 +800,6 @@ export const useRotationStore = create<RotationState>()(
         const redoStack = (state.redoStackData || []).map(d => reviveCommand(d, ctx));
         historyManager.restoreStacks(undoStack, redoStack);
       }
-      // No auto-recalculate on rehydrate -- this store loads app-wide; RotationBuilder's mount
-      // effect recalculates once the calculator page actually opens.
     }
   )
 );

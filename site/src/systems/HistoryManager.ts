@@ -1,17 +1,13 @@
-// Undo/redo for the rotation table. The stacks are persisted (useRotationStore's partialize), so
-// commands keep only a row's authored fields -- never its evaluated state, which the recalculate
-// after every undo/redo rebuilds -- to stay well under the localStorage quota.
+// Undo/redo for the rotation table. Persisted, so commands keep only authored fields.
 import { makeBlankRow, toPersistedRow } from '../logic/rotationRows';
 
 const MAX_HISTORY_SIZE = 50;
 
-// The Ending Rotation toggles, flipped together as one undo step.
 export interface EndingRotationFlags {
   endingRotationEnabled: boolean;
   endRotationStartsEarlier: boolean;
 }
 
-// The first row matching `test`, or null.
 export const findRowIndex = (rows: any[], test: (row: any) => boolean): number | null => {
   const idx = rows.findIndex(test);
   return idx === -1 ? null : idx;
@@ -20,8 +16,7 @@ export const findRowIndex = (rows: any[], test: (row: any) => boolean): number |
 export interface Command {
   execute: () => void;
   undo: () => void;
-  // Plain-data description of this command, for persisting the undo/redo stacks across a
-  // reload (see useRotationStore's reviveCommand). Must round-trip through JSON.
+  // JSON-safe description for persistence.
   serialize: () => SerializedCommand;
 }
 
@@ -38,7 +33,7 @@ export type SerializedCommand =
   | { type: 'endingRotationFlags'; oldValues: EndingRotationFlags; newValues: EndingRotationFlags }
   | { type: 'composite'; commands: SerializedCommand[] };
 
-// A detached copy of rows, minus the circular prevRow/nextRow links (recalculate rebuilds them).
+// Deep copy without prevRow/nextRow links.
 const cloneRowsSansLinks = (rows: any[]): any[] =>
   JSON.parse(JSON.stringify(rows, (key, value) => (key === 'prevRow' || key === 'nextRow' ? undefined : value)));
 
@@ -128,11 +123,7 @@ export class HistoryManager {
     return this.redoStack.map(c => c.serialize());
   }
 
-  // Sets the stacks directly from already-revived commands -- no execute()/undo() side effects,
-  // since the rows/flags they describe are already the current (persisted) state. Used to
-  // restore history across a reload; see useRotationStore's onRehydrateStorage.
-  // Also trims on load, independent of pushUndo's cap -- a persisted stack longer than
-  // MAX_HISTORY_SIZE shouldn't have to wait for the next action to shrink back under quota.
+  // Restores revived stacks without side effects, trimmed to MAX_HISTORY_SIZE.
   restoreStacks(undoStack: Command[], redoStack: Command[]) {
     this.undoStack = undoStack.slice(-MAX_HISTORY_SIZE);
     this.redoStack = redoStack.slice(-MAX_HISTORY_SIZE);
@@ -140,7 +131,6 @@ export class HistoryManager {
   }
 }
 
-// Holds the getRows/setRows/onComplete triple shared by every row-array-mutating command below.
 abstract class BaseRowsCommand implements Command {
   protected getRows: () => any[];
   protected setRows: (rows: any[]) => void;
@@ -202,11 +192,7 @@ export class AddRowCommand extends BaseRowsCommand {
 export class DeleteRowsCommand extends BaseRowsCommand {
   private deletedData: { row: any; index: number }[];
 
-  // Takes the already-resolved deletedData (row snapshot + original index) rather than raw
-  // indices, so the exact same constructor works both for a fresh delete (see
-  // computeDeletedData, called against the live rows) and for reviving a persisted command
-  // (deletedData read straight back from storage, since the rows it refers to may no longer
-  // exist at those indices by the time of revival). Each row is cut down to its authored fields.
+  // Takes resolved deletedData so fresh and revived commands share a constructor.
   constructor(
     getRows: () => any[],
     setRows: (rows: any[]) => void,
@@ -238,7 +224,6 @@ export class DeleteRowsCommand extends BaseRowsCommand {
 
   undo() {
     const current = [...this.getRows()];
-    // Guards against a restored row missing its id.
     [...this.deletedData].reverse().forEach(item => {
       const row = item.row.id ? item.row : { ...item.row, id: crypto.randomUUID() };
       if (item.index <= current.length) {
@@ -256,9 +241,7 @@ export class DeleteRowsCommand extends BaseRowsCommand {
   }
 }
 
-// Sets several fields on a row as one atomic step (e.g. Simultaneous offset, which mirrors into
-// both `offset` and `manualOffset`) -- undoes/redoes together so an intermediate recalc never sees
-// just one field updated.
+// Sets several fields on a row as one step.
 export class EditFieldsCommand extends BaseRowsCommand {
   protected index: number;
   private oldValues: Record<string, any>;
@@ -301,7 +284,7 @@ export class EditFieldsCommand extends BaseRowsCommand {
   }
 }
 
-// One field of EditFieldsCommand. Persists under its own type, so older saved history still revives.
+// Single-field EditFieldsCommand, persisted under its own type.
 export class EditValueCommand extends EditFieldsCommand {
   private field: string;
   private oldValue: any;
@@ -327,14 +310,12 @@ export class EditValueCommand extends EditFieldsCommand {
   }
 }
 
-// Moves a marker -- a flag or tag one row carries (loop start/end, a Hold Repeat block's start/end)
-// -- from one row to another as one undoable step. Undo moves it back.
+// Moves a row marker (loop or Hold Repeat start/end) to another row.
 abstract class MoveMarkerCommand extends BaseRowsCommand {
   protected newIndex: number | null;
   protected prevIndex: number | null;
 
-  // prevIndex is resolved by the caller (against the live rows) rather than derived here, so
-  // the same constructor works for both a fresh action and reviving a persisted command.
+  // prevIndex is resolved by the caller.
   constructor(
     getRows: () => any[],
     setRows: (rows: any[]) => void,
@@ -347,13 +328,10 @@ abstract class MoveMarkerCommand extends BaseRowsCommand {
     this.prevIndex = prevIndex;
   }
 
-  // The row fields the marker occupies -- all of them come off the row it leaves.
   protected abstract markerFields(): readonly string[];
-  // What a row looks like carrying the marker (`carried` is whatever travelled with it).
   protected abstract markerValues(carried: any): Record<string, any>;
-  // What travels with the marker to its next row, read off the row it leaves (undefined: nothing).
   protected carriedFrom?(row: any): any;
-  // Stands in for `carried` when the marker isn't coming off another row (a brand-new one).
+  // `carried` for a new marker.
   protected initialCarried?(): any;
 
   private apply(clearIndex: number | null, setIndex: number | null) {
@@ -383,7 +361,7 @@ abstract class MoveMarkerCommand extends BaseRowsCommand {
   }
 }
 
-// Shared by SetLoopStartCommand/SetLoopEndCommand: a singleton boolean flag on one row.
+// A boolean flag on at most one row.
 abstract class SetRowFlagCommandBase extends MoveMarkerCommand {
   protected field: 'loopStartOverride' | 'loopEndOverride';
 
@@ -408,8 +386,7 @@ abstract class SetRowFlagCommandBase extends MoveMarkerCommand {
   }
 }
 
-// Only one row may carry `loopStartOverride` at a time. Moves the flag to `newIndex` in one
-// atomic step -- pass `newIndex: null` to clear it (falls back to auto-detection).
+// Moves loopStartOverride; null clears it.
 export class SetLoopStartCommand extends SetRowFlagCommandBase {
   constructor(
     getRows: () => any[],
@@ -430,9 +407,7 @@ export class SetLoopStartCommand extends SetRowFlagCommandBase {
   }
 }
 
-// Same shape as SetLoopStartCommand, targeting `loopEndOverride` -- marks the loop's last row
-// when "Ending Rotation" is on. No auto-detected fallback like loop start: absent just means
-// "no ending rotation" (loop runs to the end of the rows array).
+// Moves loopEndOverride; null clears it.
 export class SetLoopEndCommand extends SetRowFlagCommandBase {
   constructor(
     getRows: () => any[],
@@ -453,7 +428,7 @@ export class SetLoopEndCommand extends SetRowFlagCommandBase {
   }
 }
 
-// Targets multi-instance Hold Repeat blocks by `groupId`, carrying existing `repeatCount` on drag moves while using `initialCount` solely on creation.
+// Moves a Hold Repeat block's start by groupId, carrying repeatCount.
 export class SetRepeatBlockStartCommand extends MoveMarkerCommand {
   private groupId: string;
   private initialCount: number;
@@ -497,8 +472,7 @@ export class SetRepeatBlockStartCommand extends MoveMarkerCommand {
   }
 }
 
-// Same shape as SetRepeatBlockStartCommand, but what rides along is the Final Rep Timing override
-// (carried with the end marker when it's dragged) rather than a count.
+// Moves a Hold Repeat block's end, carrying repeatFinalTiming.
 export class SetRepeatBlockEndCommand extends MoveMarkerCommand {
   private groupId: string;
 
@@ -540,9 +514,7 @@ export class MoveRowsCommand extends BaseRowsCommand {
   private targetIndex: number;
   private previousRowsSnapshot: any[];
 
-  // previousRowsSnapshot is captured by the caller (against the live rows, before the move)
-  // rather than derived here, so the same constructor works for both a fresh action and
-  // reviving a persisted command.
+  // previousRowsSnapshot is captured by the caller.
   constructor(
     getRows: () => any[],
     setRows: (rows: any[]) => void,
@@ -601,9 +573,7 @@ export class MoveRowsCommand extends BaseRowsCommand {
   }
 }
 
-// Flips endingRotationEnabled/endRotationStartsEarlier as one undo step -- shared by
-// resetLoopEnd (bundled into a CompositeCommand alongside the row deletion/tag removal it
-// accompanies) and any other all-or-nothing flag change.
+// Sets the Ending Rotation flags as one step.
 export class SetEndingRotationFlagsCommand implements Command {
   private setFlags: (vals: EndingRotationFlags) => void;
   private oldValues: EndingRotationFlags;

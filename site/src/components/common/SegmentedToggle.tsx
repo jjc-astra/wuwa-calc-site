@@ -8,14 +8,12 @@ export interface SegmentedOption<T> {
 }
 
 interface SegmentedToggleProps<T> {
-  /** The active option's value. */
   value: T;
   options: SegmentedOption<T>[];
   onChange: (value: T) => void;
   ariaLabel: string;
 }
 
-/** A row of mutually exclusive buttons, the active one highlighted. */
 export function SegmentedToggle<T extends string | number>({ value, options, onChange, ariaLabel }: SegmentedToggleProps<T>) {
   return (
     <div className="segmented-toggle" role="group" aria-label={ariaLabel}>

@@ -1,16 +1,15 @@
 import React, { useContext, useEffect, useId, useRef, useState } from 'react';
 import { ActualSizeContext, loadMermaid } from './mermaidSetup';
 
-// Fit mode sizes each diagram to fit the page width and the visible height:
-// - scales up to MAX_UPSCALE, so narrow ones don't leave the box half empty
-// - shrinks for height only down to MIN_HEIGHT_SCALE, keeping text readable (taller ones scroll)
-// - shrinks for width as far as needed
+// Fit mode:
+// - scales up to MAX_UPSCALE
+// - shrinks for height down to MIN_HEIGHT_SCALE
+// - shrinks for width as needed
 const MAX_UPSCALE = 1.3;
 const MIN_HEIGHT_SCALE = 0.85;
-// Room for the section header, a one-line note and paddings, in px at the natural root size.
+// Header, note and padding, in px.
 const HEIGHT_RESERVE = 130;
 
-/** One flowchart, rendered from mermaid source. */
 export const MermaidDiagram: React.FC<{ source: string }> = ({ source }) => {
   const actualSize = useContext(ActualSizeContext);
   const renderId = 'mmd-' + useId().replace(/[^\w]/g, '');

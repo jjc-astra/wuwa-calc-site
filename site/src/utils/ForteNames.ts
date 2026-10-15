@@ -1,4 +1,4 @@
-// Maps `forte{N}Name` to user-facing labels and `@Self.<Alias>` / `@Self.Max<Alias>` DSL identifiers.
+// `forte{N}Name` -> labels and `@Self.<Alias>` identifiers.
 type StatsLike = Record<string, any> | null | undefined;
 
 export const forteNameKey = (index: number): string => `forte${index}Name`;
@@ -8,7 +8,7 @@ export function forteLabel(stats: StatsLike, index: number): string {
   return name || `Forte ${index}`;
 }
 
-// null when the slot has no name, or one with no usable identifier characters.
+// null without a usable name.
 export function forteAlias(stats: StatsLike, index: number): string | null {
   const alias = String(stats?.[forteNameKey(index)] ?? '').replace(/[^A-Za-z0-9_]/g, '');
   return /^[A-Za-z_]/.test(alias) ? alias : null;

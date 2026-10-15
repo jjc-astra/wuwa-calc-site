@@ -9,7 +9,7 @@ import { DpsWindowSelect } from './DpsWindowSelect';
 
 const formatSeconds = (v: number | undefined) => (v ? `${v.toFixed(2)}s` : '—');
 
-// The window's length and how much of it each unit spent on field (Avg Loop: per loop).
+// Window length and each unit's on-field time.
 export const RotationTimePanel: React.FC = () => {
   const { team, results, isStale } = useResultsSource();
   const [pickedWindow, setDpsType] = useState<DpsWindowKey>(DEFAULT_BREAKDOWN_WINDOW);

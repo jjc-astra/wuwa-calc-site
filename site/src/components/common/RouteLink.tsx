@@ -5,7 +5,7 @@ interface RouteLinkProps extends Omit<React.AnchorHTMLAttributes<HTMLAnchorEleme
   onNavigate: () => void;
 }
 
-/** An in-app link: a real <a href> for crawlers and new-tab opens, but a plain click runs onNavigate instead of a page load. */
+/** Real <a href>; a plain click calls onNavigate instead. */
 export const RouteLink: React.FC<RouteLinkProps> = ({ href, onNavigate, ...rest }) => (
   <a
     {...rest}

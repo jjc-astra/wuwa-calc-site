@@ -1,5 +1,4 @@
-// Picks a roster unit (or, when offered, the whole team): Export's what-to-export, and a full
-// roster's which-unit-an-import-replaces.
+// Picks a roster unit, or optionally the whole team.
 import React from 'react';
 import type { TeamSlot } from '../../types';
 import { IMAGE_FOLDERS } from '../../data/db';
@@ -11,7 +10,6 @@ interface RosterPickDialogProps {
   title: string;
   message: string;
   team: TeamSlot[];
-  // Adds a Full Team option above the units.
   offerTeam?: boolean;
   onPick: (pick: RosterPick) => void;
   onCancel: () => void;

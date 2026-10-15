@@ -1,5 +1,4 @@
-/* Step 1 (roster/) and Step 2 (rotation/) content for the Rotation Calculator page. The outer
-   2-column shell and Results panel live in results.css, not here. */
+/* Rotation Calculator: roster and rotation steps. */
 
 /* =========================================
    1. COLLAPSIBLE STEP SHELL
@@ -109,7 +108,6 @@
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--row-accent) 55%, var(--border));
 }
 
-/* Matches the Mechanics Builder's own .btn-danger (delete-node) red. */
 .clear-slot-btn { border-color: var(--danger); color: var(--danger); }
 
 .char-row .base-select,
@@ -172,7 +170,7 @@
     }
 }
 
-/* Mobile layout: stacks char/weapon/set into a single column; keeps echoes in a horizontal scroll row. */
+/* Mobile: single column; echoes scroll horizontally. */
 @media (max-width: 760px) {
     .char-row {
         grid-template-columns: 1fr;
@@ -188,7 +186,6 @@
         margin-bottom: 0.625rem;
     }
     .panel-col:nth-child(3) { border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
-    /* Raises min-width on mobile to keep card stats legible, delegating overflow to horizontal scroll. */
     .echo-container {
         grid-template-columns: repeat(5, minmax(13.125rem, 1fr));
         overflow-x: auto;
@@ -316,7 +313,7 @@
 :root {
     /* Index/Check | Unit | Action | Time | Timing | Offset | DMG | Fortes | Concerto | Energy | Tune */
     --rot-grid: 0.9375rem 6.875rem      1fr   4.75rem       5.3125rem     4.0625rem 8.125rem     5.3125rem       4.6875rem     3.75rem  2.5rem;
-    /* The grid's narrowest width; anything narrower scrolls #rotation-content sideways. */
+    /* Narrower scrolls sideways. */
     --rot-min-width: 56.25rem;
 }
 
@@ -337,13 +334,9 @@
     flex: 1;
     min-height: 0;
     display: flex;
-    /* .rotation-scrollbar-segment-marker bleeds 2px past .rotation-scrollbar-map on purpose (to
-       cover the scrollbar's rounded edges) -- without a clip here, that permanent 2px reads as
-       real overflow and forces #rotation-content into horizontal scroll at every width, even
-       though nothing actually needs it. */
+    /* Clips the segment marker's 2px bleed. */
     overflow: hidden;
-    /* As wide as the rows plus #rotation-builder's scrollbar: narrower, and the rows' overflow is
-       clipped here instead of scrolling with #rotation-content (blank columns past the viewport). */
+    /* Rows plus scrollbar width. */
     min-width: calc(var(--rot-min-width) + 1rem);
 }
 #rotation-builder {
@@ -392,7 +385,7 @@
     align-items: center; justify-content: center; padding: 0 0.625rem; box-sizing: border-box;
 }
 .rotation-toolbar .icon-btn { width: 1.75rem; padding: 0; }
-/* One word per line, stacked like Mark Repeat. */
+/* One word per line. */
 .rotation-toolbar .toolbar-toggle-label { width: min-content; line-height: 1; text-align: center; }
 .rotation-toolbar .icon-btn svg { display: block; width: 1rem; height: 1rem; }
 
@@ -417,7 +410,7 @@
 .rotation-header-row::-webkit-scrollbar-thumb { background: transparent; }
 .rotation-header-row > div:nth-child(2),
 .rotation-header-row > div:nth-child(3) { text-align: left; }
-/* Time header: the count up/down toggle hangs off the left, so "Time" stays centered on its column. */
+/* Toggle hangs off the left so "Time" stays centered. */
 .rotation-header-time { position: relative; }
 .rotation-time-sort {
     position: absolute; right: 100%; top: 50%; transform: translateY(-50%); margin-right: 0.125rem;
@@ -498,7 +491,7 @@
     background: var(--bg-panel);
 }
 
-/* Its move is hovered on the Timeline. */
+/* Hovered on the Timeline. */
 .rotation-row.is-linked {
     --row-bg-mixed: color-mix(in srgb, var(--row-accent) 30%, var(--row-theme-base));
     border-top-color: var(--row-accent);
@@ -665,8 +658,7 @@
     align-items: center;
     justify-content: center;
     border-radius: 0.25rem;
-    /* Named, not `all`: a linked-row highlight restyles every row cell, and `all` started a
-       stray transition (scrollbar-color) on each one, repainting the row for every hover. */
+    /* Not `all`: avoids repainting on linked-row hover. */
     transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .sub-panel-trigger:hover {
@@ -901,10 +893,7 @@
 .loop-tag-icon { flex-shrink: 0; }
 .loop-tag-label { flex-shrink: 0; }
 
-/* One panel per loop issue -- reuses .is-error-strip/.is-warning-strip (STATUS MESSAGE STRIP,
-   above) for color, just with its own compact layout instead of the row strip's icon-column
-   indent. Flush against the tag and each other -- no border between them -- so the tag and its
-   issue panels read as one continuous block. */
+/* One panel per loop issue, flush with the tag. */
 .loop-issue-strip {
     padding: 0.25rem 0.625rem;
     font-size: 0.7rem;
@@ -941,8 +930,7 @@
 }
 .loop-end-tag:active { cursor: grabbing; }
 
-/* --- Hold Repeat Start/End Tags -- same shape as the Loop tags above, grey/black themed so a
-   per-move repeat block reads as visually distinct from the rotation-wide Loop markers. --- */
+/* --- Hold Repeat Start/End Tags --- */
 .repeat-start-tag {
     display: flex;
     align-items: center;
@@ -1157,31 +1145,31 @@
 .roster-pick-option { justify-content: flex-start; }
 
 /* =========================================
-   MOBILE LAYOUT (must stay last -- overriding rules earlier in this file at equal specificity)
+   MOBILE LAYOUT (must stay last)
    ========================================= */
 @media (max-width: 760px) {
     .idle-stats-wrapper { flex-direction: column; }
     .idle-stat-card { min-width: 0; }
 }
 
-/* Tightens grid column floors and allows the toolbar to wrap, lowering the horizontal scroll breakpoint well below 900px. */
+/* Tighter columns and a wrapping toolbar. */
 @media (max-width: 900px) {
     :root {
         --rot-grid: 0.9375rem 5.625rem minmax(5.625rem, 1fr) 4.75rem 3.75rem 3.125rem 5.9375rem 3.4375rem 4.375rem 3.25rem 2rem;
-        /* The tracks above (42.8125rem) + 10 gaps of 0.375rem + 0.625rem padding each side. */
+        /* Tracks + gaps + padding. */
         --rot-min-width: 47.8125rem;
     }
-    /* Stays viewport-wide and wraps, so its buttons are reachable without scrolling sideways. */
+    /* Viewport-wide so buttons stay reachable. */
     .rotation-toolbar {
         padding: 0.625rem;
         min-width: 0;
         flex-wrap: wrap;
         row-gap: 0.5rem;
     }
-    /* height: 100% would be the wrapped toolbar's full height; one button's height instead. */
+    /* One button's height. */
     .rotation-toolbar .calc-warning-msg,
     .rotation-toolbar .calc-loading-msg { height: 1.75rem; }
-    /* Wraps the button cluster internally rather than .rotation-toolbar to keep toggles together and prevent clipping. */
+    /* Wrap within the cluster to keep toggles together. */
     .rotation-toolbar > .flex-row.gap-sm {
         flex-wrap: wrap;
         row-gap: 0.5rem;
@@ -1191,11 +1179,10 @@
         gap: 0.375rem;
         padding: 0.3125rem 0.625rem;
     }
-    /* Import / Export drop below the title once both don't fit, instead of covering it. */
+    /* Import/Export wrap below the title. */
     .section-header {
         flex-wrap: wrap;
         row-gap: 0.5rem;
     }
-    /* Never shorter than its (possibly wrapped) header. */
     .section-wrapper.is-collapsed { flex-shrink: 0; }
 }

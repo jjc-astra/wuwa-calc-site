@@ -1,5 +1,4 @@
-// Only file importing both RotationTimeline and Rankings types -- keeps the timeline component
-// page-agnostic while this wrapper owns Rankings-specific data fetching.
+// Rankings wrapper around RotationTimeline.
 import React from 'react';
 import { RotationTimeline } from '../timeline/RotationTimeline';
 import { useRotationTimelineData } from '../timeline/useRotationTimelineData';

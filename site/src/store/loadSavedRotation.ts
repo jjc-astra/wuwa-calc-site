@@ -3,9 +3,7 @@ import { useRotationStore } from './useRotationStore';
 import type { RotationRowFields } from './useRotationStore';
 import type { TeamSlot, EnemyStats } from '../types';
 
-/** Replaces the calculator's team, target and rotation with a saved one (a History snapshot, a
- * Rankings entry). The team goes first and is awaited: importRotation fires its own recalculate,
- * which must see the new team. A save without a target keeps the current one. */
+/** Loads a saved team, target and rotation. The team is awaited first. */
 export async function loadSavedRotation(saved: {
   team: TeamSlot[];
   rotation: RotationRowFields[];

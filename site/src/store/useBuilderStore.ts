@@ -8,15 +8,15 @@ import { IMAGE_FOLDERS } from '../data/db';
 import { nodesEqual } from '../utils/nodeDiff';
 import type { PanelKey } from '../components/builder/MechanicNodeCard';
 
-/** An effect removed from a node in the Builder, and where in its effects it was. */
+/** An effect removed in the Builder, with its index. */
 export interface RemovedEffect { effect: Effect; index: number }
 
-/** A node deleted in the Builder (Delete Node), and the nodes either side of it then, to restore it between. */
+/** A node deleted in the Builder, with its neighbors for restoring. */
 export interface RemovedNode { node: MechanicNode; after: string | null; before: string | null }
 
 export type NodeChangeKind = 'modified' | 'renamed' | 'new';
 
-// How a node differs from its last-fetched (pristine) copy, or null if it doesn't.
+// How a node differs from its pristine copy, or null.
 export function nodeChangeKind(nodeId: string, node: MechanicNode | undefined, renamedFrom: Record<string, string>): NodeChangeKind | null {
   if (!node) return null;
   const origin = renamedFrom[nodeId] ?? nodeId;
@@ -33,33 +33,23 @@ interface BuilderState {
   baseStats: BaseStats;
   mechanics: Record<string, MechanicNode>;
   highlightedNodeId: string | null;
-  // Node/fields to highlight in JsonOutputPane -- hover-driven, independent of
-  // highlightedNodeId (summary row only).
+  // Hovered node/fields to highlight in JsonOutputPane.
   hoveredFieldHighlight: { nodeId: string; fields: string[] } | null;
-  // Which sub-panel (if any) is open per node. Stored here, not in MechanicNodeCard, because a
-  // rename re-keys `mechanics` and remounts the card under its new id. Keyed by node id and
-  // migrated in renameMechanicNode.
+  // Open sub-panel per node; kept here to survive renames.
   openPanelByNode: Record<string, PanelKey>;
-  // Current id -> original (pristine) id, for renamed nodes -- lets a per-row revert find the
-  // original after the rename re-keyed it. Persisted with the edit log.
+  // Current id -> pristine id, for renamed nodes.
   renamedFrom: Record<string, string>;
-  // Edit log for every entity ever edited, not just the active one.
-  // setActiveChar replays these onto each fresh fetch when an entity opens.
-  // `mechanics`/`baseStats` below are just the active entity's working copy.
+  // Edit log for every edited entity, replayed by setActiveChar.
   editedBaseStats: Record<string, BaseStats>;
   editedMechanics: Record<string, MechanicNode>;
   deletedMechanicIds: string[];
-  // Effects removed from a node in the Builder, by node id: shown dimmed where they were so the
-  // removal can be undone. Never part of the node itself, so never in its JSON or the calc.
+  // Removed effects by node id, shown dimmed until restored.
   removedEffects: Record<string, RemovedEffect[]>;
   recordRemovedEffect: (nodeId: string, removed: RemovedEffect) => void;
-  // Forgets one (restored or discarded for good), by its position in the node's list.
   dropRemovedEffect: (nodeId: string, removedIndex: number) => void;
-  // Nodes deleted with Delete Node, by id: shown dimmed in the node list until restored or
-  // discarded. Gone from `mechanics` (and the JSON/calc) meanwhile, like any removed node.
+  // Deleted nodes by id, shown dimmed until restored.
   removedNodes: Record<string, RemovedNode>;
-  // Delete Node: removeMechanicNode, remembering the node to restore. (removeMechanicNode itself
-  // stays a plain removal -- e.g. an import dropping keys, or unticking a Hold's Repeat.)
+  // Removes a node but remembers it for restoring.
   softRemoveMechanicNode: (nodeId: string) => void;
   restoreRemovedNode: (nodeId: string) => void;
   discardRemovedNode: (nodeId: string) => void;
@@ -68,30 +58,21 @@ interface BuilderState {
   setOpenPanel: (nodeId: string, panel: PanelKey | null) => void;
   setActiveChar: (charName: string | null, folder?: string, rarity?: number) => Promise<void>;
   setBaseStat: (key: string, value: any) => void;
-  // Replaces the whole baseStats object at once -- e.g. importing a Character JSON file,
-  // where stale fields the import doesn't redefine shouldn't linger from the old value.
+  // Replaces baseStats wholesale (e.g. JSON import).
   setAllBaseStats: (stats: BaseStats) => void;
-  // insertAfter: for a brand-new nodeId only -- places it right after that existing key instead
-  // of the object-spread default of the very end, so e.g. a Hold's freshly-created Repeat/Release
-  // sibling lands next to its Hold in the saved JSON instead of miles away at EOF. insertBefore:
-  // the same, right before that key (a restored node that was first).
+  // insertAfter/insertBefore: position for a new node (default: end).
   setMechanicNode: (nodeId: string, node: MechanicNode, insertAfter?: string, insertBefore?: string) => void;
   renameMechanicNode: (oldId: string, newId: string, node: MechanicNode) => void;
   removeMechanicNode: (nodeId: string) => void;
-  // Moves an existing node's key next to targetId (drag-and-drop reorder in the Builder's
-  // summary table) -- content is untouched, only its position in `mechanics` (and so the
-  // exported JSON's key order) changes. No-op for an unknown id or dropping onto itself.
+  // Moves a node's key next to targetId.
   reorderMechanicNode: (nodeId: string, targetId: string, position: 'before' | 'after') => void;
-  // Restores one node to its pristine copy (or drops it if it never existed there). Returns false
-  // if a renamed node's original id is now taken by another row.
+  // Reverts a node to pristine (or drops it). False if its original id is taken.
   revertMechanicNode: (nodeId: string) => boolean;
   resetCache: () => void;
-  // Drives the "!" dirty badge on a grid card without switching to it first.
   hasChanges: (itemName: string) => boolean;
-  // Drops itemName's edit log (DataLoader untouched). Used by dataFreshness.ts to discard
-  // local edits when the server JSON changed.
+  // Drops itemName's edit log.
   discardChanges: (itemName: string) => void;
-  // Slices the edit log down to just `itemNames`, for the calc worker's roster overrides.
+  // Edit log for `itemNames`, for the calc worker.
   getTeamOverrides: (itemNames: string[]) => {
     editedBaseStats: Record<string, BaseStats>;
     editedMechanics: Record<string, MechanicNode>;
@@ -99,18 +80,15 @@ interface BuilderState {
   };
 }
 
-// A copy of `record` without `keys`.
 const omit = <T,>(record: Record<string, T>, ...keys: string[]): Record<string, T> => {
   const copy = { ...record };
   keys.forEach(key => delete copy[key]);
   return copy;
 };
 
-// The entries of `record` whose id doesn't belong to `entityName`.
 const omitEntity = <T,>(record: Record<string, T>, entityName: string): Record<string, T> =>
   Object.fromEntries(Object.entries(record).filter(([id]) => !MechanicKey.belongsTo(id, entityName)));
 
-// The edit log with everything `entityName` ever edited forgotten.
 const withoutEntityEdits = (state: BuilderState, entityName: string) => ({
   editedBaseStats: omit(state.editedBaseStats, entityName),
   editedMechanics: omitEntity(state.editedMechanics, entityName),
@@ -120,19 +98,17 @@ const withoutEntityEdits = (state: BuilderState, entityName: string) => ({
   removedNodes: omitEntity(state.removedNodes, entityName)
 });
 
-// New base stats for the open entity. Written straight onto the live DataLoader entry too (so
-// Gauge and friends see it without a reload), and logged as an edit.
+// Sets base stats on the store and the live DataLoader entry.
 const withBaseStats = (state: BuilderState, baseStats: BaseStats) => {
   if (!state.activeChar) return { baseStats };
   DataLoader.editBaseStats(state.activeChar, baseStats);
   return { baseStats, editedBaseStats: { ...state.editedBaseStats, [state.activeChar]: baseStats } };
 };
 
-// Guards against a stale in-flight setActiveChar call resolving after the user navigated away.
+// Drops stale setActiveChar results.
 let activeCharRequestSeq = 0;
 
-// Maps a grid section's image folder to DataLoader's mechanic folder name.
-// Shared by setActiveChar, resetCache, and dataFreshness.ts's staleness check.
+// Image folder -> DataLoader mechanic folder.
 export const mechFolderFor = (folder: string): EntityFolder => {
   const lower = folder.toLowerCase();
   if (lower === 'weapons') return 'weapons';
@@ -142,7 +118,7 @@ export const mechFolderFor = (folder: string): EntityFolder => {
   return 'characters';
 };
 
-// The Mechanics Builder's open entity, plus the edit log of every entity ever edited.
+// Mechanics Builder's open entity and the edit log of every edited entity.
 export const useBuilderStore = create<BuilderState>()(
   persist(
     (set, get) => ({
@@ -167,7 +143,6 @@ export const useBuilderStore = create<BuilderState>()(
         if (!node) return;
         const keys = Object.keys(mechanics);
         const at = keys.indexOf(nodeId);
-        // Its removed effects go with it (removeMechanicNode forgets them); restoring brings back the node as it was.
         set(state => ({ removedNodes: { ...state.removedNodes, [nodeId]: { node, after: keys[at - 1] ?? null, before: keys[at + 1] ?? null } } }));
         get().removeMechanicNode(nodeId);
       },
@@ -210,11 +185,9 @@ export const useBuilderStore = create<BuilderState>()(
 
         await DataLoader.loadMechanic(mechFolder, charName);
 
-        // A newer call already landed while this load was in flight -- let it win.
         if (requestId !== activeCharRequestSeq) return;
 
-        // Replay cached edits onto the pristine fetch -- must run after loadMechanic, which
-        // overwrites mechanicsDB with pristine JSON.
+        // Replay edits after loadMechanic resets to pristine.
         const { editedBaseStats, editedMechanics, deletedMechanicIds } = get();
         const charEdits = editedBaseStats[charName];
         if (charEdits) DataLoader.editBaseStats(charName, charEdits);
@@ -250,8 +223,7 @@ export const useBuilderStore = create<BuilderState>()(
       setMechanicNode: (nodeId, node, insertAfter, insertBefore) => {
         set(state => {
           let updated: Record<string, MechanicNode>;
-          // Only a genuinely new key needs positioning -- updating one already in place should
-          // never jump it elsewhere in the object.
+          // Only position new keys.
           const isNew = !(nodeId in state.mechanics);
           if (isNew && ((insertAfter && insertAfter in state.mechanics) || (insertBefore && insertBefore in state.mechanics))) {
             const after = insertAfter && insertAfter in state.mechanics ? insertAfter : null;
@@ -265,8 +237,7 @@ export const useBuilderStore = create<BuilderState>()(
             updated = { ...state.mechanics, [nodeId]: node };
           }
           DataLoader.registerMechanicNode(nodeId, node);
-          // An edit identical to the pristine copy isn't an edit; keep it out of the log so
-          // hasChanges, the header strip, and worker overrides ignore it.
+          // Identical to pristine isn't an edit.
           const nextEdits = { ...state.editedMechanics, [nodeId]: node };
           const pristine = DataLoader.pristineMechanics[nodeId];
           if (pristine && !state.renamedFrom[nodeId] && nodesEqual(node, pristine)) delete nextEdits[nodeId];
@@ -284,7 +255,7 @@ export const useBuilderStore = create<BuilderState>()(
           return;
         }
         set(state => {
-          // Swaps keys in place to preserve property insertion order instead of appending to the end via delete/reassign.
+          // Swap keys in place to keep order.
           const updated: Record<string, MechanicNode> = {};
           Object.entries(state.mechanics).forEach(([key, val]) => {
             if (key === oldId) updated[newId] = node;
@@ -295,19 +266,16 @@ export const useBuilderStore = create<BuilderState>()(
 
           const updatedEdits = { ...omit(state.editedMechanics, oldId), [newId]: node };
 
-          // Carries the open sub-panel across the id swap (MechanicNodeCard remounts under newId).
           const updatedOpenPanel = { ...state.openPanelByNode };
           if (updatedOpenPanel[oldId] !== undefined) {
             updatedOpenPanel[newId] = updatedOpenPanel[oldId];
             delete updatedOpenPanel[oldId];
           }
 
-          // Chains through earlier renames so it always points at the pristine original; renaming
-          // back to that original clears the link.
+          // Always points at the pristine original.
           const origin = state.renamedFrom[oldId] ?? oldId;
           const updatedRenamed = omit(state.renamedFrom, oldId);
           if (newId !== origin && DataLoader.pristineMechanics[origin]) updatedRenamed[newId] = origin;
-          // Back at the original id with identical content isn't an edit.
           if (newId === origin && nodesEqual(node, DataLoader.pristineMechanics[origin])) delete updatedEdits[newId];
 
           return {
@@ -318,7 +286,7 @@ export const useBuilderStore = create<BuilderState>()(
             removedEffects: state.removedEffects[oldId]
               ? { ...omit(state.removedEffects, oldId), [newId]: state.removedEffects[oldId] }
               : state.removedEffects,
-            // Record oldId as deleted so a future re-fetch doesn't resurrect it from pristine data.
+            // Keeps a re-fetch from resurrecting oldId.
             deletedMechanicIds: [...state.deletedMechanicIds.filter(id => id !== oldId && id !== newId), oldId]
           };
         });
@@ -330,15 +298,14 @@ export const useBuilderStore = create<BuilderState>()(
           const node = state.mechanics[nodeId];
           const updated: Record<string, MechanicNode> = {};
           Object.entries(state.mechanics).forEach(([key, val]) => {
-            if (key === nodeId) return; // re-inserted at its new spot below, not its old one
+            if (key === nodeId) return;
             if (key === targetId && position === 'before') updated[nodeId] = node;
             updated[key] = val;
             if (key === targetId && position === 'after') updated[nodeId] = node;
           });
           return {
             mechanics: updated,
-            // Content is unchanged, but the saved JSON's key order is -- flag it like any other
-            // edit so Export/the dirty badge pick it up.
+            // Key order change counts as an edit.
             editedMechanics: { ...state.editedMechanics, [nodeId]: node }
           };
         });
@@ -355,7 +322,6 @@ export const useBuilderStore = create<BuilderState>()(
         if (restored) DataLoader.registerMechanicNode(origin, restored);
 
         set(s => {
-          // Swaps in place (like rename) so the row keeps its position.
           const updated: Record<string, MechanicNode> = {};
           Object.entries(s.mechanics).forEach(([key, val]) => {
             if (key !== nodeId) updated[key] = val;
@@ -406,9 +372,7 @@ export const useBuilderStore = create<BuilderState>()(
           ...withoutEntityEdits(state, itemName),
           ...(isActive ? { baseStats: {}, mechanics: {} } : {})
         }));
-        // Base-stat edits are written straight onto the live DataLoader entry (withBaseStats,
-        // applyBuilderOverridesFor) -- undo that too, or a discarded edit keeps showing up outside
-        // the Builder (e.g. Gauge.tsx's forte-dial count) until a full page reload.
+        // Base-stat edits live on the DataLoader entry too.
         DataLoader.restoreBaseStats(itemName);
         if (isActive) set({ baseStats: { ...(DataLoader.baseStatsFor(itemName) || {}) } as BaseStats });
       },
@@ -419,8 +383,7 @@ export const useBuilderStore = create<BuilderState>()(
         const matchesAny = (id: string) => itemNames.some(name => MechanicKey.belongsTo(id, name));
         return {
           editedBaseStats: Object.fromEntries(Object.entries(editedBaseStats).filter(([name]) => names.has(name))),
-          // Strips _compiledRule (a cached live function) -- can't cross postMessage to the
-          // worker, and gets recompiled there anyway.
+          // Strip _compiledRule (not cloneable).
           editedMechanics: Object.fromEntries(
             Object.entries(editedMechanics)
               .filter(([id]) => matchesAny(id))
@@ -439,8 +402,6 @@ export const useBuilderStore = create<BuilderState>()(
         DataLoader.clearMechanicCache(mechFolder, activeChar);
         DataLoader.restoreBaseStats(activeChar);
 
-        // Also clear this entity's edit log, or setActiveChar below just replays the same
-        // edits back onto the refetched data.
         set(state => ({ baseStats: {}, mechanics: {}, ...withoutEntityEdits(state, activeChar) }));
         await get().setActiveChar(activeChar, activeFolder, activeRarity);
       }
@@ -448,8 +409,7 @@ export const useBuilderStore = create<BuilderState>()(
     {
       name: 'wuwa_builder_cache',
       storage: persistStorage(),
-      // `mechanics`/`baseStats` aren't saved: setActiveChar re-derives them from fresh data plus
-      // the edit log, so a reload can't bring back stale keys.
+      // mechanics/baseStats are re-derived on load.
       partialize: (state) => ({
         activeChar: state.activeChar,
         activeFolder: state.activeFolder,

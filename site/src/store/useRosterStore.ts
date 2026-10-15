@@ -27,7 +27,7 @@ import { emptyEchoStats } from '../data/gameVocab';
 const defaultLayoutMainStats = (layout: string): string[] =>
   costsForLayout(layout).map(cost => mainStatOptionsFor(cost)[0] || '');
 
-/** A single unit's export (Export Unit, or Export Team's unit pick): one slot object, not a team array. */
+/** A single-unit export (one slot, not a team array). */
 export const isUnitFile = (data: unknown): data is TeamSlot =>
   !!data && typeof data === 'object' && !Array.isArray(data) && typeof (data as TeamSlot).character === 'string' && !!(data as TeamSlot).character;
 
@@ -57,7 +57,7 @@ const createEmptySlot = (index: number): TeamSlot => {
   return slot;
 };
 
-// The stats a slot's five echoes add up to: main stats, secondary main stats and substats.
+// Summed stats of a slot's five echoes.
 export const calculateEchoStatsForSlot = (slot: TeamSlot): Record<string, number> => {
   const echoStats: Record<string, number> = emptyEchoStats();
   const costs = costsForLayout(slot.layout);
@@ -78,11 +78,7 @@ export const calculateEchoStatsForSlot = (slot: TeamSlot): Record<string, number
   return echoStats;
 };
 
-/**
- * A character's recommended build from db_builds.json (its first listed role), if it has one. A
- * dual-mode character's build can override any of its fields per mode, under `modes.mode1` /
- * `modes.mode2`.
- */
+/** Recommended build (first role), with per-mode overrides applied. */
 export const recommendedBuildFor = (character: string, mode?: string): any | undefined => {
   const builds = DataLoader.buildDB[character];
   const roles = builds ? Object.keys(builds) : [];
@@ -92,14 +88,13 @@ export const recommendedBuildFor = (character: string, mode?: string): any | und
   return forMode ? { ...build, ...forMode } : build;
 };
 
-/** A recommended build's default-roll substats, on this slot's echoes (layout and main stats kept). */
+/** A build's default substats on this slot's echoes. */
 export function defaultSubstats(slot: TeamSlot, build: any): TeamSlot['echoes'] {
   const remainingSubs = { ...(build.subStats || {}) };
   const subStatKeys = Object.keys(remainingSubs);
   return slot.echoes.map(echo => {
     const usedOnThisEcho = new Set<string>();
     const substats = echo.substats.map(() => {
-      // The next substat the build still wants rolls of, once per echo.
       const name = subStatKeys.find(key => remainingSubs[key] > 0 && !usedOnThisEcho.has(key)) ?? EMPTY_SUBSTAT;
       if (name !== EMPTY_SUBSTAT) {
         remainingSubs[name]--;
@@ -111,8 +106,7 @@ export function defaultSubstats(slot: TeamSlot, build: any): TeamSlot['echoes'] 
   });
 }
 
-// A recommended build's echo layout, main stats and default-roll substats, on this slot's five
-// echoes. Sets, main echo and weapon are left alone.
+// A build's echo layout, main stats and substats. Sets and weapon untouched.
 export function recommendedEchoes(slot: TeamSlot, build: any): Pick<TeamSlot, 'layout' | 'echoes'> {
   const layout = build.echoLayout || slot.layout;
   const costs = costsForLayout(layout);
@@ -140,9 +134,7 @@ const GEAR_FIELDS = ['weapon', 'mainSet', 'subSet', 'mainEcho'] as const;
 const echoLayoutOf = (slot: Pick<TeamSlot, 'layout' | 'echoes'>) => JSON.stringify([slot.layout, slot.echoes.map(e => e.mainStat)]);
 const substatsOf = (echoes: TeamSlot['echoes']) => JSON.stringify(echoes.map(e => e.substats));
 
-// A dual-mode unit switching modes: each part of its build still on the old mode's recommendation
-// (each piece of gear, the echo layout and main stats, the substats) moves to the new mode's;
-// anything the user picked themselves stays.
+// On a mode switch, parts still on the old recommendation move to the new one.
 function withModeDefaults(slot: TeamSlot, prevMode: string): TeamSlot {
   const before = recommendedBuildFor(slot.character, prevMode);
   const after = recommendedBuildFor(slot.character, slot.mode);
@@ -160,13 +152,13 @@ function withModeDefaults(slot: TeamSlot, prevMode: string): TeamSlot {
   return next;
 }
 
-// Publishes a new team: the Builder edits for its members are replayed onto the DataLoader first.
+// Applies Builder edits, then publishes the team.
 const publishTeam = (team: TeamSlot[]) => {
   applyBuilderOverridesForTeam(team);
   useRosterStore.setState({ team });
 };
 
-// publishTeam, then re-run the rotation against the new team.
+// publishTeam, then recalculate.
 const commitTeam = (team: TeamSlot[]) => {
   publishTeam(team);
   useRotationStore.getState().recalculate();
@@ -179,16 +171,14 @@ interface RosterState {
   clearSlot: (slotIndex: number) => void;
   setSubstat: (slotIndex: number, echoIndex: number, subIndex: number, name: string, value: string | number) => void;
   setEnemyField: (field: 'level' | 'res' | 'hp', value: number) => void;
-  // Replaces the target without recalculating -- for loaders that recalculate right after.
+  // No recalculation.
   setEnemy: (enemy: EnemyStats) => void;
   importTeam: (teamData: TeamSlot[]) => Promise<void>;
-  // A single unit's export, replacing that slot's options outright.
   importUnit: (slotIndex: number, unit: TeamSlot) => Promise<void>;
   applyRecommendedBuild: (slotIndex: number, charName: string) => Promise<void>;
   getIdleStats: (slotIndex: number) => any;
 }
 
-// The Calculator's team and target.
 export const useRosterStore = create<RosterState>()(
   persist(
     (set, get) => ({
@@ -238,15 +228,13 @@ export const useRosterStore = create<RosterState>()(
           await get().applyRecommendedBuild(slotIndex, value);
           return;
         } else {
-          // A field that names an item (weapon, a set, the main echo) needs its mechanics loaded.
           const folder = slotFieldFolder(field);
           if (folder && value) await DataLoader.loadMechanic(folder, value);
         }
 
         const isOnePcSet = DataLoader.onePcSets.includes(slot.mainSet);
 
-        // A 1pc main set is worn as the main-slot echo itself -- there's no separate main-slot
-        // echo pick to make, so any stale one from a previous mainSet is dropped.
+        // A 1pc set is the main echo itself.
         if (field === 'mainSet' && isOnePcSet) slot.mainEcho = '';
 
         if ((field === 'mainSet' || field === 'subSet') && !isOnePcSet) {
@@ -260,9 +248,7 @@ export const useRosterStore = create<RosterState>()(
         commitTeam(team);
       },
 
-      // Resets one roster row back to the same blank slot a fresh team starts with -- unlike
-      // setSlotField('character', ''), which only clears the character field and leaves its
-      // weapon/sets/echoes behind as stale leftovers.
+      // Resets the whole slot, not just the character.
       clearSlot: (slotIndex) => {
         const team = [...get().team];
         team[slotIndex] = createEmptySlot(slotIndex);
@@ -302,9 +288,7 @@ export const useRosterStore = create<RosterState>()(
         await DataLoader.loadTeamMechanics(merged);
         merged.forEach(slot => { slot.echoStats = calculateEchoStatsForSlot(slot); });
         publishTeam(merged);
-        // Awaited (unlike sibling recalculate() calls) -- importRotation() fires its own
-        // recalculate() right after, and without waiting these two race on the same async
-        // checkTeamFreshness() gap, letting a stale response silently overwrite fresh rows.
+        // Awaited to avoid racing importRotation's recalculate.
         await useRotationStore.getState().recalculate();
       },
 
@@ -319,8 +303,7 @@ export const useRosterStore = create<RosterState>()(
 
         const activeBuffs: any[] = [];
 
-        // `rank` only passed for weapon sources -- resolves slash-delimited rank-scaled values
-        // (e.g. "12/15/18/21/24%") via CommonUtils.parseRankValue; other sources never use it.
+        // `rank`: weapons only.
         const applyBuffsFromSource = (sourceName: string, isSelf: boolean, rank?: number) => {
           (DataLoader.mechanicsIndex[sourceName] || []).forEach(mechId => {
             const mech = DataLoader.mechanicsDB[mechId];
@@ -328,7 +311,6 @@ export const useRosterStore = create<RosterState>()(
 
             mech.effects.forEach(eff => {
               if (eff.type === 'buff' && eff.stat) {
-                // No target lands on the provider, as in the engine (_resolveTargets).
                 const appliesToSelf =
                   (!eff.target || eff.target === '@Self' || eff.target === '@Equipper') && isSelf;
                 const appliesToTeam = eff.target === '@Team';
@@ -346,7 +328,6 @@ export const useRosterStore = create<RosterState>()(
           });
         };
 
-        // Everything one slot wears, plus the character itself.
         const applyBuffsFromSlot = (owner: TeamSlot, isSelf: boolean) => {
           getTeamEntityRefs([owner], { includeSystem: false }).forEach(ref =>
             applyBuffsFromSource(ref.name, isSelf, ref.folder === 'weapons' ? owner.rank : undefined));
@@ -367,7 +348,7 @@ export const useRosterStore = create<RosterState>()(
       onRehydrateStorage: () => {
         return (state, error) => {
           if (!error && state) {
-            // Await initDatabases() before applying team overrides to prevent missing base-stat lookups during Zustand rehydration.
+            // Wait for databases before applying overrides.
             DataLoader.ready
               .then(() => DataLoader.loadTeamMechanics(state.team))
               .then(() => applyBuilderOverridesForTeam(state.team));

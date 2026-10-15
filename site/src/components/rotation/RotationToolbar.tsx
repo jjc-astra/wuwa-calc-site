@@ -4,7 +4,7 @@ import { useRosterStore } from '../../store/useRosterStore';
 import { tip } from '../../utils/Common';
 import { loopSplitRowIndices, splitLoopSegments } from '../../logic/rotationRows';
 
-/** The rotation table's toolbar: Calculate, row editing and the rotation's settings. */
+/** Rotation toolbar: Calculate, row editing and settings. */
 export const RotationToolbar: React.FC = () => {
   const {
     rows,
@@ -37,18 +37,15 @@ export const RotationToolbar: React.FC = () => {
 
   const lastIndex = rows.length - 1;
   const hasSelection = selectedIndices.some(i => i !== lastIndex);
-  // endingRotationEnabled can outlive its tag -- e.g. a plain multi-row delete removes the
-  // loop-end row without going through resetLoopEnd, which is what normally clears the flag.
-  // So "checked" is gated on the tag actually existing, not just the stored flag.
+  // The flag can outlive its tag, so check the tag.
   const hasEndingRotationMarker = rows.some(r => r.loopEndOverride === true);
 
-  // Copy/Insert Above/Insert Below live in the store, shared with RotationBuilder's keyboard shortcuts.
   const handleDelete = () => {
     const deletable = selectedIndices.filter(i => i !== lastIndex);
     if (deletable.length > 0) deleteRows(deletable);
   };
 
-  // Split Loop: one selected row inside the loop (not its first row) toggles a sub-loop start there.
+  // Split Loop: toggles a sub-loop start at one selected row.
   const splitTarget = selectedIndices.length === 1 ? selectedIndices[0] : -1;
   const contentRows = rows.filter(r => r.unit);
   const { openerRows, loopTemplate } = splitLoopSegments(contentRows, loopStartIndex, endingRotationEnabled);

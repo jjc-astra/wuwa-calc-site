@@ -1,5 +1,4 @@
-// One MechanicNode's row: owns which sub-panel is open, shared "add" fields between the
-// summary row's chips and sub-panels, and renders the row + active panel.
+// One node's summary row and its open sub-panel.
 import React, { useState, useRef, useEffect } from 'react';
 import type { MechanicNode } from '../../types';
 import { useBuilderStore } from '../../store/useBuilderStore';
@@ -24,8 +23,7 @@ interface MechanicNodeCardProps {
   data: MechanicNode;
   groupSiblings?: { repeat?: [string, MechanicNode]; release?: [string, MechanicNode] };
   childOfHold?: 'Repeat' | 'Release';
-  // Drag-to-reorder (summary row only) -- owned by MechanicsBuilder since it spans every
-  // category table, not just this node's own.
+  // Drag-to-reorder, owned by MechanicsBuilder.
   dragDisabled?: boolean;
   isDragging?: boolean;
   dragOverPosition?: 'before' | 'after' | null;
@@ -38,9 +36,7 @@ interface MechanicNodeCardProps {
 
 export type PanelKey = 'identity' | 'inputs' | 'timeMods' | 'hits' | 'castTags' | 'dmgTags' | 'castRes' | 'cooldown';
 
-// Fields each sub-panel edits, for JsonOutputPane's highlight.
-// Keep in sync with each panel's own updateNode calls.
-// identity also covers Trigger Rule & Effects, which share its expand/collapse section.
+// Fields each sub-panel edits, for highlighting. Sync with the panels' updateNode calls.
 const PANEL_FIELDS: Record<PanelKey, string[]> = {
   identity: ['name', 'provider', 'triggerRule', 'isPassive', 'isSwapInDefault', 'modeScope', 'effects'],
   inputs: ['input', 'inputType', 'stanceReq', 'stanceChanges', 'holdConfig'],
@@ -58,18 +54,15 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({
 }) => {
   const { setMechanicNode, softRemoveMechanicNode, activeChar, baseStats, setHighlightedNodeId, setHoveredFieldHighlight, setOpenPanel } = useBuilderStore();
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Single ref shared by every field-hover source, so a fast leave-then-enter across
-  // adjacent targets cancels the pending clear instead of flickering (50ms debounce both ways).
+  // Shared debounce so moving between targets doesn't flicker.
   const fieldHoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Which sub-panel is open, if any -- one at a time. Kept in the store (see openPanelByNode).
   const activeTrigger = useBuilderStore(state => state.openPanelByNode[nodeId] ?? null);
   const toggleTrigger = (key: PanelKey) => (e: React.MouseEvent) => {
     e.stopPropagation();
     setOpenPanel(nodeId, activeTrigger === key ? null : key);
   };
 
-  // Previews a sub-panel's fields on hover (cell or open body) -- independent of highlightedNodeId.
   const enterFieldHover = (key: PanelKey, targetId: string = nodeId) => {
     if (fieldHoverTimeoutRef.current) clearTimeout(fieldHoverTimeoutRef.current);
     fieldHoverTimeoutRef.current = setTimeout(() => {
@@ -83,19 +76,18 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({
     }, 50);
   };
 
-  // Shared between summary row (chip click seeds these) and the matching "Add" panel.
+  // Shared by the summary chips and the Add panels.
   const [castSelect, setCastSelect] = useState(BuilderState.CAST_OPTIONS[0]);
   const [dmgSelect, setDmgSelect] = useState(BuilderState.DMG_OPTIONS[0]);
   const [castResType, setCastResType] = useState('energy');
   const [castResAmt, setCastResAmt] = useState('');
 
-  // Removing this node while hovered/highlighted would otherwise leave a stale highlight.
+  // Clear highlights on unmount.
   useEffect(() => () => {
     if (useBuilderStore.getState().highlightedNodeId === nodeId) setHighlightedNodeId(null);
     if (useBuilderStore.getState().hoveredFieldHighlight?.nodeId === nodeId) setHoveredFieldHighlight(null);
   }, [nodeId]);
 
-  // Whole-node highlight, summary row only.
   const handleMouseEnter = () => {
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
     hoverTimeoutRef.current = setTimeout(() => {
@@ -122,7 +114,6 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({
     forteOptions.push({ value: forteKey(i), label: forteLabel(baseStats, i) });
   }
 
-  // Only called from the `activeTrigger &&` branch below, where it's already non-null.
   const renderPanel = (trigger: PanelKey) => {
     switch (trigger) {
       case 'identity':

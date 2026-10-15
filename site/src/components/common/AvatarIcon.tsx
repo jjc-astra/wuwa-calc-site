@@ -6,11 +6,11 @@ import type { ImageFolder } from '../../data/db';
 interface AvatarIconProps {
   name: string;
   folder: ImageFolder;
-  /** e.g. 'avatar-lg avatar-circle', 'avatar-sm avatar-rect' -- shape/size come from the shared .avatar-* classes. */
+  /** e.g. 'avatar-lg avatar-circle' */
   className?: string;
 }
 
-/** Lazy-load-with-fallback avatar used across roster cards and anywhere an icon renders (e.g. dropdown options). */
+/** Lazy-loaded avatar with a fallback. */
 export const AvatarIcon: React.FC<AvatarIconProps> = ({ name, folder, className = '' }) => {
   const hasVal = !!name;
   const path = hasVal ? CommonUtils.getIconPath(name, folder) : TRANSPARENT_PIXEL;

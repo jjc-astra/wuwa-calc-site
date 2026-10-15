@@ -14,8 +14,7 @@ interface TimelineDataState {
 
 const IDLE_STATE: TimelineDataState = { status: 'idle', evaluatedRows: [], loopStartIndex: null, team: [], error: null };
 
-// Lazily recalculates a ranked entry's timeline rows via the worker (builder overrides included),
-// leaving its saved ranking DPS untouched.
+// Lazily calculates a ranked entry's timeline rows.
 export function useRotationTimelineData(entry: { id: string; rotationFile: string } | null): TimelineDataState {
   const [state, setState] = useState<TimelineDataState>(IDLE_STATE);
   const requestIdRef = useRef(0);
@@ -33,10 +32,9 @@ export function useRotationTimelineData(entry: { id: string; rotationFile: strin
     (async () => {
       try {
         const run = await DataLoader.loadRankedRun(entry);
-        // Hold Repeat blocks expanded, so each repeat draws as its own clip. Damage for the hit dots.
         const { result } = postToWorker('recalculate', { ...(await buildCalcRequest(run)), includeDamage: true });
         const { evaluatedRows, loopStartIndex } = await result;
-        if (requestIdRef.current !== thisRequestId) return; // collapsed/re-triggered since
+        if (requestIdRef.current !== thisRequestId) return;
         setState({ status: 'ready', evaluatedRows, loopStartIndex, team: run.team, error: null });
       } catch (err: any) {
         if (requestIdRef.current !== thisRequestId) return;

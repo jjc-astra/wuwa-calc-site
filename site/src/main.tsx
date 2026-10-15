@@ -9,11 +9,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   </React.StrictMode>,
 );
 
-// Dev-excluded: a cache-first service worker would serve stale modules right through Vite's HMR.
+// Prod only; it would break HMR.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js');
   });
 }
 
-installWipImageFallback(); // no-op outside dev builds
+installWipImageFallback();

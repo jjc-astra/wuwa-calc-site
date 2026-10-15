@@ -1,5 +1,4 @@
-// Bumping this string evicts every cache below on the next deploy's first visit -- the only
-// manual step a future change needs, since fetch handlers key off it automatically.
+// Bump to evict every cache.
 const CACHE_VERSION = 'v1';
 const APP_CACHE = `wuwa-app-${CACHE_VERSION}`;
 const IMG_CACHE = `wuwa-img-${CACHE_VERSION}`;
@@ -25,10 +24,7 @@ self.addEventListener('fetch', event => {
 
   const url = new URL(req.url);
 
-  // Character/weapon/echo icons (bundled under /images/, or raw GitHub's for an older build):
-  // filenames don't change once published, so a cache hit never needs revalidating. A cross-origin
-  // `<img>` fetch is no-cors, so its response is opaque (status 0, ok:false even on success) --
-  // cache it unconditionally rather than gating on .ok.
+  // Icons: immutable once published. Cross-origin responses are opaque, so cache regardless of .ok.
   const isIcon = url.origin === self.location.origin
     ? url.pathname.startsWith('/images/')
     : url.hostname === IMAGE_HOST && url.pathname.includes('/images/');
@@ -39,16 +35,13 @@ self.addEventListener('fetch', event => {
 
   if (url.origin !== self.location.origin) return;
 
-  // Route pages: network-first, so a new deploy's referenced asset hashes are picked up as soon
-  // as they're reachable -- falls back to the last cached shell only when offline. Every route's
-  // page is the same app, so an uncached route falls back to the homepage's.
+  // Pages: network-first, falling back to the cached shell offline.
   if (req.mode === 'navigate' || url.pathname === '/' || url.pathname.endsWith('.html')) {
     event.respondWith(networkFirst(req, APP_CACHE, req.mode === 'navigate' ? '/' : undefined));
     return;
   }
 
-  // Hashed JS/CSS/font/image assets: content-addressed by Vite's build, so a cache hit is
-  // always correct -- a changed file gets a new URL instead of invalidating this one.
+  // Hashed assets: cache-first.
   if (ASSET_RE.test(url.pathname)) {
     event.respondWith(cacheFirst(req, APP_CACHE));
   }

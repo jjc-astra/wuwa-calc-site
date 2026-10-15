@@ -1,4 +1,4 @@
-// Virtualizes Hold Repeat blocks by expanding rows before worker calc and collapsing results back, keeping the table layout fixed.
+// Expands Hold Repeat blocks for the engine and collapses results back.
 import type { RotationRow } from './rotationRows';
 import { DEFAULT_REPEAT_COUNT, REPEAT_FIELDS, pickFields, withoutRepeatFields } from './rotationRows';
 
@@ -8,13 +8,11 @@ export interface Block {
   count: number;
 }
 
-// A dangling boundary (its start or end row was deleted, or the pair got reversed) isn't a real
-// block -- callers that walk findBlocks' output should skip these rather than act on them.
+// False for dangling or reversed boundaries.
 export function isValidBlock(b: Block): boolean {
   return b.startIdx !== -1 && b.endIdx !== -1 && b.endIdx >= b.startIdx;
 }
 
-// Maps each repeat block's groupId to its start/end row index and rep count.
 export function findBlocks(rows: RotationRow[]): Map<string, Block> {
   const blocks = new Map<string, Block>();
   rows.forEach((r, i) => {
@@ -33,7 +31,7 @@ export function findBlocks(rows: RotationRow[]): Map<string, Block> {
   return blocks;
 }
 
-// `collapseMap[expandedIndex]` is the original authored index that expanded row came from.
+// `collapseMap[expandedIndex]`: the authored row index.
 export function expandRepeatBlocks(rows: RotationRow[]): { expanded: RotationRow[]; collapseMap: number[] } {
   const blocks = findBlocks(rows);
   const blockByStart = new Map<number, Block>();
@@ -50,9 +48,7 @@ export function expandRepeatBlocks(rows: RotationRow[]): { expanded: RotationRow
       const endRow = rows[block.endIdx];
       for (let rep = 0; rep < block.count; rep++) {
         for (let j = block.startIdx; j <= block.endIdx; j++) {
-          // Clones don't carry the block flags -- only the ORIGINAL authored row represents the
-          // block boundary; a clone claiming to also be a boundary would confuse a second
-          // expansion pass (e.g. a stale re-run) and serves no purpose downstream.
+          // Clones don't carry block flags.
           const clean = withoutRepeatFields(rows[j]);
           const isFinalRepEndRow = rep === block.count - 1 && j === block.endIdx;
           expanded.push(isFinalRepEndRow && endRow.repeatFinalTiming ? { ...clean, timing: endRow.repeatFinalTiming } : clean);
@@ -69,7 +65,7 @@ export function expandRepeatBlocks(rows: RotationRow[]): { expanded: RotationRow
   return { expanded, collapseMap };
 }
 
-// Collapses expanded worker rows into one authored row: concatenates damage, takes start timing from the first repetition, and takes end state from the last.
+// Collapses repetitions: damage concatenated, start from the first, end state from the last.
 export function collapseRepeatResults(evaluatedExpandedRows: RotationRow[], collapseMap: number[], originalRows: RotationRow[]): RotationRow[] {
   const repsByOriginalIndex = new Map<number, RotationRow[]>();
   evaluatedExpandedRows.forEach((r, i) => {
@@ -82,17 +78,14 @@ export function collapseRepeatResults(evaluatedExpandedRows: RotationRow[], coll
     const reps = repsByOriginalIndex.get(idx);
     if (!reps) return orig;
     if (reps.length <= 1) {
-      // Restores stripped block flags on 1-count expansions so start/end tags don't disappear when count drops to 1.
-      // timing is restored to the authored base value too -- reps[0] ran with repeatFinalTiming's
-      // override applied (it's simultaneously the first AND final rep at count 1), which belongs
-      // to the runtime clone, not to the row the user edits.
+      // Count 1: restore block flags and the authored timing.
       return orig.repeatBlockStart || orig.repeatBlockEnd
         ? { ...reps[0], timing: orig.timing, ...pickFields(orig, REPEAT_FIELDS) }
         : reps[0];
     }
     const first = reps[0];
     const last = reps[reps.length - 1];
-    // Sums per-row `*_Delta` trackers across repetitions to report total gains in breakdown panels, while keeping terminal values for stateful counters.
+    // Sum `*_Delta` trackers across repetitions.
     const deltaKeys = new Set<string>();
     reps.forEach(r => { if (r.trackers) Object.keys(r.trackers).forEach(k => { if (k.endsWith('_Delta')) deltaKeys.add(k); }); });
     const trackers = { ...(last.trackers || {}) };
@@ -104,14 +97,12 @@ export function collapseRepeatResults(evaluatedExpandedRows: RotationRow[], coll
       gameTimeStart: first.gameTimeStart,
       timeStart: first.timeStart,
       offset: first.offset,
-      // The end row's last clone ran with repeatFinalTiming's override (if any) applied --
-      // restore the authored base timing on the row the user actually edits.
+      // Authored timing, not repeatFinalTiming.
       timing: orig.timing,
       damageInstances: reps.flatMap(r => r.damageInstances || []),
       errorMsgs: Array.from(new Set(reps.flatMap(r => r.errorMsgs || []))),
       warningMsgs: Array.from(new Set(reps.flatMap(r => r.warningMsgs || []))),
       trackers,
-      // The clones had these stripped (see expandRepeatBlocks) -- restore the real flags.
       ...pickFields(orig, REPEAT_FIELDS)
     };
   });

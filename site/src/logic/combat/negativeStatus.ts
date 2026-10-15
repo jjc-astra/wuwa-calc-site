@@ -1,7 +1,6 @@
 import type { NegativeStatus } from '../../data/gameVocab';
 
-// Keyed by status NAME, not element -- "Fusion Burst" the status and "Fusion" the element
-// are unrelated. Index = stack count.
+// By status name (not element). Index = stack count.
 export const NEGATIVE_STATUS_MULTS = {
   'Fusion Burst':    [0, 8400, 15229, 22058, 28888, 35717, 42546, 49375, 56204, 63034, 69863, 93150, 116438, 139726, 163013, 186301, 209588],
   'Electro Flare':   [0, 5000, 9065, 13130, 17195, 21260, 25325, 29390, 33455, 37520, 41585, 55447, 69308, 83170, 97032, 110893, 124755],
@@ -11,9 +10,7 @@ export const NEGATIVE_STATUS_MULTS = {
   'Havoc Bane':      [0, -200, -400, -600, -800, -1000, -1200]
 } as Partial<Record<NegativeStatus, number[]>> as Record<string, number[]>;
 
-// The damage multiplier of a negative status at `stacks` stacks; 0 for an unknown status or no
-// stacks. Past the end of its table, each extra stack adds the table's last step again.
-// Damage math uses this directly, and the DSL exposes it as @StatusMult(Status Name, stacks).
+// Multiplier at `stacks`; past the table, extrapolates by the last step. DSL: @StatusMult.
 export const getNegativeStatusMult = (statusName: string, stacks: number): number => {
   const table = NEGATIVE_STATUS_MULTS[statusName];
   if (!table || !(stacks > 0)) return 0;

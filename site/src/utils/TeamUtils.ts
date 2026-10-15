@@ -1,13 +1,9 @@
-// Single source of truth for walking a team's equipped items as EntityRefs. Used by
-// builderOverridePayload.ts (override lookup), dataFreshness.ts (staleness checks), and
-// DataLoader.ts (mechanics loading).
+// A team's equipped items as EntityRefs.
 import type { TeamSlot, EntityRef, EntityFolder } from '../types';
 import { SYSTEM_NAMESPACE } from './MechanicKey';
 
-// A slot's echo set fields: the main set and the extra sets a 3pc/1pc main set leaves room for.
 export const SLOT_SET_FIELDS = ['mainSet', 'subSet', 'subSet2a', 'subSet2b'] as const;
 
-// The echo sets a slot wears.
 export const slotSets = (slot: Pick<TeamSlot, typeof SLOT_SET_FIELDS[number]>): string[] =>
   SLOT_SET_FIELDS.map(field => slot[field]).filter(Boolean);
 
@@ -18,15 +14,13 @@ const SLOT_ENTITY_MAPPINGS: { field: keyof TeamSlot; folder: EntityFolder }[] = 
   { field: 'mainEcho', folder: 'echoes' }
 ];
 
-// Which mechanics folder a slot field's item lives in, for the fields that name one.
 export const slotFieldFolder = (field: keyof TeamSlot): EntityFolder | undefined =>
   SLOT_ENTITY_MAPPINGS.find(mapping => mapping.field === field)?.folder;
 
-// The characters in a team, in slot order (empty slots skipped).
 export const teamCharacters = (team: Array<{ character?: string }>): string[] =>
   team.map(slot => slot.character).filter((name): name is string => !!name);
 
-// Every entity a team equips, as EntityRefs (System first, unless excluded).
+// System first unless excluded.
 export function getTeamEntityRefs(
   team: TeamSlot[],
   options: { includeSystem?: boolean; dedupe?: boolean } = {}

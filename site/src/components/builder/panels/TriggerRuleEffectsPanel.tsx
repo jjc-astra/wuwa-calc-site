@@ -10,7 +10,6 @@ import { parseTimeInput } from '../../../utils/Frames';
 import { effectLabel, flattenDslShorthand } from '../mechanicNodeHelpers';
 import { MechanicKey } from '../../../utils/MechanicKey';
 
-// A labeled, min-width flex slot, so a row's fields share its space.
 const EffField: React.FC<{ label: string; minWidth: number; children: React.ReactNode }> = ({ label, minWidth, children }) => (
   <div className="form-group flex-1" style={{ minWidth: `${minWidth / 16}rem`, margin: 0 }}>
     <label className="form-label caps-label text-dim">{label}</label>
@@ -47,7 +46,7 @@ const SelectField: React.FC<FieldProps & { value: string; onChange: (value: stri
   </EffField>
 );
 
-// The effect being composed at the bottom of the panel, before it's added to the node's effects.
+// The effect being composed, before it's added.
 interface EffectDraft {
   type: string;
   name: string;
@@ -72,7 +71,7 @@ const BLANK_DRAFT: EffectDraft = {
   stackBeh: 'resettable', expBeh: 'clear', remSwap: false, action: 'add', targetKind: 'buff'
 };
 
-// A numeric string stays a string unless it round-trips exactly ("5" -> 5, "5%" or "05" stay text).
+// "5" -> 5; "5%" and "05" stay text.
 const numberIfExact = (text: string): number | string => {
   const n = parseFloat(text);
   return !isNaN(n) && n.toString() === text ? n : text;
@@ -86,7 +85,6 @@ interface TriggerRuleEffectsPanelProps {
   nodeId?: string;
 }
 
-/** Builder sub-panel: the trigger rule and the node's effects. */
 export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = ({ data, updateNode, forteOptions, groupSiblings, nodeId }) => {
   const { baseStats, activeChar, setMechanicNode, removeMechanicNode, removedEffects, recordRemovedEffect, dropRemovedEffect } = useBuilderStore();
   const isDualMode = !!baseStats.isDualMode;
@@ -95,7 +93,6 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
 
   const [draft, setDraft] = useState<EffectDraft>(BLANK_DRAFT);
   const set = (patch: Partial<EffectDraft>) => setDraft(d => ({ ...d, ...patch }));
-  // Props wiring a text-valued draft field to a field component.
   const bind = (key: TextDraftKey) => ({ value: draft[key], onChange: (value: string) => set({ [key]: value }) });
 
   const provider = MechanicKey.toNamespace(activeChar);
@@ -113,14 +110,13 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
     if (existingId) return;
     const holdGroupId = data.holdGroupId || crypto.randomUUID();
     if (!data.holdGroupId) updateNode({ holdGroupId });
-    // Clears stale cursor settings on existing Release siblings when adding a Repeat, stamping holdGroupId to prevent node orphaning.
+    // Adding a Repeat: clear the Release's cursor settings and stamp holdGroupId.
     if (role === 'Repeat' && existingReleaseId && groupSiblings?.release?.[1]) {
       const [releaseId, releaseData] = groupSiblings.release;
       setMechanicNode(releaseId, { ...releaseData, holdConfig: undefined, holdGroupId });
     }
-    // Brand new sibling -- name it off the Hold's own name, since nothing to reuse yet.
     const id = MechanicKey.build(provider, `${data.name} (${role})`);
-    // Inserts the node contiguous with its Hold group in the JSON (after Repeat if present, else after Hold).
+    // Keep the Hold group contiguous.
     const insertAfter = (role === 'Release' && existingRepeatId) || nodeId;
     setMechanicNode(id, {
       name: `${data.name} (${role})`,
@@ -143,7 +139,7 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
       if (stat) newEff.stat = stat;
       if (val) newEff.value = numberIfExact(val);
       if (stacks && parseInt(stacks, 10) !== 1) newEff.stacks = parseInt(stacks, 10);
-      // Buff lifetimes stay seconds -- "30f"/"0.5s"/a bare number (seconds) all accepted.
+      // Buff lifetimes are in seconds.
       if (dur) newEff.duration = parseTimeInput(dur, 'seconds');
       if (max) {
         const n = parseInt(max, 10);
@@ -164,7 +160,7 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
       }
     } else if (type === 'tracker' || type === 'buffAction') {
       newEff.action = action as any;
-      // Delete ignores value/max in TimelineEngine; omitting stale amounts keeps the JSON clean.
+      // Delete ignores value/max.
       if (action !== 'delete') {
         if (val) newEff.value = numberIfExact(val);
         if (type === 'tracker' && max) newEff.max = parseInt(max, 10);
@@ -176,7 +172,7 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
 
     updateNode({ effects: [...(data.effects || []), newEff] });
 
-    // Ready for the next effect of the same kind: the behavior/action/kind choices stay put.
+    // Keep choices for the next effect.
     set({
       name: BLANK_DRAFT.name, target: BLANK_DRAFT.target, applyTo: BLANK_DRAFT.applyTo, stat: BLANK_DRAFT.stat,
       val: BLANK_DRAFT.val, stacks: BLANK_DRAFT.stacks, max: BLANK_DRAFT.max, dur: BLANK_DRAFT.dur, remSwap: BLANK_DRAFT.remSwap
@@ -185,10 +181,7 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
 
   const loadEffectForEdit = (eff: Effect, idx: number) => {
     if (eff.type === 'cooldown') {
-      // Reuses the Buff/CD Control panel -- reverse-derive the Action Type/Value the panel
-      // itself generates (@Self.Cooldown(Name) +/- (Amount), or a flat 0 for Reset) so editing
-      // round-trips. A hand-written value that doesn't match either shape is shown as-is under
-      // Extend/Shorten, since there's no other action to bucket it under.
+      // Reverse-derive Action Type/Value; unmatched values show under Extend/Shorten.
       const val = eff.value;
       const match = typeof val === 'string' ? val.match(/^@Self\.Cooldown\([^)]*\)\s*([+-])\s*\(([^)]*)\)$/) : null;
       const cooldown: Partial<EffectDraft> = { type: 'buffAction', targetKind: 'cooldown', name: eff.name || '', target: eff.target || '@Self' };
@@ -220,8 +213,7 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
     updateNode({ effects: data.effects?.filter((_, i) => i !== idx) });
   };
 
-  // A removed effect stays on screen, dimmed, until restored (click) or discarded (its ×); without
-  // a node id there's nowhere to keep it, so it just goes.
+  // Removed effects stay dimmed until restored or discarded.
   const effects = data.effects || [];
   const removed = (nodeId && removedEffects[nodeId]) || [];
   const removeEffect = (idx: number) => {
@@ -234,7 +226,6 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
     updateNode({ effects: [...effects.slice(0, at), effect, ...effects.slice(at)] });
     dropRemovedEffect(nodeId!, removedIndex);
   };
-  // The live effects, with each removed one back at the spot it was removed from.
   const shownEffects: ({ eff: Effect; idx: number; removed: false } | { eff: Effect; idx: number; removed: true })[] =
     effects.map((eff, idx) => ({ eff, idx, removed: false as const }));
   removed
@@ -326,8 +317,7 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
             ]}
           />
 
-          {/* min-width: 0 overrides the flex item's default min-width: auto (which sizes to fit
-              long unwrapped values like @Namespace(Move) refs) so flex-wrap kicks in instead of overflowing. */}
+          {/* min-width: 0 lets long values wrap. */}
           <div className="flex-col gap-sm flex-1 flex-wrap" style={{ minWidth: 0 }}>
             {effectType === 'buff' && (
               <>
@@ -467,7 +457,7 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
                   ]}
                 />
                 <TextField label="Resource Value" {...bind('val')} placeholder="Amount (e.g. 10 or -5)" />
-                {/* Tune is the enemy's pool, so it has no unit to target. */}
+                {/* Tune has no unit target. */}
                 {draft.name !== 'tune' && <AutoField label="Target Entity" mode="eff-target" {...bind('target')} />}
               </div>
             )}

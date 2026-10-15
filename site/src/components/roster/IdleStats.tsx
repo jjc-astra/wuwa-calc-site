@@ -52,7 +52,6 @@ export const IdleStats: React.FC = () => {
         );
       })}
 
-      {/* Enemy Config Card */}
       <div className="idle-stat-card enemy-stat-card" style={{ minWidth: '12.5rem', flex: 0.5 }}>
         <div className="idle-stat-header">
           <span style={{ color: 'var(--danger)' }}>Enemy Target</span>

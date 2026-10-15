@@ -13,15 +13,13 @@ interface IdentityPanelProps {
 export const IdentityPanel: React.FC<IdentityPanelProps> = ({ nodeId, data, updateNode }) => {
   const { activeChar, renameMechanicNode } = useBuilderStore();
 
-  // Renaming regenerates the ID (`${activeChar}_${name}`). Re-keys on blur only: per keystroke
-  // would change the store/React-list key and drop focus mid-typing.
+  // Re-keys on blur so focus isn't lost while typing.
   const handleNameBlur = () => {
     const currentName = data.name || '';
     const newId = currentName.trim() ? MechanicKey.build(MechanicKey.toNamespace(activeChar), currentName) : nodeId;
     const collides = newId !== nodeId && useBuilderStore.getState().mechanics[newId];
     if (newId === nodeId) return;
     if (collides) {
-      // Name collides with an existing move's id.
       alert(`A move named "${currentName.trim()}" already exists for this unit. Choose a different name.`);
       return;
     }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { useRankingsStore } from '../../store/useRankingsStore';
 
-/** Loads the rankings index, and the characters with a ranked rotation: the ones the Character Guide opens. */
+/** Loads the rankings index and the ranked characters. */
 export function useRankedCharacters() {
   const { status, entries, error, load } = useRankingsStore();
 

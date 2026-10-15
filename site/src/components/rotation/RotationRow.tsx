@@ -45,28 +45,21 @@ interface RotationRowProps {
   onResetLoopStart?: () => void;
   isLoopEnd?: boolean;
   onResetLoopEnd?: () => void;
-  // This row starts a sub-loop: `label` numbers it when there are several, `manual` from the row's
-  // own loopSplit, else auto-detected.
+  // Sub-loop start; `manual` if set by the row's loopSplit.
   loopSplit?: { label: string; manual: boolean };
   onSetLoopSplit?: (index: number, value: boolean | undefined) => void;
-  // Derived by RotationBuilder (loopEndIndex + 1, when that row has content), not a persisted flag.
   isEndRotationStart?: boolean;
   endRotationStartsEarlier?: boolean;
   onToggleEndRotationStartsEarlier?: (val: boolean) => void;
-  // Dragging a loop or Hold Repeat marker (a tag on this row) to another row.
   onMarkerDragStart?: (e: React.DragEvent, marker: DraggedMarker) => void;
   onMarkerDragEnd?: () => void;
-  // A Hold Repeat block's boundary rows carry its groupId (row.repeatBlockStart/repeatBlockEnd):
-  // unlike Loop Start/End, several blocks can exist. These handlers take that groupId, so one
-  // stable handler serves every row.
+  // Repeat block handlers take the block's groupId.
   onRepeatCountChange?: (groupId: string, n: number) => void;
   onRemoveRepeatBlock?: (groupId: string) => void;
-  // row.repeatFinalTiming overrides `timing` on just the block's last repetition (e.g. "Full"
-  // instead of "Auto", so it isn't cut short before what comes right after the block).
   onRepeatFinalTimingChange?: (groupId: string, val: string | undefined) => void;
 }
 
-/** A marker being dragged to another row: the loop's start/end, or (with its groupId) a Hold Repeat block's. */
+/** A dragged loop or Hold Repeat marker. */
 export interface DraggedMarker {
   role: 'start' | 'end';
   groupId?: string;
@@ -90,13 +83,9 @@ interface ActionGroup {
 }
 
 type LinkedState = ReturnType<typeof useLinkedRowStore.getState>;
-// Hovered on the Timeline: its move, or a buff it got.
 const isLinkedIn = (s: LinkedState, rowId?: string) => s.source === 'timeline' && !!rowId && s.rowIds.includes(rowId);
 
-/**
- * One rotation row: unit, action, timing, offset, damage and gauges, plus its open sub-panel.
- * Memoized: RotationBuilder passes stable handlers, so a row re-renders only when its own props do.
- */
+/** One rotation row and its open sub-panel. Memoized; handlers must be stable. */
 export const RotationRow = React.memo<RotationRowProps>(({
   index,
   row,
@@ -139,10 +128,7 @@ export const RotationRow = React.memo<RotationRowProps>(({
   const [offsetDraft, setOffsetDraft] = useState<string | null>(null);
   const [repeatCountDraft, setRepeatCountDraft] = useState<string | null>(null);
 
-  // Its move (or a buff it got) hovered on the Timeline: highlighted (RotationBuilder scrolls to it).
-  // The highlight is toggled on the DOM rather than rendered: re-rendering every reached row (all
-  // its inputs) on each hover change made hovering Timeline buffs stutter.
-  // Every render: React rewrites className, dropping the toggled class.
+  // Timeline-hover highlight, toggled on the DOM for speed. Re-applied every render.
   useLayoutEffect(() => {
     rowRef.current?.classList.toggle('is-linked', isLinkedIn(useLinkedRowStore.getState(), row.id));
   });
@@ -157,22 +143,19 @@ export const RotationRow = React.memo<RotationRowProps>(({
   const dbChar: Record<string, any> = selectedUnit ? DataLoader.characterDB[selectedUnit] || {} : {};
   const themeColor = getCharacterThemeColor(dbChar);
 
-  // Build categorized action groups filtered by DSL trigger rules
+  // Action groups filtered by trigger rules.
   const getActionGroups = (): ActionGroup[] => {
     if (!selectedUnit) return [];
-    // The options are what the row could cast, so rules read its state from before its own cast.
+    // Rules read the pre-cast state.
     const ctx = ContextManager.buildContext(row.dropdownState ?? row, selectedUnit, team);
     const skillGroupNames = dbChar.skillGroupNames || {};
     const slot = team.find(t => t.character === selectedUnit);
     const activeMode = slot?.mode && slot.mode !== 'None' ? slot.mode : null;
 
-    // A move that sets Hold_Start (the Press half of a hold) vs. a Release carrying holdConfig
     const isHoldStarter = (m: any): boolean =>
       Array.isArray(m.effects) && m.effects.some((e: any) => e?.type === 'tracker' && e.name === 'Hold_Start' && e.action === 'set');
     const isHoldReleaser = (m: any): boolean => m.inputType === 'Release' && !!m.holdConfig;
 
-    // Genuine validity only -- the "keep selected" carve-out is handled separately below,
-    // so it can't look like a real contender when picking a group's winner.
     const checkValid = (m: any) => {
       if (!m || m.isPassive) return false;
       if (m.modeScope && m.modeScope !== 'both' && activeMode && m.modeScope !== activeMode) return false;
@@ -184,7 +167,6 @@ export const RotationRow = React.memo<RotationRowProps>(({
           if (!m._compiledRule.evaluate(ctx, selectedUnit)) return false;
         }
       }
-      // A hold's Press and Release sharing the same `input` are one group automatically
       if (ctx) {
         const holdingThisInput = ctx.self.getTracker('Hold_Unit') === selectedUnit && ctx.self.getTracker('Hold_Input') === m.input;
         if (isHoldReleaser(m) && !holdingThisInput) return false;
@@ -199,8 +181,7 @@ export const RotationRow = React.memo<RotationRowProps>(({
     interface Candidate { id: string; m: any; groupLabel: string; isValid: boolean }
     const candidates: Candidate[] = [];
 
-    // Every owner the unit draws castable moves from (its own, the equipped echo/weapon/sets,
-    // System), sorted so a same-input tie resolves character > echo > System.
+    // Move owners; ties resolve character > echo > System.
     const owners = getMechanicOwners([slot ?? ({ character: selectedUnit } as TeamSlot)])
       .sort((a, b) => OWNER_KIND_ORDER.indexOf(a.kind) - OWNER_KIND_ORDER.indexOf(b.kind));
     const groupLabelFor = (owner: MechanicOwner, m: any): string => {
@@ -221,10 +202,7 @@ export const RotationRow = React.memo<RotationRowProps>(({
       });
     });
 
-    // --- COLLAPSE CANDIDATES THAT SHARE THE SAME INPUT ---
-    // Only one mechanic fires per (input, inputType) -- keep the highest-priority valid one.
-    // stanceReq excluded from the key (airborne state is estimated, not tracked): both variants stay selectable.
-    // Current selection is never dropped, but the winner is chosen only from valid members.
+    // One move per (input, inputType): the highest-priority valid one, plus the current selection.
     const byInputKey = new Map<string, Candidate[]>();
     const finalCandidates: Candidate[] = [];
     candidates.forEach(c => {
@@ -243,10 +221,7 @@ export const RotationRow = React.memo<RotationRowProps>(({
       if (current) finalCandidates.push(current);
     });
 
-    // --- BUILD GROUPS ---
-    // An echo isn't its own rotation row, so its moves need the echo's own name in the label
-    // (the character row alone doesn't say which echo) -- skip when the author already baked
-    // the echo name into `.name` themselves, so it doesn't show up doubled.
+    // Prefix echo moves with the echo name unless already present.
     const echoName = slot?.mainEcho;
     const labelFor = (m: any, id: string, groupLabel: string): string => {
       const bare = m.name || id;
@@ -259,12 +234,10 @@ export const RotationRow = React.memo<RotationRowProps>(({
       groupsMap[groupLabel].push({ id, name: labelFor(m, id, groupLabel), priority: m.priority });
     });
 
-    // --- SORT OPTIONS WITHIN EACH GROUP BY PRIORITY (Highest First) ---
+    // Highest priority first.
     Object.values(groupsMap).forEach(options => options.sort((a, b) => resolvePriority(b.priority) - resolvePriority(a.priority)));
 
-    // --- ORDER GROUPS TO MATCH THE UNIT PAGE ---
-    // groupLabel may be '<category>: <skillGroupName>' -- strip the suffix before matching
-    // BUILDER_CATEGORIES. Echo Skill sorts right after the unit's own categories; System sorts last.
+    // Builder category order, then Echo Skill, then System.
     const groupOrder = [...BUILDER_CATEGORIES, 'Echo Skill'];
     const groupRank = (label: string): number => {
       if (label === SYSTEM_NAMESPACE) return groupOrder.length;
@@ -278,7 +251,6 @@ export const RotationRow = React.memo<RotationRowProps>(({
       .sort((a, b) => groupRank(a.label) - groupRank(b.label));
   };
 
-  // Trigger rules over every castable move -- only redone when the row's state or the team changes.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const actionGroups = useMemo(getActionGroups, [row, team]);
 
@@ -302,8 +274,7 @@ export const RotationRow = React.memo<RotationRowProps>(({
     updateRowField(index, 'timing', newTiming);
   };
 
-  // Buffered locally so live "X.XX" formatting doesn't stomp a lone "-" or trailing "." mid-typing.
-  // Committed on blur/Enter.
+  // Local draft; committed on blur/Enter.
   const handleOffsetInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     setOffsetDraft(e.target.value);
   };
@@ -315,13 +286,12 @@ export const RotationRow = React.memo<RotationRowProps>(({
     updateRowFields(index, { offset: num, manualOffset: num });
   };
 
-  // Enter commits a draft field (on its blur); Escape drops it first.
+  // Enter commits; Escape discards.
   const draftKeyDown = (dropDraft: () => void) => (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') dropDraft();
     if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur();
   };
 
-  // Buffers local input and commits on blur to prevent intermediate store dispatches or recalculations while typing.
   const commitRepeatCountDraft = () => {
     if (repeatCountDraft === null) return;
     const draft = repeatCountDraft;
@@ -334,11 +304,9 @@ export const RotationRow = React.memo<RotationRowProps>(({
     if (row.repeatBlockStart) onRepeatCountChange?.(row.repeatBlockStart, Math.max(1, repeatCount + delta));
   };
 
-  // Counting down: time left in the 2-Min window (negative past it).
   const timeCountdown = useTimelineViewStore(s => s.timeCountdown);
   const gameTime = toFrames(row.gameTimeStart ?? 0);
   const timeStart = formatFramesAsClock(timeCountdown ? toFrames(TWO_MIN - gameTime) : gameTime);
-  // row.offset is Frames; convert to seconds (sign preserved) for the offset-pos/neg styling below.
   const offsetVal = framesToSeconds(toFrames(row.offset || 0));
   const offsetStr = `${offsetVal > 0 ? '+' : ''}${offsetVal.toFixed(2)}`;
   const isOffsetEditable = row.timing === 'Simultaneous' || row.timing === 'Manual';
@@ -354,8 +322,7 @@ export const RotationRow = React.memo<RotationRowProps>(({
   const hasError = rowErrors.length > 0;
   const hasWarning = rowWarnings.length > 0;
 
-  // Every error/warning analyzeLoop found in the loop's second rep -- each gets its own panel
-  // instead of collapsing into a truncated "(+N more)" label.
+  // One panel per loop issue.
   const loopIssues = [
     ...(loopErrors || []).map(text => ({ text, isError: true })),
     ...(loopWarnings || []).map(text => ({ text, isError: false }))
@@ -512,7 +479,6 @@ export const RotationRow = React.memo<RotationRowProps>(({
         </div>
       )}
       <div className="row-grid-layer">
-        {/* Index & Checkbox Cell */}
         <div
           className={`index-cell ${hasError ? 'is-error' : hasWarning ? 'is-warning' : ''}`}
           onMouseEnter={e => {
@@ -548,7 +514,6 @@ export const RotationRow = React.memo<RotationRowProps>(({
           </label>
         </div>
 
-        {/* Unit Select */}
         <Dropdown
           className={`base-select unit-select text-bold ${selectedUnit ? 'has-value' : ''}`}
           value={selectedUnit}
@@ -558,7 +523,6 @@ export const RotationRow = React.memo<RotationRowProps>(({
           accentColor={themeColor}
         />
 
-        {/* Categorized Action Select */}
         <Dropdown
           className={`base-select move-select ${row.action ? 'has-value' : ''}`}
           value={row.action || ''}
@@ -572,7 +536,6 @@ export const RotationRow = React.memo<RotationRowProps>(({
           accentColor={themeColor}
         />
 
-        {/* Time Trigger */}
         <div
           className={`col-time center-content sub-panel-trigger ${activeTrigger === 'time' ? 'is-active' : ''}`}
           onClick={() => onTriggerClick(index, 'time')}
@@ -582,7 +545,6 @@ export const RotationRow = React.memo<RotationRowProps>(({
           </div>
         </div>
 
-        {/* Timing Select */}
         <Dropdown
           className="base-select timing-select text-xs has-value"
           value={row.timing || 'Auto'}
@@ -591,7 +553,6 @@ export const RotationRow = React.memo<RotationRowProps>(({
           accentColor={themeColor}
         />
 
-        {/* Offset Trigger -- Disabled for Manual and Simultaneous*/}
         <div
           className={`sub-panel-trigger ${activeTrigger === 'offset' ? 'is-active' : ''}`}
           onClick={() => { if (!isOffsetEditable) onTriggerClick(index, 'offset'); }}
@@ -610,7 +571,6 @@ export const RotationRow = React.memo<RotationRowProps>(({
           </div>
         </div>
 
-        {/* DMG Trigger */}
         <div
           className={`sub-panel-trigger ${activeTrigger === 'dmg' ? 'is-active' : ''}`}
           onClick={() => { if ((row.damageInstances || []).length > 0) onTriggerClick(index, 'dmg'); }}
@@ -625,7 +585,6 @@ export const RotationRow = React.memo<RotationRowProps>(({
           </div>
         </div>
 
-        {/* Forte Gauges */}
         <MultiForteGauge
           unit={selectedUnit}
           stateData={row}
@@ -633,17 +592,14 @@ export const RotationRow = React.memo<RotationRowProps>(({
           onGaugeClick={trigger => onTriggerClick(index, trigger)}
         />
 
-        {/* Concerto Gauge */}
         <div className={`sub-panel-trigger ${activeTrigger === 'concerto' ? 'is-active' : ''}`} onClick={() => onTriggerClick(index, 'concerto')}>
           <DialGauge name="Concerto" value={row.concerto?.[selectedUnit] || 0} max={resourceCap(selectedUnit, 'concerto')} />
         </div>
 
-        {/* Energy Gauge */}
         <div className={`sub-panel-trigger ${activeTrigger === 'energy' ? 'is-active' : ''}`} onClick={() => onTriggerClick(index, 'energy')}>
           <VerticalGauge name="Energy" value={row.energy?.[selectedUnit] || 0} max={resourceCap(selectedUnit, 'energy')} />
         </div>
 
-        {/* Tune Gauge */}
         <div className={`sub-panel-trigger ${activeTrigger === 'tune' ? 'is-active' : ''}`} onClick={() => onTriggerClick(index, 'tune')}>
           <DialGauge name="Tune" value={row.enemyTune || 0} max={row.enemyMaxTune || ENEMY_DEFAULTS.maxTune} />
         </div>
@@ -697,7 +653,6 @@ export const RotationRow = React.memo<RotationRowProps>(({
         </div>
       )}
 
-      {/* Error / Warning Strips -- one panel per message, not just the first */}
       {rowErrors.map((msg, i) => (
         <div key={`err-${i}`} className="status-msg-strip is-error-strip">{msg}</div>
       ))}
@@ -705,7 +660,6 @@ export const RotationRow = React.memo<RotationRowProps>(({
         <div key={`warn-${i}`} className="status-msg-strip is-warning-strip">{msg}</div>
       ))}
 
-      {/* Sub Panel Container */}
       {activeTrigger && (
         <div
           onMouseDown={() => setIsDraggable(false)}

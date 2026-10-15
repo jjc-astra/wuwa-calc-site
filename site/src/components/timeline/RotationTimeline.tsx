@@ -1,5 +1,4 @@
-// "Video editor" style rotation timeline -- pure/presentational (evaluated rows + team in, JSX
-// out), no fetching/page knowledge, so reuse elsewhere is just a thin wrapper, not a rewrite.
+// Video-editor-style rotation timeline. Presentational: evaluated rows + team in.
 import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { TimelineFlagTrack } from './TimelineFlagTrack';
 import { useUiScale } from '../../hooks/useUiScale';
@@ -36,14 +35,11 @@ interface RotationTimelineProps {
   team: TeamSlot[];
   loopStartIndex: number | null;
   className?: string;
-  // The flag track above the rows: key inputs (E, R, Hold...) and unit swaps (1, 2, 3).
+  // Flag track: key inputs and unit swaps.
   showInputs?: boolean;
-  // Effect sections (the Calculator's): each unit's buffs nested under it, then Enemy Effects,
-  // System Effects (with System hits, taken off the unit rows) and Trackers -- each collapsible,
-  // with the view choices in useTimelineViewStore.
+  // Collapsible effect sections: unit buffs, Enemy, System, Trackers.
   withEffects?: boolean;
-  // Hovering a move highlights its row in the rotation table (and the other way around); hovering a
-  // buff, the rows it reached.
+  // Link hover highlights with the rotation table.
   linkToTable?: boolean;
 }
 
@@ -52,11 +48,10 @@ interface TimelineSectionRowProps {
   count: number;
   open: boolean;
   onToggle: () => void;
-  // A group inside a unit's effects (Weapon, Echo Sets), not a top-level section.
+  // A group inside a unit's effects.
   nested?: boolean;
 }
 
-// A collapsible effect section's (or a unit's effect group's) header row.
 const TimelineSectionRow: React.FC<TimelineSectionRowProps> = ({ title, count, open, onToggle, nested = false }) => (
   <div className={`timeline-row timeline-section-row${nested ? ' is-nested' : ''}`} style={{ height: SECTION_ROW_HEIGHT_PX }}>
     <div className="timeline-row-header" style={{ width: 'var(--timeline-header-width)' }}>
@@ -74,18 +69,16 @@ interface TimelineItem {
   key: string;
   height: number;
   node: React.ReactNode;
-  // Rendered even when scrolled out of view (a unit row: a table hover scrolls to its clips).
+  // Always rendered, even off-screen.
   pinned?: boolean;
 }
 
-// Only rows within this much (design px) of the view are rendered; the rest are spacers. The
-// window moves in steps of WINDOW_STEP_PX, so scrolling re-renders once per step, not per frame.
+// Rows within this distance of the view render; the window moves in WINDOW_STEP_PX steps.
 const WINDOW_OVERSCAN_PX = 240;
 const WINDOW_STEP_PX = 120;
 
 const ENDING_CUT_TIP = 'The loop repeats silently here before the Ending Rotation begins.';
 
-// The scrolled view, in steps of WINDOW_STEP_PX of design px.
 function useViewSteps(scrollRef: React.RefObject<HTMLDivElement | null>, scale: number) {
   const [steps, setSteps] = useState({ first: 0, last: 0 });
   useLayoutEffect(() => {
@@ -108,8 +101,7 @@ function useViewSteps(scrollRef: React.RefObject<HTMLDivElement | null>, scale: 
   return steps;
 }
 
-// The items to render: those near [top, bottom] (design px, from the first item) or pinned, with
-// each run of skipped items collapsed into one spacer of their total height.
+// Items near [top, bottom] or pinned; skipped runs become spacers.
 function windowItems(items: TimelineItem[], top: number, bottom: number): React.ReactNode[] {
   const out: React.ReactNode[] = [];
   let y = 0;
@@ -131,9 +123,7 @@ function windowItems(items: TimelineItem[], top: number, bottom: number): React.
   return out;
 }
 
-// Loop/ending-rotation marker: a line spanning just the unit rows (not through the ruler), plus
-// a solid triangle in the ruler pointing up at it -- the "playhead marker" idiom, styled like
-// .toggle-icon/expand-caret's plain glyph rather than a line colliding with the ruler's ticks.
+// Loop/ending marker: a line over the rows plus a triangle in the ruler.
 interface MarkerLineProps {
   left: number;
   top: number;
@@ -149,14 +139,11 @@ const TimelineMarkerLine: React.FC<MarkerLineProps> = ({ left, top, height, widt
 );
 
 export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRows, team, loopStartIndex, className = '', showInputs = true, withEffects = false, linkToTable = false }) => {
-  // All timeline geometry is laid out in fixed design px (timelineLayout), so the content is
-  // zoomed by the UI scale as a whole -- boxes and text shrink together, instead of rem text
-  // shrinking inside px boxes.
+  // Laid out in design px and zoomed as a whole by the UI scale.
   const scale = useUiScale();
   const scrollRef = useRef<HTMLDivElement>(null);
   const view = useViewSteps(scrollRef, scale);
-  // Squeezes the Ending Rotation's silently-simulated gap down to a small fixed width. All
-  // x/width math below routes through compressedTimeToPx so clips/flags/ticks/width all agree.
+  // Compresses the Ending Rotation gap; all x math uses compressedTimeToPx.
   const compression = useMemo(() => buildTimeCompression(evaluatedRows), [evaluatedRows]);
   const flags = useMemo(
     () => (showInputs ? assignFlagLanes(buildFlags(evaluatedRows, team), compression) : []),
@@ -168,7 +155,7 @@ export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRow
   const ticks = useMemo(() => generateTicks(totalFrames, compression), [totalFrames, compression]);
   const { showPermanent, collapsed, toggleCollapsed, expandedUnits, toggleUnitExpanded } = useTimelineViewStore();
 
-  // Every row under the flag track, top to bottom, with its height (the markers below span them).
+  // Rows under the flag track, with heights.
   const items: TimelineItem[] = [];
   if (!effects) {
     unitRows.forEach(row => items.push({ key: row.unit, height: ROW_HEIGHT_PX, pinned: true, node: <TimelineRow data={row} linked={linkToTable} /> }));
@@ -186,8 +173,7 @@ export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRow
       if (isOpen(id)) body();
     };
 
-    // Each unit: its own effects, then what its weapon and echoes add (each a collapsible
-    // group), then its cooldowns.
+    // Per unit: own effects, weapon/echo groups, then cooldowns.
     section('units', 'Unit Effects', unitRows.length, () => unitRows.forEach(row => {
       const lanes = shown(effects.unitLanes[row.unit]);
       const id = `unit:${row.unit}`;
@@ -216,18 +202,14 @@ export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRow
     section('trackers', 'Trackers', trackers.length, () => laneItems(trackers));
   }
 
-  // The name column: wider with effects, whose names run longer than a unit's. Rows read it as
-  // --timeline-header-width.
+  // Name column width (--timeline-header-width).
   const headerWidth = withEffects ? EFFECTS_HEADER_COL_WIDTH_PX : HEADER_COL_WIDTH_PX;
   const contentWidth = headerWidth + compressedTimeToPx(totalFrames, compression);
 
   const loopStartRow = loopStartIndex !== null ? evaluatedRows[loopStartIndex] : null;
   const loopStartLeft = loopStartRow ? headerWidth + compressedTimeToPx(loopStartRow.gameTimeStart, compression) : null;
 
-  // Same two-marker convention as RotationRow.tsx: LOOP END closes the loop template; END
-  // ROTATION marks custom replacement content when the loop-end row is followed by real content.
-  // Both derived from loopEndOverride/row-adjacency (mirrors RotationBuilder.tsx's
-  // hasEndRotationContent) rather than persisted flags, so this view can't disagree with that one.
+  // LOOP END and END ROTATION markers, derived like RotationBuilder.
   const loopEndIndex = loopEndIndexOf(evaluatedRows);
   const loopEndRow = loopEndIndex !== -1 ? evaluatedRows[loopEndIndex] : null;
   const loopEndLeft = loopEndRow ? headerWidth + compressedTimeToPx(rowGameEnd(loopEndRow), compression) : null;
@@ -235,12 +217,8 @@ export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRow
   const endRotationRow = hasEndRotationContent ? evaluatedRows[loopEndIndex + 1] : null;
   const endRotationLeft = endRotationRow ? headerWidth + compressedTimeToPx(endRotationRow.gameTimeStart, compression) : null;
 
-  // Poles stop at the bottom of the rows (never cross into the ruler below), and start right at
-  // their own flag's label -- not above it, where they'd cross through lower-lane flags' labels.
-  // Hidden inputs drop the whole track, so the rows start at the top.
   const flagTrackHeight = showInputs ? flagTrackHeightPx(flags) : 0;
   const rowsBottom = flagTrackHeight + items.reduce((sum, item) => sum + item.height, 0);
-  // The loop/ending markers span the rows, below the flag track.
   const markerSpan = { top: flagTrackHeight, height: Math.max(0, rowsBottom - flagTrackHeight), width: snapToDevicePixel(2) };
   const hairline = hairlinePx();
   const shownItems = windowItems(
@@ -260,8 +238,7 @@ export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRow
           {shownItems}
           <TimelineRuler ticks={ticks} />
 
-          {/* Vertical bar per flag -- starts at the bottom of its own label (not the full lane
-              band, which would leave a floating gap above), stops at the bottom of the last row. */}
+          {/* Flag poles: from the label to the last row. */}
           {flags.map((flag, i) => {
             const top = flag.lane * LANE_HEIGHT_PX + FLAG_LABEL_HEIGHT_PX;
             return (
@@ -279,18 +256,11 @@ export const RotationTimeline: React.FC<RotationTimelineProps> = ({ evaluatedRow
             );
           })}
 
-          {/* Starts at the top of the first unit row (not the flag track) and stops at the last
-              row -- the ruler gets its own arrow marker instead of a line crossing its ticks. */}
           {loopStartLeft !== null && (
             <TimelineMarkerLine lineClassName="timeline-loop-start-line" left={loopStartLeft} {...markerSpan} />
           )}
 
-          {/* Ending Rotation: gap between the loop-end row and Ending Rotation's first row
-              (silently-simulated repeat loops get no rows of their own, see
-              previewEndingRotationTiming) is compressed by buildTimeCompression --
-              endRotationLeft - loopEndLeft always equals ENDING_ROTATION_CUT_WIDTH_PX here.
-              Striped fill is scoped to unit rows only -- the ruler already shows the skip via
-              generateTicks omitting ticks inside the gap. */}
+          {/* Ending Rotation gap: striped over the unit rows. */}
           {loopEndLeft !== null && (
             <TimelineMarkerLine lineClassName="timeline-loop-end-line" left={loopEndLeft} {...markerSpan} />
           )}

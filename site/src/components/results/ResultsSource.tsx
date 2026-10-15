@@ -1,5 +1,4 @@
-// Where the Results panels read their data: the Calculator's stores by default, or whatever a
-// wrapping provider supplies (the Character Guide).
+// Results panel data: the Calculator's stores, or a provider (Character Guide).
 import { createContext, useContext } from 'react';
 import { useRotationStore } from '../../store/useRotationStore';
 import { useRosterStore } from '../../store/useRosterStore';
@@ -13,11 +12,9 @@ export interface ResultsSource {
   team: TeamSlot[];
   isStale: boolean;
   pinned: PinnedRotation | null;
-  // Shows the Pin Comparison control, which writes the Calculator's own pin.
   allowPin: boolean;
-  // Shows Substat Worth's on/off toggle, which writes the Calculator's own setting.
   allowSubstatToggle: boolean;
-  // Set when the page owns the Team/Personal choice; Substat Worth then hides its own toggle.
+  // Page-owned Team/Personal choice.
   scope?: 'team' | 'personal';
 }
 

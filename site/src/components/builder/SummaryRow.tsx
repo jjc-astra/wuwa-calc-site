@@ -1,5 +1,4 @@
-// Single-line summary <tr> for one MechanicNode.
-// Clicking most cells opens the matching sub-panel (in MechanicNodeCard) as a detail row below.
+// Summary row for one node; cells open their sub-panel.
 import React from 'react';
 import type { MechanicNode } from '../../types';
 import { useBuilderStore } from '../../store/useBuilderStore';
@@ -52,8 +51,7 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
   draggable, isDragging, dragOverPosition, onDragStart, onDragOver, onDragLeave, onDrop, onDragEnd
 }) => {
   const hitMultsArr = Array.isArray(data.hitMults) ? data.hitMults : [];
-  // '%' in the string form is what CombatCalculator checks to route percent- vs flat-scaling --
-  // mirrored here so flat values (e.g. Tune Break's fixed hits) don't misleadingly show a '%'.
+  // '%' marks percent-scaling mults.
   const isPctEntry = (v: number | string) => typeof v === 'string' && v.includes('%');
   const sumEntries = (arr: (number | string)[]): number => arr.reduce<number>((sum, v) => {
     const n: number = typeof v === 'number' ? v : parseFloat(v.replace('%', ''));
@@ -74,7 +72,6 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
   const physicsSummaryLabel = `${data.input || '—'}${data.inputType ? ` · ${data.inputType}` : ''}`;
   const hitResourceKeys = Object.keys(data.hitResources || {});
 
-  // 'both'/unset applies regardless of mode -- no tag, since it's the common case and would add noise.
   const { baseStats } = useBuilderStore();
   const nameFlagTags: { label: string; tooltip: string }[] = [
     ...(data.isPassive ? [{ label: 'Passive', tooltip: 'Fires automatically, not a player-cast action' }] : []),
@@ -86,8 +83,7 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
     ...((data.effects?.length ?? 0) > 0 ? [{ label: `Effects +${data.effects!.length}`, tooltip: 'Open Identity to view/edit the Effects Array' }] : [])
   ];
 
-  // Cancel/Freeze/Motion Stop/Swap/Priority/Combo Window share one "Timing Modifiers" sub-panel --
-  // the summary column tags only the fields actually set, instead of a column each.
+  // Timing Modifiers column: tags only the set fields.
   const dslEvalCtx = { default: GAME_DEFAULTS };
   const cancelTimings = data.cancelTimings || [];
   const freezeVal = resolveDefaultNum(data.freezeTime, dslEvalCtx);
@@ -135,7 +131,6 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
         onMouseEnter={() => onFieldMouseEnter('identity')}
         onMouseLeave={onFieldMouseLeave}
       >
-        {/* Rotates for whichever sub-panel is open */}
         <span className="collapse-icon" style={{ transform: activeTrigger ? 'rotate(90deg)' : 'none' }}>{chevronIcon}</span>
       </td>
 

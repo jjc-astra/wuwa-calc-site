@@ -1,10 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { RefObject } from 'react';
 
-// Marks "anim-done" once the wrapper's resize actually settles, not after a fixed timer --
-// growth here is driven by a sibling's transition via flex reflow, so no fixed duration
-// reliably matches it (an early timer flips to overflow-y:auto and flashes a scrollbar).
-// Waits for a quiet period of ResizeObserver events instead.
+// Marks "anim-done" after a quiet period of resize events (no fixed timer matches the reflow).
 const SETTLE_QUIET_MS = 60;
 
 export function useAccordionAnimDone(isOpen: boolean, wrapperRef: RefObject<HTMLElement | null>): boolean {
@@ -24,7 +21,8 @@ export function useAccordionAnimDone(isOpen: boolean, wrapperRef: RefObject<HTML
 
     const observer = new ResizeObserver(scheduleSettleCheck);
     observer.observe(el);
-    scheduleSettleCheck(); // covers the case where the box is already at its final size
+    // Box may already be at its final size.
+    scheduleSettleCheck();
 
     return () => {
       observer.disconnect();

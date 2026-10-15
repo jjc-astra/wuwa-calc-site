@@ -1,5 +1,4 @@
-// Sequence / Weapon / Echo comparisons. Their jobs come from guideModel's *Defs() builders, so the
-// page can run them all in one useGuideSummaries batch.
+// Sequence, Weapon and Echo comparisons.
 import React from 'react';
 import { ComparisonTable } from './ComparisonTable';
 import type { ComparisonRow } from './ComparisonTable';
@@ -19,7 +18,7 @@ interface SectionProps {
   summaries: GuideSummaries;
 }
 
-// Nearest hundred (31,239 -> "31.2k"), to keep two rank columns narrow.
+// 31,239 -> "31.2k"
 const formatShort = (v: number): string => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v)));
 
 const scopeLabel = (scope: GuideScope) => (scope === 'team' ? 'Team' : 'Personal');
@@ -35,7 +34,6 @@ export const SequenceComparison: React.FC<SectionProps & { defs: SequenceDef[]; 
   unit, metric, scope, summaries, defs, selected, onSelect
 }) => {
   const s0Job = defs[0]?.job;
-  // The selected sequence reads as 100%, like the other comparisons.
   const baselineJob = defs.find(def => def.sequence === selected)?.job;
   const rows: ComparisonRow[] = defs.map(def => {
     const rotationChanged = def.job.entry.id !== s0Job?.entry.id;
@@ -77,7 +75,6 @@ export const WeaponComparison: React.FC<SectionProps & {
   onRemove: (weapon: string) => void;
 }> = ({ unit, metric, scope, summaries, defs, baselineJob, selectedWeapon, rankRange, onRankRangeChange, onSelect, onAdd, onRemove }) => {
   const ranks = rankEndpoints(rankRange);
-  // Every weapon of the unit's type, like the Team Setup panel's picker; listed ones greyed out too.
   const addOptions = selectableOptions('weapon', weaponsForUnit(unit)).map(opt =>
     defs.some(d => d.weapon === opt.value) ? { ...opt, disabled: true, disabledTooltip: 'Already in the comparison' } : opt
   );
@@ -92,7 +89,7 @@ export const WeaponComparison: React.FC<SectionProps & {
       removable: def.removable,
       error: def.jobs.map(({ job }) => summaries.error(job.key)).find(Boolean)
     }))
-    // Best at the top rank first; rows still calculating sort last.
+    // Best at top rank first; pending last.
     .sort((a, b) => (b.values[b.values.length - 1] ?? -1) - (a.values[a.values.length - 1] ?? -1));
 
   return (

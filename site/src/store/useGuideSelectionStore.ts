@@ -4,14 +4,12 @@ import { persistStorage } from '../utils/safeLocalStorage';
 import type { GuideConfig } from '../components/guide/guideModel';
 import type { RangeValue } from '../components/common/RangeSlider';
 
-// What the Character Guide had selected for a character, so a refresh or a later visit reopens
-// it. A character with nothing saved (or a Reset) opens on the default.
+// Last Character Guide selection per character.
 export interface GuideSelection {
   config: GuideConfig | null;
   rankRange: RangeValue;
-  // Weapons added to the Weapon Comparison.
   addedWeapons?: string[];
-  // The Timeline's Show Inputs toggle (on unless turned off).
+  // Show Inputs (default on).
   showInputs?: boolean;
 }
 

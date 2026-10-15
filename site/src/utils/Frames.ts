@@ -1,24 +1,14 @@
-// Timing math (actionDuration, freezeTime, damage timeframes, hit scheduling, combo windows)
-// runs on a fixed 60fps integer-frame grid, not float seconds -- avoids drift/rounding error.
-// Cooldowns and buff/effect lifetimes are the exception and stay in seconds -- see
-// TimelineEngine.ts's _processGameTimeDecay for where the two domains cross.
-// User-facing time is always seconds, converted only at render via formatFramesAsSeconds.
-//
-// Frames is a branded number, not a class: TimelineEngine.ts does native +/-/* on time
-// fields, and a class would force those into method calls. Branding keeps that arithmetic
-// legal while blocking an unconverted seconds-number from being assigned into a Frames slot.
+// Timing runs on integer 60fps frames; cooldowns and buff lifetimes stay in seconds.
+// UI shows seconds. Frames is a branded number so arithmetic still works.
 export type Frames = number & { readonly __frameBrand: unique symbol };
 
 export const FPS = 60;
 
-// Trust-cast for a value already known to be whole frames (e.g. JSON already migrated).
-// Does not round -- use roundFrames if the value might be fractional.
+// Casts without rounding; use roundFrames for fractional values.
 export function toFrames(n: number): Frames {
   return n as Frames;
 }
 
-// Rounds a frames-domain, possibly-fractional value (DSL math output, hit-time interpolation)
-// to the nearest whole frame.
 export function roundFrames(n: number): Frames {
   return Math.round(n) as Frames;
 }
@@ -32,11 +22,8 @@ export function framesToSeconds(frames: Frames): number {
 }
 
 /**
- * Each hit's frame offset from its move's start. The first and last hits sit at `start` and `end`
- * (a single hit at `end`); `overrides` pin the hits in between, from the second (overrides[0] is
- * hit 2), so it never holds the first or last; every other hit is spread evenly
- * between the nearest pinned hits either side. With `end` not after `start`, unpinned hits all
- * land at `end`.
+ * Hit frame offsets: first at `start`, last at `end`, middle hits pinned by `overrides`
+ * (overrides[0] is hit 2) or spread evenly.
  */
 export function hitFrameOffsets(hitCount: number, start: number, end: number, overrides: ReadonlyArray<number | null | undefined> = []): Frames[] {
   if (hitCount <= 0) return [];
@@ -44,7 +31,6 @@ export function hitFrameOffsets(hitCount: number, start: number, end: number, ov
   if (hitCount === 1 || end <= start) {
     return Array.from({ length: hitCount }, (_, i) => roundFrames(pinned(i) ?? end));
   }
-  // Index -> frame of every fixed hit, in index order.
   const anchors: Array<[number, number]> = [[0, start]];
   for (let i = 1; i < hitCount - 1; i++) {
     const frame = pinned(i);
@@ -61,32 +47,29 @@ export function hitFrameOffsets(hitCount: number, start: number, end: number, ov
   return offsets;
 }
 
-/** Seconds with an explicit sign, to two places: "+1.47s", "-0.50s", "0.00s". */
+/** "+1.47s", "-0.50s", "0.00s" */
 export const formatSignedSeconds = (seconds: number): string => `${seconds > 0 ? '+' : ''}${seconds.toFixed(2)}s`;
 
-/** Frames as display seconds ("1.47s"). Every UI seconds string goes through here or formatSignedSeconds. */
+/** "1.47s" */
 export function formatFramesAsSeconds(frames: Frames, decimals = 2): string {
   return `${framesToSeconds(frames).toFixed(decimals)}s`;
 }
 
-/** Frames as a clock ("2:00.00", "-0:03.20"). */
+/** "2:00.00", "-0:03.20" */
 export function formatFramesAsClock(frames: Frames): string {
-  // Rounded to hundredths first, so 59.999s reads 1:00.00, not 0:60.00.
+  // Round first so 59.999s reads 1:00.00.
   const hundredths = Math.round(Math.abs(framesToSeconds(frames)) * 100);
   const minutes = Math.floor(hundredths / 6000);
   const seconds = ((hundredths % 6000) / 100).toFixed(2).padStart(5, '0');
   return `${frames < 0 ? '-' : ''}${minutes}:${seconds}`;
 }
 
-// Mechanics Builder's shared timing-input parser. Accepts "30f" (frames), "0.5s" (seconds), a
-// bare number (native unit, keeps existing JSON like `"cooldown": 25` unchanged), or a DSL
-// expression ("@Default.SwapTime", "10 + ...") which passes through unchanged.
-// Returns a plain number in the field's canonical unit, or the original string if unparsed.
+// Parses "30f", "0.5s", or a bare number (native unit). DSL passes through unchanged.
 export function parseTimeInput(raw: string, nativeUnit: 'frames' | 'seconds'): number | string {
   const trimmed = raw.trim();
   if (trimmed === '') return raw;
 
-  // DSL passthrough: '@' pointer, or an operator after char 1 (so a leading '-' isn't mistaken for an expression).
+  // DSL: '@' or an operator after the first char.
   if (/@/.test(trimmed) || /[+\-*/](?!$)/.test(trimmed.slice(1))) return raw;
 
   const match = /^(-?\d+(?:\.\d+)?)\s*(f|s)?$/i.exec(trimmed);
@@ -97,5 +80,5 @@ export function parseTimeInput(raw: string, nativeUnit: 'frames' | 'seconds'): n
 
   if (suffix === 'f') return nativeUnit === 'frames' ? Math.round(value) : value / FPS;
   if (suffix === 's') return nativeUnit === 'seconds' ? value : Math.round(value * FPS);
-  return value; // bare number: native unit, unchanged
+  return value;
 }

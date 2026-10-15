@@ -1,7 +1,4 @@
-// Per-row leaderboard bar -- length scaled to top entry's DPS (#1 = 100% width). One segment per
-// dmg source, reusing TeamContributionPanel's pie chart data/colors/hover-dim rule (hover = full
-// opacity, rest fade to 0.45, see PieChart.tsx). Hovering a *unit* segment shows its cast-type
-// breakdown (same as that unit's tab there); non-unit sources just show their own value.
+// Leaderboard bar scaled to the top entry, one segment per damage source.
 import React, { useEffect, useRef, useState } from 'react';
 import { DataLoader } from '../../utils/DataLoader';
 import { getCharacterThemeColor, TooltipManager } from '../../utils/Common';
@@ -15,35 +12,28 @@ interface ContributionSlice {
 
 interface StackedContributionBarProps {
   segments: ContributionSlice[];
-  /** Team order (e.g. [Lumi, Sanhua]) -- segments draw in this order, matching TeamPreview's
-   * icon order; non-unit/general sources are appended after. */
+  /** Segment order; other sources go last. */
   unitNames: string[];
-  /** Per-unit cast-type breakdown for this window, keyed by character name -- same shape the
-   * DMG Contribution panel's per-unit tab uses. Null while a ranked row's results file is still
-   * loading: the tooltip says so, and updates when it arrives. */
+  /** Per-unit cast-type breakdown; null while loading. */
   unitBreakdowns: Record<string, CastTypeSlice[]> | null;
-  /** This row's bar length as a % of the top-ranked entry's, e.g. 100 for the #1 row. */
+  /** % of the top entry. */
   widthPct: number;
   dpsValue: number;
-  /** Only meaningful when there's a real leaderboard to be a % of (Rankings); History has no
-   * such reference and always fills to 100%, so it passes false to suppress a meaningless label. */
   showPercentage?: boolean;
-  /** Overrides the % label, which otherwise shows widthPct. Bar length still follows widthPct. */
+  /** Overrides the % label only. */
   percentLabel?: number;
 }
 
 const formatValue = (v: number) => Math.round(v).toLocaleString();
 const formatPct = (v: number) => `${v.toFixed(Math.abs(v - 100) < 0.05 ? 0 : 2)}%`;
 
-// Above this width, the % label draws inside the bar (right-aligned) instead of past its edge,
-// so it never overflows the track.
+// Above this, the % label draws inside the bar.
 const PCT_INSIDE_THRESHOLD = 90;
 
 export const StackedContributionBar: React.FC<StackedContributionBarProps> = ({
   segments, unitNames, unitBreakdowns, widthPct, dpsValue, showPercentage = true, percentLabel
 }) => {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-  // The cursor and segment of the open tooltip, to refresh it when the breakdowns arrive.
   const hovered = useRef<{ x: number; y: number; seg: ContributionSlice } | null>(null);
   const slices = segments.filter(s => s.dmg > 0);
   const total = slices.reduce((sum, s) => sum + s.dmg, 0);
@@ -54,8 +44,7 @@ export const StackedContributionBar: React.FC<StackedContributionBarProps> = ({
     return isUnit ? getCharacterThemeColor(DataLoader.characterDB[label]) : colorForLabel(label);
   };
 
-  // Team-preview order (units first, in slot order), then any general/status-effect source
-  // last -- matches the icons above the bar.
+  // Units in slot order, then other sources.
   const ordered = [
     ...unitNames.map(name => slices.find(s => s.label === name)).filter((s): s is ContributionSlice => !!s),
     ...slices.filter(s => !unitNames.includes(s.label))
@@ -81,20 +70,17 @@ export const StackedContributionBar: React.FC<StackedContributionBarProps> = ({
         .join('');
       return `<div class="tooltip-val">${formatValue(unitTotal)}</div><div class="ranking-tooltip-unit-label caps-tag">${seg.label} DMG</div>${rows}`;
     }
-    // Non-unit source (e.g. "Aero Erosion") has no cast-type breakdown -- just show its share
-    // of the row's total.
+    // Non-unit sources show their share only.
     const pct = total > 0 ? (seg.dmg / total) * 100 : 0;
     return `<div class="tooltip-val">${formatValue(seg.dmg)} (${pct.toFixed(1)}%)</div><div style="margin-top:2px;">${seg.label}</div>`;
   };
 
-  // Follows the cursor (not pinned to the segment) while over the bar; disappears on leave.
   const handleMove = (e: React.MouseEvent, seg: ContributionSlice) => {
     hovered.current = { x: e.clientX, y: e.clientY, seg };
     TooltipManager.showAtPoint(e.clientX, e.clientY, buildTooltipHtml(seg));
   };
 
-  // Breakdowns arriving while a unit's tooltip is open: show them without waiting for a move.
-  // Runs only on their arrival, not on every render's new buildTooltipHtml.
+  // Refresh an open tooltip when breakdowns arrive.
   useEffect(() => {
     const h = hovered.current;
     if (h && unitBreakdowns) TooltipManager.showAtPoint(h.x, h.y, buildTooltipHtml(h.seg));

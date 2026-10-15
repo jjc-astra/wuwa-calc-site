@@ -13,7 +13,7 @@ interface TeamBuilderProps {
   onToggle: () => void;
 }
 
-/** Step 1: the team roster, with team import and team / single-unit export. */
+/** Step 1: team roster with import/export. */
 export const TeamBuilder: React.FC<TeamBuilderProps> = ({ isOpen, onToggle }) => {
   const { team, importTeam } = useRosterStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -25,7 +25,7 @@ export const TeamBuilder: React.FC<TeamBuilderProps> = ({ isOpen, onToggle }) =>
     else CommonUtils.downloadJson(team[pick], CommonUtils.exportFilename('Unit', [team[pick]]));
   };
 
-  // Nothing to pick between on an empty roster: the (empty) team exports straight away.
+  // Empty roster exports directly.
   const handleExport = () => {
     if (team.some(slot => slot.character)) setExportOpen(true);
     else exportPick('team');
@@ -38,7 +38,7 @@ export const TeamBuilder: React.FC<TeamBuilderProps> = ({ isOpen, onToggle }) =>
 
     try {
       const data = JSON.parse(await CommonUtils.readTextFile(file));
-      // Accepts a plain team export (array) or a rotation export (team nested under .team).
+      // Team array, or a rotation export's .team.
       const teamData = Array.isArray(data) ? data : Array.isArray(data?.team) ? data.team : null;
       if (teamData) {
         await importTeam(teamData);

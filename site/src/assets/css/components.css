@@ -1,15 +1,11 @@
-/* Shared styling used by 2+ pages or the app shell. Page-specific layout lives in that page's
-   own file instead (builder.css, calculator.css, etc). */
+/* Shared styles for 2+ pages and the app shell. */
 
 /* =========================================
    1. APP SHELL
    ========================================= */
 html, body {
     height: 100vh;
-    /* dvh tracks the real visible viewport as a mobile browser's address bar shows/hides --
-       plain vh is pinned to the tallest (bar-hidden) state, so on mobile the page is taller than
-       what's actually visible and the extra gets cut off instead of laid out. Cascades over the
-       vh line above on browsers that support it; ignored (falls back to vh) on ones that don't. */
+    /* Visible viewport on mobile; vh above is the fallback. */
     height: 100dvh;
     margin: 0;
     padding: 0 0.625rem max(0.625rem, env(safe-area-inset-bottom)) 0.625rem;
@@ -20,11 +16,8 @@ html, body {
     overflow: hidden;
 }
 
-/* Fluid UI scale: every size in the app is rem, so this one value scales the whole layout.
-   Exactly proportional to the 2048x1050 design reference (1440p at 125% OS scaling) on
-   whichever axis is tighter -- 1080p (~1920x960) gets ~14.6px -- so anything that fit the
-   reference still fits, down to the 12px floor (~1536px wide / ~790px tall). The rem bounds
-   follow the user's browser font-size setting; phones keep the unscaled 16px layout. */
+/* Fluid UI scale: proportional to the 2048x1050 reference on the tighter axis, 12px floor.
+   Phones keep 16px. */
 html {
     font-size: clamp(0.75rem, min(0.78125vw, 1.5238vh), 1rem);
 }
@@ -32,7 +25,6 @@ html {
     html { font-size: 1rem; }
 }
 
-/* Form controls don't inherit the page font by default (they fall back to the browser's own). */
 button, input, select, textarea { font-family: inherit; }
 
 #root {
@@ -59,8 +51,7 @@ button, input, select, textarea { font-family: inherit; }
    ========================================= */
 .global-nav-header {
     display: flex;
-    /* Wraps rather than squeezes: buttons keep their one-line labels, the nav items flow onto a
-       second line, and the right-hand group (e.g. Back to Library) keeps its size. */
+    /* Wrap rather than squeeze. */
     flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
@@ -74,8 +65,7 @@ button, input, select, textarea { font-family: inherit; }
 }
 
 .global-nav-header .header-left {
-    /* Takes the row's spare width and wraps its own nav items, instead of pushing the right-hand
-       group onto a line of its own -- down to its widest button, below which the group wraps under. */
+    /* Takes spare width and wraps its own items. */
     flex: 1 1 0;
     display: flex;
     flex-wrap: wrap;
@@ -90,7 +80,6 @@ button, input, select, textarea { font-family: inherit; }
     align-items: center;
     gap: var(--space-1);
     margin-left: auto;
-    /* Level with the brand when the nav items wrap below it. */
     align-self: flex-start;
 }
 .global-nav-header .header-right > * { flex-shrink: 0; white-space: nowrap; }
@@ -152,14 +141,13 @@ button, input, select, textarea { font-family: inherit; }
     color: var(--accent);
 }
 
-/* Phones: tighter header padding and nav buttons. */
+/* Phones */
 @media (max-width: 720px) {
     .global-nav-header { padding: 0.5rem 0.75rem; }
     .nav-item-btn { padding: 0.375rem 0.625rem; font-size: 0.72rem; }
 }
 
-/* Compact header (set by Header once the page links would wrap off the brand's row): the links
-   fold into the menu button, and opened they drop below the brand row as a full-width list. */
+/* Compact header: links fold into a menu button. */
 .nav-menu-btn,
 .nav-phone-only { display: none; }
 
@@ -210,17 +198,15 @@ button, input, select, textarea { font-family: inherit; }
 .text-dim    { color: var(--text-dim); }
 .text-gold   { color: var(--accent); }
 
-/* Text roles (sizes in palette.css). Label: bold uppercase row/column names. Tag: tiny bold
-   uppercase units, captions and badges. On a row or header container, they cover all its cells. */
+/* Text roles. Label: row/column names. Tag: units, captions, badges. */
 .caps-label { font-size: var(--font-label); font-weight: bold; text-transform: uppercase; letter-spacing: var(--caps-spacing); }
 .caps-tag   { font-size: var(--font-tag);   font-weight: bold; text-transform: uppercase; letter-spacing: var(--caps-spacing); }
-/* Rounded badge shape, paired with .caps-tag; each badge sets its own colors. */
+/* Pair with .caps-tag; badges set their own colors. */
 .pill-badge { display: inline-block; flex-shrink: 0; padding: 0.1875rem 0.5rem; border-radius: 0.625rem; white-space: nowrap; }
-/* The site's tag look (rotation type, author, Default): thin border, faint fill. Tinted tags
-   override color and border-color, mixed from their hue like .ranking-row-type-linear. */
+/* Standard tag look; tinted tags override color and border-color. */
 .outline-badge { border: 1px solid var(--border); color: var(--text-dim); background: var(--surface-lighten); }
 
-/* Results being recalculated: dimmed and inert until the new ones land. */
+/* Results being recalculated. */
 .is-stale { opacity: 0.45; pointer-events: none; transition: opacity 0.15s; }
 
 .brand-discord { color: #5865f2; }
@@ -555,7 +541,7 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 
 /* --- Tooltip --- */
 .global-tooltip {
-    /* Placed by transform (TooltipManager), on its own layer: moving it doesn't repaint what's under it. */
+    /* Positioned by transform on its own layer. */
     position: fixed; top: 0; left: 0; z-index: 100000;
     will-change: transform;
     background-color: var(--tooltip-bg);
@@ -567,7 +553,7 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 }
 .tooltip-key { color: var(--text-dim); font-weight: bold; margin-right: var(--space-1); }
 .tooltip-val { color: var(--accent); font-weight: bold; }
-/* The arrow glyph is centered on the x-height; lifted to the middle of the capitals beside it. */
+/* Lift the arrow to cap height. */
 .tooltip-arrow { display: inline-block; transform: translateY(-0.08em); }
 
 /* --- Sub Panel System (.sub-panel-trigger is rotation-only, in calculator.css) --- */
@@ -585,7 +571,7 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     display: block;
 }
 
-/* Two open sub-panels stacked back-to-back: no double border, tighter gap between them. */
+/* Adjacent open sub-panels. */
 .sub-panel.is-open + .sub-panel.is-open {
     border-top: none;
     margin-top: calc(-1 * var(--space-5));
@@ -810,7 +796,6 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     color: var(--text-dim); font-size: 1.5rem; cursor: pointer; line-height: 1;
 }
 .modal-close-x:hover { color: var(--text-main); }
-/* Splits a dialog's fields into groups. */
 .modal-divider { border: none; height: 1px; margin: var(--space-6) 0 0; background: var(--border); }
 .modal-actions { display: flex; justify-content: flex-end; gap: 0.625rem; margin-top: var(--space-6); }
 
@@ -848,7 +833,7 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
    8. CALCULATION STATES
    ========================================= */
 
-/* Shared by the Rotation Calculator's "STATS CHANGED" and Builder's "MECHANICS CHANGED" strips. */
+/* "STATS CHANGED" / "MECHANICS CHANGED" strips. */
 .calc-warning-msg {
     display: none;
     align-items: center;
@@ -883,10 +868,7 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     animation: flash 1s 3.5 ease-in-out;
 }
 
-/* .calc-loading-msg/.calc-loading-spinner (rotation-only) moved to calculator.css --
-   @keyframes flash stays here since builder.css's dirty-badge indicator also uses it by name.
-   Run 3.5 times (ends on full opacity), not forever: an endless animation keeps the GPU
-   compositing every frame for as long as the indicator shows. */
+/* Run a finite number of times; endless animations keep the GPU busy. */
 @keyframes flash {
     0% { opacity: 0.7; }
     50% { opacity: 1; }
