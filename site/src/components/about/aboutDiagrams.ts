@@ -368,7 +368,8 @@ export const DIAGRAMS = {
       PA -->|"Outro or another unit,<br/>and swapTiming"| PA2["as Swap"]:::logic
       PA -->|"otherwise"| PA3["quickest cancel with every<br/>hit, else full duration"]:::logic
       P0 -->|"Full"| PF["full duration"]:::logic
-      P0 -->|"Swap"| PS["max(swapTiming, swapTime);<br/>unit stays busy to its cancel"]:::logic
+      P0 -->|"Swap"| PS["max(swapTiming, swapTime); its animation<br/>plays out in full off-field (a swap back<br/>waits it out: Off-Field Animation Lock)"]:::logic
+      P0 -->|"SwapCancel_N"| PSC["as Swap, but the unit's next move cuts it<br/>at cancel N, or on the swap back if later;<br/>its hits not landed by then dropped"]:::logic
       P0 -->|"Cap_*_N /<br/>Cancel_N"| PN["end at hit N /<br/>that cancel"]:::logic
     end
     subgraph Fin["result"]

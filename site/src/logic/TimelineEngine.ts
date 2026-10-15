@@ -99,6 +99,9 @@ const hitLimit = (hit: QueuedHit): number =>
   hit.isProc ? hit.originMoveData.allowedHits ?? Infinity : hit.originRow.allowedHits;
 
 // Simulates a rotation row by row: timings, resources, buffs, events and the hit queue.
+// A timing that swaps the unit out: Swap, or Swap + Cancel (SwapCancel_<n>).
+const isSwapTiming = (timing: unknown): boolean => timing === 'Swap' || String(timing ?? '').startsWith('SwapCancel_');
+
 export class TimelineEngineClass {
   damageQueue: QueuedHit[] = [];
   currentGlobalGameTime = 0;
@@ -246,9 +249,22 @@ export class TimelineEngineClass {
       const actualCdRemaining = ContextManager.cooldownRemaining(currentData, currentData.unit, currentData.moveName);
       const wCD = secondsToFrames(actualCdRemaining);
       let wBusy = 0;
-      const busyUntil = unitBusyUntil[currentData.unit] || 0;
+      let busyUntil = unitBusyUntil[currentData.unit] || 0;
       const isOutroCast = !!dbMove.castTypes?.includes('Outro');
-      if (busyUntil > accumulatedTime && !isOutroCast) {
+      // An Intro overrides whatever the unit is still playing off-field: no wait, and that move ends here.
+      const isIntroCast = !!dbMove.castTypes?.includes('Intro');
+      const swappedOut = lastRowByUnit[currentData.unit];
+      const introCutsSwappedOut = isIntroCast && !!swappedOut && busyUntil > accumulatedTime;
+      // Swapback cancel: this is the move the unit's swapped-out one (Swap + Cancel) was set to be
+      // cancelled by -- it cuts it at its cancel point, or now if that's already past.
+      const cutsSwappedOut = swappedOut?._swapCancelAt !== undefined && busyUntil > accumulatedTime && !isOutroCast && !isIntroCast;
+      if (cutsSwappedOut) {
+        // Motion stops while it played off-field paused it, pushing its hits (and so its cancel
+        // point) back by as much as its end -- a hit on the cancel frame still lands.
+        const paused = Math.max(0, busyUntil - (swappedOut.timeStart + swappedOut.animationCommitment));
+        busyUntil = Math.min(busyUntil, Math.max(accumulatedTime, swappedOut.timeStart + swappedOut._swapCancelAt + paused));
+      }
+      if (busyUntil > accumulatedTime && !isOutroCast && !isIntroCast) {
         wBusy = busyUntil - accumulatedTime;
       }
 
@@ -257,6 +273,7 @@ export class TimelineEngineClass {
       currentData.cdWaitTime = wCD;
       // The first row has nothing before it to run down.
       if (i > 0) this._decayState(currentData, toFrames(finalWaitTime), toFrames(finalWaitTime), activeTeam, activeRows, team);
+      if (cutsSwappedOut || introCutsSwappedOut) this._cutSwappedOutMove(swappedOut, accumulatedTime + finalWaitTime);
 
       // Waits if this move would error on a resource (Concerto/Tune/Forte; Energy stays just
       // a warning) because its own generation is still undrained in the queue -- same
@@ -337,7 +354,7 @@ export class TimelineEngineClass {
       let animationCommitment = timings.animationCommitment;
       const nextRow = currentData.nextRow;
       const isSwappingOut =
-        currentData.timing === 'Swap' ||
+        isSwapTiming(currentData.timing) ||
         (currentData.timing === 'Auto' && currentData._autoTimingChoice === 'Swap') ||
         (nextRow && nextRow.unit !== currentData.unit && nextRow.unit !== '');
 
@@ -363,6 +380,7 @@ export class TimelineEngineClass {
       currentData.damageTimeframe = timings.damageTimeframe;
       currentData.hitFrameOverrides = timings.hitFrameOverrides;
       currentData.allowedHits = timings.allowedHits;
+      currentData._swapCancelAt = timings.swapCancelAt;
 
       if (dbMove.stanceReq && dbMove.stanceReq !== 'Any') currentData.stance = dbMove.stanceReq;
 
@@ -759,6 +777,17 @@ export class TimelineEngineClass {
     return this._resolveNumber(move.priority, currentData, unit, team) || 0;
   }
 
+  // `row`'s move, still playing off-field, is cut at `cutAt` by its unit's next move -- a swapback
+  // cancel (Swap + Cancel), or an Intro, which overrides it: its hits not landed by then are dropped,
+  // and its off-field animation (the Timeline's tail) ends there.
+  _cutSwappedOutMove(row: any, cutAt: number): void {
+    const before = this.damageQueue.length;
+    this.damageQueue = this.damageQueue.filter(hit => !(hit.originRow === row && !hit.isProc && hit.executeAt > cutAt));
+    row.allowedHits = Math.max(0, (row.allowedHits ?? 0) - (before - this.damageQueue.length));
+    row.animationCommitment = toFrames(Math.max(row.duration || 0, cutAt - row.timeStart));
+    row._swapCancelAt = undefined;
+  }
+
   // A move's motion stop pauses every other unit still mid-move (animating, or with hits pending)
   // from its cast: their move runs that much longer (their hits: _evaluateMechanics).
   // The part not covered by the move's own time stop shows on the Timeline, recorded as
@@ -830,6 +859,26 @@ export class TimelineEngineClass {
       });
     }
 
+    // Swap + Cancel (swapback cancel): swaps out like Swap, then the unit's own next move, once it's
+    // swapped back, cancels what's left of this one off-field at a cancel point (or on the swap
+    // back, if later) -- as a normal cancel would: it outranks this move, on a different input --
+    // instead of waiting it out. Hits not yet landed by then are dropped.
+    const returnAction = isNextSwapOut && unitName ? currentData.nextUnitActions?.[unitName] : undefined;
+    const returnMoveData = returnAction ? this._getModifiedMoveData(returnAction) : null;
+    const returnMoveCancels = !!returnMoveData
+      && bindingOf(returnMoveData) !== bindingOf(moveData)
+      && this._resolvePriority(returnMoveData, currentData, unitName, team) > this._resolvePriority(moveData, currentData, unitName, team);
+    // Unlike a normal cancel, a cancel window's rule doesn't stand in for that check here: a swap
+    // back never cancels into a weaker move, so the rule only adds conditions on top.
+    const swapCancels: Array<{ index: number; time: Frames; hits: number }> = [];
+    if (isNextSwapOut && returnMoveCancels && moveData.cancelTimings) {
+      moveData.cancelTimings.forEach((ct, idx) => {
+        const isValid = !ct.triggerRule || ct.triggerRule.trim() === ''
+          || (this._evaluateRule(ct, ct.triggerRule, currentData, currentData.unit, team) ?? false);
+        if (isValid) swapCancels.push({ index: idx, time: ct.time, hits: ct.hits !== undefined ? ct.hits : Infinity });
+      });
+    }
+
     const cancelTimeForAnimation = validCancels.length > 0
       ? validCancels.reduce((prev, curr) => prev.time < curr.time ? prev : curr).time
       : actionDuration;
@@ -875,6 +924,13 @@ export class TimelineEngineClass {
       const title = `Duration: ${formatFramesAsSeconds(vc.time)}` + (vc.hits !== Infinity ? ` | Hits: ${vc.hits}` : ` | All Hits`);
       availableTimings.push({ val: `Cancel_${vc.index}`, label, title });
     });
+    if (swapDuration !== undefined) {
+      swapCancels.forEach((sc, i) => {
+        const label = swapCancels.length === 1 ? 'Swap + Cancel' : `Swap + Cancel ${i + 1}`;
+        const title = `Swap out at ${formatFramesAsSeconds(swapDuration)}; swapped back, ${returnMoveData?.name ?? 'the next move'} cancels what's left of it at ${formatFramesAsSeconds(sc.time)} or on the swap back, if later`;
+        availableTimings.push({ val: `SwapCancel_${sc.index}`, label, title });
+      });
+    }
     // Cancelled on the swap frame, before any hit lands.
     const instantCancelTime = swapDuration ?? toFrames(GAME_DEFAULTS.swapTime);
     if (validCancels.length > 0) {
@@ -904,9 +960,12 @@ export class TimelineEngineClass {
     let duration = actionDuration;
     let animationCommitment = actionDuration;
     let finalHits = hitCount;
-    // Cut short at `time` with `hits` landed; a swap's animation still plays out to its cancel point.
+    // Cut short at `time` with `hits` landed. A swap's animation plays out in full off-field: it
+    // doesn't stop the swap back (only the swap cooldown does), but the unit, swapped back in while
+    // it's still playing, waits it out -- unless a Swap + Cancel cuts it (swapCancelAt).
     const cutAt = (time: Frames, hits: number) => { duration = time; animationCommitment = time; finalHits = hits; };
-    const swapOut = (swapAt: Frames) => { duration = swapAt; animationCommitment = cancelTimeForAnimation; finalHits = hitCount; };
+    const swapOut = (swapAt: Frames) => { duration = swapAt; animationCommitment = actionDuration; finalHits = hitCount; };
+    let swapCancelAt: Frames | undefined;
     const capAt = (hitIdx: number) => cutAt(getHitTimeOffset(hitIdx), hitIdx + 1);
     const cutAuto = () => cutAt(autoCancelTime, autoAllowedHits);
 
@@ -931,6 +990,11 @@ export class TimelineEngineClass {
       }
     } else if (timingType === 'Swap' && swapDuration !== undefined) {
       swapOut(swapDuration);
+    } else if (timingType.startsWith('SwapCancel_') && swapDuration !== undefined) {
+      const sc = swapCancels.find(c => c.index === parseInt(timingType.split('_')[1], 10));
+      swapOut(swapDuration);
+      // The returning move cancels it here at the earliest (the main loop cuts it on the return).
+      if (sc) swapCancelAt = sc.time;
     } else if (timingType.startsWith('Cap_')) {
       capAt(parseInt(timingType.split('_')[2], 10));
     } else if (timingType.startsWith('Cancel_')) {
@@ -953,7 +1017,8 @@ export class TimelineEngineClass {
       motionStop,
       damageTimeframe: { start: tfStart, end: tfEnd },
       hitFrameOverrides,
-      allowedHits: finalHits
+      allowedHits: finalHits,
+      swapCancelAt
     };
   }
 
@@ -1547,7 +1612,7 @@ export class TimelineEngineClass {
     if (prevWasOutro && currentData.unit === prevData.unit) {
       errors.push('The next move after an outro must be on a different unit.');
     }
-    if (prevData.timing === 'Swap' && !currIsOutro && currentData.unit === prevData.unit) {
+    if (isSwapTiming(prevData.timing) && !currIsOutro && currentData.unit === prevData.unit) {
       errors.push('The next move after a swap timing must be an Outro or different unit.');
     }
     if (prevData.unit && currentData.unit !== prevData.unit) {

@@ -136,7 +136,7 @@ export const loopEndIndexOf = (rows: any[]): number => rows.findIndex(r => r?.lo
 export const timingLabel = (row: any): string =>
   !row.timing || row.timing === 'Auto'
     ? row._autoTimingChoice ? `Auto (${row._autoTimingChoice})` : 'Auto'
-    : String(row.timing).replace('_', ' ');
+    : String(row.timing).replace(/^SwapCancel_/, 'Swap + Cancel ').replace('_', ' ');
 
 /**
  * Content rows split into opener, loop template and -- with Ending Rotation on and a loop-end
