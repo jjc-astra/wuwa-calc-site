@@ -11,6 +11,8 @@ interface TypeTagProps {
   color?: string;
   // Uses shared TooltipManager (.global-tooltip) instead of native title, to match app hover styling.
   tooltip?: string;
+  // Added after `type-tag`, for a variant (e.g. `is-removed`).
+  className?: string;
 }
 
 /** A pill tag, optionally removable. */
@@ -21,13 +23,16 @@ export const TypeTag: React.FC<TypeTagProps> = ({
   onClick,
   extraAttrs,
   color,
-  tooltip
+  tooltip,
+  className
 }) => {
+  // A click often swaps this tag out (e.g. restoring a removed effect), so no mouseleave fires to hide it.
+  const hideTooltip = () => { if (tooltip) TooltipManager.hide(); };
   return (
     <div
-      className="type-tag"
+      className={className ? `type-tag ${className}` : 'type-tag'}
       data-val={val}
-      onClick={onClick}
+      onClick={onClick && (e => { hideTooltip(); onClick(e); })}
       onMouseEnter={tooltip ? (e: React.MouseEvent) => TooltipManager.show(e.currentTarget as Element, tooltip) : undefined}
       onMouseLeave={tooltip ? () => TooltipManager.hide() : undefined}
       style={color ? { borderColor: color, color, background: `${color}26` } : undefined}
@@ -40,6 +45,7 @@ export const TypeTag: React.FC<TypeTagProps> = ({
           className="type-tag-remove"
           onClick={(e) => {
             e.stopPropagation();
+            hideTooltip();
             onRemove();
           }}
         >

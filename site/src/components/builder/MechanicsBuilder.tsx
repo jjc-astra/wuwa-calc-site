@@ -7,6 +7,7 @@ import { MechanicKey, SYSTEM_NAMESPACE } from '../../utils/MechanicKey';
 import { tip } from '../../utils/Common';
 import { BaseStatsForm } from './BaseStatsForm';
 import { MechanicNodeCard } from './MechanicNodeCard';
+import { RemovedNodeRow } from './RemovedNodeRow';
 import { JsonOutputPane } from './JsonOutputPane';
 import { BuilderState, IMAGE_FOLDERS } from '../../data/db';
 import { isElement } from '../../data/gameVocab';
@@ -101,8 +102,17 @@ function resolveHoldGroups(allMechs: Record<string, MechanicNode>) {
 
 /** Mechanics Builder page: the entity library, or the open entity's node tables and output. */
 export const MechanicsBuilder: React.FC = () => {
-  const { activeChar, setActiveChar, mechanics, setMechanicNode, reorderMechanicNode, baseStats, setBaseStat, hasChanges } = useBuilderStore();
+  const { activeChar, setActiveChar, mechanics, setMechanicNode, reorderMechanicNode, baseStats, setBaseStat, hasChanges, removedNodes } = useBuilderStore();
   const { skipIds: holdGroupSkipIds, groupSiblings: holdGroupSiblings } = resolveHoldGroups(mechanics);
+  // The nodes, with each one deleted via Delete Node back where it was (`removed`), as a ghost row.
+  const listedNodes: [string, MechanicNode, boolean][] = Object.entries(mechanics).map(([id, node]) => [id, node, false]);
+  Object.entries(removedNodes).forEach(([id, { node, after, before }]) => {
+    if (id in mechanics || !MechanicKey.belongsTo(id, MechanicKey.toNamespace(activeChar))) return;
+    const afterAt = listedNodes.findIndex(([key]) => key === after);
+    const beforeAt = listedNodes.findIndex(([key]) => key === before);
+    const at = afterAt !== -1 ? afterAt + 1 : beforeAt !== -1 ? beforeAt : listedNodes.length;
+    listedNodes.splice(at, 0, [id, node, true]);
+  });
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTemplates, setSelectedTemplates] = useState<Record<string, string>>({});
 
@@ -259,7 +269,7 @@ export const MechanicsBuilder: React.FC = () => {
         <BaseStatsForm />
         <div id="mechanics-accordion" className="flex-col gap-md" style={{ marginTop: '1.25rem' }}>
           {targetCategories.map((cat: string) => {
-            const catMechs = (Object.entries(mechanics) as [string, MechanicNode][]).filter(([id, m]) => {
+            const catMechs = listedNodes.filter(([id, m]) => {
               if (holdGroupSkipIds.has(id)) return false;
               if (m.category && targetCategories.includes(m.category)) return m.category === cat;
               if (activeChar === SYSTEM_NAMESPACE) return cat === 'System Mechanics';
@@ -353,14 +363,20 @@ export const MechanicsBuilder: React.FC = () => {
                         </tr>
                       </thead>
                       {(() => {
-                        const ordered: { id: string; node: MechanicNode; groupSiblings?: typeof holdGroupSiblings[string]; childRole?: 'Repeat' | 'Release' }[] = [];
-                        catMechs.forEach(([id, node]) => {
+                        const ordered: { id: string; node: MechanicNode; groupSiblings?: typeof holdGroupSiblings[string]; childRole?: 'Repeat' | 'Release'; removed?: boolean }[] = [];
+                        catMechs.forEach(([id, node, removed]) => {
+                          if (removed) {
+                            ordered.push({ id, node, removed });
+                            return;
+                          }
                           const sib = holdGroupSiblings[id];
                           ordered.push({ id, node, groupSiblings: sib });
                           if (sib?.repeat) ordered.push({ id: sib.repeat[0], node: sib.repeat[1], groupSiblings: sib, childRole: 'Repeat' });
                           if (sib?.release) ordered.push({ id: sib.release[0], node: sib.release[1], groupSiblings: sib, childRole: 'Release' });
                         });
-                        return ordered.map(({ id, node, groupSiblings, childRole }) => (
+                        return ordered.map(({ id, node, groupSiblings, childRole, removed }) => removed ? (
+                          <RemovedNodeRow key={`removed-${id}`} nodeId={id} node={node} />
+                        ) : (
                           <MechanicNodeCard
                             key={id}
                             nodeId={id}

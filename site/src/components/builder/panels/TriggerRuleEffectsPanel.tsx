@@ -88,7 +88,7 @@ interface TriggerRuleEffectsPanelProps {
 
 /** Builder sub-panel: the trigger rule and the node's effects. */
 export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = ({ data, updateNode, forteOptions, groupSiblings, nodeId }) => {
-  const { baseStats, activeChar, setMechanicNode, removeMechanicNode } = useBuilderStore();
+  const { baseStats, activeChar, setMechanicNode, removeMechanicNode, removedEffects, recordRemovedEffect, dropRemovedEffect } = useBuilderStore();
   const isDualMode = !!baseStats.isDualMode;
   const mode1Label = baseStats.mode1Name || 'Mode 1';
   const mode2Label = baseStats.mode2Name || 'Mode 2';
@@ -220,6 +220,28 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
     updateNode({ effects: data.effects?.filter((_, i) => i !== idx) });
   };
 
+  // A removed effect stays on screen, dimmed, until restored (click) or discarded (its ×); without
+  // a node id there's nowhere to keep it, so it just goes.
+  const effects = data.effects || [];
+  const removed = (nodeId && removedEffects[nodeId]) || [];
+  const removeEffect = (idx: number) => {
+    if (nodeId) recordRemovedEffect(nodeId, { effect: effects[idx], index: idx });
+    updateNode({ effects: effects.filter((_, i) => i !== idx) });
+  };
+  const restoreEffect = (removedIndex: number) => {
+    const { effect, index } = removed[removedIndex];
+    const at = Math.min(index, effects.length);
+    updateNode({ effects: [...effects.slice(0, at), effect, ...effects.slice(at)] });
+    dropRemovedEffect(nodeId!, removedIndex);
+  };
+  // The live effects, with each removed one back at the spot it was removed from.
+  const shownEffects: ({ eff: Effect; idx: number; removed: false } | { eff: Effect; idx: number; removed: true })[] =
+    effects.map((eff, idx) => ({ eff, idx, removed: false as const }));
+  removed
+    .map((r, idx) => ({ r, idx }))
+    .sort((a, b) => a.r.index - b.r.index)
+    .forEach(({ r, idx }) => shownEffects.splice(Math.min(r.index, shownEffects.length), 0, { eff: r.effect, idx, removed: true }));
+
   const { type: effectType, action: effAction, targetKind: effTargetKind } = draft;
 
   return (
@@ -268,13 +290,23 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
 
       <div className="panel-header-tiny" style={{ marginTop: '0.875rem' }}>Effects Array</div>
       <div className="type-tag-container mech-effects-container mb-4px">
-        {(data.effects || []).map((eff, idx) => (
+        {shownEffects.map(({ eff, idx, removed: isRemoved }) => isRemoved ? (
+          <TypeTag
+            key={`removed-${idx}`}
+            className="is-removed"
+            val={JSON.stringify(eff)}
+            label={effectLabel(eff)}
+            tooltip="Removed -- click to restore, × to discard"
+            onClick={() => restoreEffect(idx)}
+            onRemove={() => dropRemovedEffect(nodeId!, idx)}
+          />
+        ) : (
           <TypeTag
             key={idx}
             val={JSON.stringify(eff)}
             label={effectLabel(eff)}
             onClick={() => loadEffectForEdit(eff, idx)}
-            onRemove={() => updateNode({ effects: data.effects?.filter((_, i) => i !== idx) })}
+            onRemove={() => removeEffect(idx)}
           />
         ))}
       </div>

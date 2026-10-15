@@ -1,12 +1,18 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { persistStorage } from '../utils/safeLocalStorage';
-import type { MechanicNode, BaseStats, EntityFolder } from '../types';
+import type { MechanicNode, BaseStats, EntityFolder, Effect } from '../types';
 import { DataLoader } from '../utils/DataLoader';
 import { MechanicKey } from '../utils/MechanicKey';
 import { IMAGE_FOLDERS } from '../data/db';
 import { nodesEqual } from '../utils/nodeDiff';
 import type { PanelKey } from '../components/builder/MechanicNodeCard';
+
+/** An effect removed from a node in the Builder, and where in its effects it was. */
+export interface RemovedEffect { effect: Effect; index: number }
+
+/** A node deleted in the Builder (Delete Node), and the nodes either side of it then, to restore it between. */
+export interface RemovedNode { node: MechanicNode; after: string | null; before: string | null }
 
 export type NodeChangeKind = 'modified' | 'renamed' | 'new';
 
@@ -43,6 +49,20 @@ interface BuilderState {
   editedBaseStats: Record<string, BaseStats>;
   editedMechanics: Record<string, MechanicNode>;
   deletedMechanicIds: string[];
+  // Effects removed from a node in the Builder, by node id: shown dimmed where they were so the
+  // removal can be undone. Never part of the node itself, so never in its JSON or the calc.
+  removedEffects: Record<string, RemovedEffect[]>;
+  recordRemovedEffect: (nodeId: string, removed: RemovedEffect) => void;
+  // Forgets one (restored or discarded for good), by its position in the node's list.
+  dropRemovedEffect: (nodeId: string, removedIndex: number) => void;
+  // Nodes deleted with Delete Node, by id: shown dimmed in the node list until restored or
+  // discarded. Gone from `mechanics` (and the JSON/calc) meanwhile, like any removed node.
+  removedNodes: Record<string, RemovedNode>;
+  // Delete Node: removeMechanicNode, remembering the node to restore. (removeMechanicNode itself
+  // stays a plain removal -- e.g. an import dropping keys, or unticking a Hold's Repeat.)
+  softRemoveMechanicNode: (nodeId: string) => void;
+  restoreRemovedNode: (nodeId: string) => void;
+  discardRemovedNode: (nodeId: string) => void;
   setHighlightedNodeId: (nodeId: string | null) => void;
   setHoveredFieldHighlight: (highlight: { nodeId: string; fields: string[] } | null) => void;
   setOpenPanel: (nodeId: string, panel: PanelKey | null) => void;
@@ -53,8 +73,9 @@ interface BuilderState {
   setAllBaseStats: (stats: BaseStats) => void;
   // insertAfter: for a brand-new nodeId only -- places it right after that existing key instead
   // of the object-spread default of the very end, so e.g. a Hold's freshly-created Repeat/Release
-  // sibling lands next to its Hold in the saved JSON instead of miles away at EOF.
-  setMechanicNode: (nodeId: string, node: MechanicNode, insertAfter?: string) => void;
+  // sibling lands next to its Hold in the saved JSON instead of miles away at EOF. insertBefore:
+  // the same, right before that key (a restored node that was first).
+  setMechanicNode: (nodeId: string, node: MechanicNode, insertAfter?: string, insertBefore?: string) => void;
   renameMechanicNode: (oldId: string, newId: string, node: MechanicNode) => void;
   removeMechanicNode: (nodeId: string) => void;
   // Moves an existing node's key next to targetId (drag-and-drop reorder in the Builder's
@@ -94,7 +115,9 @@ const withoutEntityEdits = (state: BuilderState, entityName: string) => ({
   editedBaseStats: omit(state.editedBaseStats, entityName),
   editedMechanics: omitEntity(state.editedMechanics, entityName),
   deletedMechanicIds: state.deletedMechanicIds.filter(id => !MechanicKey.belongsTo(id, entityName)),
-  renamedFrom: omitEntity(state.renamedFrom, entityName)
+  renamedFrom: omitEntity(state.renamedFrom, entityName),
+  removedEffects: omitEntity(state.removedEffects, entityName),
+  removedNodes: omitEntity(state.removedNodes, entityName)
 });
 
 // New base stats for the open entity. Written straight onto the live DataLoader entry too (so
@@ -135,6 +158,37 @@ export const useBuilderStore = create<BuilderState>()(
       editedBaseStats: {},
       editedMechanics: {},
       deletedMechanicIds: [],
+      removedEffects: {},
+      removedNodes: {},
+
+      softRemoveMechanicNode: nodeId => {
+        const { mechanics } = get();
+        const node = mechanics[nodeId];
+        if (!node) return;
+        const keys = Object.keys(mechanics);
+        const at = keys.indexOf(nodeId);
+        // Its removed effects go with it (removeMechanicNode forgets them); restoring brings back the node as it was.
+        set(state => ({ removedNodes: { ...state.removedNodes, [nodeId]: { node, after: keys[at - 1] ?? null, before: keys[at + 1] ?? null } } }));
+        get().removeMechanicNode(nodeId);
+      },
+
+      restoreRemovedNode: nodeId => {
+        const removed = get().removedNodes[nodeId];
+        if (!removed) return;
+        set(state => ({ removedNodes: omit(state.removedNodes, nodeId) }));
+        get().setMechanicNode(nodeId, removed.node, removed.after ?? undefined, removed.before ?? undefined);
+      },
+
+      discardRemovedNode: nodeId => set(state => ({ removedNodes: omit(state.removedNodes, nodeId) })),
+
+      recordRemovedEffect: (nodeId, removed) => set(state => ({
+        removedEffects: { ...state.removedEffects, [nodeId]: [...(state.removedEffects[nodeId] || []), removed] }
+      })),
+
+      dropRemovedEffect: (nodeId, removedIndex) => set(state => {
+        const rest = (state.removedEffects[nodeId] || []).filter((_, i) => i !== removedIndex);
+        return { removedEffects: rest.length > 0 ? { ...state.removedEffects, [nodeId]: rest } : omit(state.removedEffects, nodeId) };
+      }),
       setHighlightedNodeId: (nodeId) => set({ highlightedNodeId: nodeId }),
       setOpenPanel: (nodeId, panel) => set(state => {
         const updated = { ...state.openPanelByNode };
@@ -193,16 +247,19 @@ export const useBuilderStore = create<BuilderState>()(
 
       setAllBaseStats: stats => set(state => withBaseStats(state, stats)),
 
-      setMechanicNode: (nodeId, node, insertAfter) => {
+      setMechanicNode: (nodeId, node, insertAfter, insertBefore) => {
         set(state => {
           let updated: Record<string, MechanicNode>;
           // Only a genuinely new key needs positioning -- updating one already in place should
           // never jump it elsewhere in the object.
-          if (insertAfter && !(nodeId in state.mechanics) && insertAfter in state.mechanics) {
+          const isNew = !(nodeId in state.mechanics);
+          if (isNew && ((insertAfter && insertAfter in state.mechanics) || (insertBefore && insertBefore in state.mechanics))) {
+            const after = insertAfter && insertAfter in state.mechanics ? insertAfter : null;
             updated = {};
             Object.entries(state.mechanics).forEach(([key, val]) => {
+              if (!after && key === insertBefore) updated[nodeId] = node;
               updated[key] = val;
-              if (key === insertAfter) updated[nodeId] = node;
+              if (key === after) updated[nodeId] = node;
             });
           } else {
             updated = { ...state.mechanics, [nodeId]: node };
@@ -258,6 +315,9 @@ export const useBuilderStore = create<BuilderState>()(
             editedMechanics: updatedEdits,
             openPanelByNode: updatedOpenPanel,
             renamedFrom: updatedRenamed,
+            removedEffects: state.removedEffects[oldId]
+              ? { ...omit(state.removedEffects, oldId), [newId]: state.removedEffects[oldId] }
+              : state.removedEffects,
             // Record oldId as deleted so a future re-fetch doesn't resurrect it from pristine data.
             deletedMechanicIds: [...state.deletedMechanicIds.filter(id => id !== oldId && id !== newId), oldId]
           };
@@ -311,6 +371,7 @@ export const useBuilderStore = create<BuilderState>()(
             editedMechanics: omit(s.editedMechanics, nodeId, origin),
             renamedFrom: omit(s.renamedFrom, nodeId),
             openPanelByNode: nextOpenPanel,
+            removedEffects: omit(s.removedEffects, nodeId, origin),
             deletedMechanicIds: s.deletedMechanicIds.filter(id => id !== nodeId && id !== origin)
           };
         });
@@ -326,6 +387,7 @@ export const useBuilderStore = create<BuilderState>()(
             editedMechanics: omit(state.editedMechanics, nodeId),
             openPanelByNode: omit(state.openPanelByNode, nodeId),
             renamedFrom: omit(state.renamedFrom, nodeId),
+            removedEffects: omit(state.removedEffects, nodeId),
             deletedMechanicIds: [...state.deletedMechanicIds.filter(id => id !== nodeId), nodeId]
           };
         });
@@ -395,7 +457,9 @@ export const useBuilderStore = create<BuilderState>()(
         editedBaseStats: state.editedBaseStats,
         editedMechanics: state.editedMechanics,
         deletedMechanicIds: state.deletedMechanicIds,
-        renamedFrom: state.renamedFrom
+        renamedFrom: state.renamedFrom,
+        removedEffects: state.removedEffects,
+        removedNodes: state.removedNodes
       })
     }
   )

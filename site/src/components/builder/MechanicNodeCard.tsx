@@ -56,7 +56,7 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({
   nodeId, data, groupSiblings, childOfHold,
   dragDisabled, isDragging, dragOverPosition, onRowDragStart, onRowDragOver, onRowDragLeave, onRowDrop, onRowDragEnd
 }) => {
-  const { setMechanicNode, removeMechanicNode, activeChar, baseStats, setHighlightedNodeId, setHoveredFieldHighlight, setOpenPanel } = useBuilderStore();
+  const { setMechanicNode, softRemoveMechanicNode, activeChar, baseStats, setHighlightedNodeId, setHoveredFieldHighlight, setOpenPanel } = useBuilderStore();
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Single ref shared by every field-hover source, so a fast leave-then-enter across
   // adjacent targets cancels the pending clear instead of flickering (50ms debounce both ways).
@@ -168,7 +168,7 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({
         activeTrigger={activeTrigger}
         toggleTrigger={toggleTrigger}
         setActiveTrigger={(key) => setOpenPanel(nodeId, key)}
-        removeMechanicNode={removeMechanicNode}
+        removeMechanicNode={softRemoveMechanicNode}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         onFieldMouseEnter={enterFieldHover}
