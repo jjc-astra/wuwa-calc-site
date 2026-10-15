@@ -880,11 +880,13 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     stroke-linejoin: round;
     fill: none;
     margin-left: var(--space-4);
-    animation: flash 1s infinite ease-in-out;
+    animation: flash 1s 3.5 ease-in-out;
 }
 
 /* .calc-loading-msg/.calc-loading-spinner (rotation-only) moved to calculator.css --
-   @keyframes flash stays here since builder.css's dirty-badge indicator also uses it by name. */
+   @keyframes flash stays here since builder.css's dirty-badge indicator also uses it by name.
+   Run 3.5 times (ends on full opacity), not forever: an endless animation keeps the GPU
+   compositing every frame for as long as the indicator shows. */
 @keyframes flash {
     0% { opacity: 0.7; }
     50% { opacity: 1; }

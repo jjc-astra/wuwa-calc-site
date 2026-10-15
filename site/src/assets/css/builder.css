@@ -75,7 +75,7 @@
     align-items: center;
     justify-content: center;
     filter: drop-shadow(0 1px 0.1875rem rgba(0, 0, 0, 0.7));
-    animation: flash 1s infinite ease-in-out;
+    animation: flash 1s 3.5 ease-in-out;
 }
 .char-grid-dirty-badge svg {
     width: 100%;
@@ -828,7 +828,7 @@
     border: 0;
     background: transparent;
     cursor: pointer;
-    animation: flash 1s infinite ease-in-out;
+    animation: flash 1s 3.5 ease-in-out;
 }
 .builder-view .mech-changed-badge:hover { animation: none; }
 .mech-revert-option { color: var(--danger); }

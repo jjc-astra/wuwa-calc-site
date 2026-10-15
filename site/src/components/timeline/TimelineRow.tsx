@@ -5,7 +5,7 @@ import { TimelineClip, buildClipTooltipHtml } from './TimelineClip';
 import { ROW_HEIGHT_PX, CLIP_INSET_PX, simultaneousLineHeightPx, pxToCompressedTime } from './timelineLayout';
 import { nearestMarker, trackPointer, useActiveMarker, useFrameMove } from './trackPointer';
 import type { UnitRowData } from './timelineLayout';
-import { useLinkedRowStore, scrollIntoContainer } from '../../store/useLinkedRowStore';
+import { useLinkedRowStore, scrollIntoContainer, subscribeLinkedScroll } from '../../store/useLinkedRowStore';
 
 interface TimelineRowProps {
   data: UnitRowData;
@@ -21,7 +21,6 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({ data, expander, linked
   const markActive = useActiveMarker();
   const trackRef = useRef<HTMLDivElement>(null);
   const hover = useLinkedRowStore(s => s.hover);
-  const scrollId = useLinkedRowStore(s => (linked && s.source === 'table' ? s.rowIds[0] ?? null : null));
 
   // Clips of the linked rows highlighted, toggled on the DOM rather than rendered: re-rendering the
   // row (every clip and hit dot) on each hover change made hovering Timeline buffs stutter.
@@ -37,14 +36,17 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({ data, expander, linked
   });
   const hoverRow = (row: any) => { if (linked) hover(row?.id ? [row.id] : [], 'timeline'); };
 
-  // A table row hovered: bring its first clip into view.
+  // A table row hovered: bring its first clip into view. Subscribed rather than selected, so a
+  // table hover doesn't re-render the row.
   useEffect(() => {
-    if (!scrollId) return;
-    const clip = trackRef.current?.querySelector<HTMLElement>(`[data-row-id="${CSS.escape(scrollId)}"]`);
-    // Past the sticky name column, not under it.
-    const names = trackRef.current?.previousElementSibling?.getBoundingClientRect().width ?? 0;
-    if (clip) scrollIntoContainer(clip, clip.closest<HTMLElement>('.timeline-scroll'), { insetLeft: names });
-  }, [scrollId]);
+    if (!linked) return;
+    return subscribeLinkedScroll(s => (s.source === 'table' ? s.rowIds[0] : undefined), id => {
+      const clip = trackRef.current?.querySelector<HTMLElement>(`[data-row-id="${CSS.escape(id)}"]`);
+      // Past the sticky name column, not under it.
+      const names = trackRef.current?.previousElementSibling?.getBoundingClientRect().width ?? 0;
+      if (clip) scrollIntoContainer(clip, clip.closest<HTMLElement>('.timeline-scroll'), { insetLeft: names });
+    });
+  }, [linked]);
 
   const move = useFrameMove(e => {
     const pointer = trackPointer(e);

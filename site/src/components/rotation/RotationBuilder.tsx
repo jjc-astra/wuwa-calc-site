@@ -12,7 +12,7 @@ import type { ExportSource } from '../../utils/rotationExport';
 import { toSavedRow } from '../../store/useRotationStore';
 import { loopEndIndexOf, loopSplitRowIndices } from '../../logic/rotationRows';
 import { useLatestCallback } from '../../hooks/useLatestCallback';
-import { useLinkedRowStore } from '../../store/useLinkedRowStore';
+import { subscribeLinkedScroll } from '../../store/useLinkedRowStore';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useTimelineViewStore } from '../../store/useTimelineViewStore';
 import { SortIcon } from '../common/icons';
@@ -161,11 +161,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     const index = rows.findIndex(r => r.id === id);
     if (index !== -1) virtualizer.scrollToIndex(index, { align: 'auto', behavior: 'smooth' });
   });
-  useEffect(() => useLinkedRowStore.subscribe((s, prev) => {
-    const target = (state: typeof s) => (state.source === 'timeline' && state.scroll ? state.rowIds[0] : undefined);
-    const id = target(s);
-    if (id && id !== target(prev)) scrollToRow(id);
-  }), [scrollToRow]);
+  useEffect(() => subscribeLinkedScroll(s => (s.source === 'timeline' && s.scroll ? s.rowIds[0] : undefined), scrollToRow), [scrollToRow]);
 
   // Backfills damageInstances (not persisted) once per page load, without flagging isStale.
   // checkBuilderStaleness then dims the results if a Builder edit since the last Calculate

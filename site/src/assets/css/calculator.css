@@ -572,7 +572,7 @@
     display: flex; align-items: center; justify-content: center;
     padding: var(--space-4); cursor: pointer;
     opacity: 0; transform: scale(0.8);
-    transition: all 0.15s ease-out;
+    transition: opacity 0.15s ease-out, transform 0.15s ease-out;
     z-index: 10;
 }
 .check-wrap input { position: absolute; opacity: 0; cursor: pointer; height: 0; width: 0; }
@@ -581,7 +581,7 @@
     width: 0.875rem; height: 0.875rem;
     border: 1px solid var(--text-disabled); border-radius: 2px;
     background-color: rgba(0,0,0,0.5);
-    transition: all 0.15s;
+    transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s;
     pointer-events: none;
 }
 .check-wrap input:checked ~ .check-visual,
@@ -665,7 +665,9 @@
     align-items: center;
     justify-content: center;
     border-radius: 0.25rem;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    /* Named, not `all`: a linked-row highlight restyles every row cell, and `all` started a
+       stray transition (scrollbar-color) on each one, repainting the row for every hover. */
+    transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .sub-panel-trigger:hover {
     background-color: var(--overlay-w3);

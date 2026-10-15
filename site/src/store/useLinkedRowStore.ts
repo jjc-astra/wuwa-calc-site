@@ -2,7 +2,7 @@ import { create } from 'zustand';
 
 const NONE: string[] = [];
 
-interface LinkedRowState {
+export interface LinkedRowState {
   // The rotation rows (by row id) under the cursor in the table, or tied to what's under it on the
   // Calculator Timeline (a move's row, or the rows a buff reached). The first is scrolled to.
   rowIds: string[];
@@ -26,6 +26,30 @@ export const useLinkedRowStore = create<LinkedRowState>()(set => ({
       : { rowIds: rowIds.length ? rowIds : NONE, source, scroll }
   ))
 }));
+
+// The other view scrolls to the hovered move at most this often: a smooth scroll on every hover
+// change while sweeping across moves repainted the whole table (or Timeline) every frame.
+const SCROLL_INTERVAL_MS = 150;
+
+/** Calls `scrollTo` with the row `target` picks from the state, throttled to once per
+ * SCROLL_INTERVAL_MS (the latest target wins). Returns the unsubscribe. */
+export function subscribeLinkedScroll(target: (s: LinkedRowState) => string | undefined, scrollTo: (id: string) => void): () => void {
+  let timer = 0;
+  let lastAt = -Infinity;
+  let pending: string | undefined;
+  const unsubscribe = useLinkedRowStore.subscribe((s, prev) => {
+    const id = target(s);
+    if (id === target(prev)) return;
+    pending = id;
+    if (!id || timer) return;
+    timer = window.setTimeout(() => {
+      timer = 0;
+      lastAt = performance.now();
+      if (pending) scrollTo(pending);
+    }, Math.max(0, lastAt + SCROLL_INTERVAL_MS - performance.now()));
+  });
+  return () => { clearTimeout(timer); unsubscribe(); };
+}
 
 /**
  * Scrolls `el` into view inside its scroll container `container` only (never the page), by the least
