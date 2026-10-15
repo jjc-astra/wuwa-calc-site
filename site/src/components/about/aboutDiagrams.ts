@@ -529,7 +529,7 @@ export const DIAGRAMS = {
     end
     subgraph Other["Tune, NegativeStatus"]
       direction TB
-      T1["Tune: no scalar stat; calcTuneDmg<br/>(TUNE_BASE_DMG, Tune Break Boost, Taken, Multi)"]:::logic
+      T1["Tune: no scalar stat, none of the caster's buffs;<br/>calcTuneDmg (TUNE_BASE_DMG, the caster's Tune Break<br/>Boost; @Enemy DEF/RES reduction and DMG Taken<br/>unscoped or scoped to Tune only)"]:::logic
       N1["NegativeStatus: only @Enemy debuffs or buffs<br/>naming the status; base from the enemy's<br/>stacks → calcNegativeStatusDmg"]:::logic
       T1 ~~~ N1
     end

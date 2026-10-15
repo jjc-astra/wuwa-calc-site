@@ -129,6 +129,13 @@ export function evaluatedBuffValue(buff: Effect, state: any, team: any[]): strin
 // A debuff on the target: it reaches every hit against it, whoever deals it.
 const targetsEnemy = (buff: Effect): boolean => buff.target === '@Enemy' || buff.target === 'Enemy';
 
+// The only buckets a Tune Break/Rupture/Hack hit takes from buffs, and only from debuffs on the
+// enemy: DEF/RES reduction, and DMG Taken that's unscoped or scoped to the Tune hit (applyTo
+// TuneBreak...). A DMG Taken on a unit (Mornye's Decoupling) or scoped elsewhere misses it, as do
+// its caster's own buffs (DMG Bonus/Amp, crit, DEF/RES ignore...); its Tune Break Boost comes from
+// the caster's stats instead.
+const TUNE_DEBUFF_BUCKETS: ReadonlySet<keyof BuffTotals> = new Set<keyof BuffTotals>(['reduceDef', 'reduceRes', 'dmgTaken']);
+
 // A buff still in effect that carries a stat, i.e. one that can contribute to a total.
 function isLiveStatBuff(buff: Effect | undefined): buff is Effect & { stat: string } {
   if (!buff || !buff.stat) return false;
@@ -488,6 +495,26 @@ export const CombatCalculator = {
     return { buffTotals, appliedBuffs };
   },
 
+  // Tune dmg's buffs: TUNE_DEBUFF_BUCKETS debuffs on the enemy that reach the hit (their applyTo /
+  // name scope still applies -- an element's RES shred misses an element-less Tune Break).
+  aggregateTuneBuffTotals: (stateData: any, executingUnit: string, hitModifiers: string[], team: any[] = []): { buffTotals: BuffTotals; appliedBuffs: Record<string, Effect> } => {
+    const buffTotals = emptyBuffTotals();
+    const appliedBuffs: Record<string, Effect> = {};
+    const modsSet = hitModifierSet(hitModifiers);
+    const getProviderStats = providerStatsCache(team, stateData);
+
+    for (const [key, buff] of Object.entries(stateData.activeBuffs || {}) as [string, Effect][]) {
+      if (!targetsEnemy(buff) || !buffOnHit(buff, executingUnit, stateData, modsSet)) continue;
+      const { totalVal, isPct } = readBuffTotal(buff, buff.provider || executingUnit, team, getProviderStats, stateData);
+      const bucket = resolveMultiplierBucket(buff.stat.toLowerCase().trim(), isPct);
+      if (!bucket || !TUNE_DEBUFF_BUCKETS.has(bucket)) continue;
+      buffTotals[bucket] += totalVal;
+      appliedBuffs[key] = asApplied(buff, totalVal, isPct);
+    }
+
+    return { buffTotals, appliedBuffs };
+  },
+
   /** Substat worth's shortcut for re-pricing a Standard-formula hit with `unit`'s stats changed.
    * Worked out once: everything `unit`'s stats don't touch -- the multiplier, every buff but
    * `unit`'s stat-reading ones, and the caster's stats when it isn't `unit`. The returned pricer
@@ -536,15 +563,13 @@ export const CombatCalculator = {
     const stats = casterStatParts(baseStats, buffTotals, dmgTypes, scalarType);
     const { baseDmgBonus, scalar, scalingStatVal, scalarBonusPct, finalCritRate, finalCritDamage } = stats;
 
-    const baseDmg = ((pctMult + buffTotals.additiveMult) * scalingStatVal) + flatMult;
-
     let calculatedTotal: number;
     let nonCritDmg: number;
     let critDmg: number;
     let formulaUsed: 'Standard' | 'Tune' | 'NegativeStatus' = 'Standard';
 
-    // Standard/Tune use the unit-scoped buffTotals/resMultiplier/defMult computed above as-is.
-    // NegativeStatus overrides these three via aggregateNegativeStatusBuffTotals instead.
+    // Standard uses the unit-scoped buffTotals/resMultiplier/defMult computed above as-is.
+    // NegativeStatus and Tune override these three via their own aggregators instead.
     let resolvedBuffTotals = buffTotals;
     let resolvedAppliedBuffs = appliedBuffs;
     let resMult = resMultiplier;
@@ -566,9 +591,15 @@ export const CombatCalculator = {
       nonCritDmg = calculatedTotal; critDmg = calculatedTotal;
     } else if (isTuneDmg) {
       formulaUsed = 'Tune';
+      const tuneAgg = CombatCalculator.aggregateTuneBuffTotals(stateData, executingUnit, shape.hitModifiers, team);
+      resolvedBuffTotals = tuneAgg.buffTotals;
+      resolvedAppliedBuffs = tuneAgg.appliedBuffs;
+      resMult = CombatCalculator.calcResistance(baseRes, 0, resolvedBuffTotals.reduceRes);
+      def = CombatCalculator.calcDefense(unitLvl, enemyLvl, 0, resolvedBuffTotals.reduceDef);
       // The unit's Tune Break Boost (base + buffs reaching it), as a percent.
-      buffTotals.tuneBreakBoost = CombatCalculator.calculateFinalStats(executingUnit, buffsReaching(stateData, executingUnit), team, stateData).tuneBreakBoost / 100;
-      calculatedTotal = CombatCalculator.calcTuneDmg(baseDmg, buffTotals.tuneBreakBoost, buffTotals.dmgTaken, buffTotals.multiplicativeMult, resMultiplier, defMult);
+      resolvedBuffTotals.tuneBreakBoost = CombatCalculator.calculateFinalStats(executingUnit, buffsReaching(stateData, executingUnit), team, stateData).tuneBreakBoost / 100;
+      // pctMult/flatMult as they are: additive multiplier buffs are the caster's, too.
+      calculatedTotal = CombatCalculator.calcTuneDmg(pctMult + flatMult, resolvedBuffTotals.tuneBreakBoost, resolvedBuffTotals.dmgTaken, 0, resMult, def);
       nonCritDmg = calculatedTotal; critDmg = calculatedTotal;
     } else {
       calculatedTotal = standardDamage(shape, parts, stats, critMultiplier(finalCritRate, finalCritDamage));
