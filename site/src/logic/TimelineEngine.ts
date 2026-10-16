@@ -122,6 +122,8 @@ export class TimelineEngineClass {
   // Last logged cooldown timers and their owners.
   _cooldownWatch = new Map<string, { remaining: number; until: number; at: number; charges?: number }>();
   _cooldownOwners = new Map<string, { unit: string; name: string }>();
+  // Per row: Generated adjustments from hits credited to or away from it, and whether its window closed.
+  _deltaCredits = new WeakMap<object, { adj: Record<string, number>; done: boolean }>();
 
   recalculateState(
     activeRows: any[],
@@ -147,6 +149,7 @@ export class TimelineEngineClass {
     this._buffRanOutAt = new Map();
     this._cooldownWatch = new Map();
     this._cooldownOwners = new Map();
+    this._deltaCredits = new WeakMap();
 
     team.forEach(slot => {
       if (slot?.character) slot.echoStats = calculateEchoStatsForSlot(slot);
@@ -375,6 +378,11 @@ export class TimelineEngineClass {
         accumulatedTime = currentData.timeStart + currentData.duration;
         accumulatedGameTime = currentData.gameTimeStart + currentData.gameTimePassed;
       }
+
+      // Stance changes still to come in the animation that plays out off-field after a swap.
+      const offFieldChanges = sortedStanceChanges(dbMove)
+        .filter(change => change.frame > currentData.duration && change.frame <= currentData.animationCommitment);
+      currentData._offFieldStance = offFieldChanges.length > 0 ? { start: currentData.gameTimeStart, changes: offFieldChanges } : undefined;
 
       unitBusyUntil[currentData.unit] = currentData.timeStart + currentData.animationCommitment;
       this._applyMotionStop(currentData, unitBusyUntil, lastRowByUnit, animationByUnit);
@@ -663,12 +671,16 @@ export class TimelineEngineClass {
     currentData.timeScales = structuredClone(prevData.timeScales || {});
     // Per-unit stance: midair persists through the combo window; otherwise inherit the outgoing stance.
     currentData.unitStances = { ...(prevData.unitStances || {}) };
-    if (prevData.unit) currentData.unitStances[prevData.unit] = prevData.stance || CHARACTER_DEFAULTS.defaultStance;
+    currentData.unitOffFieldStances = { ...(prevData.unitOffFieldStances || {}) };
+    if (prevData.unit) {
+      currentData.unitStances[prevData.unit] = prevData.stance || CHARACTER_DEFAULTS.defaultStance;
+      currentData.unitOffFieldStances[prevData.unit] = prevData._offFieldStance;
+    }
     if (prevData.unit && currentData.unit && currentData.unit !== prevData.unit) {
       const isIntro = currentData.castTypes?.includes('Intro');
       const myCombo = prevData.unitCombos?.[currentData.unit];
       const isDuringCombo = myCombo && currentTime <= myCombo.expiration;
-      const swapInStance = isDuringCombo ? currentData.unitStances[currentData.unit] : prevData.stance;
+      const swapInStance = isDuringCombo ? this._returningStance(currentData, currentData.unit, currentTime) : prevData.stance;
       currentData.stance = (!isIntro && swapInStance) || CHARACTER_DEFAULTS.defaultStance;
     } else {
       currentData.stance = prevData.stance || CHARACTER_DEFAULTS.defaultStance;
@@ -676,6 +688,16 @@ export class TimelineEngineClass {
     // Starting stance, for validation.
     currentData.entryStance = currentData.stance;
     this._logTimeline(currentData);
+  }
+
+  // A returning unit's stance: as it left, plus changes its off-field animation has reached by `now`.
+  _returningStance(state: any, unit: string, now: number): string | undefined {
+    let stance = state.unitStances[unit];
+    const track = state.unitOffFieldStances?.[unit];
+    for (const change of track?.changes || []) {
+      if (now - track.start >= change.frame) stance = change.stance;
+    }
+    return stance;
   }
 
   _primeCombatStart(firstRowData: any, team: any[]): void {
@@ -862,7 +884,9 @@ export class TimelineEngineClass {
       });
     }
     const instantCancelTime = swapDuration ?? toFrames(GAME_DEFAULTS.swapTime);
-    if (validCancels.length > 0) {
+    // Any move the next one can cancel, with or without authored cancel windows.
+    const canInstantCancel = validCancels.length > 0 || nextMoveCancels;
+    if (canInstantCancel) {
       availableTimings.push({ val: 'Instant_Cancel', label: 'Instant Cancel', title: `Duration: ${formatFramesAsSeconds(instantCancelTime)} | No Hits` });
     }
     if (moveData.inputType === 'Hold' || moveData.castTypes?.includes('Echo')) {
@@ -927,7 +951,7 @@ export class TimelineEngineClass {
       const ct = validCancels.find(vc => vc.index === parseInt(timingType.split('_')[1], 10));
       if (ct) cutAt(ct.time, ct.hits);
       else cutAuto();
-    } else if (timingType === 'Instant_Cancel' && validCancels.length > 0) {
+    } else if (timingType === 'Instant_Cancel' && canInstantCancel) {
       cutAt(instantCancelTime, 0);
     } else if (timingType === 'Cancel') {
       if (validCancels.length > 0) cutAt(validCancels[0].time, validCancels[0].hits);
@@ -1046,6 +1070,10 @@ export class TimelineEngineClass {
       // Failed hitCondition: the hit doesn't happen.
       if (!this._hitConditionPasses(nextHit, currentData, team)) continue;
 
+      // Another row's hit: its resources count toward that row's Generated, not this one's.
+      const creditRow = nextHit.originRow !== currentData && nextHit.originRow?.unit ? nextHit.originRow : null;
+      const poolsBefore = creditRow && this._readPools(currentData, currentData.unit, creditRow.unit);
+
       // Multiplier resolved per hit, as it lands.
       const rawMult = nextHit.hitMult;
       if (typeof rawMult === 'string' && (rawMult.startsWith('MATH(') || isDslExpr(rawMult))) {
@@ -1067,6 +1095,14 @@ export class TimelineEngineClass {
       currentData.activeProcSource = nextHit.originActionId;
       this._fire('OnHit', nextHit.hitModifiers, currentData, nextHit.origin.caster, activeTeam, activeRows, team, nextHit.executeAt);
       delete currentData.activeProcSource;
+
+      if (creditRow && poolsBefore) {
+        const poolsAfter = this._readPools(currentData, currentData.unit, creditRow.unit);
+        RESOURCE_KEYS.forEach((key, i) => {
+          this._creditDelta(currentData, key, poolsBefore.windowUnit[i] - poolsAfter.windowUnit[i]);
+          this._creditDelta(creditRow, key, poolsAfter.originUnit[i] - poolsBefore.originUnit[i]);
+        });
+      }
 
       // Hit history entry for the DMG cell and Results.
       if (this._run.hitLog) {
@@ -1306,6 +1342,23 @@ export class TimelineEngineClass {
     effectsArray.forEach(eff => { if (eff.type !== 'procced_mechanic') this._processEffect(eff, currentData, eff.provider || defaultProvider, activeTeam, activeRows, currentData.arrayIndex, team); });
   }
 
+  // Every resource's current value for two units (the enemy's, for Tune).
+  _readPools(state: any, windowUnit: string, originUnit: string): { windowUnit: number[]; originUnit: number[] } {
+    return {
+      windowUnit: RESOURCE_KEYS.map(key => readResource(state, key, windowUnit)),
+      originUnit: RESOURCE_KEYS.map(key => readResource(state, key, originUnit))
+    };
+  }
+
+  // Adds to a row's Generated delta for `key`, even after its window has closed.
+  _creditDelta(row: any, key: string, amount: number): void {
+    if (!amount) return;
+    let credits = this._deltaCredits.get(row);
+    if (!credits) this._deltaCredits.set(row, credits = { adj: {}, done: false });
+    if (credits.done) row.trackers[deltaKey(key)] = (row.trackers[deltaKey(key)] || 0) + amount;
+    else credits.adj[key] = (credits.adj[key] || 0) + amount;
+  }
+
   // Logs Energy gains/spends per row for the required-ER analysis.
   _gainEnergy(currentData: any, unit: string, base: number, team: any[], scaled: boolean): void {
     if (!scaled) {
@@ -1382,6 +1435,9 @@ export class TimelineEngineClass {
     const moveData = dbMove;
     const prevData = currentIndex > 0 ? activeRows[currentIndex - 1] : this._getDefaultData(team[0]?.character);
     const startValues = RESOURCE_KEYS.map(key => readResource(currentData, key, unitName));
+    // Hits landing during the wait aren't in the window measured below.
+    const credits = { adj: {} as Record<string, number>, done: false };
+    this._deltaCredits.set(currentData, credits);
 
     // Motion stop delays other units' pending hits.
     const motionStop = currentData.motionStop || 0;
@@ -1434,8 +1490,10 @@ export class TimelineEngineClass {
 
     if (!currentData.trackers) currentData.trackers = {};
     RESOURCE_KEYS.forEach((key, i) => {
-      currentData.trackers[deltaKey(key)] = readResource(currentData, key, unitName) - startValues[i];
+      const windowChange = readResource(currentData, key, unitName) - startValues[i];
+      currentData.trackers[deltaKey(key)] = windowChange + (credits.adj[key] || 0);
     });
+    credits.done = true;
   }
 
   _runValidation(currentData: any, prevData: any, team: any[], dbMove: MechanicNode): void {
