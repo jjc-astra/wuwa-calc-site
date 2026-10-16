@@ -129,6 +129,7 @@ export const ContextManager = {
         hpPct: hpPct,
         tune: 0,
         maxTune: 0,
+        canTuneBreak: (activeState.tuneReadyUnits || []).includes(activeUnitName),
         getBuffStacks: (buffName: string) => reachingCopies(buffName).reduce((sum, buff) => sum + (buff ? buff.stacks || 1 : 0), 0),
         getBuffMaxStacks: (buffName: string) => lookupBuff(activeUnitName, buffName)?.maxStacks || 1,
         hasBuff: (buffName: string) => (reachingCopies(buffName).some(isBuffLive) ? 1 : 0),

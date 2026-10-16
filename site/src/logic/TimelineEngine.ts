@@ -123,6 +123,7 @@ export class TimelineEngineClass {
   _cooldownWatch = new Map<string, { remaining: number; until: number; at: number; charges?: number }>();
   _cooldownOwners = new Map<string, { unit: string; name: string }>();
   // Per row: Generated adjustments from hits credited to or away from it, and whether its window closed.
+  _preCastOnField: string | undefined;
   _deltaCredits = new WeakMap<object, { adj: Record<string, number>; done: boolean }>();
 
   recalculateState(
@@ -188,6 +189,8 @@ export class TimelineEngineClass {
       currentData.enemyLevel = enemyConfig.level;
       currentData.enemyRes = enemyConfig.res;
       const prevData = i > 0 ? activeRows[i - 1] : this._getDefaultData(team[0]?.character);
+      // Until this row casts, the previous unit is still on field.
+      this._preCastOnField = prevData.unit || undefined;
 
       if (!currentData.unit) {
         this._applyInheritance(currentData, prevData, accumulatedGameTime, team);
@@ -473,6 +476,7 @@ export class TimelineEngineClass {
 
       this._runValidation(currentData, prevData, team, dbMove);
 
+      this._preCastOnField = undefined;
       this._evaluateMechanics(currentData, activeTeam, activeRows, i, team, dbMove);
       this._resolveComboWindows(currentData, dbMove, team);
       // Spam-click indicator; after the row's state is final.
@@ -490,6 +494,7 @@ export class TimelineEngineClass {
     if (this._run.dropdownSnapshots) emptyRow.dropdownState = plainCopy(emptyRow, ROW_LINK_KEYS);
 
     // Flush hits still queued after the last row (repeats, since hits can queue procs).
+    this._preCastOnField = undefined;
     const flushContext = activeRows[activeRows.length - 1];
     for (let guard = 0; this.damageQueue.length > 0 && guard < 1000; guard++) {
       const lastHitAt = Math.max(...this.damageQueue.map(hit => hit.executeAt));
@@ -636,6 +641,7 @@ export class TimelineEngineClass {
     currentData.enemyHp = prevData.enemyHp ?? currentData.enemyMaxHp;
     currentData.enemyMaxTune = prevData.enemyMaxTune ?? ENEMY_DEFAULTS.maxTune;
     currentData.enemyTune = prevData.enemyTune ?? 0;
+    currentData.tuneReadyUnits = [...(prevData.tuneReadyUnits || [])];
     inheritPools(currentData, prevData);
 
     currentData.trackers = structuredClone(prevData.trackers || {});
@@ -996,7 +1002,7 @@ export class TimelineEngineClass {
       this._buffRanOutAt.clear();
     };
 
-    this._processQueuedHits(currentData, realTimePassed, activeTeam, activeRows, team, elapsedReal => advanceGameTimeTo(Math.max(0, elapsedReal - freezeFrames)));
+    this._processQueuedHits(currentData, realTimePassed, activeTeam, activeRows, team, elapsedReal => advanceGameTimeTo(Math.max(0, elapsedReal - freezeFrames)), freezeFrames);
     this.currentGlobalRealTime += realTimePassed;
     advanceGameTimeTo(gameTimePassed);
   }
@@ -1057,8 +1063,8 @@ export class TimelineEngineClass {
     return { waitFrames, label: resolvedLabels.length > 0 ? `Waiting for ${resolvedLabels.join(' / ')}` : null };
   }
 
-  // `beforeHit` receives each hit's real-time offset into the window.
-  _processQueuedHits(currentData: any, realTimePassed: Frames, activeTeam: string[], activeRows: any[], team: any[], beforeHit?: (elapsedReal: number) => void): void {
+  // `beforeHit` receives each hit's real-time offset into the window; `freezeFrames` is the window's freeze.
+  _processQueuedHits(currentData: any, realTimePassed: Frames, activeTeam: string[], activeRows: any[], team: any[], beforeHit?: (elapsedReal: number) => void, freezeFrames = 0): void {
     const realWindowEnd = this.currentGlobalRealTime + realTimePassed;
     while (this.damageQueue.length > 0) {
       const nextHit = this.damageQueue[0];
@@ -1073,6 +1079,8 @@ export class TimelineEngineClass {
       // Another row's hit: its resources count toward that row's Generated, not this one's.
       const creditRow = nextHit.originRow !== currentData && nextHit.originRow?.unit ? nextHit.originRow : null;
       const poolsBefore = creditRow && this._readPools(currentData, currentData.unit, creditRow.unit);
+      const maxTune = currentData.enemyMaxTune ?? ENEMY_DEFAULTS.maxTune;
+      if ((currentData.enemyTune || 0) < maxTune && currentData.tuneReadyUnits?.length) currentData.tuneReadyUnits = [];
 
       // Multiplier resolved per hit, as it lands.
       const rawMult = nextHit.hitMult;
@@ -1095,6 +1103,14 @@ export class TimelineEngineClass {
       currentData.activeProcSource = nextHit.originActionId;
       this._fire('OnHit', nextHit.hitModifiers, currentData, nextHit.origin.caster, activeTeam, activeRows, team, nextHit.executeAt);
       delete currentData.activeProcSource;
+
+      // Tune Break opens per unit: its own on-field hit, outside freeze, once Tune is full.
+      const caster = nextHit.origin.caster;
+      const isOnField = caster === (this._preCastOnField ?? (currentData.onFieldUnit || currentData.unit));
+      const outsideFreeze = nextHit.executeAt - this.currentGlobalRealTime >= freezeFrames;
+      if ((currentData.enemyTune || 0) >= maxTune && isOnField && outsideFreeze && !currentData.tuneReadyUnits?.includes(caster)) {
+        currentData.tuneReadyUnits = [...(currentData.tuneReadyUnits || []), caster];
+      }
 
       if (creditRow && poolsBefore) {
         const poolsAfter = this._readPools(currentData, currentData.unit, creditRow.unit);
