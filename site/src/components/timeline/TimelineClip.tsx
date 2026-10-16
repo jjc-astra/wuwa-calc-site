@@ -49,7 +49,8 @@ export function buildClipTooltipHtml(
   return (
     `<div>${row.moveName}${type === 'offfield' ? ' (off-field)' : ''}</div>` +
     tooltipLine('Start', seconds(row.gameTimeStart)) +
-    tooltipLine('Duration', seconds(row.duration)) +
+    // Game time, excluding freeze.
+    tooltipLine('Duration', seconds(row.gameTimePassed ?? row.duration)) +
     tooltipLine('Timing', timingLabel(row)) +
     tooltipLine('Input', describeInput(row)) +
     at +
