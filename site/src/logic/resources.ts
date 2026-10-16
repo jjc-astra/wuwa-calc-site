@@ -79,15 +79,17 @@ export function resourceLabel(key: string, stats: Record<string, any> | undefine
   return slot ? forteLabel(stats, slot) : key;
 }
 
-// A move's required amount: what its cast spends.
-export function resourceRequirement(move: MechanicNode, key: string): number {
-  const castAmount = Number(move.castResources?.[key]);
+// A move's required amount: what its cast spends. `resolve` reads DSL amounts.
+export function resourceRequirement(move: MechanicNode, key: string, resolve: (value: unknown) => number = Number): number {
+  const raw = move.castResources?.[key];
+  const castAmount = raw === undefined ? 0 : resolve(raw);
   return castAmount < 0 ? -castAmount : 0;
 }
 
 // Index of the hit where `key` reaches its cap, or -1.
 export function capHitIndex(
-  state: any, unit: string, key: string, move: MechanicNode, hitCount: number, gain: (amount: number) => number
+  state: any, unit: string, key: string, move: MechanicNode, hitCount: number, gain: (amount: number) => number,
+  resolve: (value: unknown) => number = value => parseFloat(String(value))
 ): number {
   const perHit = move.hitResources?.[key];
   const start = state[key]?.[unit];
@@ -95,7 +97,7 @@ export function capHitIndex(
 
   let current = start;
   const cap = resourceCap(unit, key);
-  if (move.castResources?.[key]) current += gain(parseFloat(String(move.castResources[key])) || 0);
+  if (move.castResources?.[key]) current += gain(resolve(move.castResources[key]) || 0);
   if (!Array.isArray(perHit)) return -1;
   for (let i = 0; i < hitCount; i++) {
     if (current >= cap) break;

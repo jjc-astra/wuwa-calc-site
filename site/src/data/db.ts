@@ -192,7 +192,7 @@ export const ENEMY_DEFAULTS = {
   level: 100,
   res: 20,
   hp: 3000000,
-  maxTune: 40,
+  maxTune: 39.2,
   statusBaseDmg: 3674
 };
 
@@ -370,10 +370,10 @@ const BUILDER_TEMPLATES: Record<string, MechanicNode> = {
   // Keep castTypes/dmgTypes as ['TuneBreak']/['TuneRupture'] -- CombatCalculator routes on this to calcTuneDmg.
   'Tune Break': {
     name: 'Tune Break',
-    triggerRule: 'IF (@Enemy.Tune >= 40)',
+    triggerRule: 'IF (@Enemy.Tune >= @Enemy.MaxTune && @Self.CanTuneBreak)',
     castTypes: ['TuneBreak'],
     dmgTypes: ['TuneBreak'],
-    castResources: { tune: -40 },
+    castResources: { tune: '-@Enemy.MaxTune' },
     hitMults: [1600],
     actionDuration: toFrames(120),
     freezeTime: toFrames(120),

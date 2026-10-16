@@ -852,8 +852,9 @@ export class TimelineEngineClass {
     let capConcertoHitIdx = -1;
     if (moveData.hitResources && unitName) {
       const erMult = energyRegenMult(currentData, unitName, team);
-      capEnergyHitIdx = capHitIndex(currentData, unitName, 'energy', moveData, hitCount, amount => (amount > 0 ? amount * erMult : amount));
-      capConcertoHitIdx = capHitIndex(currentData, unitName, 'concerto', moveData, hitCount, amount => amount);
+      const resolve = (v: unknown) => this._resolveNumber(v, currentData, unitName, team);
+      capEnergyHitIdx = capHitIndex(currentData, unitName, 'energy', moveData, hitCount, amount => (amount > 0 ? amount * erMult : amount), resolve);
+      capConcertoHitIdx = capHitIndex(currentData, unitName, 'concerto', moveData, hitCount, amount => amount, resolve);
     }
 
     const availableTimings: any[] = [
@@ -1012,7 +1013,7 @@ export class TimelineEngineClass {
     const unit = currentData.unit;
     if (!unit) return { waitFrames: 0, label: null };
 
-    const reqFor = (key: string): number => resourceRequirement(dbMove, key);
+    const reqFor = (key: string): number => resourceRequirement(dbMove, key, v => this._resolveNumber(v, currentData, unit, team));
     const currentValue = (key: string): number => readResource(currentData, key, unit);
 
     const unitStats = DataLoader.characterDB[unit];
@@ -1403,7 +1404,7 @@ export class TimelineEngineClass {
 
   _applyCastResources(currentData: any, moveData: MechanicNode, activeTeam: string[], team: any[]): void {
     for (const key in moveData.castResources || {}) {
-      const amount = parseFloat(String(moveData.castResources![key]));
+      const amount = this._resolveNumber(moveData.castResources![key], currentData, currentData.unit, team);
       if (!amount) continue;
       // Move Energy goes to the whole team; spends are the caster's.
       const units = key === 'energy' && amount > 0 ? activeTeam : [currentData.unit];
@@ -1531,7 +1532,7 @@ export class TimelineEngineClass {
     };
 
     const validateRes = (key: string, myVal: number, label: string) => {
-      const req = resourceRequirement(moveData, key);
+      const req = resourceRequirement(moveData, key, v => this._resolveNumber(v, currentData, currentData.unit, team));
       if (req > 0 && myVal < req) {
         if (key === 'energy') warnings.push(buildEnergyShortfallMsg(myVal, req));
         else errors.push(`Not enough ${label} (Needs ${req}).`);
