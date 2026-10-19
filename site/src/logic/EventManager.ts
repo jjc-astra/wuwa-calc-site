@@ -128,7 +128,8 @@ export class EventManagerClass {
       if (!this.listeners[t.event]) this.listeners[t.event] = [];
       this.listeners[t.event].push({
         ...mechanic,
-        equipper: equipperName,
+        // actsForUnit: no equipper, so it acts as whichever unit's event fires it (ownerOf).
+        equipper: mechanic.actsForUnit ? '' : equipperName,
         mechanicKey,
         triggerEvent: t.event,
         evaluate: compiledRule.evaluate,

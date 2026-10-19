@@ -185,6 +185,8 @@ export interface MechanicNode {
   allowedHits?: number;
   // Checked per hit; failing hits don't happen.
   hitCondition?: string;
+  // A System passive that acts as the unit whose event fires it -- its @Self, and what it applies -- not as System.
+  actsForUnit?: boolean;
   _compiledRule?: any;
 }
 

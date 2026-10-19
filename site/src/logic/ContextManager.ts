@@ -130,7 +130,6 @@ export const ContextManager = {
         hpPct: hpPct,
         tune: 0,
         maxTune: 0,
-        canTuneBreak: (activeState.tuneReadyUnits || []).includes(activeUnitName),
         getBuffStacks: (buffName: string) => reachingCopies(buffName).reduce((sum, buff) => sum + (buff ? buff.stacks || 1 : 0), 0),
         getBuffMaxStacks: (buffName: string) => lookupBuff(activeUnitName, buffName)?.maxStacks || 1,
         hasBuff: (buffName: string) => (reachingCopies(buffName).some(isBuffLive) ? 1 : 0),
@@ -157,6 +156,8 @@ export const ContextManager = {
       return {
         self: selfContext,
         active: { name: onFieldUnit },
+        // The hit an OnHit/AfterHit rule is checking (TimelineEngine sets it as each hit lands).
+        hit: { onField: !!activeState._hit?.onField, inFreeze: !!activeState._hit?.inFreeze },
         // Times are frames; cooldowns are seconds.
         move: {
           id: actionId,

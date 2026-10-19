@@ -329,10 +329,10 @@ export const DIAGRAMS = {
       A3 --> A4["busy wait: the unit's last animation<br/>(unitBusyUntil, + other units' motion stops<br/>during it); none for an Outro"]:::logic
       A4 --> A5["wait = the larger; _decayState (not<br/>on row 1): time runs, hits land"]:::logic
     end
-    subgraph Res["resources"]
+    subgraph Res["castable"]
       direction TB
-      B1{"_computeResourceWait: short on<br/>Concerto, Forte or Tune?<br/>(Energy stays a warning)"}
-      B1 -- yes --> B2["advance hit by hit to queued hits<br/>that grant it, until enough or none<br/>left; added to the wait"]:::logic
+      B1{"_computeCastWait: short on Concerto,<br/>Forte or Tune, or its trigger rule fails?<br/>(Energy stays a warning)"}
+      B1 -- yes --> B2["dry run: land queued hits one by one<br/>(up to 3s) until castable, then undo;<br/>if it got there, wait that long"]:::logic
       B1 -- no --> B3["no wait"]
       B2 --> B4["backfillPools: the previous row shows<br/>pools as they were right before this"]:::logic
       B3 --> B4

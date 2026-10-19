@@ -123,7 +123,6 @@ export const DSL_POINTERS: Record<string, DSLPointerDef> = {
       { propName: 'MaxEnergy', type: 'number', targetKey: '.maxEnergy', tooltip: "Returns Self's maximum Resonance Energy." },
       { propName: 'Concerto', type: 'number', targetKey: '.concerto', tooltip: "Returns Self's current Concerto Energy." },
       { propName: 'Sequence', type: 'number', targetKey: '.sequence', tooltip: "Returns Self's Resonance Chain (sequence) level, 0-6." },
-      { propName: 'CanTuneBreak', type: 'boolean', targetKey: '.canTuneBreak', tooltip: "Returns true once Self lands an on-field hit, outside freeze time, while the enemy's Tune is full." },
       { propName: 'PrevAction', type: 'string', fullOverride: 'ctx.self.prevAction', tooltip: 'Returns the name of the last action Self performed.' },
       { propName: 'NextAction', type: 'string', fullOverride: 'ctx.self.nextAction', tooltip: "Returns the name of the next action Self performs after this row, even if other characters act in between. Empty if Self doesn't act again." },
       { propName: 'Name', type: 'string', fullOverride: 'ctx.self.name', tooltip: "Returns Self's character name." },
@@ -195,6 +194,15 @@ export const DSL_POINTERS: Record<string, DSLPointerDef> = {
       { propName: 'Action', type: 'string', fullOverride: 'ctx.next.action', tooltip: 'Returns the queued action the incoming character will perform.' },
       { propName: 'CastTypes', type: 'string[]', fullOverride: 'ctx.next.castTypes', regexPattern: 'CastTypes?', tooltip: "Returns the cast-type tags of the incoming character's queued action." },
       { propName: 'Priority', type: 'number', fullOverride: 'ctx.next.priority', tooltip: "Returns the priority value of the incoming character's queued action." }
+    ]
+  },
+  Hit: {
+    pointer: 'Hit',
+    targetVar: 'ctx.hit',
+    tooltip: 'The hit an OnHit or AfterHit rule is checking.',
+    properties: [
+      { propName: 'OnField', type: 'boolean', targetKey: '.onField', tooltip: "Returns true if the hit's caster is on field as it lands." },
+      { propName: 'InFreeze', type: 'boolean', targetKey: '.inFreeze', tooltip: 'Returns true if the hit lands during a freeze (time stop).' }
     ]
   },
   Active: {

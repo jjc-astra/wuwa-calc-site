@@ -370,7 +370,7 @@ const BUILDER_TEMPLATES: Record<string, MechanicNode> = {
   // Keep castTypes/dmgTypes as ['TuneBreak']/['TuneRupture'] -- CombatCalculator routes on this to calcTuneDmg.
   'Tune Break': {
     name: 'Tune Break',
-    triggerRule: 'IF (@Enemy.Tune >= @Enemy.MaxTune && @Self.CanTuneBreak)',
+    triggerRule: 'IF (@Enemy.Tune >= @Enemy.MaxTune && @Self.HasBuff(Tune Break Ready))',
     castTypes: ['TuneBreak'],
     dmgTypes: ['TuneBreak'],
     castResources: { tune: '-@Enemy.MaxTune' },

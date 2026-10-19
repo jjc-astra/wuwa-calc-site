@@ -96,6 +96,9 @@ const hitLimit = (hit: QueuedHit): number =>
 // Swap or Swap + Cancel (SwapCancel_<n>).
 const isSwapTiming = (timing: unknown): boolean => timing === 'Swap' || String(timing ?? '').startsWith('SwapCancel_');
 
+// Longest a row waits on queued hits to become castable (_computeCastWait).
+const WAIT_HORIZON = secondsToFrames(3);
+
 // Simulates a rotation row by row: timings, resources, buffs, events, hit queue.
 export class TimelineEngineClass {
   damageQueue: QueuedHit[] = [];
@@ -116,6 +119,8 @@ export class TimelineEngineClass {
   _trackerWatch = new Map<string, number>();
   _refreshedBuffs = new Set<string>();
   _buffRanOutAt = new Map<string, number>();
+  // While _computeCastWait's dry run lands hits: skips what it can't undo (other rows' bookkeeping, the Timeline log).
+  _dryRun = false;
   // Compiled hitConditions per mechanic.
   _hitConditions = new WeakMap<MechanicNode, { _compiledRule?: any }>();
   // Last logged cooldown timers and their owners.
@@ -263,7 +268,7 @@ export class TimelineEngineClass {
       if (cutsSwappedOut || introCutsSwappedOut) this._cutSwappedOutMove(swappedOut, accumulatedTime + finalWaitTime);
 
       // Wait for queued resource gains to cover a shortfall (not Energy).
-      const { waitFrames: resourceWaitFrames, label: resourceWaitLabel } = this._computeResourceWait(currentData, dbMove, team, activeTeam, activeRows);
+      const { waitFrames: resourceWaitFrames, label: resourceWaitLabel } = this._computeCastWait(currentData, dbMove, team, activeTeam, activeRows);
       if (resourceWaitFrames > 0) {
         finalWaitTime += resourceWaitFrames;
         currentData.waitTime = finalWaitTime;
@@ -640,7 +645,6 @@ export class TimelineEngineClass {
     currentData.enemyHp = prevData.enemyHp ?? currentData.enemyMaxHp;
     currentData.enemyMaxTune = prevData.enemyMaxTune ?? ENEMY_DEFAULTS.maxTune;
     currentData.enemyTune = prevData.enemyTune ?? 0;
-    currentData.tuneReadyUnits = [...(prevData.tuneReadyUnits || [])];
     inheritPools(currentData, prevData);
 
     currentData.trackers = structuredClone(prevData.trackers || {});
@@ -1028,60 +1032,85 @@ export class TimelineEngineClass {
     advanceGameTimeTo(gameTimePassed);
   }
 
-  // Waits for queued hits to cover a resource shortfall (not Energy).
-  _computeResourceWait(currentData: any, dbMove: MechanicNode, team: any[], activeTeam: string[], activeRows: any[]): { waitFrames: number; label: string | null } {
+  // Why `move` can't be cast yet: each cast cost it's short of (not Energy -- that stays a warning),
+  // else its own trigger rule if that fails (named by the move). Empty when it's castable.
+  _castBlockers(currentData: any, move: MechanicNode, team: any[]): string[] {
     const unit = currentData.unit;
-    if (!unit) return { waitFrames: 0, label: null };
-
-    const reqFor = (key: string): number => resourceRequirement(dbMove, key, v => this._resolveNumber(v, currentData, unit, team));
-    const currentValue = (key: string): number => readResource(currentData, key, unit);
-
     const unitStats = DataLoader.characterDB[unit];
-    const trackedKeys = WAITABLE_RESOURCE_KEYS.map(key => ({ key, label: resourceLabel(key, unitStats) }));
+    const blockers = WAITABLE_RESOURCE_KEYS
+      .filter(key => {
+        const req = resourceRequirement(move, key, v => this._resolveNumber(v, currentData, unit, team));
+        return req > 0 && readResource(currentData, key, unit) < req;
+      })
+      .map(key => resourceLabel(key, unitStats));
+    if (blockers.length > 0) return blockers;
+    if (!move.triggerRule || move.isPassive) return [];
+    // Checked as _runValidation checks it.
+    const events = rowStartEvents(currentData.action, move, unit, currentData.prevRow?.unit);
+    const passed = this._evaluateRule(move, move.triggerRule, currentData, unit, team, events);
+    return passed !== null && !passed ? [move.name || 'condition'] : [];
+  }
 
-    let shortKeys = trackedKeys.filter(k => reqFor(k.key) > 0 && currentValue(k.key) < reqFor(k.key));
-    if (shortKeys.length === 0) return { waitFrames: 0, label: null };
+  // A row whose move can't be cast yet waits for queued hits that make it castable -- a resource
+  // they fill, or a condition they meet (Tune Break opening on a hit). Hits land one at a time in a
+  // dry run that's then undone, so a row that queued hits can't unblock (in WAIT_HORIZON) doesn't
+  // wait at all and keeps its error; one they can waits exactly as long, through the same steps.
+  _computeCastWait(currentData: any, move: MechanicNode, team: any[], activeTeam: string[], activeRows: any[]): { waitFrames: number; label: string | null } {
+    const none = { waitFrames: 0, label: null };
+    if (!currentData.unit || this.damageQueue.length === 0) return none;
+    const blockers = this._castBlockers(currentData, move, team);
+    if (blockers.length === 0) return none;
 
-    // A unit's pool fills from its own hits; the enemy's from anyone's.
-    const hitAmount = (hit: QueuedHit, key: string): number => {
-      if (hit.hitIndex >= hitLimit(hit)) return 0;
-      if (!isEnemyResource(key) && hit.origin.caster !== unit) return 0;
-      const arr = hit.originMoveData.hitResources?.[key];
-      return Array.isArray(arr) && arr.length > hit.hitIndex ? parseFloat(String(arr[hit.hitIndex])) || 0 : 0;
-    };
-
-    // Only wait if queued hits cover every shortfall.
-    const reachable = shortKeys.every(k => {
-      const pending = this.damageQueue.reduce((sum, hit) => {
-        const amount = hitAmount(hit, k.key);
-        return sum + (amount > 0 ? amount * buildupRateMult(currentData, hit.origin.caster, k.key, team) : amount);
-      }, 0);
-      return currentValue(k.key) + pending >= reqFor(k.key);
-    });
-    if (!reachable) return { waitFrames: 0, label: null };
-
-    let waitFrames = 0;
-    const resolvedLabels: string[] = [];
-    let guard = 0;
-
-    while (shortKeys.length > 0 && guard++ < 1000) {
-      let target: QueuedHit | null = null;
-      for (const hit of this.damageQueue) {
-        const isRelevant = shortKeys.some(k => hitAmount(hit, k.key) !== 0);
-        if (isRelevant) { target = hit; break; }
+    const steps: number[] = [];
+    let waited = 0;
+    let castable = false;
+    const snapshot = this._dryRunSnapshot(currentData);
+    this._dryRun = true;
+    try {
+      while (this.damageQueue.length > 0) {
+        const step = Math.max(0, this.damageQueue[0].executeAt - this.currentGlobalRealTime);
+        if (waited + step > WAIT_HORIZON) break;
+        this._decayState(currentData, toFrames(step), toFrames(step), activeTeam, activeRows, team);
+        steps.push(step);
+        waited += step;
+        if (this._castBlockers(currentData, move, team).length === 0) { castable = true; break; }
       }
-      if (!target) break;
-
-      const delta = Math.max(0, target.executeAt - this.currentGlobalRealTime);
-      this._decayState(currentData, toFrames(delta), toFrames(delta), activeTeam, activeRows, team);
-      waitFrames += delta;
-
-      const stillShort = shortKeys.filter(k => currentValue(k.key) < reqFor(k.key));
-      shortKeys.filter(k => !stillShort.includes(k)).forEach(k => resolvedLabels.push(k.label));
-      shortKeys = stillShort;
+    } finally {
+      this._dryRun = false;
+      this._restoreDryRun(currentData, snapshot);
     }
+    if (!castable) return none;
 
-    return { waitFrames, label: resolvedLabels.length > 0 ? `Waiting for ${resolvedLabels.join(' / ')}` : null };
+    steps.forEach(step => this._decayState(currentData, toFrames(step), toFrames(step), activeTeam, activeRows, team));
+    return { waitFrames: waited, label: `Waiting for ${blockers.join(' / ')}` };
+  }
+
+  // What landing queued hits can change, for _computeCastWait to undo: the row (minus its links),
+  // the queue (each hit copied -- its multiplier resolves in place), the clocks and the run's buff bookkeeping.
+  // The dry run skips what's kept on other rows (Generated credit, hit history) and the Timeline log.
+  _dryRunSnapshot(currentData: any) {
+    const row = { ...currentData };
+    for (const key of ROW_LINK_KEYS) delete row[key];
+    return {
+      row: structuredClone(row),
+      queue: this.damageQueue.map(hit => ({ ...hit })),
+      realTime: this.currentGlobalRealTime,
+      gameTime: this.currentGlobalGameTime,
+      buffRanOutAt: new Map(this._buffRanOutAt),
+      refreshedBuffs: new Set(this._refreshedBuffs),
+      lastSwapOutTime: { ...this.lastSwapOutTime }
+    };
+  }
+
+  _restoreDryRun(currentData: any, snapshot: ReturnType<TimelineEngineClass['_dryRunSnapshot']>): void {
+    for (const key of Object.keys(currentData)) if (!ROW_LINK_KEYS.includes(key)) delete currentData[key];
+    Object.assign(currentData, snapshot.row);
+    this.damageQueue = snapshot.queue;
+    this.currentGlobalRealTime = snapshot.realTime;
+    this.currentGlobalGameTime = snapshot.gameTime;
+    this._buffRanOutAt = snapshot.buffRanOutAt;
+    this._refreshedBuffs = snapshot.refreshedBuffs;
+    this.lastSwapOutTime = snapshot.lastSwapOutTime;
   }
 
   // `beforeHit` receives each hit's real-time offset into the window; `freezeFrames` is the window's freeze.
@@ -1098,10 +1127,8 @@ export class TimelineEngineClass {
       if (!this._hitConditionPasses(nextHit, currentData, team)) continue;
 
       // Another row's hit: its resources count toward that row's Generated, not this one's.
-      const creditRow = nextHit.originRow !== currentData && nextHit.originRow?.unit ? nextHit.originRow : null;
+      const creditRow = !this._dryRun && nextHit.originRow !== currentData && nextHit.originRow?.unit ? nextHit.originRow : null;
       const poolsBefore = creditRow && this._readPools(currentData, currentData.unit, creditRow.unit);
-      const maxTune = currentData.enemyMaxTune ?? ENEMY_DEFAULTS.maxTune;
-      if ((currentData.enemyTune || 0) < maxTune && currentData.tuneReadyUnits?.length) currentData.tuneReadyUnits = [];
 
       // Multiplier resolved per hit, as it lands.
       const rawMult = nextHit.hitMult;
@@ -1121,17 +1148,18 @@ export class TimelineEngineClass {
         }
       }
 
-      currentData.activeProcSource = nextHit.originActionId;
-      this._fire('OnHit', nextHit.hitModifiers, currentData, nextHit.origin.caster, activeTeam, activeRows, team, nextHit.executeAt);
-      delete currentData.activeProcSource;
+      // What @Hit reads in OnHit/AfterHit rules: whether the caster is on field (the previous row's
+      // unit until this row casts), and whether the hit lands in this window's freeze.
+      const hitInfo = {
+        onField: nextHit.origin.caster === (this._preCastOnField ?? (currentData.onFieldUnit || currentData.unit)),
+        inFreeze: nextHit.executeAt - this.currentGlobalRealTime < freezeFrames
+      };
 
-      // Tune Break opens per unit: its own on-field hit, outside freeze, once Tune is full.
-      const caster = nextHit.origin.caster;
-      const isOnField = caster === (this._preCastOnField ?? (currentData.onFieldUnit || currentData.unit));
-      const outsideFreeze = nextHit.executeAt - this.currentGlobalRealTime >= freezeFrames;
-      if ((currentData.enemyTune || 0) >= maxTune && isOnField && outsideFreeze && !currentData.tuneReadyUnits?.includes(caster)) {
-        currentData.tuneReadyUnits = [...(currentData.tuneReadyUnits || []), caster];
-      }
+      currentData.activeProcSource = nextHit.originActionId;
+      currentData._hit = hitInfo;
+      this._fire('OnHit', nextHit.hitModifiers, currentData, nextHit.origin.caster, activeTeam, activeRows, team, nextHit.executeAt);
+      delete currentData._hit;
+      delete currentData.activeProcSource;
 
       if (creditRow && poolsBefore) {
         const poolsAfter = this._readPools(currentData, currentData.unit, creditRow.unit);
@@ -1142,7 +1170,7 @@ export class TimelineEngineClass {
       }
 
       // Hit history entry for the DMG cell and Results.
-      if (this._run.hitLog) {
+      if (this._run.hitLog && !this._dryRun) {
         const hitName = nextHit.originMoveData.name + (nextHit.totalHits > 1 ? ` (Hit ${nextHit.hitIndex + 1})` : '');
         if (!nextHit.originRow._pendingHits) nextHit.originRow._pendingHits = [];
 
@@ -1166,7 +1194,9 @@ export class TimelineEngineClass {
         });
       }
 
+      currentData._hit = hitInfo;
       this._fire('AfterHit', nextHit.hitModifiers, currentData, nextHit.origin.caster, activeTeam, activeRows, team, nextHit.executeAt, { hitIndex: nextHit.hitIndex + 1, totalHits: nextHit.totalHits });
+      delete currentData._hit;
     }
   }
 
@@ -1840,7 +1870,7 @@ export class TimelineEngineClass {
 
   // Logs buff/tracker/cooldown changes since the last call to currentData.timelineEvents.
   _logTimeline(currentData: any): void {
-    if (!this._run.hitLog) return;
+    if (!this._run.hitLog || this._dryRun) return;
     const now = this.currentGlobalGameTime;
     const events: any[] = (currentData.timelineEvents ||= []);
     const buffs = currentData.activeBuffs || {};
