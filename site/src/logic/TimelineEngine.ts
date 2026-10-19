@@ -908,9 +908,23 @@ export class TimelineEngineClass {
     }
     currentData.availableTimings = availableTimings;
 
+    // Stance the move leaves the unit in when cut at `time`.
+    const stanceAt = (time: number): string => {
+      let stance = moveData.stanceReq && moveData.stanceReq !== 'Any'
+        ? moveData.stanceReq
+        : currentData.entryStance || currentData.stance || CHARACTER_DEFAULTS.defaultStance;
+      for (const change of sortedStanceChanges(moveData)) {
+        if (time >= change.frame) stance = change.stance;
+      }
+      return stance;
+    };
+    // The unit's own next move needs a stance this cut must leave it in.
+    const nextStanceReq = nextRow?.unit === unitName && nextMoveData?.stanceReq !== 'Any' ? nextMoveData?.stanceReq : undefined;
+    const keepsNextStance = (time: number) => !nextStanceReq || stanceAt(time) === nextStanceReq;
+
     let autoCancelTime = actionDuration;
     let autoAllowedHits = hitCount;
-    const fullHitCancels = validCancels.filter(vc => vc.hits >= hitCount);
+    const fullHitCancels = validCancels.filter(vc => vc.hits >= hitCount && keepsNextStance(vc.time));
     if (fullHitCancels.length > 0) {
       const quickest = fullHitCancels.reduce((prev, curr) => prev.time < curr.time ? prev : curr);
       autoCancelTime = quickest.time;
