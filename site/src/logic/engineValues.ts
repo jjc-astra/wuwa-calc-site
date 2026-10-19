@@ -1,6 +1,8 @@
 // Shared simulation value helpers.
-import type { Effect } from '../types';
-import { SYSTEM_NAMESPACE } from '../utils/MechanicKey';
+import type { Effect, MechanicNode } from '../types';
+import { MechanicKey, SYSTEM_NAMESPACE } from '../utils/MechanicKey';
+import { isElement } from '../data/gameVocab';
+import type { CompiledDSL } from './dsl/dslParser';
 
 const ARITHMETIC = /[+\-*/]/;
 const ARITHMETIC_OR_PERCENT = /[+\-*/%]/;
@@ -39,3 +41,39 @@ export const scopedKey = (scope: string, name: string | undefined): string => `$
 // Unset, System, or @Equipper.
 export const isPlaceholderProvider = (provider: string | undefined): boolean =>
   !provider || provider === SYSTEM_NAMESPACE || provider === '@Equipper';
+
+/** An event a rule's event part can match: its type, modifiers, and the unit it's for. */
+export interface RuleEvent { type: string; modifiers: Set<string>; unit: string }
+
+/** The modifiers a cast is matched on by `OnCast[...]`. */
+export function castModifiers(actionId: string, move: MechanicNode, unit: string): Set<string> {
+  const origin = MechanicKey.origin(actionId, unit, move.name);
+  const elements = (move.dmgTypes || []).filter(isElement);
+  return modifierSet([...(move.castTypes || []), ...elements, actionId, move.name, origin.ref]);
+}
+
+/** The events a row fires as it starts: its cast, plus the swap events when the unit changes. */
+export function rowStartEvents(actionId: string, move: MechanicNode, unit: string, prevUnit?: string): RuleEvent[] {
+  const events: RuleEvent[] = [{ type: 'OnCast', modifiers: castModifiers(actionId, move, unit), unit }];
+  if (prevUnit && prevUnit !== unit) {
+    events.push(
+      { type: 'OnSwapOut', modifiers: new Set(), unit: prevUnit },
+      { type: 'OnSwapIn', modifiers: new Set(), unit },
+      { type: 'OnUnitChange', modifiers: new Set(), unit }
+    );
+  }
+  return events;
+}
+
+/**
+ * True when a rule's event part allows one of `events`, matched like listeners are.
+ * No event part (or ALWAYS): always. `owner` is whose [Self].
+ */
+export function ruleEventsMatch(compiled: Pick<CompiledDSL, 'triggers'> | null | undefined, events: RuleEvent[], owner: string): boolean {
+  const triggers = compiled?.triggers || [];
+  if (triggers.length === 0 || triggers.some(trigger => trigger.event === 'ALWAYS')) return true;
+  return triggers.some(trigger => events.some(event =>
+    event.type === trigger.event
+    && trigger.modifiers.every(mod => (mod === 'self' ? event.unit === owner : event.modifiers.has(mod)))
+  ));
+}

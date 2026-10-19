@@ -24,6 +24,7 @@ import { applyBuilderOverridesFor } from '../../workers/builderOverridePayload';
 import { useLinkedRowStore } from '../../store/useLinkedRowStore';
 import { useTimelineViewStore } from '../../store/useTimelineViewStore';
 import { TWO_MIN } from '../../logic/rotationRows';
+import { rowStartEvents, ruleEventsMatch } from '../../logic/engineValues';
 
 interface RotationRowProps {
   index: number;
@@ -156,7 +157,7 @@ export const RotationRow = React.memo<RotationRowProps>(({
       Array.isArray(m.effects) && m.effects.some((e: any) => e?.type === 'tracker' && e.name === 'Hold_Start' && e.action === 'set');
     const isHoldReleaser = (m: any): boolean => m.inputType === 'Release' && !!m.holdConfig;
 
-    const checkValid = (m: any) => {
+    const checkValid = (m: any, key: string) => {
       if (!m || m.isPassive) return false;
       if (m.modeScope && m.modeScope !== 'both' && activeMode && m.modeScope !== activeMode) return false;
       if (m.triggerRule && m.triggerRule.trim() !== '') {
@@ -164,6 +165,7 @@ export const RotationRow = React.memo<RotationRowProps>(({
           m._compiledRule = DSLParser.compile(m.triggerRule);
         }
         if (m._compiledRule && typeof m._compiledRule.evaluate === 'function' && ctx) {
+          if (!ruleEventsMatch(m._compiledRule, rowStartEvents(key, m, selectedUnit, row.prevRow?.unit), selectedUnit)) return false;
           if (!m._compiledRule.evaluate(ctx, selectedUnit)) return false;
         }
       }
@@ -197,7 +199,7 @@ export const RotationRow = React.memo<RotationRowProps>(({
       getCastableMechanics(owner).forEach(({ key, mech }) => {
         if (seenKeys.has(key)) return;
         seenKeys.add(key);
-        const isValid = checkValid(mech);
+        const isValid = checkValid(mech, key);
         if (isValid || key === row.action) candidates.push({ id: key, m: mech, groupLabel: groupLabelFor(owner, mech), isValid });
       });
     });

@@ -7,8 +7,7 @@ import {
 import { deltaKey, forteKey, holdSlotNumber } from '../utils/ResourceKeys';
 import { backfillPools, cloneJson, dropdownSnapshot, hitState, inheritPools, plainCopy, ROW_LINK_KEYS } from './rowState';
 import { toRunInput, timingLabel, splitLoopSegments, loopTiming } from './rotationRows';
-import { asDslResult, scopedKey, eventModifier, isBuffEffect, isDslExpr, isPlaceholderProvider, modifierSet, readsSelfStats, stacksAfterSpending } from './engineValues';
-import { isElement } from '../data/gameVocab';
+import { asDslResult, castModifiers as castModifiersOf, scopedKey, eventModifier, isBuffEffect, isDslExpr, isPlaceholderProvider, modifierSet, readsSelfStats, rowStartEvents, ruleEventsMatch, stacksAfterSpending, type RuleEvent } from './engineValues';
 import { MechanicKey, SYSTEM_NAMESPACE } from '../utils/MechanicKey';
 import { CommonUtils } from '../utils/Common';
 import { teamCharacters } from '../utils/TeamUtils';
@@ -811,12 +810,17 @@ export class TimelineEngineClass {
       && bindingOf(nextMoveData) !== bindingOf(moveData)
       && this._resolvePriority(nextMoveData, currentData, nextRow.unit, team) > this._resolvePriority(moveData, currentData, unitName, team));
 
+    // A cancel rule is checked against the events its cancel fires: the next row's cast (and swap).
+    const nextEvents = nextRow?.action && nextMoveData ? rowStartEvents(nextRow.action, nextMoveData, nextRow.unit, unitName) : [];
+    const cancelRulePasses = (ct: any, events: RuleEvent[]): boolean =>
+      !!(this._evaluateRule(ct, ct.triggerRule, currentData, currentData.unit, team, events) ?? false);
+
     const validCancels: Array<{ index: number; time: Frames; hits: number }> = [];
     if (moveData.cancelTimings && moveData.cancelTimings.length > 0) {
       moveData.cancelTimings.forEach((ct, idx) => {
         const isValid = !ct.triggerRule || ct.triggerRule.trim() === ''
           ? nextMoveCancels
-          : this._evaluateRule(ct, ct.triggerRule, currentData, currentData.unit, team) ?? false;
+          : cancelRulePasses(ct, nextEvents);
         if (isValid) validCancels.push({ index: idx, time: ct.time, hits: ct.hits !== undefined ? ct.hits : Infinity });
       });
     }
@@ -830,9 +834,11 @@ export class TimelineEngineClass {
     // The window's rule adds to the priority check rather than replacing it.
     const swapCancels: Array<{ index: number; time: Frames; hits: number }> = [];
     if (isNextSwapOut && returnMoveCancels && moveData.cancelTimings) {
+      // The swap out, then the returning move's cast.
+      const swapCancelEvents = [...nextEvents, ...rowStartEvents(returnAction, returnMoveData, unitName, nextRow.unit)];
       moveData.cancelTimings.forEach((ct, idx) => {
         const isValid = !ct.triggerRule || ct.triggerRule.trim() === ''
-          || (this._evaluateRule(ct, ct.triggerRule, currentData, currentData.unit, team) ?? false);
+          || cancelRulePasses(ct, swapCancelEvents);
         if (isValid) swapCancels.push({ index: idx, time: ct.time, hits: ct.hits !== undefined ? ct.hits : Infinity });
       });
     }
@@ -1339,14 +1345,17 @@ export class TimelineEngineClass {
     if (!rule || !rule.trim()) return true;
     let holder = this._hitConditions.get(hit.originMoveData);
     if (!holder) this._hitConditions.set(hit.originMoveData, holder = {});
-    return this._evaluateRule(holder, rule, hitState(currentData, hit.originRow), hit.origin.caster, team) ?? true;
+    const onHit: RuleEvent[] = [{ type: 'OnHit', modifiers: hit.hitModifiers, unit: hit.origin.caster }];
+    return this._evaluateRule(holder, rule, hitState(currentData, hit.originRow), hit.origin.caster, team, onHit) ?? true;
   }
 
-  _evaluateRule(holder: { _compiledRule?: any }, rule: string, currentData: any, unit: string, team: any[]): any {
+  // `events`: what's happening as the rule is checked; its event part must match one.
+  _evaluateRule(holder: { _compiledRule?: any }, rule: string, currentData: any, unit: string, team: any[], events?: RuleEvent[]): any {
     if (!holder._compiledRule || typeof holder._compiledRule.evaluate !== 'function') {
       holder._compiledRule = DSLParser.compile(rule);
     }
     if (!holder._compiledRule || typeof holder._compiledRule.evaluate !== 'function') return null;
+    if (events && !ruleEventsMatch(holder._compiledRule, events, unit)) return false;
     return holder._compiledRule.evaluate(ContextManager.buildContext(currentData, unit, team), unit);
   }
 
@@ -1483,8 +1492,7 @@ export class TimelineEngineClass {
 
     // Name/pointer let OnHit[...] target this specific move.
     const hitModifiers = modifierSet([...(moveData.dmgTypes || []), moveData.name, origin.ref]);
-    const moveElements = (moveData.dmgTypes || []).filter(isElement);
-    const castModifiers = modifierSet([...(moveData.castTypes || []), ...moveElements, currentData.action, moveData.name, origin.ref]);
+    const castModifiers = castModifiersOf(currentData.action, moveData, unitName);
 
     // OnCast/swap rules see the pre-cast state; their effects run after costs.
     const instantEffects = this._gatherInstantEffects(currentData, moveData, prevData, castModifiers, team);
@@ -1567,7 +1575,8 @@ export class TimelineEngineClass {
     }
 
     if (moveData.triggerRule && !moveData.isPassive) {
-      const passed = this._evaluateRule(moveData, moveData.triggerRule, currentData, currentData.unit, team);
+      const ownEvents = rowStartEvents(currentData.action, moveData, currentData.unit, prevData.unit);
+      const passed = this._evaluateRule(moveData, moveData.triggerRule, currentData, currentData.unit, team, ownEvents);
       // Only when nothing more specific explains the failure.
       if (passed !== null && !passed && errors.length === 0 && warnings.length === 0) {
         warnings.push(`Combo requirement not met for ${moveName}.`);
@@ -1600,11 +1609,12 @@ export class TimelineEngineClass {
         else if (!isSwapback) {
           // .provider is only set for third-party sources (echoes).
           const expectedSwapIns: string[] = [];
-          const ownMechanics = (DataLoader.mechanicsIndex[currentData.unit] || []).map(key => DataLoader.mechanicsDB[key]);
           const fitsStance = (m: MechanicNode) => !m.stanceReq || m.stanceReq === 'Any' || m.stanceReq === (currentData.entryStance || 'Grounded');
-          ownMechanics.filter(m => m && m.isSwapInDefault && fitsStance(m)).forEach(m => {
+          (DataLoader.mechanicsIndex[currentData.unit] || []).forEach(key => {
+            const m = DataLoader.mechanicsDB[key];
+            if (!m || !m.isSwapInDefault || !fitsStance(m)) return;
             const isValid = m.triggerRule && !m.isPassive
-              ? this._evaluateRule(m, m.triggerRule, currentData, currentData.unit, team) ?? true
+              ? this._evaluateRule(m, m.triggerRule, currentData, currentData.unit, team, rowStartEvents(key, m, currentData.unit, prevData.unit)) ?? true
               : true;
             if (isValid) expectedSwapIns.push(m.name);
           });

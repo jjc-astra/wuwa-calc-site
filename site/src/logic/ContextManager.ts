@@ -5,7 +5,7 @@ import { CHARACTER_DEFAULTS, ENEMY_DEFAULTS, GAME_DEFAULTS } from '../data/db';
 import { forteAlias } from '../utils/ForteNames';
 import { forteKey, maxForteKey } from '../utils/ResourceKeys';
 import { forteMax, readResource, resourceCap } from './resources';
-import { isDslExpr, scopedKey } from './engineValues';
+import { isDslExpr, rowStartEvents, ruleEventsMatch, scopedKey } from './engineValues';
 import { DSLParser } from './dsl/dslParser';
 import { MechanicKey } from '../utils/MechanicKey';
 
@@ -56,6 +56,7 @@ export const ContextManager = {
         if (!move.triggerRule) return true;
         if (!move._compiledRule || typeof move._compiledRule.evaluate !== 'function') move._compiledRule = DSLParser.compile(move.triggerRule);
         if (!move._compiledRule || typeof move._compiledRule.evaluate !== 'function') return false;
+        if (!ruleEventsMatch(move._compiledRule, rowStartEvents(key, move, unit, unit), unit)) return false;
         return !!move._compiledRule.evaluate(ContextManager.buildContext({ ...state, action: key }, unit, team), unit);
       });
     } finally {
