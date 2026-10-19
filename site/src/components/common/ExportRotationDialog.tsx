@@ -26,7 +26,8 @@ export const ExportRotationDialog: React.FC<ExportRotationDialogProps> = ({ sour
   const [rotationType, setRotationType] = useState<RotationTypeChoice>('unclassified');
   // Name presets end in the rotation type; null = preset.
   const typeSuffix = rotationType === 'unclassified' ? '' : `_${ROTATION_TYPE_LABELS[rotationType]}`;
-  const defaultRotationName = CommonUtils.exportFilename('Rotation', source.team, typeSuffix);
+  // Non-default sets tag both: they can change the rotation as well as its results.
+  const defaultRotationName = CommonUtils.exportFilename('Rotation', source.team, typeSuffix, nonDefaultSetTag);
   const defaultResultsName = CommonUtils.exportFilename('Results', source.team, typeSuffix, nonDefaultSetTag);
   const [editedRotationName, setRotationName] = useState<string | null>(null);
   const [editedResultsName, setResultsName] = useState<string | null>(null);

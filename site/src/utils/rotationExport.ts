@@ -5,7 +5,8 @@ import type { TeamSlot } from '../types';
 import type { RotationFile, ResultsFile, ResultsBuild, RotationSummary, RotationType, CalcInput } from '../types/results';
 import { CHARACTER_DEFAULTS, defaultEnemyStats } from '../data/db';
 import { CommonUtils, sha256Hex } from './Common';
-import { SLOT_SET_FIELDS, slotSets } from './TeamUtils';
+import { SLOT_SET_FIELDS } from './TeamUtils';
+import { DataLoader } from './DataLoader';
 
 export interface ExportSource extends CalcInput {
   // Current results, to skip recalculating.
@@ -24,11 +25,24 @@ async function hashRotationInputs({ rotation, team, settings, enemy }: CalcInput
   return (await sha256Hex(JSON.stringify({ rotation, team, settings, enemy }))).slice(0, 16);
 }
 
-// Initials of a slot's sets ("SSD+VT+MC") when they differ from its recommended build's.
+type SetFields = Partial<Pick<TeamSlot, typeof SLOT_SET_FIELDS[number]>>;
+
+// The sets a slot actually wears, per field: those resolveSetPieceCounts gives pieces. A 5pc main
+// set leaves any extra-set picks still on the slot unworn.
+function wornSets(slot: SetFields): Record<typeof SLOT_SET_FIELDS[number], string> {
+  const sets = { mainSet: slot.mainSet || '', subSet: slot.subSet || '', subSet2a: slot.subSet2a || '', subSet2b: slot.subSet2b || '' };
+  const pieces = DataLoader.resolveSetPieceCounts(sets);
+  return { ...sets, ...Object.fromEntries(SLOT_SET_FIELDS.filter(field => pieces[field] === 0).map(field => [field, ''])) };
+}
+
+// Initials of a slot's worn sets ("SSD+VT+RSM") when they differ from its recommended build's.
 export function nonDefaultSetTag(slot: TeamSlot): string {
   const build = slot.character ? recommendedBuildFor(slot.character, slot.mode) : undefined;
-  if (!build || SLOT_SET_FIELDS.every(field => (slot[field] || '') === (build[field] || ''))) return '';
-  return slotSets(slot).map(CommonUtils.initials).join('+');
+  if (!build) return '';
+  const worn = wornSets(slot);
+  const recommended = wornSets(build);
+  if (SLOT_SET_FIELDS.every(field => worn[field] === recommended[field])) return '';
+  return SLOT_SET_FIELDS.map(field => worn[field]).filter(Boolean).map(CommonUtils.initials).join('+');
 }
 
 // Default substats and R1; everything else as submitted.
