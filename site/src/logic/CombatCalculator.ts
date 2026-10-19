@@ -83,8 +83,9 @@ function cacheForBuffs<T>(state: any, team: any[], name: string): Record<string,
 // Stats per provider ("@Self" is the buff's author). With `stateData`, includes live buffs, one level deep.
 function providerStatsCache(team: any[], stateData?: any): (providerName: string) => Record<string, number> {
   const stats = cacheForBuffs<Record<string, number>>(stateData, team, 'providerStats') ?? {};
+  // Its buffs' @Self.Stat reads use unbuffed stats (one level deep); other reads (HasBuff...) see the state.
   return providerName => (stats[providerName] ??= CombatCalculator.calculateFinalStats(
-    providerName, stateData ? buffsReaching(stateData, providerName) : [], team
+    providerName, stateData ? buffsReaching(stateData, providerName) : [], team, undefined, stateData
   ) as unknown as Record<string, number>);
 }
 
@@ -344,7 +345,9 @@ export const CombatCalculator = {
     return { displayMult, calcBreakdown: `${Math.floor(calculatedTotal)} = ${breakdownParts.join(' * ')}${suffix}` };
   },
 
-  calculateFinalStats: (unitName: string, activeBuffs: Effect[] = [], team: any[] = [], stateData?: any): CalculatedStats => {
+  // `scopeState`: the state '@' buff values read (HasBuff, trackers...); defaults to `stateData`, which also
+  // brings in providers' live buffs for @Self.Stat.
+  calculateFinalStats: (unitName: string, activeBuffs: Effect[] = [], team: any[] = [], stateData?: any, scopeState: any = stateData): CalculatedStats => {
     const slot = team.find(t => t.character === unitName) || {};
     const dbUnit = DataLoader.characterDB[unitName] || {};
     const dbWeapon = DataLoader.weaponDB[slot.weapon] || {};
@@ -390,7 +393,7 @@ export const CombatCalculator = {
         if (stats[baseStatKey] === undefined) return;
 
         const provider = buff.provider || unitName;
-        const scope = stateData ? { state: stateData, provider, team } : undefined;
+        const scope = scopeState ? { state: scopeState, provider, team } : undefined;
         const { numVal, isPct } = readBuffValue(buff, slot.rank || 1, () => getProviderStats(provider), scope);
 
         baseStatKey = (isPct ? PERCENT_TWIN : FLAT_TWIN)[baseStatKey] ?? baseStatKey;
