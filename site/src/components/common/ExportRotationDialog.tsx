@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { SegmentedToggle } from './SegmentedToggle';
 import { CommonUtils, tip } from '../../utils/Common';
-import { buildExportFiles } from '../../utils/rotationExport';
+import { buildExportFiles, nonDefaultSetTag } from '../../utils/rotationExport';
 import type { ExportSource } from '../../utils/rotationExport';
 import type { ResultsBuild } from '../../types/results';
 import { ROTATION_TYPE_LABELS } from '../../store/useRankingsStore';
@@ -27,7 +27,7 @@ export const ExportRotationDialog: React.FC<ExportRotationDialogProps> = ({ sour
   // Name presets end in the rotation type; null = preset.
   const typeSuffix = rotationType === 'unclassified' ? '' : `_${ROTATION_TYPE_LABELS[rotationType]}`;
   const defaultRotationName = CommonUtils.exportFilename('Rotation', source.team, typeSuffix);
-  const defaultResultsName = CommonUtils.exportFilename('Results', source.team, typeSuffix);
+  const defaultResultsName = CommonUtils.exportFilename('Results', source.team, typeSuffix, nonDefaultSetTag);
   const [editedRotationName, setRotationName] = useState<string | null>(null);
   const [editedResultsName, setResultsName] = useState<string | null>(null);
   const rotationName = editedRotationName ?? defaultRotationName;

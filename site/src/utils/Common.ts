@@ -130,6 +130,8 @@ export const tip = (text: string) => ({
   onMouseLeave: () => TooltipManager.hide()
 });
 
+type ExportSlot = { character?: string; weapon?: string; sequence?: number };
+
 export const CommonUtils = {
   /** NaN reads as min. */
   clampToRange: (val: number, min: number, max: number): number => {
@@ -199,27 +201,29 @@ export const CommonUtils = {
     return resolved;
   },
 
-  /** "Name-WI-S#" filename fragments per team slot. */
-  buildTeamIds: (team: Array<{ character?: string; weapon?: string; sequence?: number }>): string[] => {
+  /** "Name-WI-S#" filename fragments per team slot. `extra` appends a per-slot tag. */
+  buildTeamIds: <S extends ExportSlot>(team: S[], extra?: (slot: S) => string): string[] => {
     return team
       .filter(s => !!s.character)
       .map(s => {
         let id = String(s.character).replace(/\s+/g, '');
-        if (s.weapon) {
-          const initials = s.weapon.match(/\b\w/g) || [];
-          id += `-${initials.join('').toUpperCase()}`;
-        }
+        if (s.weapon) id += `-${CommonUtils.initials(s.weapon)}`;
         if (s.sequence) id += `-S${s.sequence}`;
+        const tag = extra?.(s);
+        if (tag) id += `-${tag}`;
         return id;
       });
   },
+
+  /** "Skull Thrasher" -> "ST" */
+  initials: (name: string): string => (name.match(/\b\w/g) || []).join('').toUpperCase(),
 
   /** Strips float noise (1.4700000001 -> 1.47). */
   trimNumber: (value: number, digits = 3): number => (Number.isInteger(value) ? value : parseFloat(value.toFixed(digits))),
 
   /** e.g. "Rotation_Lumi-RC_Sanhua.json". */
-  exportFilename: (prefix: string, team: Array<{ character?: string; weapon?: string; sequence?: number }>, suffix = ''): string => {
-    const names = CommonUtils.buildTeamIds(team);
+  exportFilename: <S extends ExportSlot>(prefix: string, team: S[], suffix = '', extra?: (slot: S) => string): string => {
+    const names = CommonUtils.buildTeamIds(team, extra);
     return `${prefix}_${names.length > 0 ? names.join('_') : 'Config'}${suffix}.json`;
   },
 

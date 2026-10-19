@@ -130,7 +130,7 @@ export function recommendedEchoes(slot: TeamSlot, build: any): Pick<TeamSlot, 'l
   return { layout, echoes: defaultSubstats({ ...slot, echoes: withMainStats }, build) };
 }
 
-const GEAR_FIELDS = ['weapon', 'mainSet', 'subSet', 'mainEcho'] as const;
+const GEAR_FIELDS = ['weapon', 'mainSet', 'subSet', 'subSet2a', 'subSet2b', 'mainEcho'] as const;
 const echoLayoutOf = (slot: Pick<TeamSlot, 'layout' | 'echoes'>) => JSON.stringify([slot.layout, slot.echoes.map(e => e.mainStat)]);
 const substatsOf = (echoes: TeamSlot['echoes']) => JSON.stringify(echoes.map(e => e.substats));
 
@@ -194,6 +194,8 @@ export const useRosterStore = create<RosterState>()(
         if (build.weapon) slot.weapon = build.weapon;
         if (build.mainSet) slot.mainSet = build.mainSet;
         slot.subSet = build.subSet || '';
+        slot.subSet2a = build.subSet2a || '';
+        slot.subSet2b = build.subSet2b || '';
         if (build.mainEcho) slot.mainEcho = build.mainEcho;
         await DataLoader.loadTeamMechanics([slot]);
 

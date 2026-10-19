@@ -4,7 +4,8 @@ import { calculateEchoStatsForSlot, defaultSubstats, recommendedBuildFor } from 
 import type { TeamSlot } from '../types';
 import type { RotationFile, ResultsFile, ResultsBuild, RotationSummary, RotationType, CalcInput } from '../types/results';
 import { CHARACTER_DEFAULTS, defaultEnemyStats } from '../data/db';
-import { sha256Hex } from './Common';
+import { CommonUtils, sha256Hex } from './Common';
+import { SLOT_SET_FIELDS, slotSets } from './TeamUtils';
 
 export interface ExportSource extends CalcInput {
   // Current results, to skip recalculating.
@@ -21,6 +22,13 @@ interface ExportOptions {
 // Sync with the data repo's generate-rankings-index.mjs.
 async function hashRotationInputs({ rotation, team, settings, enemy }: CalcInput): Promise<string> {
   return (await sha256Hex(JSON.stringify({ rotation, team, settings, enemy }))).slice(0, 16);
+}
+
+// Initials of a slot's sets ("SSD+VT+MC") when they differ from its recommended build's.
+export function nonDefaultSetTag(slot: TeamSlot): string {
+  const build = slot.character ? recommendedBuildFor(slot.character, slot.mode) : undefined;
+  if (!build || SLOT_SET_FIELDS.every(field => (slot[field] || '') === (build[field] || ''))) return '';
+  return slotSets(slot).map(CommonUtils.initials).join('+');
 }
 
 // Default substats and R1; everything else as submitted.
