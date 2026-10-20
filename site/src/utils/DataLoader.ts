@@ -425,10 +425,15 @@ export class DataLoaderClass {
     return moves.find(m => m.inputType === 'Release' && m.holdConfig)?.holdConfig ?? null;
   }
 
-  // Every ranked row, from index.json.
+  // Every ranked row, from index.json. Dev: WIP entries are added to the real ones (WIP wins by id).
   async loadRankingIndex(): Promise<RankingIndexEntry[]> {
     if (!this.rankingIndex) {
-      this.rankingIndex = (await this.loadJSON<RankingIndexEntry[]>(CommonUtils.getData(`${RANKINGS_DIR}/index.json`))) || [];
+      const relPath = `${RANKINGS_DIR}/index.json`;
+      const real = (await this.loadJSON<RankingIndexEntry[]>(realDataUrl(relPath))) || [];
+      // Loaded last, so its hash is the one recorded.
+      const wip = WIP_ENABLED && this.mayBeInWip(relPath) ? (await this.loadJSON<RankingIndexEntry[]>(wipDataUrl(relPath))) || [] : [];
+      const wipIds = new Set(wip.map(entry => entry.id));
+      this.rankingIndex = [...real.filter(entry => !wipIds.has(entry.id)), ...wip];
     }
     return this.rankingIndex;
   }
