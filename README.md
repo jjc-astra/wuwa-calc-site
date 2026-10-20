@@ -77,6 +77,19 @@ Run these from `site/`.
 | `npm run preview` | Serves the `site/dist/` build locally               |
 | `npm run lint`    | Runs ESLint                                         |
 
+### Rankings data (local)
+
+These need the local `site/scripts/` folder and the data repo checked out next to this one
+(`../wuwa-calc-data`, or set `WUWA_DATA_REPO`). Results files are generated from rotation files;
+only rotations are exported or committed.
+
+| Command                              | What it does                                                                                          |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `npm run recalc:results [-- --repo]` | Generates every results file from its rotation (WIP mirror, or the data repo), then the index and manifest |
+| `npm run check:results [-- --repo]`  | Same, but writes nothing and exits 1 if anything is stale                                             |
+| `npm run watch:results`              | Reruns the recalc when rotations or data change in the WIP mirror or the data repo                    |
+| `npm run promote [-- <path>... \| --all]` | Moves WIP files (data, mechanics, images, rotations) into the data repo, then recalcs both. No args lists WIP files; `--dry` previews. `db_*.json` merge by key (`data/db_characters.json#Rebecca` for one) |
+
 ## Deploying
 
 Pushing to `main` builds the site and deploys it to GitHub Pages

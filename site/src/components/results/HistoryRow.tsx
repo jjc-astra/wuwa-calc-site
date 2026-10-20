@@ -99,8 +99,7 @@ export const HistoryRow: React.FC<HistoryRowProps> = ({ entry }) => {
             rotation: entry.rotation,
             team: entry.team,
             settings: entry.settings,
-            enemy: entry.enemy ?? defaultEnemyStats(),
-            customResults: entry.results
+            enemy: entry.enemy ?? defaultEnemyStats()
           }}
           onClose={() => setExportOpen(false)}
         />

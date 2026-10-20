@@ -8,7 +8,7 @@ import { CommonUtils, getCharacterThemeColor, tip } from '../../utils/Common';
 import { DataLoader } from '../../utils/DataLoader';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { ExportRotationDialog } from '../common/ExportRotationDialog';
-import type { ExportSource } from '../../utils/rotationExport';
+import type { CalcInput } from '../../types/results';
 import { toSavedRow } from '../../store/useRotationStore';
 import { loopEndIndexOf, loopSplitRowIndices } from '../../logic/rotationRows';
 import { useLatestCallback } from '../../hooks/useLatestCallback';
@@ -119,9 +119,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     endRotationStartsEarlier,
     setEndRotationStartsEarlier,
     recalculate,
-    checkBuilderStaleness,
-    results,
-    isStale
+    checkBuilderStaleness
   } = useRotationStore();
 
   const { team, importTeam } = useRosterStore();
@@ -367,7 +365,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     onMarkerDragEnd: useLatestCallback(handleMarkerDragEnd)
   };
 
-  const [exportSource, setExportSource] = useState<ExportSource | null>(null);
+  const [exportSource, setExportSource] = useState<CalcInput | null>(null);
 
   const handleExport = () => {
     if (rows.length === 0) return alert('Rotation is empty.');
@@ -375,8 +373,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
       rotation: rows.map(toSavedRow),
       team,
       settings: { startEnergy, startConcerto, endingRotationEnabled, endRotationStartsEarlier },
-      enemy: { ...useRosterStore.getState().enemy },
-      customResults: results && !isStale ? results : undefined
+      enemy: { ...useRosterStore.getState().enemy }
     });
   };
 
@@ -453,12 +450,7 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
           <button className="base-btn" onClick={() => fileInputRef.current?.click()}>
             Import Rotation
           </button>
-          <button
-            className="base-btn"
-            onClick={handleExport}
-            disabled={isStale}
-            {...(isStale ? tip('Stats changed: press Calculate before exporting') : {})}
-          >
+          <button className="base-btn" onClick={handleExport}>
             Export Rotation
           </button>
         </>

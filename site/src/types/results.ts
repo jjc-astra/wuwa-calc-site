@@ -121,14 +121,12 @@ export interface RotationFile extends CalcInput {
   rotationType?: RotationType;
 }
 
-// default: recommended substats, R1, default target (ranked). custom: as submitted.
-export type ResultsBuild = 'default' | 'custom';
-
-// results/<name>.json, linked to its rotation file by `hash`.
+// results/<name>.json, generated from rotations/<name>.json by scripts/recalc-results.mjs.
 export interface ResultsFile {
   format: 2;
   hash: string;
-  build: ResultsBuild;
+  // Recommended substats, weapon at R1, default target.
+  build: 'default';
   author?: string;
   rotationType?: RotationType;
   team: TeamSlot[];

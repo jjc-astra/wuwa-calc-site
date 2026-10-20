@@ -609,18 +609,15 @@ export const DIAGRAMS = {
     graph LR
     subgraph Exp["Export Rotation (toolbar or History)"]
       direction TB
-      E1["ExportRotationDialog: file names,<br/>author, Export Results, results<br/>build, rotation type"]:::ui
-      E1 -->|"Export Results off"| E6["buildExportFiles: the<br/>rotation file only, no calculation"]:::data
-      E1 --> E2{"results build"}
-      E2 -->|"Default"| E3["withDefaultBuild:<br/>defaultSubstats + weapon R1 per unit<br/>(all else kept), default enemy;<br/>runSummaryCalculation"]:::worker
-      E2 -->|"Custom"| E4["current results if<br/>not stale, else<br/>runSummaryCalculation"]:::worker
-      E3 --> E5
-      E4 --> E5["buildExportFiles: hash of rotation +<br/>team + settings + enemy; a rotation file<br/>and a results file (dpsStats +<br/>contribution, rotationType unless<br/>Unclassified), both downloaded"]:::data
+      E1["ExportRotationDialog: file name,<br/>rotation type, author"]:::ui
+      E1 --> E2["buildRotationFile: hash of rotation +<br/>team + settings + enemy; the rotation<br/>file, downloaded"]:::data
     end
-    subgraph Repo["data repo"]
+    subgraph Repo["character_results/ (data repo or WIP)"]
       direction TB
-      R1["files committed to<br/>character_results/"]:::data
-      R1 --> R2["generate-rankings-index: keeps<br/>Default-build results whose hash<br/>matches their rotation file"]:::data
+      R1["rotations/: committed or<br/>promoted from WIP"]:::data
+      R1 --> R2["recalc-results: per rotation,<br/>buildRankedResults (withDefaultBuild:<br/>defaultSubstats + weapon R1, default<br/>enemy; runSummaryCalculation)"]:::worker
+      R2 --> R3["results/: written when changed;<br/>orphans deleted"]:::data
+      R3 --> R4["generate-rankings-index:<br/>index.json (+ manifest in the repo)"]:::data
     end
     subgraph Imp["Import Rotation"]
       direction TB

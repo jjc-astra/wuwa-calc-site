@@ -1,23 +1,16 @@
-// Builds the rotation file and optional results file for export.
+// Builds the exported rotation file, and the ranked results scripts/recalc-results.mjs generates from it.
 import { runSummaryCalculation } from '../workers/runFullCalculation';
 import { calculateEchoStatsForSlot, defaultSubstats, recommendedBuildFor } from '../store/useRosterStore';
 import type { TeamSlot } from '../types';
-import type { RotationFile, ResultsFile, ResultsBuild, RotationSummary, RotationType, CalcInput } from '../types/results';
+import type { RotationFile, ResultsFile, RotationType, CalcInput } from '../types/results';
 import { CHARACTER_DEFAULTS, defaultEnemyStats } from '../data/db';
 import { CommonUtils, sha256Hex } from './Common';
 import { SLOT_SET_FIELDS } from './TeamUtils';
 import { DataLoader } from './DataLoader';
 
-export interface ExportSource extends CalcInput {
-  // Current results, to skip recalculating.
-  customResults?: RotationSummary;
-}
-
 interface ExportOptions {
   author: string;
   rotationType: RotationType;
-  // null: rotation file only.
-  results: { build: ResultsBuild } | null;
 }
 
 // Sync with the data repo's generate-rankings-index.mjs.
@@ -57,36 +50,27 @@ function withDefaultBuild(team: TeamSlot[]): TeamSlot[] {
   });
 }
 
-export async function buildExportFiles(
-  source: ExportSource,
-  { author, rotationType, results: resultsOptions }: ExportOptions
-): Promise<{ rotationFile: RotationFile; resultsFile: ResultsFile | null }> {
+/** The rotation file for a calculator rotation: its inputs, their hash, and optional credit and type. */
+export async function buildRotationFile(source: CalcInput, { author, rotationType }: ExportOptions): Promise<RotationFile> {
   const { rotation, team, settings, enemy } = source;
   const hash = await hashRotationInputs(source);
-  const credit = author ? { author } : {};
-  const classified = rotationType ? { rotationType } : {};
-  const rotationFile: RotationFile = { format: 2, hash, rotation, team, settings, enemy, ...classified, ...credit };
-  if (!resultsOptions) return { rotationFile, resultsFile: null };
+  return { format: 2, hash, rotation, team, settings, enemy, ...(rotationType ? { rotationType } : {}), ...(author ? { author } : {}) };
+}
 
-  const { build } = resultsOptions;
-
-  const resultsTeam = build === 'default' ? withDefaultBuild(team) : team;
-  const resultsEnemy = build === 'default' ? defaultEnemyStats() : enemy;
-  const results = build === 'custom' && source.customResults
-    ? source.customResults
-    : await runSummaryCalculation({ rotation, team: resultsTeam, settings, enemy: resultsEnemy });
-
+/** A rotation file's ranked results: recommended substats, weapon at R1, default target. */
+export async function buildRankedResults(file: RotationFile): Promise<ResultsFile> {
+  const { rotation, settings, hash, author, rotationType } = file;
+  const team = withDefaultBuild(file.team);
+  const enemy = defaultEnemyStats();
+  const results = await runSummaryCalculation({ rotation, team, settings, enemy });
   return {
-    rotationFile,
-    resultsFile: {
-      format: 2,
-      hash,
-      build,
-      ...classified,
-      ...credit,
-      team: resultsTeam,
-      enemy: resultsEnemy,
-      results: { dpsStats: results.dpsStats, contribution: results.contribution }
-    }
+    format: 2,
+    hash,
+    build: 'default',
+    ...(rotationType ? { rotationType } : {}),
+    ...(author ? { author } : {}),
+    team,
+    enemy,
+    results: { dpsStats: results.dpsStats, contribution: results.contribution }
   };
 }
