@@ -183,7 +183,7 @@ export function postToWorker(
 }
 
 // Runs 'calculateDamage' on a pool lane. Rejects with CancelledError if cancelled while queued.
-export function postToWorkerPool(request: WorkerRequest & { summaryOnly?: boolean }, isCancelled?: () => boolean): Promise<any> {
+export function postToWorkerPool(request: WorkerRequest & { summaryOnly?: boolean; withIssues?: boolean }, isCancelled?: () => boolean): Promise<any> {
   const payload = requestPayload(request);
   const entities = getTeamEntityRefs(request.team, { includeSystem: false, dedupe: true }).map(ref => `${ref.folder}/${ref.name}`);
   return new Promise((resolve, reject) => {

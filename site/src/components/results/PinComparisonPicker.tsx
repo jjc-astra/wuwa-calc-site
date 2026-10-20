@@ -11,7 +11,7 @@ import type { RankingEntry } from '../../store/useRankingsStore';
 import { TeamPreview } from '../common/TeamPreview';
 import { teamCharacters } from '../../utils/TeamUtils';
 import { StackedContributionBar } from '../rankings/StackedContributionBar';
-import { RotationTypeBadge } from '../rankings/RankingRow';
+import { RotationTypeBadge, RankingTagBadges } from '../rankings/RankingRow';
 import { useRankedResults, rosterOf } from '../rankings/useRankedResults';
 import { RankingFilterToolbar } from '../rankings/RankingFilterToolbar';
 import { ChromeTabs } from './ChromeTabs';
@@ -48,7 +48,10 @@ const PickerRankingRow: React.FC<PickerRankingRowProps> = ({ rank, entry, active
       <div className="ranking-row-main">
         <div className="ranking-row-label-line">
           <span className="ranking-row-label">{unitNames.join(' · ') || 'Empty Team'}</span>
-          <RotationTypeBadge type={entry.rotationType} />
+          <div className="ranking-row-badges">
+            <RotationTypeBadge type={entry.rotationType} />
+            <RankingTagBadges tags={entry.tags} issues={results?.results.issues} />
+          </div>
         </div>
         <StackedContributionBar
           segments={forWindow?.team ?? []}

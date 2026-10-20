@@ -9,7 +9,8 @@ import { useComparisonStore } from '../../store/useComparisonStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { rotationTypeLabel } from '../../store/useRankingsStore';
 import type { RankingEntry } from '../../store/useRankingsStore';
-import type { DpsWindowKey } from '../../types/results';
+import type { DpsWindowKey, RankingTag, RotationIssues } from '../../types/results';
+import { escapeHtml, tip } from '../../utils/Common';
 import { dpsFieldOf } from '../../data/dpsWindows';
 import { calculatorPath, guidePath } from '../../config/routes';
 import { goTo } from '../../hooks/useRoute';
@@ -17,6 +18,26 @@ import type { ActionsMenuItem } from '../common/ActionsMenuButton';
 
 export const RotationTypeBadge: React.FC<{ type: RankingEntry['rotationType'] }> = ({ type }) => (
   <span className={`ranking-row-type-badge caps-tag pill-badge outline-badge ranking-row-type-${type ?? 'unclassified'}`}>{rotationTypeLabel(type)}</span>
+);
+
+const TAG_INFO: Record<RankingTag, { label: string; about: string; issues: keyof RotationIssues }> = {
+  experimental: { label: 'Experimental', about: 'Has warnings: check in game that this rotation is possible.', issues: 'warnings' },
+  legacy: { label: 'Legacy', about: 'Has errors: broken by later mechanics or calculator changes.', issues: 'errors' }
+};
+
+/** Experimental / Legacy badges; the tooltip lists the run's issues once its results load. */
+export const RankingTagBadges: React.FC<{ tags?: RankingTag[]; issues?: RotationIssues }> = ({ tags = [], issues }) => (
+  <>
+    {tags.map(tag => {
+      const { label, about, issues: kind } = TAG_INFO[tag];
+      const lines = (issues?.[kind] ?? []).map(msg => `<div>${escapeHtml(msg)}</div>`).join('');
+      return (
+        <span key={tag} className={`caps-tag pill-badge outline-badge ranking-row-tag-${tag}`} {...tip(`<div>${about}</div>${lines}`)}>
+          {label}
+        </span>
+      );
+    })}
+  </>
 );
 
 interface RankingRowProps {
@@ -75,6 +96,7 @@ return (
             <span className="ranking-row-label">{label || 'Empty Team'}</span>
             <div className="ranking-row-badges">
               <RotationTypeBadge type={entry.rotationType} />
+              <RankingTagBadges tags={entry.tags} issues={results?.results.issues} />
               {results?.author && (
                 <span className="ranking-row-author-badge caps-tag pill-badge outline-badge">By: {results.author}</span>
               )}

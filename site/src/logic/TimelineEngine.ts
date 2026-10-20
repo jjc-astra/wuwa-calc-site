@@ -100,6 +100,10 @@ const isSwapTiming = (timing: unknown): boolean => timing === 'Swap' || String(t
 const WAIT_HORIZON = secondsToFrames(3);
 
 // Simulates a rotation row by row: timings, resources, buffs, events, hit queue.
+const COOLDOWN_WARNING_TAIL = '(on cooldown).';
+/** A cooldown wait warning: the move is just late, not impossible. */
+export const isCooldownWarning = (msg: string): boolean => msg.endsWith(COOLDOWN_WARNING_TAIL);
+
 export class TimelineEngineClass {
   damageQueue: QueuedHit[] = [];
   currentGlobalGameTime = 0;
@@ -567,9 +571,7 @@ export class TimelineEngineClass {
       const cooldownWarning = this._cooldownWaitWarning(row, moveName);
       if (cooldownWarning) warnings.push(cooldownWarning);
       (row.warningMsgs || []).forEach((msg: string) => {
-        if (/^Combo requirement not met/.test(msg)) {
-          errors.push(`${moveName}: ${msg}`);
-        } else if (/out of the required .* (Resonance Energy|Forte \d+|Tune)/.test(msg)) {
+        if (/^Combo requirement not met/.test(msg) || /out of the required .* (Resonance Energy|Forte \d+|Tune)/.test(msg)) {
           warnings.push(`${moveName}: ${msg}`);
         }
       });
@@ -1659,7 +1661,7 @@ export class TimelineEngineClass {
 
   // Cooldown wait over 3 frames, or null.
   _cooldownWaitWarning(row: any, moveName: string): string | null {
-    return row.cdWaitTime > 3 ? `${moveName} needs ${formatFramesAsSeconds(row.cdWaitTime)} more (on cooldown).` : null;
+    return row.cdWaitTime > 3 ? `${moveName} needs ${formatFramesAsSeconds(row.cdWaitTime)} more ${COOLDOWN_WARNING_TAIL}` : null;
   }
 
   _rankOf(unit: string, team: any[]): number {

@@ -27,8 +27,8 @@ export async function runFullCalculation(input: CalcInput): Promise<{ results: R
   return { results, evaluatedRows, loopStartIndex };
 }
 
-// DPS + contribution only, on a pool lane.
-export async function runSummaryCalculation(input: CalcInput, isCancelled?: () => boolean): Promise<RotationSummary> {
-  const { results } = await postToWorkerPool({ ...(await buildCalcRequest(input)), summaryOnly: true }, isCancelled);
+// DPS + contribution only, on a pool lane. withIssues: also the run's errors and warnings.
+export async function runSummaryCalculation(input: CalcInput, isCancelled?: () => boolean, withIssues = false): Promise<RotationSummary> {
+  const { results } = await postToWorkerPool({ ...(await buildCalcRequest(input)), summaryOnly: true, withIssues }, isCancelled);
   return results;
 }

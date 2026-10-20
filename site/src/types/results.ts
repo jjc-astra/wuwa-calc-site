@@ -92,7 +92,13 @@ export interface EnergyRequirement {
 export type PanelResults = Omit<RotationResults, 'dmgOverTimeSeries'> & Partial<Pick<RotationResults, 'dmgOverTimeSeries'>>;
 
 // DPS + contribution only.
-export type RotationSummary = Pick<RotationResults, 'dpsStats' | 'contribution'>;
+// A run's errors and its non-cooldown warnings.
+export interface RotationIssues {
+  errors: string[];
+  warnings: string[];
+}
+
+export type RotationSummary = Pick<RotationResults, 'dpsStats' | 'contribution'> & { issues?: RotationIssues };
 
 // --- Saved rotation / results files (data repo: character_results/) ---
 
@@ -142,6 +148,9 @@ export interface RankingMajority {
   category: string | null;
 }
 
+// experimental: warnings other than cooldown waits (check in game). legacy: errors (broken by later changes).
+export type RankingTag = 'experimental' | 'legacy';
+
 // One index.json entry: only what search, filters and sort read.
 export interface RankingIndexEntry {
   id: string;
@@ -153,4 +162,5 @@ export interface RankingIndexEntry {
   sequences: number[];
   dpsStats: DpsStats;
   majority: RankingMajority;
+  tags?: RankingTag[];
 }

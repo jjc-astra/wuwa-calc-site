@@ -252,6 +252,8 @@
 /* --- Type / Author Badges (.outline-badge) --- */
 .ranking-row-type-linear { color: color-mix(in srgb, #3987e5 70%, white); border-color: color-mix(in srgb, #3987e5 50%, var(--border)); }
 .ranking-row-type-quickswap { color: color-mix(in srgb, #d55181 70%, white); border-color: color-mix(in srgb, #d55181 50%, var(--border)); }
+.ranking-row-tag-experimental { color: color-mix(in srgb, #e0a030 75%, white); border-color: color-mix(in srgb, #e0a030 50%, var(--border)); }
+.ranking-row-tag-legacy { color: var(--text-dim); border-color: var(--border); border-style: dashed; }
 .ranking-row-author-badge { text-transform: none; letter-spacing: normal; }
 
 /* --- Timeline Panel (wraps RotationTimeline.tsx) --- */

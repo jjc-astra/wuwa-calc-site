@@ -1,6 +1,7 @@
 // Character Guide: a character's ranked teams, results, timeline and comparisons.
 import React, { useEffect, useMemo, useState } from 'react';
-import { RotationTypeBadge } from '../rankings/RankingRow';
+import { RotationTypeBadge, RankingTagBadges } from '../rankings/RankingRow';
+import { useRankedResults } from '../rankings/useRankedResults';
 import type { RankingEntry } from '../../store/useRankingsStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { getCharacterThemeColor, tip } from '../../utils/Common';
@@ -331,6 +332,7 @@ const RANK_OPTIONS = Array.from({ length: SIM_CONSTANTS.MAX_RANK }, (_, r) => ({
 // The selected team's investment.
 const GuideConfigPanel: React.FC<GuideConfigPanelProps> = ({ group, config, selectedJob, isDefault, onSlotChange, onReset }) => {
   const team = group.entries[0].team;
+  const results = useRankedResults(selectedJob.entry);
 
   return (
     <div className="results-card guide-config">
@@ -338,6 +340,7 @@ const GuideConfigPanel: React.FC<GuideConfigPanelProps> = ({ group, config, sele
         <span>Team Setup</span>
         <div className="results-card-header-controls">
           <RotationTypeBadge type={group.rotationType} />
+          <RankingTagBadges tags={selectedJob.entry.tags} issues={results?.results.issues} />
           {isDefault
             ? <span className="guide-default-badge caps-tag pill-badge outline-badge">Default</span>
             : <button type="button" className="base-btn text-xs guide-reset-btn" onClick={onReset}>Reset</button>}

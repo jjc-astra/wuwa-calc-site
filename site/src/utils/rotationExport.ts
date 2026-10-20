@@ -62,7 +62,7 @@ export async function buildRankedResults(file: RotationFile): Promise<ResultsFil
   const { rotation, settings, hash, author, rotationType } = file;
   const team = withDefaultBuild(file.team);
   const enemy = defaultEnemyStats();
-  const results = await runSummaryCalculation({ rotation, team, settings, enemy });
+  const results = await runSummaryCalculation({ rotation, team, settings, enemy }, undefined, true);
   return {
     format: 2,
     hash,
@@ -71,6 +71,6 @@ export async function buildRankedResults(file: RotationFile): Promise<ResultsFil
     ...(author ? { author } : {}),
     team,
     enemy,
-    results: { dpsStats: results.dpsStats, contribution: results.contribution }
+    results: { dpsStats: results.dpsStats, contribution: results.contribution, issues: results.issues }
   };
 }

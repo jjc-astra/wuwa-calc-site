@@ -1,9 +1,10 @@
 // Runs the simulation pipeline off the main thread, with its own DataLoader.
-import { TimelineEngine } from '../logic/TimelineEngine';
+import { TimelineEngine, isCooldownWarning } from '../logic/TimelineEngine';
 import { buildRotationResults, buildRotationSummary, populateDamageInstances, previewEndingRotationTiming, type SharedExtendedRun } from '../logic/ResultsCalculator';
 import { DataLoader, type DataSeed } from '../utils/DataLoader';
 import { applyBuilderOverridesToDataLoader, overriddenEntities } from './builderOverridePayload';
 import { getTeamEntityRefs } from '../utils/TeamUtils';
+import type { RotationIssues, RotationSummary } from '../types/results';
 
 let ready: Promise<void> | null = null;
 const getReady = (seed?: DataSeed) => ready ?? (ready = DataLoader.initDatabases(seed));
@@ -93,6 +94,26 @@ function runTable(payload: any, withDamage: boolean) {
   return { baseRows, evaluatedRows, loopStartIndex: found.index, loopStartIsOverride: found.isOverride, shared };
 }
 
+// Second loop rep's issues; reuses the preview's second rep when it has one.
+function loopIssuesOf(baseRows: any[], payload: any, loopStartIndex: number, shared: SharedExtendedRun) {
+  const preview = shared.run;
+  return preview && preview.reps >= 2
+    ? TimelineEngine.loopIssues(preview.evaluatedRows, preview.openerLength + preview.loopLength, preview.openerLength + 2 * preview.loopLength)
+    : TimelineEngine.analyzeLoop(baseRows, payload.team, payload.options, payload.enemy, loopStartIndex);
+}
+
+// Every row and loop error, and every warning but cooldown waits.
+function rotationIssues(evaluatedRows: any[], loop: { errors: string[]; warnings: string[] }): RotationIssues {
+  const errors = new Set(loop.errors);
+  const warnings = new Set(loop.warnings.filter(msg => !isCooldownWarning(msg)));
+  evaluatedRows.filter(row => row?.unit).forEach(row => {
+    const moveName = row.moveName || row.action;
+    (row.errorMsgs || []).forEach((msg: string) => errors.add(`${moveName}: ${msg}`));
+    (row.warningMsgs || []).forEach((msg: string) => { if (!isCooldownWarning(msg)) warnings.add(`${moveName}: ${msg}`); });
+  });
+  return { errors: [...errors], warnings: [...warnings] };
+}
+
 worker.onmessage = async (e: MessageEvent) => {
   const { id, type, payload } = e.data;
   try {
@@ -118,12 +139,7 @@ worker.onmessage = async (e: MessageEvent) => {
       const key = runKey(payload);
       // Always priced so Calculate can reuse it; damage only sent when asked.
       const { baseRows, evaluatedRows, loopStartIndex, loopStartIsOverride, shared } = runTable(payload, true);
-      const { team, options, enemy } = payload;
-      // Reuse the preview's second rep when it has one.
-      const preview = shared.run;
-      const { errors: loopErrors, warnings: loopWarnings } = preview && preview.reps >= 2
-        ? TimelineEngine.loopIssues(preview.evaluatedRows, preview.openerLength + preview.loopLength, preview.openerLength + 2 * preview.loopLength)
-        : TimelineEngine.analyzeLoop(baseRows, team, options, enemy, loopStartIndex);
+      const { errors: loopErrors, warnings: loopWarnings } = loopIssuesOf(baseRows, payload, loopStartIndex, shared);
       lastRecalc = { key, baseRows, rows: evaluatedRows, loopStartIndex, shared };
       worker.postMessage({
         id,
@@ -155,7 +171,9 @@ worker.onmessage = async (e: MessageEvent) => {
       // Extended pass for the Results panel.
       const args = [baseRows, team, options, enemy, loopStartIndex, endingRotationEnabled, !!endRotationStartsEarlier, shared] as const;
       if (summaryOnly) {
-        worker.postMessage({ id, ok: true, results: buildRotationSummary(...args) });
+        const results: RotationSummary = buildRotationSummary(...args);
+        if (payload.withIssues) results.issues = rotationIssues(evaluatedRows, loopIssuesOf(baseRows, payload, loopStartIndex, shared));
+        worker.postMessage({ id, ok: true, results });
       } else {
         const results = buildRotationResults(args, { withSubstatWorth: payload.substatWorth !== false });
         worker.postMessage({ id, ok: true, evaluatedRows: stripForReply(evaluatedRows, REPLY_OMIT), loopStartIndex, results });
