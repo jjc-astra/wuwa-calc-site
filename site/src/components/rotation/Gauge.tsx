@@ -18,16 +18,18 @@ interface DialGaugeProps {
   name: string;
   value?: number;
   max?: number;
+  // Fills clockwise from the top, as the game's Tune gauge does.
+  clockwise?: boolean;
 }
 
-export const DialGauge: React.FC<DialGaugeProps> = ({ name, value = 0, max = 100 }) => {
+export const DialGauge: React.FC<DialGaugeProps> = ({ name, value = 0, max = 100, clockwise = false }) => {
   const pct = gaugePercent(value, max);
   const isFull = pct >= 99.9;
 
   return (
     <div className="gauge-cell">
       <div
-        className={`gauge-dial ${isFull ? 'is-full' : ''}`}
+        className={`gauge-dial ${clockwise ? 'is-clockwise' : ''} ${isFull ? 'is-full' : ''}`}
         data-name={name}
         style={{ '--p': `${pct}%` } as React.CSSProperties}
         {...gaugeTooltipHandlers(name, value)}

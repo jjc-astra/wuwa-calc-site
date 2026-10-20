@@ -603,7 +603,7 @@ export const RotationRow = React.memo<RotationRowProps>(({
         </div>
 
         <div className={`sub-panel-trigger ${activeTrigger === 'tune' ? 'is-active' : ''}`} onClick={() => onTriggerClick(index, 'tune')}>
-          <DialGauge name="Tune" value={row.enemyTune || 0} max={row.enemyMaxTune || ENEMY_DEFAULTS.maxTune} />
+          <DialGauge name="Tune" value={row.enemyTune || 0} max={row.enemyMaxTune || ENEMY_DEFAULTS.maxTune} clockwise />
         </div>
       </div>
 

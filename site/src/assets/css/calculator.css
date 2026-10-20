@@ -613,6 +613,12 @@
     position: relative;
     transition: opacity 0.3s ease, box-shadow 0.3s ease;
 }
+/* The game's Tune gauge: clockwise from the top. */
+.gauge-dial.is-clockwise {
+    background-image:
+        linear-gradient(var(--bg-panel), var(--bg-panel)),
+        conic-gradient(var(--accent) 0%, var(--accent) var(--p, 0%), var(--input-bg) var(--p, 0%), var(--input-bg) 100%);
+}
 .gauge-dial::after {
     display: none;
 }
