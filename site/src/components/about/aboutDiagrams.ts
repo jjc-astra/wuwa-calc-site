@@ -438,8 +438,8 @@ export const DIAGRAMS = {
       L1{"a row has the<br/>Loop Start marker?"}
       L1 -- yes --> L2["that row"]:::logic
       L1 -- no --> L3{"main DPS (slot 1) has an Outro?<br/>(the first not in an earlier repeat copy)"}
-      L3 -- yes --> L4["the row after it<br/>(row 0 if that's blank)"]:::logic
-      L3 -- no --> L5["row 0"]:::logic
+      L3 -- yes --> L4["the row after it<br/>(after the last row if that's blank)"]:::logic
+      L3 -- no --> L5["after the last row:<br/>opener not done, no loop"]:::logic
     end
     subgraph Check["analyzeLoop"]
       direction TB

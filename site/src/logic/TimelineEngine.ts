@@ -524,10 +524,14 @@ export class TimelineEngineClass {
   }
 
   // Loop start: override, or main DPS's first Outro (skipping Hold-Repeat blocks).
+  // The Loop Start marker's row, else the row after the main DPS's Outro. Until that row exists the
+  // opener isn't done: after the last row (all opener, no loop).
   findLoopStart(rows: any[], mainDps: string | undefined, collapseMap?: number[]): { index: number; isOverride: boolean } {
     const overrideIndex = rows.findIndex(r => r.loopStartOverride === true && !!r.unit);
     if (overrideIndex !== -1) return { index: overrideIndex, isOverride: true };
 
+    let end = rows.length;
+    while (end > 0 && !rows[end - 1]?.unit) end--;
     if (mainDps) {
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
@@ -535,11 +539,11 @@ export class TimelineEngineClass {
           if (collapseMap && collapseMap.lastIndexOf(collapseMap[i]) !== i) continue;
           const next = i + 1;
           if (next < rows.length && rows[next]?.unit) return { index: next, isOverride: false };
-          return { index: 0, isOverride: false };
+          return { index: end, isOverride: false };
         }
       }
     }
-    return { index: 0, isOverride: false };
+    return { index: end, isOverride: false };
   }
 
   // Legality check: simulates opener + 2 loop reps and inspects the second.

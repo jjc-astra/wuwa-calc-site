@@ -86,7 +86,7 @@ function runTable(payload: any, withDamage: boolean) {
   if (withDamage) populateDamageInstances(baseRows, enemy, team);
   const found = typeof payload.loopStartIndex === 'number'
     ? { index: payload.loopStartIndex, isOverride: false }
-    : TimelineEngine.findLoopStart(baseRows, team[0]?.character, payload.collapseMap);
+    : TimelineEngine.findLoopStart(baseRows, payload.team[0]?.character, payload.collapseMap);
   const shared: SharedExtendedRun = {};
   const evaluatedRows = payload.endingRotationEnabled
     ? previewEndingRotationTiming(baseRows, team, options, enemy, found.index, withDamage, !!payload.endRotationStartsEarlier, shared)
