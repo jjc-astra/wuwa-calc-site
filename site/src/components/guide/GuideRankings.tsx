@@ -23,7 +23,7 @@ interface GuideRankingsProps {
 
 export const GuideRankings: React.FC<GuideRankingsProps> = ({ unit, entries, baseline, onShowInGuide }) => {
   const [activeWindow, setActiveWindow] = useState<DpsWindowKey>('twoMin');
-  const [filters, setFilters] = useState<RankingFilters>(DEFAULT_RANKING_FILTERS);
+  const [filters, setFilters] = useState<RankingFilters>({ ...DEFAULT_RANKING_FILTERS, bestOnly: false });
   const [shown, setShown] = useState(PAGE_SIZE);
 
   const visible = useMemo(
