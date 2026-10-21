@@ -52,6 +52,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
         iconFolder={opts.folder}
         iconShape="circle"
         placeholder={opts.placeholder}
+        searchable
         options={opts.options}
       />
     </div>
@@ -187,6 +188,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
             iconFolder={IMAGE_FOLDERS.WEAPONS}
             iconShape="rect"
             placeholder={slot.character ? 'Weapon' : 'Select Character First'}
+            searchable
             options={selectableOptions('weapon', validWeapons)}
           />
           <div className="base-num-box">
