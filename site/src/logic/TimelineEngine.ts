@@ -347,7 +347,8 @@ export class TimelineEngineClass {
         if (desiredSwapOutTime < readyAt) {
           swapCdDelay = readyAt - desiredSwapOutTime;
           duration += swapCdDelay;
-          animationCommitment += swapCdDelay;
+          // The animation plays on during the wait; it only runs longer if the wait outlasts it.
+          animationCommitment = Math.max(animationCommitment, duration);
         }
       }
 
