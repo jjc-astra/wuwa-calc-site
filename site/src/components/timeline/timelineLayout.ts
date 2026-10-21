@@ -11,7 +11,7 @@ import type { TeamSlot } from '../../types';
 const TIMELINE_ROW_FIELDS = [
   'unit', 'action', 'moveName', 'input', 'inputType', 'priority', 'timing', '_autoTimingChoice', 'loopEndOverride',
   'gameTimeStart', 'gameTimePassed', 'duration', 'waitTime', 'cdWaitTime', 'freezeTime', 'animationCommitment',
-  'motionStopPauses'
+  'motionStopPauses', 'backOnFieldAt'
 ] as const;
 
 export const trimRowsForTimeline = (rows: any[]): any[] =>
@@ -177,7 +177,8 @@ function deriveSegments(rows: any[], compression: TimeCompression | null): Timel
     const onRenderedEndX = onStartX + onWidthPx;
     segments.push({ type: 'onfield', xPx: onStartX, widthPx: onWidthPx, row });
 
-    if (row.waitTime > 0 && row.timing !== 'Simultaneous') {
+    // Cooldown wait. An Animation Lock is drawn on the move it waits out (backOnFieldAt).
+    if (row.waitTime > 0 && row.waitTime === row.cdWaitTime && row.timing !== 'Simultaneous') {
       const waitTrueStartX = compressedTimeToPx(row.gameTimeStart - row.waitTime, compression);
       const waitWidthPx = Math.max(MIN_CLIP_WIDTH_PX, onStartX - waitTrueStartX);
       segments.push({ type: 'wait', xPx: onStartX - waitWidthPx, widthPx: waitWidthPx, row });
@@ -186,10 +187,16 @@ function deriveSegments(rows: any[], compression: TimeCompression | null): Timel
     // Off-field tail, extended by motion stops.
     const pauses: MotionStopPause[] = row.motionStopPauses || [];
     const pausedFrames = pauses.reduce((sum, p) => sum + p.frames, 0);
-    const offEndFrames = row.gameTimeStart + Math.max(0, row.animationCommitment - (row.freezeTime || 0)) + pausedFrames;
+    const animEndFrames = row.gameTimeStart + Math.max(0, row.animationCommitment - (row.freezeTime || 0)) + pausedFrames;
+    // Back on field before it ends: the rest plays on field.
+    const offEndFrames = Math.min(animEndFrames, row.backOnFieldAt ?? Infinity);
     if (offEndFrames > row.gameTimeStart + row.gameTimePassed) {
       const offEndX = compressedTimeToPx(offEndFrames, compression);
       segments.push({ type: 'offfield', xPx: onRenderedEndX, widthPx: Math.max(MIN_CLIP_WIDTH_PX, offEndX - onRenderedEndX), row });
+    }
+    if (animEndFrames > offEndFrames && row.backOnFieldAt !== undefined) {
+      const backX = compressedTimeToPx(offEndFrames, compression);
+      segments.push({ type: 'onfield', xPx: backX, widthPx: Math.max(MIN_CLIP_WIDTH_PX, compressedTimeToPx(animEndFrames, compression) - backX), row });
     }
 
     for (const pause of pauses) {

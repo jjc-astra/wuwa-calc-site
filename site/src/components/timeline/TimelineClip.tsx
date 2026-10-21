@@ -43,7 +43,7 @@ export function buildClipTooltipHtml(
     );
   }
   if (type === 'wait') {
-    const reason = row.waitTime === row.cdWaitTime ? 'Waiting for Skill CD' : 'Off-Field Animation Lock';
+    const reason = row.waitTime === row.cdWaitTime ? 'Waiting for Skill CD' : 'Animation Lock';
     return `<div>${reason}</div>` + tooltipLine('Wait', seconds(row.waitTime)) + at;
   }
   return (

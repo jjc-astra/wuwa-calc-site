@@ -213,6 +213,7 @@ export class TimelineEngineClass {
       // Clear stale errors from the last run.
       currentData._holdUnreachable = undefined;
       currentData.motionStopPauses = undefined;
+      currentData.backOnFieldAt = undefined;
 
       // Set by the release lookahead; reused by cursor tracking below.
       let holdConfigCache: { config: HoldConfig; mode: string; speed: number; maxVal: number; center: number; size: number } | null = null;
@@ -256,10 +257,11 @@ export class TimelineEngineClass {
       const introCutsSwappedOut = isIntroCast && !!swappedOut && busyUntil > accumulatedTime;
       // Swapback cancel: cut the off-field move at its cancel point, or now if past.
       const cutsSwappedOut = swappedOut?._swapCancelAt !== undefined && busyUntil > accumulatedTime && !isOutroCast && !isIntroCast;
+      // Off-field motion stops: paused time on top of its own animation.
+      const swappedOutPaused = swappedOut ? Math.max(0, busyUntil - (swappedOut.timeStart + swappedOut.animationCommitment)) : 0;
       if (cutsSwappedOut) {
-        // Off-field motion stops push the cancel point back.
-        const paused = Math.max(0, busyUntil - (swappedOut.timeStart + swappedOut.animationCommitment));
-        busyUntil = Math.min(busyUntil, Math.max(accumulatedTime, swappedOut.timeStart + swappedOut._swapCancelAt + paused));
+        // They push the cancel point back too.
+        busyUntil = Math.min(busyUntil, Math.max(accumulatedTime, swappedOut.timeStart + swappedOut._swapCancelAt + swappedOutPaused));
       }
       if (busyUntil > accumulatedTime && !isOutroCast && !isIntroCast) {
         wBusy = busyUntil - accumulatedTime;
@@ -268,8 +270,14 @@ export class TimelineEngineClass {
       let finalWaitTime = Math.max(wCD, wBusy);
       currentData.waitTime = finalWaitTime;
       currentData.cdWaitTime = wCD;
+      // An Animation Lock is waited out back on field: hits landing in it are on-field hits, and the
+      // swapped-out move finishes on field (game time it's back, for the Timeline).
+      if (wBusy > 0 && wBusy >= wCD) {
+        this._preCastOnField = currentData.unit;
+        if (swappedOut) swappedOut.backOnFieldAt = accumulatedGameTime;
+      }
       if (i > 0) this._decayState(currentData, toFrames(finalWaitTime), toFrames(finalWaitTime), activeTeam, activeRows, team);
-      if (cutsSwappedOut || introCutsSwappedOut) this._cutSwappedOutMove(swappedOut, accumulatedTime + finalWaitTime);
+      if (cutsSwappedOut || introCutsSwappedOut) this._cutSwappedOutMove(swappedOut, accumulatedTime + finalWaitTime, swappedOutPaused);
 
       // Wait for queued resource gains to cover a shortfall (not Energy).
       const { waitFrames: resourceWaitFrames, label: resourceWaitLabel } = this._computeCastWait(currentData, dbMove, team, activeTeam, activeRows);
@@ -408,7 +416,7 @@ export class TimelineEngineClass {
       // Integer frames; no epsilon needed.
       const reasons: any[] = [];
       if (wCD > 0) reasons.push({ label: 'Waiting for Skill CD', valueFrames: wCD });
-      if (wBusy > 0) reasons.push({ label: 'Off-Field Animation Lock', valueFrames: toFrames(wBusy) });
+      if (wBusy > 0) reasons.push({ label: 'Animation Lock', valueFrames: toFrames(wBusy) });
       if (resourceWaitFrames > 0) reasons.push({ label: resourceWaitLabel || 'Waiting for Resource', valueFrames: toFrames(resourceWaitFrames) });
       reasons.push(...holdWaitReasons);
       if (baseActDur > 0) reasons.push({ label: 'Base Action Duration', valueFrames: toFrames(baseActDur) });
@@ -756,11 +764,12 @@ export class TimelineEngineClass {
   }
 
   // Cuts an off-field move at `cutAt`, dropping unlanded hits.
-  _cutSwappedOutMove(row: any, cutAt: number): void {
+  _cutSwappedOutMove(row: any, cutAt: number, paused: number): void {
     const before = this.damageQueue.length;
     this.damageQueue = this.damageQueue.filter(hit => !(hit.originRow === row && !hit.isProc && hit.executeAt > cutAt));
     row.allowedHits = Math.max(0, (row.allowedHits ?? 0) - (before - this.damageQueue.length));
-    row.animationCommitment = toFrames(Math.max(row.duration || 0, cutAt - row.timeStart));
+    // Its own animation time; the Timeline adds the pauses back.
+    row.animationCommitment = toFrames(Math.max(row.duration || 0, cutAt - row.timeStart - paused));
     row._swapCancelAt = undefined;
   }
 
