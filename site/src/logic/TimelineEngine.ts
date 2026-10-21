@@ -349,7 +349,8 @@ export class TimelineEngineClass {
 
       const incomingUnit = nextRow?.unit && nextRow.unit !== currentData.unit ? nextRow.unit : null;
       let swapCdDelay = 0;
-      if (isSwappingOut && incomingUnit) {
+      // An Outro brings the next unit in through its Intro, ignoring swap cooldown.
+      if (isSwappingOut && incomingUnit && !isOutroCast) {
         const desiredSwapOutTime = accumulatedTime + finalWaitTime + duration;
         const readyAt = swapBackReadyAt[incomingUnit] ?? 0;
         if (desiredSwapOutTime < readyAt) {
