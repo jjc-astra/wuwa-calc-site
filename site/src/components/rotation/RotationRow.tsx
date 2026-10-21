@@ -173,6 +173,10 @@ export const RotationRow = React.memo<RotationRowProps>(({
         const holdingThisInput = ctx.self.getTracker('Hold_Unit') === selectedUnit && ctx.self.getTracker('Hold_Input') === m.input;
         if (isHoldReleaser(m) && !holdingThisInput) return false;
         if (isHoldStarter(m) && holdingThisInput) return false;
+        // Mid hold group (after its Hold or Repeat) the input is still held: no new Hold on it.
+        const prevMove = ctx.self.prevAction ? DataLoader.mechanicsDB[ctx.self.prevAction] : undefined;
+        const midHoldGroup = prevMove?.inputType === 'Repeat' || (prevMove?.inputType === 'Hold' && !!prevMove.holdGroupId);
+        if (m.inputType === 'Hold' && midHoldGroup && prevMove?.input === m.input) return false;
       }
       return true;
     };
