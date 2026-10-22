@@ -2,7 +2,7 @@
 import React, { useMemo, useState } from 'react';
 import { filterRankingEntries } from '../../store/useRankingsStore';
 import type { RankingEntry } from '../../store/useRankingsStore';
-import { DEFAULT_RANKING_FILTERS, SequenceRangeFilters, RotationStyleToggle, BestOnlyToggle } from '../rankings/RankingFilterToolbar';
+import { DEFAULT_RANKING_FILTERS, SequenceRangeFilters, RotationStyleToggle, BestOnlyToggle, TagGroupToggle } from '../rankings/RankingFilterToolbar';
 import type { RankingFilters } from '../rankings/RankingFilterToolbar';
 import { RankingRow } from '../rankings/RankingRow';
 import { ArrowUpIcon } from '../common/icons';
@@ -41,6 +41,7 @@ export const GuideRankings: React.FC<GuideRankingsProps> = ({ unit, entries, bas
         <SequenceRangeFilters filters={filters} onChange={setFilters} />
         <RotationStyleToggle filters={filters} onChange={setFilters} />
         <BestOnlyToggle filters={filters} onChange={setFilters} />
+        <TagGroupToggle filters={filters} onChange={setFilters} />
       </div>
       <div className="rankings-tab-panel">
         <ChromeTabs tabs={DPS_WINDOW_TABS} activeId={activeWindow} onSelect={id => setActiveWindow(id as DpsWindowKey)} />

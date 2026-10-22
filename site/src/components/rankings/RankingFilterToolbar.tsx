@@ -1,7 +1,7 @@
 import React from 'react';
 import { RangeSlider } from '../common/RangeSlider';
 import type { RangeValue } from '../common/RangeSlider';
-import { SegmentedToggle } from '../common/SegmentedToggle';
+import { SegmentedToggle, SegmentedMultiToggle } from '../common/SegmentedToggle';
 import { ELEMENT_COLORS } from '../../utils/Common';
 import { colorForLabel } from '../results/chartPalette';
 import { ELEMENTS } from '../../data/gameVocab';
@@ -17,10 +17,14 @@ export interface RankingFilters {
   sequenceRanges: [RangeValue, RangeValue, RangeValue];
   rotationStyle: 'any' | 'linear' | 'quickswap';
   bestOnly: boolean;
+  // Shown tag groups (a rotation's group is its worst tag, or clean).
+  tagGroups: RankingTagGroup[];
   // All checked = no filter. Matched against the majority element/category.
   elements: RankingElement[];
   dmgCategories: RankingDmgCategory[];
 }
+
+export type RankingTagGroup = 'clean' | 'experimental' | 'legacy';
 
 export const DEFAULT_RANKING_FILTERS: RankingFilters = {
   sequenceRanges: [
@@ -30,6 +34,7 @@ export const DEFAULT_RANKING_FILTERS: RankingFilters = {
   ],
   rotationStyle: 'any',
   bestOnly: true,
+  tagGroups: ['clean', 'experimental'],
   elements: [...RANKING_ELEMENTS],
   dmgCategories: [...RANKING_DMG_CATEGORIES]
 };
@@ -124,6 +129,19 @@ export const BestOnlyToggle: React.FC<RankingFilterToolbarProps> = ({ filters, o
   />
 );
 
+export const TagGroupToggle: React.FC<RankingFilterToolbarProps> = ({ filters, onChange }) => (
+  <SegmentedMultiToggle
+    ariaLabel="Rotation tags"
+    values={filters.tagGroups}
+    onChange={tagGroups => onChange({ ...filters, tagGroups })}
+    options={[
+      { value: 'clean', label: 'No Issues' },
+      { value: 'experimental', label: 'Experimental' },
+      { value: 'legacy', label: 'Legacy' }
+    ]}
+  />
+);
+
 export const RankingFilterToolbar: React.FC<RankingFilterToolbarProps> = ({ filters, onChange }) => {
   return (
     <div className="ranking-toolbar">
@@ -133,6 +151,7 @@ export const RankingFilterToolbar: React.FC<RankingFilterToolbarProps> = ({ filt
       <div className="panel-header-tiny">Rotation Type</div>
       <RotationStyleToggle filters={filters} onChange={onChange} />
       <BestOnlyToggle filters={filters} onChange={onChange} />
+      <TagGroupToggle filters={filters} onChange={onChange} />
 
       <div className="panel-header-tiny">DMG Type</div>
       <div className="ranking-dmgtype-columns">

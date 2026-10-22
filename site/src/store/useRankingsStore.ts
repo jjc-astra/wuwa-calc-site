@@ -42,6 +42,9 @@ export function filterRankingEntries(
       if (seq < range.min || seq > range.max) return false;
     }
     if (filters.rotationStyle !== 'any' && entry.rotationType !== filters.rotationStyle) return false;
+    const tags = entry.tags ?? [];
+    const group = tags.includes('legacy') ? 'legacy' : tags.includes('experimental') ? 'experimental' : 'clean';
+    if (!filters.tagGroups.includes(group)) return false;
     if (searchLower) {
       const label = entry.characters.filter(Boolean).join(' · ').toLowerCase();
       if (!label.includes(searchLower)) return false;
