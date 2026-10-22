@@ -245,6 +245,11 @@
 .pin-menu-item-danger { color: var(--danger-text); }
 .pin-menu-item-danger:hover:not(:disabled) { background: var(--danger-tint); }
 .pin-menu-item:disabled { color: var(--text-dim); cursor: not-allowed; }
+.pin-menu-item.has-icon { justify-content: flex-start; }
+.pin-menu-item-icon { display: inline-flex; align-items: center; justify-content: center; width: 1.1rem; flex-shrink: 0; color: var(--text-dim); }
+.pin-menu-item-icon .avatar { width: 1.1rem; height: 1.1rem; border-radius: 50%; }
+.pin-menu-item-accent, .pin-menu-item-accent .pin-menu-item-icon { color: var(--accent); }
+.pin-menu-item.is-separated { border-top: 1px solid var(--border); }
 
 .pin-chip {
     display: inline-flex; align-items: center; gap: var(--space-2);

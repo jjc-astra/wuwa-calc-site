@@ -5,6 +5,7 @@ import type { RankingEntry } from '../../store/useRankingsStore';
 import { DEFAULT_RANKING_FILTERS, SequenceRangeFilters, RotationStyleToggle, BestOnlyToggle } from '../rankings/RankingFilterToolbar';
 import type { RankingFilters } from '../rankings/RankingFilterToolbar';
 import { RankingRow } from '../rankings/RankingRow';
+import { ArrowUpIcon } from '../common/icons';
 import { ChromeTabs } from '../results/ChromeTabs';
 import { DPS_WINDOW_TABS } from '../results/chartPalette';
 import { dpsFieldOf } from '../../data/dpsWindows';
@@ -54,7 +55,8 @@ export const GuideRankings: React.FC<GuideRankingsProps> = ({ unit, entries, bas
                 activeWindow={activeWindow}
                 maxDps={maxDps}
                 baselineDps={baselineDps}
-                extraMenuItems={[{ key: 'show-in-guide', label: 'Show This Rotation Above', onClick: () => onShowInGuide(entry) }]}
+                guideUnit={unit}
+                leadingMenuItems={[{ key: 'show-in-guide', label: 'Show This Rotation Above', icon: <ArrowUpIcon size={14} />, accent: true, onClick: () => onShowInGuide(entry) }]}
               />
             ))}
           </div>

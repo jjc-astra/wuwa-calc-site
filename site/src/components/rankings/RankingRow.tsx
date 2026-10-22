@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { TeamPreview } from '../common/TeamPreview';
 import { StackedContributionBar } from './StackedContributionBar';
 import { ActionsMenuButton } from '../common/ActionsMenuButton';
+import { AvatarIcon } from '../common/AvatarIcon';
+import { CalculatorIcon, PinIcon } from '../common/icons';
+import { IMAGE_FOLDERS } from '../../data/db';
 import { RankingTimelinePanel } from './RankingTimelinePanel';
 import { useRankedResults, rosterOf } from './useRankedResults';
 import { loadSavedRotation } from '../../store/loadSavedRotation';
@@ -47,11 +50,14 @@ interface RankingRowProps {
   maxDps: number;
   // % label baseline instead of the top entry.
   baselineDps?: number;
-  extraMenuItems?: ActionsMenuItem[];
+  // Menu items above the standard ones.
+  leadingMenuItems?: ActionsMenuItem[];
+  // The guide being viewed: its unit's "Open Guide" item is left out.
+  guideUnit?: string;
 }
 
 /** One ranked rotation, expandable to its timeline. */
-export const RankingRow: React.FC<RankingRowProps> = ({ rank, entry, activeWindow, maxDps, baselineDps, extraMenuItems = [] }) => {
+export const RankingRow: React.FC<RankingRowProps> = ({ rank, entry, activeWindow, maxDps, baselineDps, leadingMenuItems = [], guideUnit }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const dps = entry.dpsStats[dpsFieldOf(activeWindow)] ?? 0;
   const widthPct = maxDps > 0 ? (dps / maxDps) * 100 : 0;
@@ -116,10 +122,16 @@ return (
             triggerClassName="ranking-row-menu-btn"
             iconSize={20}
             items={[
-              { key: 'open-in-calculator', label: 'Open in Rotation Calculator', onClick: handleOpenInCalculator },
-              { key: 'pin-to-comparison', label: 'Pin to Comparison', onClick: handlePinToComparison },
-              ...unitNames.map(name => ({ key: `guide-${name}`, label: `Open ${name} Guide`, onClick: () => goTo(guidePath(name)) })),
-              ...extraMenuItems
+              ...leadingMenuItems,
+              { key: 'open-in-calculator', label: 'Open in Rotation Calculator', icon: <CalculatorIcon size={14} />, onClick: handleOpenInCalculator, separated: true },
+              { key: 'pin-to-comparison', label: 'Pin to Comparison', icon: <PinIcon size={14} />, onClick: handlePinToComparison },
+              ...unitNames.filter(name => name !== guideUnit).map((name, i) => ({
+                key: `guide-${name}`,
+                label: `Open ${name} Guide`,
+                icon: <AvatarIcon name={name} folder={IMAGE_FOLDERS.CHARACTERS} />,
+                onClick: () => goTo(guidePath(name)),
+                separated: i === 0
+              }))
             ]}
           />
         </div>

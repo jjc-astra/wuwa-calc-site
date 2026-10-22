@@ -9,6 +9,12 @@ export interface ActionsMenuItem {
   label: React.ReactNode;
   onClick: () => void;
   danger?: boolean;
+  /** Shown before the label, in a fixed-width column. */
+  icon?: React.ReactNode;
+  /** Gold, for the menu's headline action. */
+  accent?: boolean;
+  /** Divider above: starts a new group. */
+  separated?: boolean;
 }
 
 interface ActionsMenuButtonProps {
@@ -82,9 +88,16 @@ export const ActionsMenuButton: React.FC<ActionsMenuButtonProps> = ({
             <button
               key={item.key ?? i}
               type="button"
-              className={`pin-menu-item ${item.danger ? 'pin-menu-item-danger' : ''}`}
+              className={[
+                'pin-menu-item',
+                item.danger && 'pin-menu-item-danger',
+                item.accent && 'pin-menu-item-accent',
+                item.icon && 'has-icon',
+                item.separated && i > 0 && 'is-separated'
+              ].filter(Boolean).join(' ')}
               onClick={() => selectItem(i)}
             >
+              {item.icon && <span className="pin-menu-item-icon">{item.icon}</span>}
               {item.label}
             </button>
           ))}
