@@ -6,14 +6,12 @@ import { PieChart } from './PieChart';
 import { colorForLabel, OTHER_SLICE_COLOR } from './chartPalette';
 import { DEFAULT_BREAKDOWN_WINDOW, shownWindow } from '../../data/dpsWindows';
 import { getCharacterThemeColor } from '../../utils/Common';
-import { teamCharacters } from '../../utils/TeamUtils';
 import { DpsWindowSelect } from './DpsWindowSelect';
 import { UnitTabs } from '../common/UnitTabs';
 
 /** Damage by unit, or one unit's by cast type. */
 export const TeamContributionPanel: React.FC = () => {
-  const { team, results, isStale } = useResultsSource();
-  const units = teamCharacters(team);
+  const { units, results, isStale } = useResultsSource();
   const tabs = ['Team', ...units];
   const [activeTab, setActiveTab] = useState('Team');
   const [pickedWindow, setDpsType] = useState<DpsWindowKey>(DEFAULT_BREAKDOWN_WINDOW);

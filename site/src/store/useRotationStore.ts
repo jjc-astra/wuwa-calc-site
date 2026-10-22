@@ -10,6 +10,7 @@ import { checkTeamFreshness } from '../utils/dataFreshness';
 import { expandRepeatBlocks, collapseRepeatResults, findBlocks, isValidBlock } from '../logic/RepeatBlocks';
 import { useRotationHistoryStore } from './useRotationHistoryStore';
 import { DataLoader } from '../utils/DataLoader';
+import { teamCharacters } from '../utils/TeamUtils';
 import {
   HistoryManager,
   AddRowCommand,
@@ -136,6 +137,8 @@ interface RotationState {
   // Calculate includes substat worth (off by default; slow).
   substatWorthEnabled: boolean;
   results: RotationResults | null;
+  // The units `results` were calculated for (the roster may have changed since).
+  resultsUnits: string[] | null;
   isCalculating: boolean;
   // Last calc's expanded rows, for the Timeline. Not persisted.
   timelineRows: any[];
@@ -348,6 +351,7 @@ export const useRotationStore = create<RotationState>()(
         endRotationStartsEarlier: false,
         substatWorthEnabled: false,
         results: null,
+        resultsUnits: null,
         isCalculating: false,
         timelineRows: [],
         timelineLoopStartIndex: null,
@@ -721,6 +725,7 @@ export const useRotationStore = create<RotationState>()(
             timelineLoopStartIndex: data.loopStartIndex,
             isStale: false,
             results: data.results,
+            resultsUnits: teamCharacters(team),
             isCalculating: false,
             builderOverridesSnapshot: JSON.stringify(builderOverrides)
           });
@@ -772,6 +777,7 @@ export const useRotationStore = create<RotationState>()(
         endRotationStartsEarlier: state.endRotationStartsEarlier,
         substatWorthEnabled: state.substatWorthEnabled,
         results: state.results,
+        resultsUnits: state.resultsUnits,
         isStale: state.isStale,
         builderOverridesSnapshot: state.builderOverridesSnapshot,
         loopStartIndex: state.loopStartIndex,

@@ -5,7 +5,6 @@ import { useRotationStore } from '../../store/useRotationStore';
 import { SegmentedToggle } from '../common/SegmentedToggle';
 import { UnitTabs } from '../common/UnitTabs';
 import { formatStatValue } from '../../data/db';
-import { teamCharacters } from '../../utils/TeamUtils';
 
 const formatPct = (v: number) => `${v.toFixed(1)}%`;
 
@@ -15,8 +14,7 @@ type Mode = 'team' | 'personal';
 /** Each substat roll's worth: min-max range and the default roll. */
 export const SubstatWorthChart: React.FC = () => {
   const source = useResultsSource();
-  const { team, results } = source;
-  const units = teamCharacters(team);
+  const { units, results } = source;
   const [activeUnit, setActiveUnit] = useState(units[0] || '');
   const [direction, setDirection] = useState<Direction>('plus');
   const [ownMode, setMode] = useState<Mode>('team');

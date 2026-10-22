@@ -4,16 +4,14 @@ import { DataLoader } from '../../utils/DataLoader';
 import type { DpsWindowKey } from '../../types/results';
 import { DEFAULT_BREAKDOWN_WINDOW, shownWindow } from '../../data/dpsWindows';
 import { getCharacterThemeColor } from '../../utils/Common';
-import { teamCharacters } from '../../utils/TeamUtils';
 import { DpsWindowSelect } from './DpsWindowSelect';
 
 const formatSeconds = (v: number | undefined) => (v ? `${v.toFixed(2)}s` : '—');
 
 // Window length and each unit's on-field time.
 export const RotationTimePanel: React.FC = () => {
-  const { team, results, isStale } = useResultsSource();
+  const { units, results, isStale } = useResultsSource();
   const [pickedWindow, setDpsType] = useState<DpsWindowKey>(DEFAULT_BREAKDOWN_WINDOW);
-  const units = teamCharacters(team);
   const dpsType = shownWindow(pickedWindow, results?.dpsStats);
   const forWindow = results?.contribution[dpsType];
 

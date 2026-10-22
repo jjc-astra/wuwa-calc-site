@@ -29,6 +29,7 @@ import {
 } from './guideModel';
 import { useGuideSelectionStore } from '../../store/useGuideSelectionStore';
 import { selectableOptions } from '../../utils/selectableContent';
+import { teamCharacters } from '../../utils/TeamUtils';
 import type { GuideSelection } from '../../store/useGuideSelectionStore';
 import type { GuideConfig, GuideJob, GuideMetric, GuideScope, GuideTeamGroup, GuideEntry } from './guideModel';
 import { useGuideFullCalc, useGuideSummaries, useGuideEntries, useGuideCache } from './useGuideCalc';
@@ -199,7 +200,7 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
       {full.status === 'error' && <div className="results-empty">Calculation failed: {full.error}</div>}
       {!full.results && full.status === 'loading' && <div className="results-empty">Calculating rotation...</div>}
 
-      <ResultsSourceContext.Provider value={{ results: full.results, team: full.team, isStale, pinned: null, allowPin: false, allowSubstatToggle: false, scope }}>
+      <ResultsSourceContext.Provider value={{ results: full.results, units: teamCharacters(full.team), isStale, pinned: null, allowPin: false, allowSubstatToggle: false, scope }}>
         <div className="guide-columns">
           <div className="guide-column">
             <GuideConfigPanel
