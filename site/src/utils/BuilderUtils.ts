@@ -24,6 +24,7 @@ export const BuilderUtils = {
     if (node.hitMults && node.hitMults.length > 0) clean.hitMults = node.hitMults;
     if (node.hitCondition?.trim()) clean.hitCondition = node.hitCondition;
     if (node.actsForUnit) clean.actsForUnit = true;
+    if (node.simultaneous) clean.simultaneous = true;
     if (node.scalar) clean.scalar = node.scalar;
 
     if (!node.isPassive) {

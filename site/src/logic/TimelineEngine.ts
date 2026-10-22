@@ -224,6 +224,8 @@ export class TimelineEngineClass {
         ({ name: currentData.action } as MechanicNode);
 
       currentData.moveName = dbMove.name || currentData.action;
+      // Simultaneous-only moves (some echoes) always cast in parallel.
+      if (dbMove.simultaneous) currentData.timing = 'Simultaneous';
       currentData.castTypes = dbMove.castTypes || (currentData.action ? [currentData.action] : []);
       currentData.dmgTypes = dbMove.dmgTypes || [];
       // Timeline input-press flags only.
@@ -405,12 +407,17 @@ export class TimelineEngineClass {
         .filter(change => change.frame > currentData.duration && change.frame <= currentData.animationCommitment);
       currentData._offFieldStance = offFieldChanges.length > 0 ? { start: currentData.gameTimeStart, changes: offFieldChanges } : undefined;
 
-      unitBusyUntil[currentData.unit] = currentData.timeStart + currentData.animationCommitment;
+      // A simultaneous-only move has no animation: it leaves the unit's current one in place.
+      if (!dbMove.simultaneous) {
+        unitBusyUntil[currentData.unit] = currentData.timeStart + currentData.animationCommitment;
+      }
       this._applyMotionStop(currentData, unitBusyUntil, lastRowByUnit, animationByUnit);
-      lastRowByUnit[currentData.unit] = currentData;
-      const animationEnd = currentData.timeStart + currentData.animationCommitment;
-      if (animationEnd >= (animationByUnit[currentData.unit]?.end ?? -Infinity)) {
-        animationByUnit[currentData.unit] = { row: currentData, end: animationEnd };
+      if (!dbMove.simultaneous) {
+        lastRowByUnit[currentData.unit] = currentData;
+        const animationEnd = currentData.timeStart + currentData.animationCommitment;
+        if (animationEnd >= (animationByUnit[currentData.unit]?.end ?? -Infinity)) {
+          animationByUnit[currentData.unit] = { row: currentData, end: animationEnd };
+        }
       }
       const baseActDur = timings.baseDuration;
 
@@ -496,7 +503,8 @@ export class TimelineEngineClass {
 
       this._preCastOnField = undefined;
       this._evaluateMechanics(currentData, activeTeam, activeRows, i, team, dbMove);
-      this._resolveComboWindows(currentData, dbMove, team);
+      // Cast during another move, so it doesn't become @Self.PrevAction.
+      if (!dbMove.simultaneous) this._resolveComboWindows(currentData, dbMove, team);
       // Spam-click indicator; after the row's state is final.
       currentData.priority = this._resolvePriority(dbMove, currentData, currentData.unit, team);
     }
@@ -923,7 +931,7 @@ export class TimelineEngineClass {
     if (canInstantCancel) {
       availableTimings.push({ val: 'Instant_Cancel', label: 'Instant Cancel', title: `Duration: ${formatFramesAsSeconds(instantCancelTime)} | No Hits` });
     }
-    if (moveData.inputType === 'Hold' || moveData.castTypes?.includes('Echo')) {
+    if (moveData.inputType === 'Hold' || moveData.simultaneous) {
       availableTimings.push({ val: 'Simultaneous', label: 'Simultaneous', title: "Executes in parallel anchored to the previous move's start time." });
     }
     if (moveData.inputType === 'Release' && moveData.holdConfig) {
@@ -932,6 +940,14 @@ export class TimelineEngineClass {
         label: 'Manual',
         title: "Set the hold's wait directly (down to 0) instead of auto-waiting for the forte/window to be reached -- for an early, partial release."
       });
+    }
+    // Simultaneous-only: parallel, no duration of its own (baseDuration still anchors its default offset).
+    if (moveData.simultaneous) {
+      currentData.availableTimings = availableTimings.filter(t => t.val === 'Simultaneous');
+      return {
+        baseDuration: actionDuration, duration: 0, animationCommitment: 0, gameTimePassed: 0, freezeTime: 0, motionStop,
+        damageTimeframe: { start: tfStart, end: tfEnd }, hitFrameOverrides, allowedHits: hitCount
+      };
     }
     currentData.availableTimings = availableTimings;
 
@@ -1628,6 +1644,10 @@ export class TimelineEngineClass {
       if (passed !== null && !passed && errors.length === 0 && warnings.length === 0) {
         warnings.push(`Combo requirement not met for ${moveName}.`);
       }
+    }
+
+    if (currentData.timing === 'Simultaneous' && !moveData.simultaneous && moveData.castTypes?.includes('Echo')) {
+      warnings.push(`${moveName} can't be cast simultaneously.`);
     }
 
     if (moveData.stanceReq && moveData.stanceReq !== 'Any') {
