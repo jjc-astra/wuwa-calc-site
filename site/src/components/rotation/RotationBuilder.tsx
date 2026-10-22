@@ -119,7 +119,8 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
     endRotationStartsEarlier,
     setEndRotationStartsEarlier,
     recalculate,
-    checkBuilderStaleness
+    checkBuilderStaleness,
+    isStale
   } = useRotationStore();
 
   const { team, importTeam } = useRosterStore();
@@ -366,9 +367,13 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
   };
 
   const [exportSource, setExportSource] = useState<CalcInput | null>(null);
+  // Stale stats: Calculate may still refresh cached data, so confirm first (allowed for debugging).
+  const [confirmStaleExport, setConfirmStaleExport] = useState(false);
 
   const handleExport = () => {
     if (rows.length === 0) return alert('Rotation is empty.');
+    if (isStale && !confirmStaleExport) return setConfirmStaleExport(true);
+    setConfirmStaleExport(false);
     setExportSource({
       rotation: rows.map(toSavedRow),
       team,
@@ -450,7 +455,11 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
           <button className="base-btn" onClick={() => fileInputRef.current?.click()}>
             Import Rotation
           </button>
-          <button className="base-btn" onClick={handleExport}>
+          <button
+            className="base-btn"
+            onClick={handleExport}
+            {...(isStale ? tip('Stats changed: press Calculate before exporting') : {})}
+          >
             Export Rotation
           </button>
         </>
@@ -471,6 +480,16 @@ export const RotationBuilder: React.FC<RotationBuilderProps> = ({ isOpen, onTogg
             await applyImport(pendingImport.rawData, pendingImport.rotData, false);
             setPendingImport(null);
           }}
+        />
+      )}
+
+      {confirmStaleExport && (
+        <ConfirmDialog
+          title="Stats changed"
+          message="Calculate hasn't run since the stats changed, and it can still refresh cached data. Export anyway (e.g. to debug a calculation error)?"
+          confirmLabel="Export Anyway"
+          onConfirm={handleExport}
+          onCancel={() => setConfirmStaleExport(false)}
         />
       )}
 
