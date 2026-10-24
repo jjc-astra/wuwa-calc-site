@@ -661,7 +661,8 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 /* --- Buff Cards --- */
 .buff-provider-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    /* Columns shrink with the panel (Timeline open); long labels truncate. */
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--space-6);
     flex: 1;
     min-height: 0;
@@ -727,10 +728,13 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: var(--space-3);
     margin-bottom: var(--space-3);
 }
 
 .buff-source {
+    min-width: 0;
+    overflow-wrap: anywhere;
     font-weight: 700;
     font-size: 0.9rem;
     color: var(--text-main);
