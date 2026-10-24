@@ -169,6 +169,7 @@ export const ContextManager = {
           duration: activeState.duration || 0,
           gameTimePassed: activeState.gameTimePassed || 0,
           freezeTime: activeState.freezeTime || 0,
+          freezeStart: activeState.freezeStart || 0,
           motionStop: activeState.motionStop || 0,
           damageTimeframe: activeState.damageTimeframe || { start: 0, end: 0 },
           swapTiming: activeState.swapTiming || 0,

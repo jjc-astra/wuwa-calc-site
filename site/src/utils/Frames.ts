@@ -47,6 +47,11 @@ export function hitFrameOffsets(hitCount: number, start: number, end: number, ov
   return offsets;
 }
 
+/** Frames of a freeze (`freeze` frames from `start`) inside a move's first `span` frames. */
+export function frozenFramesWithin(span: number, start: number, freeze: number): Frames {
+  return toFrames(Math.max(0, Math.min(span, start + freeze) - Math.max(0, start)));
+}
+
 /** "+1.47s", "-0.50s", "0.00s" */
 export const formatSignedSeconds = (seconds: number): string => `${seconds > 0 ? '+' : ''}${seconds.toFixed(2)}s`;
 

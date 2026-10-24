@@ -3,6 +3,7 @@ import type { MechanicNode } from '../../../types';
 import { parseTimeInput } from '../../../utils/Frames';
 import { displayTimeVal, makeTimeBlur } from '../mechanicNodeHelpers';
 import { AutocompleteInput } from '../../common/AutocompleteInput';
+import { tip } from '../../../utils/Common';
 
 interface TimingModsPanelProps {
   data: MechanicNode;
@@ -46,6 +47,10 @@ export const TimingModsPanel: React.FC<TimingModsPanelProps> = ({ data, updateNo
         <div className="form-group">
           <label className="form-label caps-label">Freeze Time</label>
           <AutocompleteInput mode="dsl-value" value={displayTimeVal(data.freezeTime, 'f')} onValueChange={val => updateNode({ freezeTime: val })} onBlur={makeTimeBlur(data, updateNode, 'freezeTime', 'frames')} placeholder="e.g. 5f" />
+        </div>
+        <div className="form-group">
+          <label className="form-label caps-label" {...tip('Frames into the move the freeze begins. Empty: at the cast.')}>Freeze Start</label>
+          <AutocompleteInput mode="dsl-value" value={displayTimeVal(data.freezeStart, 'f')} onValueChange={val => updateNode({ freezeStart: val })} onBlur={makeTimeBlur(data, updateNode, 'freezeStart', 'frames')} placeholder="0f" />
         </div>
         <div className="form-group">
           <label className="form-label caps-label">Motion Stop</label>

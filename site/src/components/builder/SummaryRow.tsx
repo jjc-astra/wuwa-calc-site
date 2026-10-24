@@ -88,6 +88,7 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
   const dslEvalCtx = { default: GAME_DEFAULTS };
   const cancelTimings = data.cancelTimings || [];
   const freezeVal = resolveDefaultNum(data.freezeTime, dslEvalCtx);
+  const freezeStartVal = resolveDefaultNum(data.freezeStart, dslEvalCtx);
   const motionStopVal = resolveDefaultNum(data.motionStop, dslEvalCtx);
   const swapVal = resolveDefaultNum(data.swapTiming, dslEvalCtx);
   const priorityVal = data.isPassive ? null : resolveDefaultNum(data.priority, dslEvalCtx);
@@ -98,7 +99,7 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
       label: `Cancel ${ct.time}f${ct.hits ? `·${ct.hits}h` : ''}`,
       tooltip: ct.triggerRule ? `Rule: ${ct.triggerRule}` : 'Cancel Timing'
     })),
-    ...(freezeVal !== null ? [{ label: `Freeze ${formatNum(freezeVal)}f`, tooltip: 'Freeze Time' }] : []),
+    ...(freezeVal !== null ? [{ label: `Freeze ${formatNum(freezeVal)}f${freezeStartVal ? ` @${formatNum(freezeStartVal)}f` : ''}`, tooltip: freezeStartVal ? 'Freeze Time, starting at Freeze Start' : 'Freeze Time' }] : []),
     ...(motionStopVal !== null ? [{ label: `Motion ${formatNum(motionStopVal)}f`, tooltip: 'Motion Stop' }] : []),
     ...(swapVal !== null ? [{ label: `Swap ${formatNum(swapVal)}f`, tooltip: 'Swap Time' }] : []),
     ...(priorityVal !== null ? [{ label: `Prio ${formatNum(priorityVal)}`, tooltip: 'Priority' }] : []),

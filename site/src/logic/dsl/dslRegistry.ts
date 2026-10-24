@@ -163,6 +163,7 @@ export const DSL_POINTERS: Record<string, DSLPointerDef> = {
       { propName: 'Duration', type: 'number', fullOverride: 'ctx.move.duration', tooltip: "Returns this move's total action duration, in seconds." },
       { propName: 'GameTime', type: 'number', fullOverride: 'ctx.move.gameTimePassed', tooltip: 'Returns the current simulation time, in seconds.' },
       { propName: 'FreezeTime', type: 'number', fullOverride: 'ctx.move.freezeTime', tooltip: "Returns this move's time stop (the world's clock pauses), in frames." },
+      { propName: 'FreezeStart', type: 'number', fullOverride: 'ctx.move.freezeStart', tooltip: "Returns how many frames into this move its time stop begins." },
       { propName: 'MotionStop', type: 'number', fullOverride: 'ctx.move.motionStop', tooltip: "Returns this move's motion stop (other units' moves pause), in frames." },
       { propName: 'DamageStart', type: 'number', fullOverride: 'ctx.move.damageTimeframe.start', tooltip: "Returns the time offset (seconds) this move's damage window begins." },
       { propName: 'DamageEnd', type: 'number', fullOverride: 'ctx.move.damageTimeframe.end', tooltip: "Returns the time offset (seconds) this move's damage window ends." },

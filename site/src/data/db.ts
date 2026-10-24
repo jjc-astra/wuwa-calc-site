@@ -468,6 +468,7 @@ export const PANEL_CONFIG: Record<string, PanelConfig> = {
           { label: 'Actual Duration', key: 'duration', default: 0, suffix: 's' },
           { label: 'Game Time Passed', key: 'gameTimePassed', default: 0, suffix: 's' },
           { label: 'Time Stop / Freeze', key: 'freezeTime', default: 0, suffix: 's' },
+          { label: 'Freeze Start', key: 'freezeStart', default: 0, suffix: 's' },
           { label: 'Motion Stop', key: 'motionStop', default: 0, suffix: 's' }
         ]
       },

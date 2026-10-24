@@ -32,7 +32,7 @@ export function plainCopy(row: any, omit: readonly string[]): any {
 // Fields describing a row's move (read by @Move, @Prev, @Next).
 const MOVE_KEYS: readonly string[] = [
   'action', 'moveName', 'castTypes', 'dmgTypes', 'timeStart', 'gameTimeStart', 'duration', 'gameTimePassed',
-  'freezeTime', 'motionStop', 'damageTimeframe', 'swapTiming', 'baseMult', 'hitMults', 'isInForteWindow',
+  'freezeTime', 'freezeStart', 'motionStop', 'damageTimeframe', 'swapTiming', 'baseMult', 'hitMults', 'isInForteWindow',
   'prevRow', 'nextRow', 'nextUnitActions'
 ];
 

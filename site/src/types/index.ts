@@ -163,6 +163,8 @@ export interface MechanicNode {
   swapTiming?: Frames | string;
   // Pauses buffs and cooldowns while the move plays.
   freezeTime?: Frames | string;
+  // Frames into the move the freeze begins (default 0).
+  freezeStart?: Frames | string;
   // Pauses other units' moves after the cast.
   motionStop?: Frames | string;
   comboWindow?: Frames | string;

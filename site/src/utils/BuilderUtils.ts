@@ -70,6 +70,8 @@ export const BuilderUtils = {
       if (swapTiming !== undefined) clean.swapTiming = swapTiming;
       const freezeTime = CommonUtils.parseMixed(node.freezeTime);
       if (freezeTime !== undefined) clean.freezeTime = freezeTime;
+      const freezeStart = CommonUtils.parseMixed(node.freezeStart);
+      if (freezeStart !== undefined && Number(freezeStart) !== 0) clean.freezeStart = freezeStart;
       const motionStop = CommonUtils.parseMixed(node.motionStop);
       if (motionStop !== undefined) clean.motionStop = motionStop;
     }

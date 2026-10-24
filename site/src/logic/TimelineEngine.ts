@@ -19,7 +19,7 @@ import { calculateEchoStatsForSlot } from '../store/useRosterStore';
 import { CHARACTER_DEFAULTS, ENEMY_DEFAULTS, GAME_DEFAULTS, MECHANICS_NOTATION } from '../data/db';
 import type { Effect, MechanicNode, HoldConfig, MoveOrigin, EnemyStats } from '../types';
 import { sortedStanceChanges } from '../utils/Stance';
-import { type Frames, toFrames, roundFrames, secondsToFrames, framesToSeconds, formatFramesAsSeconds, hitFrameOffsets } from '../utils/Frames';
+import { type Frames, toFrames, roundFrames, secondsToFrames, framesToSeconds, formatFramesAsSeconds, frozenFramesWithin, hitFrameOffsets } from '../utils/Frames';
 
 export interface QueuedHit {
   originRow: any;
@@ -366,8 +366,9 @@ export class TimelineEngineClass {
       currentData.baseDuration = timings.baseDuration;
       currentData.duration = duration;
       currentData.animationCommitment = animationCommitment;
-      currentData.gameTimePassed = Math.max(0, duration - timings.freezeTime);
+      currentData.gameTimePassed = toFrames(duration - frozenFramesWithin(duration, timings.freezeStart, timings.freezeTime));
       currentData.freezeTime = timings.freezeTime;
+      currentData.freezeStart = timings.freezeStart;
       currentData.motionStop = timings.motionStop;
       currentData.damageTimeframe = timings.damageTimeframe;
       currentData.hitFrameOverrides = timings.hitFrameOverrides;
@@ -795,7 +796,7 @@ export class TimelineEngineClass {
   ): void {
     const motionStop = currentData.motionStop || 0;
     if (motionStop <= 0) return;
-    const visibleFrames = toFrames(Math.max(0, motionStop - (currentData.freezeTime || 0)));
+    const visibleFrames = toFrames(motionStop - frozenFramesWithin(motionStop, currentData.freezeStart || 0, currentData.freezeTime || 0));
     for (const [unit, latestRow] of Object.entries(lastRowByUnit)) {
       if (unit === currentData.unit) continue;
       const animation = animationByUnit[unit];
@@ -822,6 +823,7 @@ export class TimelineEngineClass {
 
     const actionDuration = resolveFrames(moveData.actionDuration, toFrames(0));
     const freezeTime = resolveFrames(moveData.freezeTime, toFrames(0));
+    const freezeStart = resolveFrames(moveData.freezeStart, toFrames(0));
     const motionStop = resolveFrames(moveData.motionStop, toFrames(0));
     const swapDuration = moveData.swapTiming !== undefined
       ? toFrames(Math.max(resolveFrames(moveData.swapTiming, toFrames(0)), GAME_DEFAULTS.swapTime))
@@ -945,7 +947,7 @@ export class TimelineEngineClass {
     if (moveData.simultaneous) {
       currentData.availableTimings = availableTimings.filter(t => t.val === 'Simultaneous');
       return {
-        baseDuration: actionDuration, duration: 0, animationCommitment: 0, gameTimePassed: 0, freezeTime: 0, motionStop,
+        baseDuration: actionDuration, duration: 0, animationCommitment: 0, gameTimePassed: 0, freezeTime: 0, freezeStart: 0, motionStop,
         damageTimeframe: { start: tfStart, end: tfEnd }, hitFrameOverrides, allowedHits: hitCount
       };
     }
@@ -1026,8 +1028,10 @@ export class TimelineEngineClass {
       baseDuration: actionDuration,
       duration,
       animationCommitment,
-      gameTimePassed: Math.max(0, duration - freezeTime),
+      // Only the freeze inside the move's window pauses game time.
+      gameTimePassed: toFrames(duration - frozenFramesWithin(duration, freezeStart, freezeTime)),
       freezeTime,
+      freezeStart,
       motionStop,
       damageTimeframe: { start: tfStart, end: tfEnd },
       hitFrameOverrides,
@@ -1042,12 +1046,15 @@ export class TimelineEngineClass {
     gameTimePassed: Frames,
     activeTeam: string[],
     activeRows: any[],
-    team: any[]
+    team: any[],
+    freezeStart: Frames = toFrames(0)
   ): void {
     if (realTimePassed < 0) return;
 
-    // Decay game time in segments up to each hit. Hits during freeze sit at game time 0.
+    // Decay game time in segments up to each hit. Game time stands still from `freezeStart`
+    // for the window's freeze; hits in it share that game time.
     const freezeFrames = Math.max(0, realTimePassed - gameTimePassed);
+    const gameTimeAt = (elapsedReal: number) => elapsedReal < freezeStart ? elapsedReal : Math.max(freezeStart, elapsedReal - freezeFrames);
     let gameTimeElapsed = 0;
     const advanceGameTimeTo = (target: number) => {
       const segment = Math.min(target, gameTimePassed) - gameTimeElapsed;
@@ -1060,7 +1067,7 @@ export class TimelineEngineClass {
       this._buffRanOutAt.clear();
     };
 
-    this._processQueuedHits(currentData, realTimePassed, activeTeam, activeRows, team, elapsedReal => advanceGameTimeTo(Math.max(0, elapsedReal - freezeFrames)), freezeFrames);
+    this._processQueuedHits(currentData, realTimePassed, activeTeam, activeRows, team, elapsedReal => advanceGameTimeTo(gameTimeAt(elapsedReal)), freezeFrames, freezeStart);
     this.currentGlobalRealTime += realTimePassed;
     advanceGameTimeTo(gameTimePassed);
   }
@@ -1146,8 +1153,9 @@ export class TimelineEngineClass {
     this.lastSwapOutTime = snapshot.lastSwapOutTime;
   }
 
-  // `beforeHit` receives each hit's real-time offset into the window; `freezeFrames` is the window's freeze.
-  _processQueuedHits(currentData: any, realTimePassed: Frames, activeTeam: string[], activeRows: any[], team: any[], beforeHit?: (elapsedReal: number) => void, freezeFrames = 0): void {
+  // `beforeHit` receives each hit's real-time offset into the window; the window's freeze is
+  // `freezeFrames` long from `freezeStart`.
+  _processQueuedHits(currentData: any, realTimePassed: Frames, activeTeam: string[], activeRows: any[], team: any[], beforeHit?: (elapsedReal: number) => void, freezeFrames = 0, freezeStart = 0): void {
     const realWindowEnd = this.currentGlobalRealTime + realTimePassed;
     while (this.damageQueue.length > 0) {
       const nextHit = this.damageQueue[0];
@@ -1185,7 +1193,7 @@ export class TimelineEngineClass {
       // unit until this row casts), and whether the hit lands in this window's freeze.
       const hitInfo = {
         onField: nextHit.origin.caster === (this._preCastOnField ?? (currentData.onFieldUnit || currentData.unit)),
-        inFreeze: nextHit.executeAt - this.currentGlobalRealTime < freezeFrames
+        inFreeze: nextHit.executeAt - this.currentGlobalRealTime >= freezeStart && nextHit.executeAt - this.currentGlobalRealTime < freezeStart + freezeFrames
       };
 
       currentData.activeProcSource = nextHit.originActionId;
@@ -1587,7 +1595,8 @@ export class TimelineEngineClass {
       isSimultaneous ? toFrames(0) : toFrames(Math.max(0, currentData.gameTimePassed || 0)),
       activeTeam,
       activeRows,
-      team
+      team,
+      toFrames(currentData.freezeStart || 0)
     );
 
     if (!currentData.trackers) currentData.trackers = {};

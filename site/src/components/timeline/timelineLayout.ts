@@ -2,7 +2,7 @@
 import { getCharacterThemeColor, uiScale } from '../../utils/Common';
 import { DataLoader } from '../../utils/DataLoader';
 import { INPUT_KEY_MAP } from '../../data/db';
-import { FPS, toFrames, framesToSeconds, secondsToFrames } from '../../utils/Frames';
+import { FPS, toFrames, framesToSeconds, frozenFramesWithin, secondsToFrames } from '../../utils/Frames';
 import { loopEndIndexOf, rowGameEnd } from '../../logic/rotationRows';
 import { SYSTEM_NAMESPACE } from '../../utils/MechanicKey';
 import type { TeamSlot } from '../../types';
@@ -10,7 +10,7 @@ import type { TeamSlot } from '../../types';
 // Row fields the Timeline reads; add any new ones here.
 const TIMELINE_ROW_FIELDS = [
   'unit', 'action', 'moveName', 'input', 'inputType', 'priority', 'timing', '_autoTimingChoice', 'loopEndOverride',
-  'gameTimeStart', 'gameTimePassed', 'duration', 'waitTime', 'cdWaitTime', 'freezeTime', 'animationCommitment',
+  'gameTimeStart', 'gameTimePassed', 'duration', 'waitTime', 'cdWaitTime', 'freezeTime', 'freezeStart', 'animationCommitment',
   'motionStopPauses', 'backOnFieldAt'
 ] as const;
 
@@ -187,7 +187,8 @@ function deriveSegments(rows: any[], compression: TimeCompression | null): Timel
     // Off-field tail, extended by motion stops.
     const pauses: MotionStopPause[] = row.motionStopPauses || [];
     const pausedFrames = pauses.reduce((sum, p) => sum + p.frames, 0);
-    const animEndFrames = row.gameTimeStart + Math.max(0, row.animationCommitment - (row.freezeTime || 0)) + pausedFrames;
+    const frozen = frozenFramesWithin(row.animationCommitment, row.freezeStart || 0, row.freezeTime || 0);
+    const animEndFrames = row.gameTimeStart + row.animationCommitment - frozen + pausedFrames;
     // Back on field before it ends: the rest plays on field.
     const offEndFrames = Math.min(animEndFrames, row.backOnFieldAt ?? Infinity);
     if (offEndFrames > row.gameTimeStart + row.gameTimePassed) {
