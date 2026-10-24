@@ -7,6 +7,7 @@ import { SegmentedToggle } from '../../common/SegmentedToggle';
 import { TypeTag } from '../../common/TypeTag';
 import { Dropdown, type DropdownOption } from '../../common/Dropdown';
 import { parseTimeInput } from '../../../utils/Frames';
+import { tip } from '../../../utils/Common';
 import { effectLabel, flattenDslShorthand } from '../mechanicNodeHelpers';
 import { MechanicKey } from '../../../utils/MechanicKey';
 
@@ -253,6 +254,12 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
           <input type="checkbox" checked={!!data.isSwapInDefault} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateNode({ isSwapInDefault: e.target.checked })} />
           <span>Default Swap-In</span>
         </label>
+        {(data.castTypes?.includes('Echo') || data.simultaneous) && (
+          <label className="checkbox-label" {...tip('Always cast during another move: no animation of its own, only its hit timings')}>
+            <input type="checkbox" checked={!!data.simultaneous} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateNode({ simultaneous: e.target.checked || undefined })} />
+            <span>Simultaneous</span>
+          </label>
+        )}
         {data.inputType === 'Hold' && (
           <>
             <label className="checkbox-label">
