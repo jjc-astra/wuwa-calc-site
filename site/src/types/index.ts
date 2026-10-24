@@ -138,6 +138,12 @@ export interface CancelTiming {
   _compiledRule?: any;
 }
 
+// From `time` frames into the move, it has this priority (see MechanicNode.priorityTimeline).
+export interface PriorityStep {
+  time: Frames;
+  priority: number | string;
+}
+
 export interface MechanicNode {
   name: string;
   category?: string;
@@ -180,6 +186,8 @@ export interface MechanicNode {
   holdConfig?: HoldConfig;
   holdGroupId?: string;
   cancelTimings?: CancelTiming[];
+  // Priority changes partway through the move; each drop opens a cancel for moves that now outrank it.
+  priorityTimeline?: PriorityStep[];
   effects?: Effect[];
   damageTimeframe?: { start?: Frames | string; end?: Frames | string };
   // Frames for middle hits (hitFrames[0] is hit 2); null spreads evenly.

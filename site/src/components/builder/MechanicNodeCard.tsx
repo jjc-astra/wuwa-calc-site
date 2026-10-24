@@ -40,7 +40,7 @@ export type PanelKey = 'identity' | 'inputs' | 'timeMods' | 'hits' | 'castTags' 
 const PANEL_FIELDS: Record<PanelKey, string[]> = {
   identity: ['name', 'provider', 'triggerRule', 'isPassive', 'isSwapInDefault', 'simultaneous', 'modeScope', 'effects'],
   inputs: ['input', 'inputType', 'stanceReq', 'stanceChanges', 'holdConfig'],
-  timeMods: ['freezeTime', 'freezeStart', 'motionStop', 'swapTiming', 'priority', 'comboWindow', 'cancelTimings'],
+  timeMods: ['freezeTime', 'freezeStart', 'motionStop', 'swapTiming', 'priority', 'comboWindow', 'cancelTimings', 'priorityTimeline'],
   hits: ['scalar', 'hitMults', 'damageTimeframe', 'hitFrames', 'hitResources'],
   castTags: ['castTypes'],
   dmgTags: ['dmgTypes'],

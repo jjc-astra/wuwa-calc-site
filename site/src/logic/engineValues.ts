@@ -77,3 +77,10 @@ export function ruleEventsMatch(compiled: Pick<CompiledDSL, 'triggers'> | null |
     && trigger.modifiers.every(mod => (mod === 'self' ? event.unit === owner : event.modifiers.has(mod)))
   ));
 }
+
+/** A move's priorityTimeline by time (frames), ties in authored order. */
+export function sortedPrioritySteps(move: MechanicNode): Array<{ time: number; priority: number | string }> {
+  return (move.priorityTimeline || [])
+    .map(step => ({ time: parseFloat(String(step.time)) || 0, priority: step.priority }))
+    .sort((a, b) => a.time - b.time);
+}

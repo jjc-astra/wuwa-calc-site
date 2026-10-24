@@ -103,6 +103,10 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
     ...(motionStopVal !== null ? [{ label: `Motion ${formatNum(motionStopVal)}f`, tooltip: 'Motion Stop' }] : []),
     ...(swapVal !== null ? [{ label: `Swap ${formatNum(swapVal)}f`, tooltip: 'Swap Time' }] : []),
     ...(priorityVal !== null ? [{ label: `Prio ${formatNum(priorityVal)}`, tooltip: 'Priority' }] : []),
+    ...(data.isPassive ? [] : (data.priorityTimeline || []).map(step => {
+      const value = resolveDefaultNum(step.priority, dslEvalCtx);
+      return { label: `Prio ${value !== null ? formatNum(value) : step.priority} @${step.time}f`, tooltip: 'Priority Timeline step' };
+    })),
     ...(comboVal !== null ? [{ label: `Combo ${formatNum(comboVal)}f`, tooltip: 'Combo Window' }] : [])
   ];
 

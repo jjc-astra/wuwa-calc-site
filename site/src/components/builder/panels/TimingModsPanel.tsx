@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { MechanicNode } from '../../../types';
+import type { MechanicNode, PriorityStep } from '../../../types';
 import { parseTimeInput } from '../../../utils/Frames';
 import { displayTimeVal, makeTimeBlur } from '../mechanicNodeHelpers';
 import { AutocompleteInput } from '../../common/AutocompleteInput';
@@ -10,13 +10,59 @@ interface TimingModsPanelProps {
   updateNode: (patch: Partial<MechanicNode>) => void;
 }
 
-/** Builder sub-panel: freeze, motion stop, swap, priority, combo window and cancel timings. */
+interface TimingListProps {
+  title: string;
+  empty: string;
+  labels: string[];
+  onEdit: (idx: number) => void;
+  onRemove: (idx: number) => void;
+  children: React.ReactNode;
+}
+
+// Click a row to load it back into the add row; x removes it.
+const TimingList: React.FC<TimingListProps> = ({ title, empty, labels, onEdit, onRemove, children }) => (
+  <>
+    <div className="panel-header-tiny" style={{ marginTop: '0.875rem' }}>{title}</div>
+    <div className="mech-list">
+      {labels.length === 0 && <div className="dim" style={{ padding: '0.25rem 0' }}>{empty}</div>}
+      {labels.map((label, idx) => (
+        <div key={idx} className="mech-list-row" onClick={() => onEdit(idx)}>
+          <span>{label}</span>
+          <button type="button" className="mech-list-remove" onClick={e => { e.stopPropagation(); onRemove(idx); }}>×</button>
+        </div>
+      ))}
+    </div>
+    <div className="mech-add-row mt-sm">{children}</div>
+  </>
+);
+
+/** Builder sub-panel: freeze, motion stop, swap, priority, combo window, cancel timings and priority timeline. */
 export const TimingModsPanel: React.FC<TimingModsPanelProps> = ({ data, updateNode }) => {
   const [cancelTime, setCancelTime] = useState('');
   const [cancelHits, setCancelHits] = useState('');
   const [cancelRule, setCancelRule] = useState('');
+  const [stepTime, setStepTime] = useState('');
+  const [stepPriority, setStepPriority] = useState('');
 
   const cancelTimings = data.cancelTimings || [];
+  const priorityTimeline = data.priorityTimeline || [];
+
+  const handleAddPriorityStep = () => {
+    if (!stepTime || stepPriority.trim() === '') return;
+    const raw = stepPriority.trim();
+    const step: PriorityStep = { time: Math.round(Number(parseTimeInput(stepTime, 'frames'))) as PriorityStep['time'], priority: isNaN(Number(raw)) ? raw : Number(raw) };
+    updateNode({ priorityTimeline: [...priorityTimeline, step].sort((a, b) => Number(a.time) - Number(b.time)) });
+    setStepTime('');
+    setStepPriority('');
+  };
+
+  const loadStepForEdit = (idx: number) => {
+    const step = priorityTimeline[idx];
+    if (!step) return;
+    setStepTime(String(step.time));
+    setStepPriority(String(step.priority));
+    updateNode({ priorityTimeline: priorityTimeline.filter((_, i) => i !== idx) });
+  };
 
   const handleAddCancelTiming = () => {
     if (!cancelTime) return;
@@ -70,30 +116,34 @@ export const TimingModsPanel: React.FC<TimingModsPanelProps> = ({ data, updateNo
         </div>
       </div>
 
-      <div className="panel-header-tiny" style={{ marginTop: '0.875rem' }}>Cancel Timings</div>
-      <div className="mech-list">
-        {cancelTimings.length === 0 && <div className="dim" style={{ padding: '0.25rem 0' }}>No cancel timings yet.</div>}
-        {cancelTimings.map((ct, idx) => (
-          <div key={idx} className="mech-list-row" onClick={() => loadCancelForEdit(idx)}>
-            <span>{ct.time}f{ct.hits ? ` · ${ct.hits} hits` : ''}{ct.triggerRule ? ` · ${ct.triggerRule}` : ''}</span>
-            <button
-              type="button"
-              className="mech-list-remove"
-              onClick={e => { e.stopPropagation(); updateNode({ cancelTimings: cancelTimings.filter((_, i) => i !== idx) }); }}
-            >
-              ×
-            </button>
-          </div>
-        ))}
-      </div>
-      <div className="mech-add-row mt-sm">
+      <TimingList
+        title="Cancel Timings"
+        empty="No cancel timings yet."
+        labels={cancelTimings.map(ct => `${ct.time}f${ct.hits ? ` · ${ct.hits} hits` : ''}${ct.triggerRule ? ` · ${ct.triggerRule}` : ''}`)}
+        onEdit={loadCancelForEdit}
+        onRemove={idx => updateNode({ cancelTimings: cancelTimings.filter((_, i) => i !== idx) })}
+      >
         <input type="text" className="form-input mech-mini-input" value={cancelTime} onChange={e => setCancelTime(e.target.value)} placeholder="24f" />
         <input type="number" step="1" className="form-input mech-mini-input" value={cancelHits} onChange={e => setCancelHits(e.target.value)} placeholder="hits" />
         <div className="flex-1">
           <AutocompleteInput mode="general" className="mech-mini-input-wide" value={cancelRule} onValueChange={setCancelRule} placeholder="rule (opt), e.g. IF (...)" />
         </div>
         <button type="button" className="base-btn text-xs" onClick={handleAddCancelTiming}>Add</button>
-      </div>
+      </TimingList>
+
+      <TimingList
+        title="Priority Timeline"
+        empty="Priority stays the same for the whole move."
+        labels={priorityTimeline.map(step => `${step.time}f · priority ${step.priority}`)}
+        onEdit={loadStepForEdit}
+        onRemove={idx => updateNode({ priorityTimeline: priorityTimeline.filter((_, i) => i !== idx) })}
+      >
+        <input type="text" className="form-input mech-mini-input" value={stepTime} onChange={e => setStepTime(e.target.value)} placeholder="88f" {...tip('From this frame on, the move has the priority on the right. A drop lets moves that now outrank it cancel it there.')} />
+        <div className="flex-1">
+          <AutocompleteInput mode="dsl-value" className="mech-mini-input-wide" value={stepPriority} onValueChange={setStepPriority} placeholder="@Default.BasicPriority" />
+        </div>
+        <button type="button" className="base-btn text-xs" onClick={handleAddPriorityStep}>Add</button>
+      </TimingList>
     </div>
   );
 };

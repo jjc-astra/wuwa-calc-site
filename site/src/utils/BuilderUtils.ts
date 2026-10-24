@@ -20,6 +20,7 @@ export const BuilderUtils = {
     if (node.castResources && Object.keys(node.castResources).length > 0) clean.castResources = node.castResources;
     if (node.hitResources && Object.keys(node.hitResources).length > 0) clean.hitResources = node.hitResources;
     if (node.cancelTimings && node.cancelTimings.length > 0) clean.cancelTimings = node.cancelTimings;
+    if (node.priorityTimeline && node.priorityTimeline.length > 0) clean.priorityTimeline = node.priorityTimeline;
     if (node.effects && node.effects.length > 0) clean.effects = node.effects;
     if (node.hitMults && node.hitMults.length > 0) clean.hitMults = node.hitMults;
     if (node.hitCondition?.trim()) clean.hitCondition = node.hitCondition;

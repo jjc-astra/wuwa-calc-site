@@ -7,7 +7,7 @@ import {
 import { deltaKey, forteKey, holdSlotNumber } from '../utils/ResourceKeys';
 import { backfillPools, cloneJson, dropdownSnapshot, hitState, inheritPools, plainCopy, ROW_LINK_KEYS } from './rowState';
 import { toRunInput, timingLabel, splitLoopSegments, loopTiming } from './rotationRows';
-import { asDslResult, castModifiers as castModifiersOf, scopedKey, eventModifier, isBuffEffect, isDslExpr, isPlaceholderProvider, modifierSet, readsSelfStats, rowStartEvents, ruleEventsMatch, stacksAfterSpending, type RuleEvent } from './engineValues';
+import { asDslResult, castModifiers as castModifiersOf, scopedKey, eventModifier, isBuffEffect, isDslExpr, isPlaceholderProvider, modifierSet, readsSelfStats, rowStartEvents, ruleEventsMatch, sortedPrioritySteps, stacksAfterSpending, type RuleEvent } from './engineValues';
 import { MechanicKey, SYSTEM_NAMESPACE } from '../utils/MechanicKey';
 import { CommonUtils } from '../utils/Common';
 import { teamCharacters } from '../utils/TeamUtils';
@@ -777,6 +777,12 @@ export class TimelineEngineClass {
     return this._resolveNumber(move.priority, currentData, unit, team) || 0;
   }
 
+  // Priority `time` frames into the move: its last priorityTimeline step by then, else `priority`.
+  _priorityAt(move: MechanicNode, time: number, currentData: any, unit: string, team: any[]): number {
+    const step = sortedPrioritySteps(move).filter(s => s.time <= time).pop();
+    return step ? this._resolveNumber(step.priority, currentData, unit, team) || 0 : this._resolvePriority(move, currentData, unit, team);
+  }
+
   // Cuts an off-field move at `cutAt`, dropping unlanded hits.
   _cutSwappedOutMove(row: any, cutAt: number, paused: number): void {
     const before = this.damageQueue.length;
@@ -837,9 +843,11 @@ export class TimelineEngineClass {
     const bindingOf = (m: MechanicNode) => `${m.input ?? ''}|${m.inputType ?? ''}`;
     const isNextSwapOut = swapDuration !== undefined && !!nextRow?.unit
       && (nextRow.unit !== unitName || !!nextMoveData?.castTypes?.includes('Outro'));
-    const nextMoveCancels = isNextSwapOut || (!!nextMoveData
-      && bindingOf(nextMoveData) !== bindingOf(moveData)
-      && this._resolvePriority(nextMoveData, currentData, nextRow.unit, team) > this._resolvePriority(moveData, currentData, unitName, team));
+    // `other` outranks this move `time` frames in, on a different input.
+    const outranksAt = (other: MechanicNode | null, otherUnit: string, time: number) => !!other
+      && bindingOf(other) !== bindingOf(moveData)
+      && this._resolvePriority(other, currentData, otherUnit, team) > this._priorityAt(moveData, time, currentData, unitName, team);
+    const nextCancelsAt = (time: number) => isNextSwapOut || outranksAt(nextMoveData, nextRow?.unit, time);
 
     // A cancel rule is checked against the events its cancel fires: the next row's cast (and swap).
     const nextEvents = nextRow?.action && nextMoveData ? rowStartEvents(nextRow.action, nextMoveData, nextRow.unit, unitName) : [];
@@ -850,26 +858,30 @@ export class TimelineEngineClass {
     if (moveData.cancelTimings && moveData.cancelTimings.length > 0) {
       moveData.cancelTimings.forEach((ct, idx) => {
         const isValid = !ct.triggerRule || ct.triggerRule.trim() === ''
-          ? nextMoveCancels
+          ? nextCancelsAt(ct.time)
           : cancelRulePasses(ct, nextEvents);
         if (isValid) validCancels.push({ index: idx, time: ct.time, hits: ct.hits !== undefined ? ct.hits : Infinity });
       });
     }
+    // A priority drop opens a cancel for anything that now outranks the move.
+    const authoredCancelCount = moveData.cancelTimings?.length ?? 0;
+    sortedPrioritySteps(moveData).forEach((step, idx) => {
+      if (step.time > 0 && step.time < actionDuration && !isNextSwapOut && nextCancelsAt(step.time)) {
+        validCancels.push({ index: authoredCancelCount + idx, time: toFrames(step.time), hits: Infinity });
+      }
+    });
 
     // Swap + Cancel: swap out, then the unit's next move cancels this one off-field.
     const returnAction = isNextSwapOut && unitName ? currentData.nextUnitActions?.[unitName] : undefined;
     const returnMoveData = returnAction ? this._getModifiedMoveData(returnAction) : null;
-    const returnMoveCancels = !!returnMoveData
-      && bindingOf(returnMoveData) !== bindingOf(moveData)
-      && this._resolvePriority(returnMoveData, currentData, unitName, team) > this._resolvePriority(moveData, currentData, unitName, team);
     // The window's rule adds to the priority check rather than replacing it.
     const swapCancels: Array<{ index: number; time: Frames; hits: number }> = [];
-    if (isNextSwapOut && returnMoveCancels && moveData.cancelTimings) {
+    if (isNextSwapOut && returnMoveData && moveData.cancelTimings) {
       // The swap out, then the returning move's cast.
       const swapCancelEvents = [...nextEvents, ...rowStartEvents(returnAction, returnMoveData, unitName, nextRow.unit)];
       moveData.cancelTimings.forEach((ct, idx) => {
-        const isValid = !ct.triggerRule || ct.triggerRule.trim() === ''
-          || cancelRulePasses(ct, swapCancelEvents);
+        const isValid = outranksAt(returnMoveData, unitName, ct.time) && (!ct.triggerRule || ct.triggerRule.trim() === ''
+          || cancelRulePasses(ct, swapCancelEvents));
         if (isValid) swapCancels.push({ index: idx, time: ct.time, hits: ct.hits !== undefined ? ct.hits : Infinity });
       });
     }
@@ -929,7 +941,7 @@ export class TimelineEngineClass {
     }
     const instantCancelTime = swapDuration ?? toFrames(GAME_DEFAULTS.swapTime);
     // Any move the next one can cancel, with or without authored cancel windows.
-    const canInstantCancel = validCancels.length > 0 || nextMoveCancels;
+    const canInstantCancel = validCancels.length > 0 || nextCancelsAt(instantCancelTime);
     if (canInstantCancel) {
       availableTimings.push({ val: 'Instant_Cancel', label: 'Instant Cancel', title: `Duration: ${formatFramesAsSeconds(instantCancelTime)} | No Hits` });
     }
