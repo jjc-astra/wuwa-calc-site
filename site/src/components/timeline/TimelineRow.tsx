@@ -1,11 +1,11 @@
-import React, { useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useLayoutEffect, useRef } from 'react';
 import { CommonUtils, TooltipManager } from '../../utils/Common';
 import { IMAGE_FOLDERS } from '../../data/db';
 import { TimelineClip, buildClipTooltipHtml } from './TimelineClip';
 import { ROW_HEIGHT_PX, CLIP_INSET_PX, simultaneousLineHeightPx, pxToCompressedTime } from './timelineLayout';
 import { nearestMarker, trackPointer, useActiveMarker, useFrameMove } from './trackPointer';
 import type { UnitRowData } from './timelineLayout';
-import { useLinkedRowStore, scrollIntoContainer, subscribeLinkedScroll } from '../../store/useLinkedRowStore';
+import { useLinkedRowStore } from '../../store/useLinkedRowStore';
 
 interface TimelineRowProps {
   data: UnitRowData;
@@ -32,16 +32,6 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({ data, expander, linked
     return useLinkedRowStore.subscribe((s, prev) => { if (s.rowIds !== prev.rowIds) applyLinked(s.rowIds); });
   });
   const hoverRow = (row: any) => { if (linked) hover(row?.id ? [row.id] : [], 'timeline'); };
-
-  // Scroll to a table-hovered row's clip without re-rendering.
-  useEffect(() => {
-    if (!linked) return;
-    return subscribeLinkedScroll(s => (s.source === 'table' ? s.rowIds[0] : undefined), id => {
-      const clip = trackRef.current?.querySelector<HTMLElement>(`[data-row-id="${CSS.escape(id)}"]`);
-      const names = trackRef.current?.previousElementSibling?.getBoundingClientRect().width ?? 0;
-      if (clip) scrollIntoContainer(clip, clip.closest<HTMLElement>('.timeline-scroll'), { insetLeft: names });
-    });
-  }, [linked]);
 
   const move = useFrameMove(e => {
     const pointer = trackPointer(e);
