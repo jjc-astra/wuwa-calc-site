@@ -191,6 +191,8 @@ export const useRosterStore = create<RosterState>()(
         const build = recommendedBuildFor(charName, slot.mode);
         if (!build) return;
 
+        // A different weapon starts at R1.
+        if (build.weapon && build.weapon !== team[slotIndex].weapon) slot.rank = 1;
         if (build.weapon) slot.weapon = build.weapon;
         if (build.mainSet) slot.mainSet = build.mainSet;
         slot.subSet = build.subSet || '';
@@ -224,12 +226,16 @@ export const useRosterStore = create<RosterState>()(
         } else if (field === 'character' && value) {
           slot.weapon = '';
           slot.mode = 'None';
+          // A new unit starts at S0.
+          if (value !== team[slotIndex].character) slot.sequence = 0;
           await DataLoader.loadMechanic('characters', value);
           team[slotIndex] = slot;
           publishTeam(team);
           await get().applyRecommendedBuild(slotIndex, value);
           return;
         } else {
+          // A different weapon starts at R1.
+          if (field === 'weapon' && value !== team[slotIndex].weapon) slot.rank = 1;
           const folder = slotFieldFolder(field);
           if (folder && value) await DataLoader.loadMechanic(folder, value);
         }
