@@ -1,6 +1,6 @@
 import type { MechanicNode, EnemyStats } from '../types';
 import { toFrames } from '../utils/Frames';
-import { FORTE_SLOTS, deltaKey, forteKey } from '../utils/ResourceKeys';
+import { FORTE_SLOTS, beforeKey, deltaKey, forteKey, lateDeltaKey, requestedDeltaKey } from '../utils/ResourceKeys';
 import { CAST_TYPES, ELEMENTS, NEGATIVE_STATUSES, elementBonusKey } from './gameVocab';
 import type { CastType } from './gameVocab';
 
@@ -400,7 +400,7 @@ export const BuilderState = {
 
 export interface PanelTag { label: string; key?: string; keys?: string[]; default?: string; suffix?: string; highlight?: string; }
 export interface PanelStat { label: string; key: string; suffix?: string; }
-export interface PanelField { label: string; key: string; default: string | number; suffix?: string; highlight?: string; }
+export interface PanelField { label: string; key: string; default: string | number; suffix?: string; highlight?: string; tooltip?: string; hideIfZero?: boolean; }
 export interface PanelFieldGroup { title: string; fields: PanelField[]; }
 
 export type PanelConfig =
@@ -408,17 +408,25 @@ export type PanelConfig =
   | { title: string; type: 'complex_time'; groups: PanelFieldGroup[] }
   | { title: string; type: 'gauge'; fields: PanelField[] };
 
-// A gauge panel: what the last move generated of a resource, and where it stands now.
+// A gauge panel: what the move tried to add or spend, what it actually did, and the gauge after it.
 const gaugePanel = (
   title: string,
   key: string,
-  defaults: { generated: string; current: string; currentLabel?: string; suffix?: string }
+  defaults: { generated: string; current: string; beforeLabel?: string; currentLabel?: string; suffix?: string }
 ): PanelConfig => ({
   title,
   type: 'gauge',
   fields: [
-    { label: 'Generated', key: deltaKey(key), default: defaults.generated, suffix: defaults.suffix },
-    { label: defaults.currentLabel ?? 'Current', key, default: defaults.current, suffix: defaults.suffix }
+    { label: 'Generated', key: requestedDeltaKey(key), default: defaults.generated, suffix: defaults.suffix,
+      tooltip: 'What this move and its effects tried to add or spend, all hits included (after Energy Regen and buildup rates).' },
+    { label: 'Applied', key: deltaKey(key), default: defaults.generated, suffix: defaults.suffix,
+      tooltip: 'What actually changed: Generated minus anything lost to the cap (or, for Tune, to Tune immunity).' },
+    { label: defaults.beforeLabel ?? 'Before Move', key: beforeKey(key), default: defaults.current, suffix: defaults.suffix,
+      tooltip: 'The gauge right before this move casts (after any wait), before its own costs and gains.' },
+    { label: defaults.currentLabel ?? 'After Move', key, default: defaults.current, suffix: defaults.suffix,
+      tooltip: 'The gauge when the next move starts. Hits still in flight then are in Lands Later, not here.' },
+    { label: 'Lands Later', key: lateDeltaKey(key), default: '+0', suffix: defaults.suffix, hideIfZero: true,
+      tooltip: 'Part of Applied from hits that land after the next move starts (e.g. after swapping out).' }
   ]
 });
 
@@ -448,7 +456,7 @@ export const PANEL_CONFIG: Record<string, PanelConfig> = {
   },
   concerto: gaugePanel('Concerto Energy Breakdown', 'concerto', { generated: '+0', current: '0' }),
   energy: gaugePanel('Resonance Energy Breakdown', 'energy', { generated: '+0.0', current: '0.0' }),
-  tune: gaugePanel('Tune Break Build Breakdown', 'tune', { generated: '+0', current: '0', currentLabel: 'Tune Progress', suffix: '%' }),
+  tune: gaugePanel('Tune Break Build Breakdown', 'tune', { generated: '+0', current: '0', beforeLabel: 'Tune Before Move', currentLabel: 'Tune After Move', suffix: '%' }),
   time: {
     title: 'Advanced Timeline Breakdown',
     type: 'complex_time',

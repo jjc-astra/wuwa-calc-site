@@ -5,7 +5,8 @@ export const cloneJson = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 
 // Per-unit pools (`{ unit: value }`).
 const UNIT_POOL_KEYS: readonly string[] = ['energy', 'concerto', ...FORTE_KEYS];
-const INHERITED_POOL_KEYS: readonly string[] = ['hp', ...UNIT_POOL_KEYS];
+// `requested` is flat ({ 'energy|Unit': total }), so a shallow copy is enough.
+const INHERITED_POOL_KEYS: readonly string[] = ['hp', ...UNIT_POOL_KEYS, 'requested'];
 
 const SNAPSHOT_COPIED_KEYS: readonly string[] = [
   'hp', ...UNIT_POOL_KEYS, 'trackers', 'activeBuffs', 'cooldowns', 'chargeCooldowns'

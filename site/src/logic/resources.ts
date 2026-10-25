@@ -39,8 +39,18 @@ export function resourceCap(charName: string, key: string): number {
   return Infinity;
 }
 
+// Uncapped running total of every add/spend, per unit (one shared slot for Tune).
+const requestedSlot = (key: string, unit: string): string => (isEnemyResource(key) ? key : `${key}|${unit}`);
+
+/** Total ever requested of `key` for `unit`, before caps; its change over a window is what was attempted. */
+export function readRequested(state: any, key: string, unit: string): number {
+  return state.requested?.[requestedSlot(key, unit)] || 0;
+}
+
 // Adds clamped to [0, cap].
 export function addResource(state: any, key: string, unit: string, amount: number, cap: number): void {
+  const slot = requestedSlot(key, unit);
+  (state.requested ??= {})[slot] = (state.requested[slot] || 0) + amount;
   if (isEnemyResource(key)) {
     if (amount > 0 && isTuneImmune(state)) return;
     state.enemyTune = Math.min(cap, Math.max(0, (state.enemyTune || 0) + amount));

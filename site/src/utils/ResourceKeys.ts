@@ -15,6 +15,15 @@ export const forteSlotOf = (key: string): number | null => {
 // Defaults to slot 1.
 export const holdSlotNumber = (forteSlot: string): number => parseInt(forteSlot.replace('forte', ''), 10) || 1;
 
-// Per-move change tracker. Slot 1 is `forte_Delta`.
+// Per-move change tracker (what the move actually added or spent). Slot 1 is `forte_Delta`.
 export const deltaKey = (resourceKey: string): string =>
   resourceKey === forteKey(1) ? 'forte_Delta' : `${resourceKey}_Delta`;
+
+// What the move tried to add or spend, before caps (and Tune immunity).
+export const requestedDeltaKey = (resourceKey: string): string => deltaKey(resourceKey).replace(/_Delta$/, '_Requested_Delta');
+
+// Row field: the resource right before the move casts.
+export const beforeKey = (resourceKey: string): string => `${resourceKey}Before`;
+
+// The part of the move's change that landed after the next move started.
+export const lateDeltaKey = (resourceKey: string): string => deltaKey(resourceKey).replace(/_Delta$/, '_Late_Delta');

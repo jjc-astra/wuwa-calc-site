@@ -109,6 +109,7 @@ export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row }) => {
           // Per-move resource delta trackers.
           const trackerVal = row.trackers?.[f.key] ?? row.dropdownState?.trackers?.[f.key];
           const rawVal = stateVal ?? trackerVal ?? f.default;
+          if (f.hideIfZero && !(typeof rawVal === 'number' && Math.abs(rawVal) > 1e-9)) return null;
 
           let displayVal = rawVal;
           if (typeof rawVal === 'number') {
@@ -118,7 +119,7 @@ export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row }) => {
             }
           }
 
-          return <PanelInfoItem key={f.key} label={f.label} value={`${displayVal}${f.suffix || ''}`} extraClass={f.highlight} />;
+          return <PanelInfoItem key={f.key} label={f.label} value={`${displayVal}${f.suffix || ''}`} extraClass={f.highlight} tooltip={f.tooltip} />;
         })}
       </div>
     </div>

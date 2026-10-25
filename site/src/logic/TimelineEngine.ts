@@ -1,10 +1,10 @@
 import { DataLoader } from '../utils/DataLoader';
 import { getMechanicOwners } from './MechanicOwners';
 import {
-  RESOURCE_KEYS, WAITABLE_RESOURCE_KEYS, addResource, readResource, resourceCap, isEnemyResource,
+  RESOURCE_KEYS, WAITABLE_RESOURCE_KEYS, addResource, readResource, readRequested, resourceCap, isEnemyResource,
   energyRegenMult, energyRegenPct, resourceLabel, resourceRequirement, capHitIndex, buildupRateMult
 } from './resources';
-import { deltaKey, forteKey, holdSlotNumber } from '../utils/ResourceKeys';
+import { beforeKey, deltaKey, forteKey, holdSlotNumber, lateDeltaKey, requestedDeltaKey } from '../utils/ResourceKeys';
 import { backfillPools, cloneJson, dropdownSnapshot, hitState, inheritPools, plainCopy, ROW_LINK_KEYS } from './rowState';
 import { toRunInput, timingLabel, splitLoopSegments, loopTiming } from './rotationRows';
 import { asDslResult, castModifiers as castModifiersOf, scopedKey, eventModifier, isBuffEffect, isDslExpr, isPlaceholderProvider, modifierSet, readsSelfStats, rowStartEvents, ruleEventsMatch, sortedPrioritySteps, stacksAfterSpending, type RuleEvent } from './engineValues';
@@ -133,6 +133,11 @@ export class TimelineEngineClass {
   // Per row: Generated adjustments from hits credited to or away from it, and whether its window closed.
   _preCastOnField: string | undefined;
   _deltaCredits = new WeakMap<object, { adj: Record<string, number>; done: boolean }>();
+  // Each resource measured per move: what it actually changed (pool) and what it tried to (uncapped).
+  _deltaMeasures = RESOURCE_KEYS.flatMap(key => [
+    { read: (state: any, unit: string) => readResource(state, key, unit), delta: deltaKey(key), late: lateDeltaKey(key) },
+    { read: (state: any, unit: string) => readRequested(state, key, unit), delta: requestedDeltaKey(key), late: undefined as string | undefined }
+  ]);
 
   recalculateState(
     activeRows: any[],
@@ -212,6 +217,7 @@ export class TimelineEngineClass {
       currentData._pendingHits = [];
       // Clear stale errors from the last run.
       currentData._holdUnreachable = undefined;
+      currentData._gaugesSettled = undefined;
       currentData.motionStopPauses = undefined;
       currentData.backOnFieldAt = undefined;
 
@@ -291,9 +297,13 @@ export class TimelineEngineClass {
       // Backfill prevData gauges to what's available right before this action.
       if (i > 0) {
         backfillPools(prevData, currentData);
+        // Its "after" gauges are set; what its hits add from here lands later.
+        prevData._gaugesSettled = true;
         prevData.enemyTune = currentData.enemyTune;
         prevData.enemyMaxTune = currentData.enemyMaxTune;
       }
+      // Gauges right before the cast (after any wait), for the row's panels.
+      RESOURCE_KEYS.forEach(key => { currentData[beforeKey(key)] = readResource(currentData, key, currentData.unit); });
 
       if (dbMove.inputType === 'Release' && dbMove.holdConfig && currentData.trackers && currentData.trackers.Hold_Start !== undefined && currentData.trackers.Hold_Unit === currentData.unit) {
         const holdStart = currentData.trackers.Hold_Start;
@@ -1216,9 +1226,9 @@ export class TimelineEngineClass {
 
       if (creditRow && poolsBefore) {
         const poolsAfter = this._readPools(currentData, currentData.unit, creditRow.unit);
-        RESOURCE_KEYS.forEach((key, i) => {
-          this._creditDelta(currentData, key, poolsBefore.windowUnit[i] - poolsAfter.windowUnit[i]);
-          this._creditDelta(creditRow, key, poolsAfter.originUnit[i] - poolsBefore.originUnit[i]);
+        this._deltaMeasures.forEach((measure, i) => {
+          this._creditDelta(currentData, measure, poolsBefore.windowUnit[i] - poolsAfter.windowUnit[i]);
+          this._creditDelta(creditRow, measure, poolsAfter.originUnit[i] - poolsBefore.originUnit[i]);
         });
       }
 
@@ -1465,21 +1475,25 @@ export class TimelineEngineClass {
     effectsArray.forEach(eff => { if (eff.type !== 'procced_mechanic') this._processEffect(eff, currentData, eff.provider || defaultProvider, activeTeam, activeRows, currentData.arrayIndex, team); });
   }
 
-  // Every resource's current value for two units (the enemy's, for Tune).
+  // Every measured value (_deltaMeasures) for two units (the enemy's, for Tune).
   _readPools(state: any, windowUnit: string, originUnit: string): { windowUnit: number[]; originUnit: number[] } {
     return {
-      windowUnit: RESOURCE_KEYS.map(key => readResource(state, key, windowUnit)),
-      originUnit: RESOURCE_KEYS.map(key => readResource(state, key, originUnit))
+      windowUnit: this._deltaMeasures.map(m => m.read(state, windowUnit)),
+      originUnit: this._deltaMeasures.map(m => m.read(state, originUnit))
     };
   }
 
-  // Adds to a row's Generated delta for `key`, even after its window has closed.
-  _creditDelta(row: any, key: string, amount: number): void {
+  // Adds to a row's delta tracker, even after its window has closed; past its "after" gauges, also to `late`.
+  _creditDelta(row: any, measure: { delta: string; late?: string }, amount: number): void {
     if (!amount) return;
     let credits = this._deltaCredits.get(row);
     if (!credits) this._deltaCredits.set(row, credits = { adj: {}, done: false });
-    if (credits.done) row.trackers[deltaKey(key)] = (row.trackers[deltaKey(key)] || 0) + amount;
-    else credits.adj[key] = (credits.adj[key] || 0) + amount;
+    if (!credits.done) {
+      credits.adj[measure.delta] = (credits.adj[measure.delta] || 0) + amount;
+      return;
+    }
+    row.trackers[measure.delta] = (row.trackers[measure.delta] || 0) + amount;
+    if (measure.late && row._gaugesSettled) row.trackers[measure.late] = (row.trackers[measure.late] || 0) + amount;
   }
 
   // Logs Energy gains/spends per row for the required-ER analysis.
@@ -1557,7 +1571,7 @@ export class TimelineEngineClass {
     const unitName = currentData.unit;
     const moveData = dbMove;
     const prevData = currentIndex > 0 ? activeRows[currentIndex - 1] : this._getDefaultData(team[0]?.character);
-    const startValues = RESOURCE_KEYS.map(key => readResource(currentData, key, unitName));
+    const startValues = this._deltaMeasures.map(m => m.read(currentData, unitName));
     // Hits landing during the wait aren't in the window measured below.
     const credits = { adj: {} as Record<string, number>, done: false };
     this._deltaCredits.set(currentData, credits);
@@ -1612,9 +1626,9 @@ export class TimelineEngineClass {
     );
 
     if (!currentData.trackers) currentData.trackers = {};
-    RESOURCE_KEYS.forEach((key, i) => {
-      const windowChange = readResource(currentData, key, unitName) - startValues[i];
-      currentData.trackers[deltaKey(key)] = windowChange + (credits.adj[key] || 0);
+    this._deltaMeasures.forEach((measure, i) => {
+      const windowChange = measure.read(currentData, unitName) - startValues[i];
+      currentData.trackers[measure.delta] = windowChange + (credits.adj[measure.delta] || 0);
     });
     credits.done = true;
   }
