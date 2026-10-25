@@ -50,29 +50,29 @@ export const StackedContributionBar: React.FC<StackedContributionBarProps> = ({
     ...slices.filter(s => !unitNames.includes(s.label))
   ];
 
+  // The hovered source's damage and share, then the team's total for the window.
   const buildTooltipHtml = (seg: ContributionSlice): string => {
-    if (unitNames.includes(seg.label) && !unitBreakdowns) {
-      return `<div class="tooltip-val">${formatValue(seg.dmg)}</div><div class="ranking-tooltip-unit-label caps-tag">${seg.label} DMG</div><div>Loading breakdown...</div>`;
-    }
-    if (unitNames.includes(seg.label) && unitBreakdowns) {
-      const castSlices = (unitBreakdowns[seg.label] || []).filter(c => c.dmg > 0);
-      const unitTotal = castSlices.reduce((sum, c) => sum + c.dmg, 0);
-      const rows = castSlices
-        .map(c => {
-          const pct = unitTotal > 0 ? (c.dmg / unitTotal) * 100 : 0;
-          const color = c.castType === 'Other' ? OTHER_SLICE_COLOR : colorForLabel(c.castType);
-          return `<div class="ranking-tooltip-row">
-            <span class="ranking-tooltip-swatch" style="background:${color}"></span>
-            <span class="ranking-tooltip-label">${c.castType}</span>
-            <span class="ranking-tooltip-value">${pct.toFixed(1)}%</span>
-          </div>`;
-        })
-        .join('');
-      return `<div class="tooltip-val">${formatValue(unitTotal)}</div><div class="ranking-tooltip-unit-label caps-tag">${seg.label} DMG</div>${rows}`;
-    }
-    // Non-unit sources show their share only.
     const pct = total > 0 ? (seg.dmg / total) * 100 : 0;
-    return `<div class="tooltip-val">${formatValue(seg.dmg)} (${pct.toFixed(1)}%)</div><div style="margin-top:2px;">${seg.label}</div>`;
+    const header = `<div class="tooltip-val">${formatValue(seg.dmg)}</div>`
+      + `<div class="ranking-tooltip-unit-label caps-tag">${seg.label} DMG · ${pct.toFixed(1)}%</div>`;
+    const footer = `<div class="ranking-tooltip-total"><span class="ranking-tooltip-label">Total DPR</span>`
+      + `<span class="ranking-tooltip-value">${formatValue(total)}</span></div>`;
+    if (!unitNames.includes(seg.label)) return header + footer;
+    if (!unitBreakdowns) return `${header}<div>Loading breakdown...</div>${footer}`;
+    const castSlices = (unitBreakdowns[seg.label] || []).filter(c => c.dmg > 0);
+    const unitTotal = castSlices.reduce((sum, c) => sum + c.dmg, 0);
+    const rows = castSlices
+      .map(c => {
+        const castPct = unitTotal > 0 ? (c.dmg / unitTotal) * 100 : 0;
+        const color = c.castType === 'Other' ? OTHER_SLICE_COLOR : colorForLabel(c.castType);
+        return `<div class="ranking-tooltip-row">
+          <span class="ranking-tooltip-swatch" style="background:${color}"></span>
+          <span class="ranking-tooltip-label">${c.castType}</span>
+          <span class="ranking-tooltip-value">${castPct.toFixed(1)}%</span>
+        </div>`;
+      })
+      .join('');
+    return header + rows + footer;
   };
 
   const handleMove = (e: React.MouseEvent, seg: ContributionSlice) => {
