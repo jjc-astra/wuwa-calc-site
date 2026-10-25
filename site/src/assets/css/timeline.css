@@ -366,8 +366,8 @@
     color: #fff; text-shadow: 0 0 2px rgba(0, 0, 0, 0.9);
     pointer-events: none;
 }
-.move-timeline-seg-label { display: flex; gap: 0.3rem; }
-.move-timeline-seg-duration { font-weight: 600; opacity: 0.75; }
+.move-timeline-seg-label { display: flex; align-items: baseline; gap: 0.3rem; line-height: 1; }
+.move-timeline-seg-duration { font-size: inherit; font-weight: 600; opacity: 0.75; }
 /* Frames the next move cut off. */
 .move-timeline-cut {
     background: repeating-linear-gradient(135deg, var(--overlay-w2) 0 4px, transparent 4px 8px);
