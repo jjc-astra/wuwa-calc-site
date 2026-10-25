@@ -11,6 +11,7 @@ import { formatFramesAsClock, formatFramesAsSeconds, frozenFramesWithin, hitFram
 import { useTimelineViewStore } from '../../store/useTimelineViewStore';
 import { resolveDefaultNum } from '../builder/mechanicNodeHelpers';
 import { PanelInfoItem } from '../common/PanelInfoItem';
+import { SplitValue } from '../common/SplitValue';
 import { TimelineRuler } from '../timeline/TimelineRuler';
 import { rowHits, stackDots } from '../timeline/timelineLayout';
 import type { Tick } from '../timeline/timelineLayout';
@@ -281,12 +282,7 @@ export const MoveTimelinePanel: React.FC<MoveTimelinePanelProps> = ({ row }) => 
     TooltipManager.hide();
   };
   // Game time on the left, real time (time stops included) on the right.
-  const split = (game: string, real: string) => (
-    <span className="panel-info-split">
-      <span><span className="panel-info-split-tag">Game</span>{game}</span>
-      <span><span className="panel-info-split-tag">Real</span>{real}</span>
-    </span>
-  );
+  const split = (game: string, real: string) => <SplitValue left={['Game', game]} right={['Real', real]} />;
   // `pointer`: the track handles hover itself (Field: hit snapping).
   const lane = (label: string, segments: Segment[], extra?: React.ReactNode, pointer?: React.HTMLAttributes<HTMLDivElement>) => (
     <div className="move-timeline-lane">

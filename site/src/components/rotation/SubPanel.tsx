@@ -1,12 +1,8 @@
 import React from 'react';
 import { PANEL_CONFIG } from '../../data/db';
-import { DataLoader } from '../../utils/DataLoader';
-import { CommonUtils } from '../../utils/Common';
-import { forteLabel } from '../../utils/ForteNames';
-import { forteSlotOf } from '../../utils/ResourceKeys';
-import { PanelInfoItem } from '../common/PanelInfoItem';
 import { DamageBreakdownPanel } from './DamageBreakdownPanel';
 import { MoveTimelinePanel } from './MoveTimelinePanel';
+import { ResourceGaugePanel } from './ResourceGaugePanel';
 import { toFrames, framesToSeconds, formatSignedSeconds } from '../../utils/Frames';
 
 interface SubPanelProps {
@@ -61,37 +57,6 @@ export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row }) => {
     );
   }
 
-  // Gauges and resources
-  const u = row.unit;
-  const forteSlot = forteSlotOf(trigger);
-  const title = forteSlot !== null ? `${forteLabel(DataLoader.characterDB[u], forteSlot)} Breakdown` : config.title;
-  return (
-    <div className="sub-panel is-open">
-      <div className="panel-header-main">{title}</div>
-      <div className="panel-content-grid">
-        {config.fields.map((f) => {
-          let stateVal = row[f.key];
-          if (f.key === 'tune' && row.enemyTune !== undefined) stateVal = row.enemyTune;
-          if (stateVal && typeof stateVal === 'object' && !Array.isArray(stateVal)) {
-            stateVal = stateVal[u];
-          }
-
-          // Per-move resource delta trackers.
-          const trackerVal = row.trackers?.[f.key] ?? row.dropdownState?.trackers?.[f.key];
-          const rawVal = stateVal ?? trackerVal ?? f.default;
-          if (f.hideIfZero && !(typeof rawVal === 'number' && Math.abs(rawVal) > 1e-9)) return null;
-
-          let displayVal = rawVal;
-          if (typeof rawVal === 'number') {
-            displayVal = CommonUtils.trimNumber(rawVal);
-            if (String(f.key).toLowerCase().includes('delta') && rawVal > 0) {
-              displayVal = `+${displayVal}`;
-            }
-          }
-
-          return <PanelInfoItem key={f.key} label={f.label} value={`${displayVal}${f.suffix || ''}`} extraClass={f.highlight} tooltip={f.tooltip} />;
-        })}
-      </div>
-    </div>
-  );
+  if (config.type === 'resource') return <ResourceGaugePanel title={config.title} resourceKey={config.resourceKey} row={row} />;
+  return null;
 };

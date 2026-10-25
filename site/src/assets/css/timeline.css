@@ -393,6 +393,3 @@
 }
 .move-timeline-pole { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--overlay-w5); }
 .move-timeline-pole.is-cut { background: var(--accent-border); }
-.panel-info-split { display: flex; justify-content: space-between; gap: var(--space-4); }
-.panel-info-split > span + span { padding-left: var(--space-4); border-left: 1px solid var(--overlay-w4); text-align: right; }
-.panel-info-split-tag { margin-right: var(--space-2); font-size: 0.62rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }

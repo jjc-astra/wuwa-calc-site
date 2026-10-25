@@ -558,6 +558,11 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 .tooltip-arrow { display: inline-block; transform: translateY(-0.08em); }
 
 /* --- Sub Panel System (.sub-panel-trigger is rotation-only, in calculator.css) --- */
+/* SplitValue: two tagged values in one cell. */
+.panel-info-split { display: flex; justify-content: space-between; gap: var(--space-4); }
+.panel-info-split > span + span { padding-left: var(--space-4); border-left: 1px solid var(--overlay-w4); text-align: right; }
+.panel-info-split-tag { margin-right: var(--space-2); font-size: 0.62rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+
 .sub-panel {
     width: 100%;
     background-color: var(--sub-panel-bg);

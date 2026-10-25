@@ -1,6 +1,6 @@
 import type { MechanicNode, EnemyStats } from '../types';
 import { toFrames } from '../utils/Frames';
-import { FORTE_SLOTS, beforeKey, deltaKey, forteKey, lateDeltaKey, requestedDeltaKey } from '../utils/ResourceKeys';
+import { FORTE_SLOTS, forteKey } from '../utils/ResourceKeys';
 import { CAST_TYPES, ELEMENTS, NEGATIVE_STATUSES, elementBonusKey } from './gameVocab';
 import type { CastType } from './gameVocab';
 
@@ -400,34 +400,16 @@ export const BuilderState = {
 
 export interface PanelTag { label: string; key?: string; keys?: string[]; default?: string; suffix?: string; highlight?: string; }
 export interface PanelStat { label: string; key: string; suffix?: string; }
-export interface PanelField { label: string; key: string; default: string | number; suffix?: string; highlight?: string; tooltip?: string; hideIfZero?: boolean; }
+export interface PanelField { label: string; key: string; default: string | number; suffix?: string; highlight?: string; }
 
 export type PanelConfig =
   | { title: string; type: 'complex_dmg'; tags: PanelTag[]; stats: PanelStat[] }
   | { title: string; type: 'move_timeline' }
-  | { title: string; type: 'gauge'; fields: PanelField[] };
+  | { title: string; type: 'gauge'; fields: PanelField[] }
+  | { title: string; type: 'resource'; resourceKey: string };
 
-// A gauge panel: what the move tried to add or spend, what it actually did, and the gauge after it.
-const gaugePanel = (
-  title: string,
-  key: string,
-  defaults: { generated: string; current: string; beforeLabel?: string; currentLabel?: string; suffix?: string }
-): PanelConfig => ({
-  title,
-  type: 'gauge',
-  fields: [
-    { label: 'Generated', key: requestedDeltaKey(key), default: defaults.generated, suffix: defaults.suffix,
-      tooltip: 'What this move and its effects tried to add or spend, all hits included (after Energy Regen and buildup rates).' },
-    { label: 'Applied', key: deltaKey(key), default: defaults.generated, suffix: defaults.suffix,
-      tooltip: 'What actually changed: Generated minus anything lost to the cap (or, for Tune, to Tune immunity).' },
-    { label: defaults.beforeLabel ?? 'Before Move', key: beforeKey(key), default: defaults.current, suffix: defaults.suffix,
-      tooltip: 'The gauge right before this move casts (after any wait), before its own costs and gains.' },
-    { label: defaults.currentLabel ?? 'After Move', key, default: defaults.current, suffix: defaults.suffix,
-      tooltip: 'The gauge when the next move starts. Hits still in flight then are in Lands Later, not here.' },
-    { label: 'Lands Later', key: lateDeltaKey(key), default: '+0', suffix: defaults.suffix, hideIfZero: true,
-      tooltip: 'Part of Applied from hits that land after the next move starts (e.g. after swapping out).' }
-  ]
-});
+// A resource panel (ResourceGaugePanel).
+const gaugePanel = (title: string, resourceKey: string): PanelConfig => ({ title, type: 'resource', resourceKey });
 
 export const PANEL_CONFIG: Record<string, PanelConfig> = {
   dmg: {
@@ -453,9 +435,9 @@ export const PANEL_CONFIG: Record<string, PanelConfig> = {
       { label: 'DEF Ignore', key: 'ignoreDef', suffix: '%' }
     ]
   },
-  concerto: gaugePanel('Concerto Energy Breakdown', 'concerto', { generated: '+0', current: '0' }),
-  energy: gaugePanel('Resonance Energy Breakdown', 'energy', { generated: '+0.0', current: '0.0' }),
-  tune: gaugePanel('Tune Break Build Breakdown', 'tune', { generated: '+0', current: '0', beforeLabel: 'Tune Before Move', currentLabel: 'Tune After Move', suffix: '%' }),
+  concerto: gaugePanel('Concerto Energy Breakdown', 'concerto'),
+  energy: gaugePanel('Resonance Energy Breakdown', 'energy'),
+  tune: gaugePanel('Tune Break Build Breakdown', 'tune'),
   // MoveTimelinePanel.
   time: { title: 'Move Timeline', type: 'move_timeline' },
   offset: {
@@ -468,5 +450,5 @@ export const PANEL_CONFIG: Record<string, PanelConfig> = {
 };
 
 for (const slot of FORTE_SLOTS) {
-  PANEL_CONFIG[forteKey(slot)] = gaugePanel(`Forte ${slot} Breakdown`, forteKey(slot), { generated: '+0', current: '0' });
+  PANEL_CONFIG[forteKey(slot)] = gaugePanel(`Forte ${slot} Breakdown`, forteKey(slot));
 }

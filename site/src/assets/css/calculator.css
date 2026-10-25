@@ -677,6 +677,73 @@
     z-index: 2;
 }
 
+/* --- Resource sub-panel gauge (ResourceGaugePanel); segments styled like the stance bars --- */
+.resource-gauge { --timeline-header-width: 0px; margin-top: var(--space-5); }
+.resource-gauge .timeline-ruler { height: 1.5rem; border-top: none; }
+.resource-gauge-track { position: relative; height: 1.5rem; }
+.resource-gauge-track::before {
+    content: ''; position: absolute; inset: 0.25rem 0;
+    border-radius: 0.25rem; background: var(--overlay-w2); border: 1px solid var(--overlay-w4);
+}
+.resource-gauge-seg {
+    position: absolute; top: 0.25rem; bottom: 0.25rem;
+    border: 1px solid transparent; border-radius: 0.25rem; box-sizing: border-box; cursor: help;
+}
+.resource-gauge-seg:hover { filter: brightness(1.25); }
+.resource-gauge-seg.is-base { background-color: var(--accent-strong); border-color: var(--accent); }
+.resource-gauge-seg.is-gain { background-color: rgba(50, 220, 50, 0.15); border-color: var(--success); }
+.resource-gauge-seg.is-spend { background-color: rgba(220, 50, 50, 0.15); border-color: var(--danger-text); }
+.resource-gauge-seg.is-late {
+    border-style: dashed; border-color: var(--success);
+    background: repeating-linear-gradient(135deg, rgba(50, 220, 50, 0.3) 0 4px, rgba(50, 220, 50, 0.08) 4px 8px);
+}
+.resource-gauge-seg.is-late-spend {
+    border-style: dashed; border-color: var(--danger-text);
+    background: repeating-linear-gradient(135deg, rgba(220, 50, 50, 0.3) 0 4px, rgba(220, 50, 50, 0.08) 4px 8px);
+}
+/* Forte hold cursor: its release window and where the cursor is. */
+.resource-gauge-seg.is-window { border-color: var(--accent); border-style: dashed; background: transparent; z-index: 1; }
+.resource-gauge-cursor {
+    position: absolute; top: -0.25rem; bottom: -0.25rem; width: 0; margin-left: -0.3rem;
+    border-left: 0.3rem solid transparent; border-right: 0.3rem solid transparent; border-top: 0.4rem solid var(--text-main);
+    cursor: help; z-index: 2;
+}
+.resource-gauge-cursor::after {
+    content: ''; position: absolute; top: 0; bottom: -0.25rem; left: -1px; width: 2px; background: var(--text-main);
+}
+.resource-gauge-cursor.is-in { border-top-color: var(--accent); }
+.resource-gauge-cursor.is-in::after { background: var(--accent); }
+.resource-gauge-cursor.is-before { border-top-color: var(--text-disabled); }
+.resource-gauge-cursor.is-before::after { background: var(--text-disabled); }
+
+/* Cursor path: one row per leg, arrowhead on the side it moved to. */
+.resource-gauge-path { display: flex; flex-direction: column; gap: 2px; margin-top: 0.2rem; }
+.resource-gauge-leg { position: relative; height: 0.9rem; cursor: help; }
+.resource-gauge-leg::before {
+    content: ''; position: absolute; top: 50%; left: 0; right: 0; height: 2px; margin-top: -1px;
+    background: var(--text-dim);
+}
+.resource-gauge-leg::after {
+    content: ''; position: absolute; top: 50%; margin-top: -0.25rem;
+    border-top: 0.25rem solid transparent; border-bottom: 0.25rem solid transparent;
+}
+.resource-gauge-leg.is-right::after { right: -0.1rem; border-left: 0.35rem solid var(--text-dim); }
+.resource-gauge-leg.is-left::after { left: -0.1rem; border-right: 0.35rem solid var(--text-dim); }
+.resource-gauge-leg:hover::before { background: var(--text-main); }
+.resource-gauge-leg.is-right:hover::after { border-left-color: var(--text-main); }
+.resource-gauge-leg.is-left:hover::after { border-right-color: var(--text-main); }
+.resource-gauge-leg-label {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    padding: 0 0.25rem; font-size: 0.6rem; font-weight: bold; color: var(--text-main);
+    background: var(--bg-card, var(--surface-card-flat)); border-radius: 2px; pointer-events: none; white-space: nowrap;
+}
+.resource-gauge-mark {
+    position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px;
+    background: var(--text-dim); cursor: help; z-index: 1;
+}
+.resource-gauge-mark.is-after { background: var(--text-main); }
+.resource-gauge-lost { margin-top: var(--space-1); font-size: 0.7rem; color: var(--danger-text); font-weight: bold; text-align: right; }
+
 /* =========================================
    6. DAMAGE BREAKDOWN SUB-PANEL
    ========================================= */
