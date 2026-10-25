@@ -985,9 +985,10 @@
     border: 1px solid transparent;
     border-radius: 0.25rem;
 }
-.builder-view .mech-stance-seg.is-grounded { background-color: rgba(50, 220, 50, 0.15); border-color: var(--success); }
-.builder-view .mech-stance-seg.is-midair { background-color: rgba(220, 50, 50, 0.15); border-color: var(--danger-text); }
-.builder-view .mech-stance-seg.is-any {
+/* Stance colors: also the rotation sheet's Move Timeline. */
+.mech-stance-seg.is-grounded { background-color: rgba(50, 220, 50, 0.15); border-color: var(--success); }
+.mech-stance-seg.is-midair { background-color: rgba(220, 50, 50, 0.15); border-color: var(--danger-text); }
+.mech-stance-seg.is-any {
     --dash-x: repeating-linear-gradient(90deg, var(--success) 0 0.375rem, transparent 0.375rem 0.5625rem, var(--danger-text) 0.5625rem 0.9375rem, transparent 0.9375rem 1.125rem);
     --dash-y: repeating-linear-gradient(180deg, var(--success) 0 0.375rem, transparent 0.375rem 0.5625rem, var(--danger-text) 0.5625rem 0.9375rem, transparent 0.9375rem 1.125rem);
     border-color: transparent;

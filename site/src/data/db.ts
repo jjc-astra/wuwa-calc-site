@@ -401,11 +401,10 @@ export const BuilderState = {
 export interface PanelTag { label: string; key?: string; keys?: string[]; default?: string; suffix?: string; highlight?: string; }
 export interface PanelStat { label: string; key: string; suffix?: string; }
 export interface PanelField { label: string; key: string; default: string | number; suffix?: string; highlight?: string; tooltip?: string; hideIfZero?: boolean; }
-export interface PanelFieldGroup { title: string; fields: PanelField[]; }
 
 export type PanelConfig =
   | { title: string; type: 'complex_dmg'; tags: PanelTag[]; stats: PanelStat[] }
-  | { title: string; type: 'complex_time'; groups: PanelFieldGroup[] }
+  | { title: string; type: 'move_timeline' }
   | { title: string; type: 'gauge'; fields: PanelField[] };
 
 // A gauge panel: what the move tried to add or spend, what it actually did, and the gauge after it.
@@ -457,38 +456,8 @@ export const PANEL_CONFIG: Record<string, PanelConfig> = {
   concerto: gaugePanel('Concerto Energy Breakdown', 'concerto', { generated: '+0', current: '0' }),
   energy: gaugePanel('Resonance Energy Breakdown', 'energy', { generated: '+0.0', current: '0.0' }),
   tune: gaugePanel('Tune Break Build Breakdown', 'tune', { generated: '+0', current: '0', beforeLabel: 'Tune Before Move', currentLabel: 'Tune After Move', suffix: '%' }),
-  time: {
-    title: 'Advanced Timeline Breakdown',
-    type: 'complex_time',
-    groups: [
-      {
-        title: 'Execution Timings',
-        fields: [
-          { label: 'Real Time Start', key: 'timeStart', default: 0, suffix: 's' },
-          { label: 'Game Time Start', key: 'gameTimeStart', default: 0, suffix: 's' },
-          { label: 'Wait Time (CD/Busy)', key: 'waitTime', default: 0, suffix: 's' }
-        ]
-      },
-      {
-        title: 'Action Duration Details',
-        fields: [
-          { label: 'Base Duration', key: 'baseDuration', default: 0, suffix: 's' },
-          { label: 'Actual Duration', key: 'duration', default: 0, suffix: 's' },
-          { label: 'Game Time Passed', key: 'gameTimePassed', default: 0, suffix: 's' },
-          { label: 'Time Stop / Freeze', key: 'freezeTime', default: 0, suffix: 's' },
-          { label: 'Freeze Start', key: 'freezeStart', default: 0, suffix: 's' },
-          { label: 'Motion Stop', key: 'motionStop', default: 0, suffix: 's' }
-        ]
-      },
-      {
-        title: 'Accumulated Timeline Cost',
-        fields: [
-          { label: 'Total Real Time Cost', key: 'totalRealTimeCost', default: 0, suffix: 's' },
-          { label: 'Total Game Time Cost', key: 'totalGameTimeCost', default: 0, suffix: 's' }
-        ]
-      }
-    ]
-  },
+  // MoveTimelinePanel.
+  time: { title: 'Move Timeline', type: 'move_timeline' },
   offset: {
     title: 'Action Alignment Breakdown',
     type: 'gauge',

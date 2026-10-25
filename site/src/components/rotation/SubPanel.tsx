@@ -6,7 +6,8 @@ import { forteLabel } from '../../utils/ForteNames';
 import { forteSlotOf } from '../../utils/ResourceKeys';
 import { PanelInfoItem } from '../common/PanelInfoItem';
 import { DamageBreakdownPanel } from './DamageBreakdownPanel';
-import { toFrames, framesToSeconds, formatFramesAsSeconds, formatSignedSeconds } from '../../utils/Frames';
+import { MoveTimelinePanel } from './MoveTimelinePanel';
+import { toFrames, framesToSeconds, formatSignedSeconds } from '../../utils/Frames';
 
 interface SubPanelProps {
   trigger: string;
@@ -20,38 +21,7 @@ export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row }) => {
 
   if (config.type === 'complex_dmg') return <DamageBreakdownPanel config={config} row={row} />;
 
-  // Timeline
-  if (config.type === 'complex_time') {
-    return (
-      <div className="sub-panel is-open">
-        <div className="panel-header-main">{config.title}</div>
-        <div className="complex-time-container">
-          {config.groups.map((group, idx: number) => (
-            <div key={idx} className="time-panel-group" style={{ marginBottom: '0.75rem' }}>
-              <div
-                className="panel-header-tiny"
-                style={{ marginBottom: '0.375rem', paddingBottom: '0.25rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}
-              >
-                {group.title}
-              </div>
-              <div className="panel-content-grid">
-                {group.fields.map((f) => {
-                  const rawVal = row[f.key] !== undefined ? row[f.key] : f.default;
-                  // Frames shown as seconds.
-                  const genericVal = typeof rawVal === 'number' ? CommonUtils.trimNumber(rawVal) : rawVal;
-                  const displayVal =
-                    typeof rawVal === 'number' && f.suffix === 's'
-                      ? formatFramesAsSeconds(toFrames(rawVal))
-                      : `${genericVal}${f.suffix || ''}`;
-                  return <PanelInfoItem key={f.key} label={f.label} value={displayVal} extraClass={f.highlight} />;
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
+  if (config.type === 'move_timeline') return <MoveTimelinePanel row={row} />;
 
   // Offset
   if (trigger === 'offset') {

@@ -324,3 +324,75 @@
     color: var(--accent);
     flex-shrink: 0;
 }
+
+/* =========================================
+   4. MOVE TIMELINE (a row's Time sub panel; fluid width, rem sizes)
+   ========================================= */
+.move-timeline-info { margin-bottom: var(--space-5); }
+.move-timeline {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 1.25rem;
+}
+.move-timeline .timeline-ruler { height: 1.5rem; }
+
+.move-timeline-flags,
+.move-timeline-lane { display: flex; align-items: stretch; }
+.move-timeline-flags { position: relative; flex-shrink: 0; }
+.move-timeline-lane { height: 1.5rem; border-top: 1px solid var(--border); }
+.move-timeline-lane-label {
+    width: var(--timeline-header-width);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    font-size: 0.62rem;
+    color: var(--text-dim);
+}
+.move-timeline-lane-track { flex: 1; min-width: 0; position: relative; }
+
+.move-timeline-seg {
+    position: absolute;
+    top: 0.25rem; bottom: 0.25rem;
+    border-radius: 3px;
+    box-sizing: border-box;
+    overflow: hidden;
+    cursor: help;
+}
+.move-timeline-seg:hover { filter: brightness(1.2); box-shadow: 0 0 0 1px var(--text-main); }
+.move-timeline-seg-label {
+    position: absolute; left: 0.25rem; top: 50%; transform: translateY(-50%);
+    font-size: 0.58rem; font-weight: 800; white-space: nowrap;
+    color: #fff; text-shadow: 0 0 2px rgba(0, 0, 0, 0.9);
+    pointer-events: none;
+}
+.move-timeline-seg-label { display: flex; gap: 0.3rem; }
+.move-timeline-seg-duration { font-weight: 600; opacity: 0.75; }
+/* Frames the next move cut off. */
+.move-timeline-cut {
+    background: repeating-linear-gradient(135deg, var(--overlay-w2) 0 4px, transparent 4px 8px);
+    border: 1px dashed var(--text-disabled);
+}
+.move-timeline-seg.mech-stance-seg { border-width: 1px; border-style: solid; }
+.move-timeline-freeze { background: color-mix(in srgb, var(--accent) 15%, transparent); border: 1px solid var(--accent-border); }
+.move-timeline-motion { background: color-mix(in srgb, var(--text-disabled) 25%, var(--surface-card-flat)); border: 1px dashed var(--text-dim); }
+
+/* Hits use .timeline-hit-dot; one the cut dropped is hollow. */
+.move-timeline .timeline-hit-dot { z-index: 1; }
+.move-timeline .timeline-hit-dot.is-dropped { background: transparent; box-shadow: 0 0 0 1px var(--text-dim); }
+
+/* Flags reuse .timeline-flag-label; here they take hover. */
+.move-timeline-flag { pointer-events: auto; cursor: help; z-index: 2; border-color: var(--border-hover, var(--text-disabled)); color: var(--text-main); }
+.move-timeline-flag.is-cut { border-color: var(--accent); color: var(--accent); }
+.move-timeline-flag.is-flipped { transform: translateX(-100%); border-radius: 3px 0 0 3px; }
+.move-timeline-poles {
+    position: absolute;
+    top: 0; bottom: calc(1.25rem + 1.5rem);
+    left: var(--timeline-header-width); right: 0;
+    pointer-events: none;
+}
+.move-timeline-pole { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--overlay-w5); }
+.move-timeline-pole.is-cut { background: var(--accent-border); }
+.panel-info-split { display: flex; justify-content: space-between; gap: var(--space-4); }
+.panel-info-split > span + span { padding-left: var(--space-4); border-left: 1px solid var(--overlay-w4); text-align: right; }
+.panel-info-split-tag { margin-right: var(--space-2); font-size: 0.62rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
