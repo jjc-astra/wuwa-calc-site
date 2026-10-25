@@ -1686,30 +1686,38 @@ export class TimelineEngineClass {
     if (isSwapTiming(prevData.timing) && !currIsOutro && currentData.unit === prevData.unit) {
       errors.push('The next move after a swap timing must be an Outro or different unit.');
     }
+    const isIntro = !!currentData.castTypes?.includes('Intro');
     if (prevData.unit && currentData.unit !== prevData.unit) {
-      const isIntro = !!currentData.castTypes?.includes('Intro');
-      const myCombo = prevData.unitCombos?.[currentData.unit];
-      const isSwapback = myCombo && currentData.gameTimeStart <= myCombo.expiration;
       if (prevWasOutro) {
         if (!isIntro) errors.push('Must use an Intro skill immediately after an Outro.');
-      } else {
-        if (isIntro) errors.push('Intro skills can only be used immediately after an Outro.');
-        else if (!isSwapback) {
-          // .provider is only set for third-party sources (echoes).
-          const expectedSwapIns: string[] = [];
-          const fitsStance = (m: MechanicNode) => !m.stanceReq || m.stanceReq === 'Any' || m.stanceReq === (currentData.entryStance || 'Grounded');
-          (DataLoader.mechanicsIndex[currentData.unit] || []).forEach(key => {
-            const m = DataLoader.mechanicsDB[key];
-            if (!m || !m.isSwapInDefault || !fitsStance(m)) return;
-            const isValid = m.triggerRule && !m.isPassive
-              ? this._evaluateRule(m, m.triggerRule, currentData, currentData.unit, team, rowStartEvents(key, m, currentData.unit, prevData.unit)) ?? true
-              : true;
-            if (isValid) expectedSwapIns.push(m.name);
-          });
-          // Hold moves can be held through the swap.
-          if (expectedSwapIns.length > 0 && !moveData.isSwapInDefault && moveData.inputType !== 'Hold') {
-            errors.push(`Standard swap-in expected. Must use: ${expectedSwapIns.join(' or ')}.`);
-          }
+      } else if (isIntro) {
+        errors.push('Intro skills can only be used immediately after an Outro.');
+      }
+    }
+
+    // The swap-in is the unit's first non-simultaneous move: simultaneous ones (echoes) cast alongside it.
+    const isSimultaneousRow = (row: any) => row?.timing === 'Simultaneous';
+    let swapFrom = prevData;
+    while (swapFrom?.unit === currentData.unit && isSimultaneousRow(swapFrom) && swapFrom.prevRow) swapFrom = swapFrom.prevRow;
+    const isSwapIn = !!swapFrom?.unit && swapFrom.unit !== currentData.unit && !isSimultaneousRow(currentData);
+    if (isSwapIn && !swapFrom.castTypes?.includes('Outro') && !isIntro) {
+      const myCombo = swapFrom.unitCombos?.[currentData.unit];
+      const isSwapback = myCombo && currentData.gameTimeStart <= myCombo.expiration;
+      if (!isSwapback) {
+        // .provider is only set for third-party sources (echoes).
+        const expectedSwapIns: string[] = [];
+        const fitsStance = (m: MechanicNode) => !m.stanceReq || m.stanceReq === 'Any' || m.stanceReq === (currentData.entryStance || 'Grounded');
+        (DataLoader.mechanicsIndex[currentData.unit] || []).forEach(key => {
+          const m = DataLoader.mechanicsDB[key];
+          if (!m || !m.isSwapInDefault || !fitsStance(m)) return;
+          const isValid = m.triggerRule && !m.isPassive
+            ? this._evaluateRule(m, m.triggerRule, currentData, currentData.unit, team, rowStartEvents(key, m, currentData.unit, swapFrom.unit)) ?? true
+            : true;
+          if (isValid) expectedSwapIns.push(m.name);
+        });
+        // Hold moves can be held through the swap.
+        if (expectedSwapIns.length > 0 && !moveData.isSwapInDefault && moveData.inputType !== 'Hold') {
+          errors.push(`Standard swap-in expected. Must use: ${expectedSwapIns.join(' or ')}.`);
         }
       }
     }
