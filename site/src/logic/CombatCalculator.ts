@@ -328,7 +328,12 @@ export const CombatCalculator = {
       const critMult = critMultiplier(finalCritRate, finalCritDamage);
       const dmgBonusTotal = 1 + baseDmgBonus + buffTotals.dmgBonus;
       if (dmgBonusTotal !== 1) breakdownParts.push(`${dmgBonusTotal.toFixed(3)} (DMG%)`);
-      if (critMult !== 1) breakdownParts.push(`${critMult.toFixed(3)} (Crit)`);
+      if (critMult !== 1) {
+        // Expected crit: CR of hits deal CD, the rest deal 1x.
+        const cr = Math.min(1, Math.max(0, finalCritRate));
+        const pct = (v: number) => `${+(v * 100).toFixed(2)}%`;
+        breakdownParts.push(`[${pct(cr)} CR * ${pct(finalCritDamage)} CD${cr < 1 ? ` + ${pct(1 - cr)}` : ''}] (Crit)`);
+      }
     } else if (formulaUsed === 'NegativeStatus' && buffTotals.dmgBonus !== 0) {
       breakdownParts.push(`${(1 + buffTotals.dmgBonus).toFixed(3)} (DMG%)`);
     }
