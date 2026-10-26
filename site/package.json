@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "recalc:results": "node scripts/recalc-results.mjs",
+    "recalc:results:new": "node scripts/recalc-results.mjs --new",
     "check:results": "node scripts/recalc-results.mjs --check",
     "watch:results": "node scripts/watch-results.mjs",
     "promote": "node scripts/promote.mjs"

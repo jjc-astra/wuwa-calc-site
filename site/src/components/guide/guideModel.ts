@@ -1,7 +1,8 @@
 // Character Guide: groups Rankings results for a character and builds sequence/weapon/echo variants.
 import { DataLoader } from '../../utils/DataLoader';
 import { isSelectableContent } from '../../utils/selectableContent';
-import { slotSets, teamCharacters } from '../../utils/TeamUtils';
+import { teamCharacters } from '../../utils/TeamUtils';
+import { wornSets } from '../../utils/rotationExport';
 import { dpsFieldOf } from '../../data/dpsWindows';
 import { SIM_CONSTANTS, STAT_NAME_MAP, costsForLayout, mainStatOptionsFor } from '../../data/db';
 import { selfStatsReadBy } from '../../logic/MechanicOwners';
@@ -150,9 +151,11 @@ function makeJob(entry: GuideEntry, team: TeamSlot[]): GuideJob {
   return { key: `${entry.id}::${JSON.stringify(fingerprint)}`, entry, team };
 }
 
-// Set build key: sets plus main echo.
-const setSignatureOf = (slot: RosterSlot): string =>
-  [slot.mainSet, slot.subSet, slot.subSet2a, slot.subSet2b, slot.mainEcho].join('|');
+// Set build key: worn sets plus main echo (picks the main set leaves unworn don't count).
+const setSignatureOf = (slot: RosterSlot): string => {
+  const worn = wornSets(slot);
+  return [worn.mainSet, worn.subSet, worn.subSet2a, worn.subSet2b, slot.mainEcho].join('|');
+};
 
 function jobForConfig(group: GuideTeamGroup, config: GuideConfig): GuideJob {
   const withSets = group.entries.filter(e =>
@@ -329,7 +332,7 @@ function echoDefs(group: GuideTeamGroup, config: GuideConfig, unitIdx: number, s
 
 // --- Echo set variants --------------------------------------------------------------------
 
-const setNameOf = (slot: RosterSlot): string => slotSets(slot).join(' + ') || 'No set';
+const setNameOf = (slot: RosterSlot): string => Object.values(wornSets(slot)).filter(Boolean).join(' + ') || 'No set';
 
 export interface SetBuildOption {
   signature: string;

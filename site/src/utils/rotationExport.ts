@@ -20,9 +20,11 @@ async function hashRotationInputs({ rotation, team, settings, enemy }: CalcInput
 
 type SetFields = Partial<Pick<TeamSlot, typeof SLOT_SET_FIELDS[number]>>;
 
-// The sets a slot actually wears, per field: those resolveSetPieceCounts gives pieces. A 5pc main
-// set leaves any extra-set picks still on the slot unworn.
-function wornSets(slot: SetFields): Record<typeof SLOT_SET_FIELDS[number], string> {
+/**
+ * The sets a slot actually wears, per field: those resolveSetPieceCounts gives pieces. A 5pc main
+ * set leaves any extra-set picks still on the slot unworn.
+ */
+export function wornSets(slot: SetFields): Record<typeof SLOT_SET_FIELDS[number], string> {
   const sets = { mainSet: slot.mainSet || '', subSet: slot.subSet || '', subSet2a: slot.subSet2a || '', subSet2b: slot.subSet2b || '' };
   const pieces = DataLoader.resolveSetPieceCounts(sets);
   return { ...sets, ...Object.fromEntries(SLOT_SET_FIELDS.filter(field => pieces[field] === 0).map(field => [field, ''])) };

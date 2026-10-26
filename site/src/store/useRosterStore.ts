@@ -17,9 +17,8 @@ import {
 import { DataLoader } from '../utils/DataLoader';
 import { CombatCalculator } from '../logic/CombatCalculator';
 import { useRotationStore } from './useRotationStore';
-import { CommonUtils } from '../utils/Common';
-import { getTeamEntityRefs, slotFieldFolder } from '../utils/TeamUtils';
-import { SYSTEM_NAMESPACE } from '../utils/MechanicKey';
+import { slotFieldFolder } from '../utils/TeamUtils';
+import { getMechanicOwners } from '../logic/MechanicOwners';
 import { effectiveTriggerRule } from '../logic/EventManager';
 import { applyBuilderOverridesForTeam } from '../workers/builderOverridePayload';
 import { emptyEchoStats } from '../data/gameVocab';
@@ -243,7 +242,10 @@ export const useRosterStore = create<RosterState>()(
         const isOnePcSet = DataLoader.onePcSets.includes(slot.mainSet);
 
         // A 1pc set is the main echo itself.
-        if (field === 'mainSet' && isOnePcSet) slot.mainEcho = '';
+        if (field === 'mainSet' && isOnePcSet) {
+          slot.mainEcho = DataLoader.allowedMainEchoes(slot)[0] || '';
+          if (slot.mainEcho) await DataLoader.loadMechanic('echoes', slot.mainEcho);
+        }
 
         if ((field === 'mainSet' || field === 'subSet') && !isOnePcSet) {
           if (slot.mainEcho && slot.mainSet && !DataLoader.allowedMainEchoes(slot).includes(slot.mainEcho)) {
@@ -309,43 +311,23 @@ export const useRosterStore = create<RosterState>()(
         const slot = team[slotIndex];
         if (!slot || !slot.character) return {};
 
+        // The engine's owners: worn sets only, each effect at its piece count; weapons at their rank.
         const activeBuffs: any[] = [];
-
-        // `rank`: weapons only.
-        const applyBuffsFromSource = (sourceName: string, isSelf: boolean, rank?: number) => {
-          (DataLoader.mechanicsIndex[sourceName] || []).forEach(mechId => {
-            const mech = DataLoader.mechanicsDB[mechId];
-            if (!mech?.effects || !effectiveTriggerRule(mech)?.trim().startsWith('ALWAYS')) return;
-
-            mech.effects.forEach(eff => {
-              if (eff.type === 'buff' && eff.stat) {
-                const appliesToSelf =
-                  (!eff.target || eff.target === '@Self' || eff.target === '@Equipper') && isSelf;
-                const appliesToTeam = eff.target === '@Team';
-                const appliesToOthers = eff.target === '@TeamOthers' && !isSelf;
-                if (appliesToSelf || appliesToTeam || appliesToOthers) {
-                  const value = rank !== undefined ? CommonUtils.parseRankValue(eff.value, rank) : eff.value;
-                  activeBuffs.push({
-                    stat: eff.stat,
-                    value,
-                    stacks: eff.maxStacks || 1
-                  });
-                }
-              }
+        getMechanicOwners(team).forEach(owner => {
+          const isSelf = owner.kind === 'system' || owner.equipper === slot.character;
+          (DataLoader.mechanicsIndex[owner.name] || []).forEach(key => {
+            const raw = DataLoader.mechanicsDB[key];
+            if (!raw?.effects || !owner.listens(raw, key) || !effectiveTriggerRule(raw)?.trim().startsWith('ALWAYS')) return;
+            const mech = owner.transform ? owner.transform(raw) : raw;
+            mech.effects?.forEach(eff => {
+              if (eff.type !== 'buff' || !eff.stat) return;
+              const appliesToSelf = (!eff.target || eff.target === '@Self' || eff.target === '@Equipper') && isSelf;
+              const appliesToTeam = eff.target === '@Team';
+              const appliesToOthers = eff.target === '@TeamOthers' && !isSelf;
+              if (appliesToSelf || appliesToTeam || appliesToOthers) activeBuffs.push({ stat: eff.stat, value: eff.value, stacks: eff.maxStacks || 1 });
             });
           });
-        };
-
-        const applyBuffsFromSlot = (owner: TeamSlot, isSelf: boolean) => {
-          getTeamEntityRefs([owner], { includeSystem: false }).forEach(ref =>
-            applyBuffsFromSource(ref.name, isSelf, ref.folder === 'weapons' ? owner.rank : undefined));
-        };
-
-        team.forEach((tSlot, tIndex) => {
-          if (tIndex !== slotIndex && tSlot.character) applyBuffsFromSlot(tSlot, false);
         });
-        applyBuffsFromSlot(slot, true);
-        applyBuffsFromSource(SYSTEM_NAMESPACE, true);
 
         return CombatCalculator.calculateFinalStats(slot.character, activeBuffs, team);
       }
