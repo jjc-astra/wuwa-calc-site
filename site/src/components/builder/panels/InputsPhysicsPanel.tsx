@@ -1,5 +1,5 @@
 import React from 'react';
-import type { MechanicNode, StanceChange } from '../../../types';
+import type { InputBinding, MechanicNode, StanceChange } from '../../../types';
 import { AutocompleteInput } from '../../common/AutocompleteInput';
 import { Dropdown, type DropdownOption } from '../../common/Dropdown';
 import { MECHANICS_NOTATION } from '../../../data/db';
@@ -7,6 +7,10 @@ import { displayTimeVal } from '../mechanicNodeHelpers';
 import { tip } from '../../../utils/Common';
 import { parseTimeInput, toFrames } from '../../../utils/Frames';
 import { getStanceChanges, stanceChangeFrames } from '../../../utils/Stance';
+
+const INPUT_OPTIONS: DropdownOption[] = ['Basic', 'Skill', 'Jump', 'Dodge', 'Liberation', 'Utility', 'Echo'].map(v => ({ value: v, label: v }));
+// Alternate inputs: a press, or a hold carried on from the previous move.
+const ALT_INPUT_TYPE_OPTIONS: DropdownOption[] = [{ value: '', label: 'Press' }, { value: 'Hold', label: 'Hold (carried on)' }];
 
 // Grounded (green) / Midair (red) over the move; "Any" is hatched.
 const StanceBar: React.FC<{ data: MechanicNode; changes: StanceChange[] }> = ({ data, changes }) => {
@@ -63,6 +67,9 @@ export const InputsPhysicsPanel: React.FC<InputsPhysicsPanelProps> = ({ data, up
     setChanges([...changes, { stance: last === 'Midair' ? 'Grounded' : 'Midair', time: endFrame }]);
   };
 
+  const altInputs = data.altInputs || [];
+  const setAltInputs = (next: InputBinding[]) => updateNode({ altInputs: next.length > 0 ? next : undefined });
+
   return (
     <div className="sub-panel is-open">
       <div className="panel-header-main">Inputs</div>
@@ -73,16 +80,7 @@ export const InputsPhysicsPanel: React.FC<InputsPhysicsPanelProps> = ({ data, up
             className="base-select"
             value={data.input || ''}
             onChange={v => updateNode({ input: v })}
-            options={[
-              { value: '', label: 'None' },
-              { value: 'Basic', label: 'Basic' },
-              { value: 'Skill', label: 'Skill' },
-              { value: 'Jump', label: 'Jump' },
-              { value: 'Dodge', label: 'Dodge' },
-              { value: 'Liberation', label: 'Liberation' },
-              { value: 'Utility', label: 'Utility' },
-              { value: 'Echo', label: 'Echo' }
-            ]}
+            options={[{ value: '', label: 'None' }, ...INPUT_OPTIONS]}
           />
         </div>
         <div className="form-group">
@@ -99,6 +97,25 @@ export const InputsPhysicsPanel: React.FC<InputsPhysicsPanelProps> = ({ data, up
             ]}
           />
         </div>
+      </div>
+
+      <div className="panel-header-tiny mt-sm">Also Accepts</div>
+      <div className="mech-list">
+        {altInputs.length === 0 && <div className="dim" style={{ padding: '0.25rem 0' }}>Only the input above.</div>}
+        {altInputs.map((b, i) => (
+          <div key={i} className="mech-add-row">
+            <Dropdown className="base-select mech-mini-select has-value" value={b.input}
+              onChange={v => setAltInputs(altInputs.map((x, j) => (j === i ? { ...x, input: v } : x)))} options={INPUT_OPTIONS} />
+            <Dropdown className="base-select mech-mini-select has-value" value={b.inputType || ''}
+              onChange={v => setAltInputs(altInputs.map((x, j) => (j === i ? { input: x.input, ...(v ? { inputType: v as InputBinding['inputType'] } : {}) } : x)))}
+              options={ALT_INPUT_TYPE_OPTIONS} />
+            <button type="button" className="mech-list-remove" onClick={() => setAltInputs(altInputs.filter((_, j) => j !== i))} {...tip('Remove input')}>×</button>
+          </div>
+        ))}
+      </div>
+      <div className="mech-add-row">
+        <span className="form-label caps-label" style={{ margin: 0 }} {...tip('Other inputs that cast this move. Hold: carried on from a hold on the previous move, e.g. holding Basic through a combo.')}>Add Input</span>
+        <button type="button" className="base-btn mech-add-icon-btn" onClick={() => setAltInputs([...altInputs, { input: data.input || 'Basic' }])} {...tip('Add input')}>+</button>
       </div>
 
       <div className="panel-header-main mt-sm">Stance Transitions</div>

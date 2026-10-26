@@ -39,7 +39,7 @@ export type PanelKey = 'identity' | 'inputs' | 'timeMods' | 'hits' | 'castTags' 
 // Fields each sub-panel edits, for highlighting. Sync with the panels' updateNode calls.
 const PANEL_FIELDS: Record<PanelKey, string[]> = {
   identity: ['name', 'provider', 'triggerRule', 'isPassive', 'isSwapInDefault', 'simultaneous', 'modeScope', 'effects'],
-  inputs: ['input', 'inputType', 'stanceReq', 'stanceChanges', 'holdConfig'],
+  inputs: ['input', 'inputType', 'altInputs', 'stanceReq', 'stanceChanges', 'holdConfig'],
   timeMods: ['freezeTime', 'freezeStart', 'motionStop', 'swapTiming', 'priority', 'comboWindow', 'cancelTimings', 'priorityTimeline'],
   hits: ['scalar', 'hitMults', 'damageTimeframe', 'hitFrames', 'hitResources'],
   castTags: ['castTypes'],

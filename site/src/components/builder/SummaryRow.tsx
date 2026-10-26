@@ -77,6 +77,7 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
     ...(data.isPassive ? [{ label: 'Passive', tooltip: 'Fires automatically, not a player-cast action' }] : []),
     ...(data.isSwapInDefault ? [{ label: 'Default Swap-In', tooltip: 'Used automatically when swapping onto this unit' }] : []),
     ...(data.simultaneous ? [{ label: 'Simultaneous', tooltip: 'Always cast during another move; no animation of its own' }] : []),
+    ...(data.altInputs || []).map(b => ({ label: `or ${b.inputType ? `${b.inputType} ` : ''}${b.input}`, tooltip: 'Also accepts this input' })),
     ...(data.inputType === 'Hold' && groupSiblings?.repeat ? [{ label: '+ Repeat', tooltip: 'This Hold has a linked Repeat mechanic' }] : []),
     ...(data.inputType === 'Hold' && groupSiblings?.release ? [{ label: '+ Release', tooltip: 'This Hold has a linked Release mechanic' }] : []),
     ...(data.modeScope === 'mode1' ? [{ label: baseStats.mode1Name || 'Mode 1', tooltip: 'Only available in Mode 1' }] : []),

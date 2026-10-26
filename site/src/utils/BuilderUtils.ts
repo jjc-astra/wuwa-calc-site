@@ -31,6 +31,7 @@ export const BuilderUtils = {
     if (!node.isPassive) {
       if (node.input) clean.input = node.input;
       if (node.inputType) clean.inputType = node.inputType;
+      if (node.altInputs?.length) clean.altInputs = node.altInputs.filter(b => b?.input);
       if (node.stanceReq && node.stanceReq !== 'Any') clean.stanceReq = node.stanceReq;
       const stanceChanges = getStanceChanges(node);
       if (stanceChanges.length > 0) {

@@ -393,3 +393,12 @@
 }
 .move-timeline-pole { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--overlay-w5); }
 .move-timeline-pole.is-cut { background: var(--accent-border); }
+/* Input held across several moves: from its flag to the last move it carries. */
+.timeline-flag-hold-bar {
+    position: absolute;
+    box-sizing: border-box;
+    border: 1px solid;
+    border-left: none;
+    border-radius: 0 3px 3px 0;
+    pointer-events: none;
+}

@@ -12,6 +12,9 @@ import { useTimelineViewStore } from '../../store/useTimelineViewStore';
 import { resolveDefaultNum } from '../builder/mechanicNodeHelpers';
 import { PanelInfoItem } from '../common/PanelInfoItem';
 import { SplitValue } from '../common/SplitValue';
+import { SegmentedToggle } from '../common/SegmentedToggle';
+import { bindingsOf, describeBinding } from '../../logic/inputBindings';
+import { INPUT_KEY_MAP } from '../../data/db';
 import { TimelineRuler } from '../timeline/TimelineRuler';
 import { rowHits, stackDots } from '../timeline/timelineLayout';
 import type { Tick } from '../timeline/timelineLayout';
@@ -20,6 +23,7 @@ import type { MechanicNode } from '../../types';
 
 interface MoveTimelinePanelProps {
   row: any;
+  onInputChoice?: (choice: number | undefined) => void;
 }
 
 // `label` is shown on the bar with its duration ('' for the duration alone).
@@ -27,6 +31,8 @@ interface Segment { from: number; to: number; className: string; label?: string;
 interface Flag { at: number; label: string; html: string; tone?: 'cut' | 'warn' }
 
 const DSL_CTX = { default: GAME_DEFAULTS };
+const keyLabel = (input: string) => INPUT_KEY_MAP[input] || input;
+const AUTO_INPUT = -1;
 const secs = (frames: number) => formatFramesAsSeconds(toFrames(frames));
 const framesAndSecs = (frames: number) => `${Math.round(frames)}f (${secs(frames)})`;
 // Ruler steps (frames), smallest that keeps ~8 labels.
@@ -59,10 +65,11 @@ function useWidth(): [React.RefObject<HTMLDivElement | null>, number] {
 }
 
 /** The Time sub panel: start/end in the TIME column's direction, then the move's mini timeline. */
-export const MoveTimelinePanel: React.FC<MoveTimelinePanelProps> = ({ row }) => {
+export const MoveTimelinePanel: React.FC<MoveTimelinePanelProps> = ({ row, onInputChoice }) => {
   const countdown = useTimelineViewStore(s => s.timeCountdown);
   const [trackRef, trackWidth] = useWidth();
   const move: MechanicNode | undefined = DataLoader.mechanicsDB[row.action];
+  const bindings = bindingsOf(move);
   const num = (v: unknown) => resolveDefaultNum(v as any, DSL_CTX) ?? undefined;
   const remPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
 
@@ -171,7 +178,7 @@ export const MoveTimelinePanel: React.FC<MoveTimelinePanelProps> = ({ row }) => 
     at: 0, label: 'Cast',
     html: html('Cast', ['Game time', clock(gameStart)], ['Real time', realClock(realStart)],
       row.waitTime > 0 && ['Waited', `${secs(row.waitTime)}${waitReasons.length ? ` (${waitReasons.map((r: any) => r.label).join(', ')})` : ''}`],
-      !!move?.input && ['Input', `${move.inputType ? `${move.inputType} ` : ''}${move.input}`])
+      !!row.input && ['Input', describeBinding(row, keyLabel)])
   }];
   if (cut < base || swappedOut) {
     flags.push({
@@ -310,6 +317,17 @@ export const MoveTimelinePanel: React.FC<MoveTimelinePanelProps> = ({ row }) => 
         <PanelInfoItem label="Time End" value={split(clock(gameEnd), realClock(realStart + cut))} />
         <PanelInfoItem label="Duration" value={split(secs(row.gameTimePassed || 0), secs(cut))} />
         <PanelInfoItem label="Wait Before" value={secs(row.waitTime || 0)} />
+        {bindings.length > 1 && onInputChoice && (
+          // Auto: carry on a hold from the unit's previous move, else the main input.
+          <PanelInfoItem label={`Input · ${describeBinding(row, keyLabel)}`} value={
+            <SegmentedToggle
+              ariaLabel="Input"
+              value={row.inputChoice ?? AUTO_INPUT}
+              options={[{ value: AUTO_INPUT, label: 'Auto' }, ...bindings.map((b, i) => ({ value: i, label: describeBinding(b, keyLabel) }))]}
+              onChange={v => onInputChoice(v === AUTO_INPUT ? undefined : v)}
+            />
+          } />
+        )}
       </div>
       <div className="move-timeline" style={{ '--char-theme-raw': themeColor, '--timeline-header-width': `${LANE_LABEL_REM}rem` } as React.CSSProperties}>
         <div className="move-timeline-flags" style={{ height: `${Math.max(1, laneEnds.length) * FLAG_LANE_REM}rem` }}>

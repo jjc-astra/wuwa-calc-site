@@ -451,7 +451,7 @@ export const useRotationStore = create<RotationState>()(
             const rowIdx = selectedIndices[i];
             const data = pasted[i];
             const existing = rows[rowIdx];
-            (['unit', 'action', 'timing', ...REPEAT_FIELDS] as const).forEach(field => {
+            (['unit', 'action', 'timing', 'inputChoice', ...REPEAT_FIELDS] as const).forEach(field => {
               if (existing[field] !== data[field]) {
                 commands.push(cmd.editValue(rowIdx, field, existing[field], data[field]));
               }
@@ -478,6 +478,8 @@ export const useRotationStore = create<RotationState>()(
           const oldValue = row?.[field];
           if (oldValue === value) return;
           const commands: Command[] = [cmd.editValue(index, field, oldValue, value)];
+          // An input pick indexes the old move's bindings.
+          if (field === 'action' && row?.inputChoice !== undefined) commands.push(cmd.editValue(index, 'inputChoice', row.inputChoice, undefined));
 
           // Carry the unit forward to the next row.
           if (field === 'action' && value && row?.unit) {

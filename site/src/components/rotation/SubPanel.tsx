@@ -8,16 +8,18 @@ import { toFrames, framesToSeconds, formatSignedSeconds } from '../../utils/Fram
 interface SubPanelProps {
   trigger: string;
   row: any;
+  /** Sets the row's input pick (undefined: auto). */
+  onInputChoice?: (choice: number | undefined) => void;
 }
 
 /** A row's detail panel for the clicked cell. */
-export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row }) => {
+export const SubPanel: React.FC<SubPanelProps> = ({ trigger, row, onInputChoice }) => {
   const config = PANEL_CONFIG[trigger];
   if (!config) return null;
 
   if (config.type === 'complex_dmg') return <DamageBreakdownPanel config={config} row={row} />;
 
-  if (config.type === 'move_timeline') return <MoveTimelinePanel row={row} />;
+  if (config.type === 'move_timeline') return <MoveTimelinePanel row={row} onInputChoice={onInputChoice} />;
 
   // Offset
   if (trigger === 'offset') {

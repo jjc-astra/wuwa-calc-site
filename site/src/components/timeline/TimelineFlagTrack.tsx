@@ -16,9 +16,16 @@ export const TimelineFlagTrack: React.FC<TimelineFlagTrackProps> = ({ flags }) =
         {flags.map((flag, i) => {
           const spamTitle = flag.spamState === 'spam' ? 'Spam Click OK' : flag.spamState === 'wait' ? 'Wait For It' : null;
           return (
-            // Sized to content; widthPx is an estimate.
+            <React.Fragment key={i}>
+            {flag.holdWidthPx !== undefined && (
+              <span
+                className="timeline-flag-hold-bar"
+                title={`${flag.label} held`}
+                style={{ left: flag.xPx, width: flag.holdWidthPx, top: flag.lane * LANE_HEIGHT_PX, height: FLAG_LABEL_HEIGHT_PX, borderColor: flag.themeColor, background: `color-mix(in srgb, ${flag.themeColor} 18%, transparent)` }}
+              />
+            )}
+            {/* Sized to content; widthPx is an estimate. */}
             <span
-              key={i}
               className={`timeline-flag-label${flag.spamState ? ` timeline-flag-label-${flag.spamState}` : ''}`}
               title={spamTitle ? `${flag.label} — ${spamTitle}` : flag.label}
               style={{
@@ -38,6 +45,7 @@ export const TimelineFlagTrack: React.FC<TimelineFlagTrackProps> = ({ flags }) =
                 flag.label
               )}
             </span>
+            </React.Fragment>
           );
         })}
       </div>

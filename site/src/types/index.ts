@@ -138,6 +138,12 @@ export interface CancelTiming {
   _compiledRule?: any;
 }
 
+// A key the move can be cast with; no inputType is a press.
+export interface InputBinding {
+  input: string;
+  inputType?: 'Hold' | 'Repeat' | 'Release';
+}
+
 // From `time` frames into the move, it has this priority (see MechanicNode.priorityTimeline).
 export interface PriorityStep {
   time: Frames;
@@ -181,7 +187,9 @@ export interface MechanicNode {
   stanceResult?: 'Retain' | 'Grounded' | 'Midair';
   stanceTime?: Frames | string;
   input?: string;
-  inputType?: 'Hold' | 'Repeat' | 'Release';
+  inputType?: InputBinding['inputType'];
+  // Other inputs that also cast it. inputType 'Hold' here: carried on from the previous move's hold.
+  altInputs?: InputBinding[];
   priority?: number | string;
   holdConfig?: HoldConfig;
   holdGroupId?: string;

@@ -4,6 +4,7 @@ import { DataLoader } from '../../utils/DataLoader';
 import { INPUT_KEY_MAP } from '../../data/db';
 import { FPS, toFrames, framesToSeconds, frozenFramesWithin, secondsToFrames } from '../../utils/Frames';
 import { loopEndIndexOf, rowGameEnd } from '../../logic/rotationRows';
+import { continuesHold } from '../../logic/inputBindings';
 import { SYSTEM_NAMESPACE } from '../../utils/MechanicKey';
 import type { TeamSlot } from '../../types';
 
@@ -308,12 +309,16 @@ export interface TimelineFlag {
   spamState?: SpamState;
   row: any;
   themeColor: string;
+  // Hold carried across moves: the input is held until this game time.
+  holdUntilFrames?: number;
 }
 
 export interface LaidOutFlag extends TimelineFlag {
   xPx: number;
   widthPx: number;
   lane: number;
+  // Hold bar width (holdUntilFrames), px.
+  holdWidthPx?: number;
 }
 
 export const flagTrackHeightPx = (flags: LaidOutFlag[]): number =>
@@ -333,29 +338,42 @@ export function buildFlags(evaluatedRows: any[], team: TeamSlot[]): TimelineFlag
   const flags: TimelineFlag[] = [];
   let prevUnit: string | null = null;
   let prevRow: any = null;
+  // The unit's last non-Simultaneous row, and the flag of the hold it may carry on.
+  let unitPrev: any = null;
+  let holdFlag: TimelineFlag | null = null;
 
   for (const row of evaluatedRows) {
     if (!row.unit) continue;
     const themeColor = getCharacterThemeColor(DataLoader.characterDB[row.unit]);
 
     if (prevUnit !== null && prevUnit !== row.unit) {
+      unitPrev = null;
+      holdFlag = null;
       const slotIndex = team.findIndex(s => s.character === row.unit);
       if (slotIndex >= 0) {
         flags.push({ type: 'swap', timeFrames: row.gameTimeStart, label: `${slotIndex + 1}`, row, themeColor });
       }
     }
 
-    if (row.input) {
+    if (row.input && holdFlag && continuesHold(row, unitPrev)) {
+      // Still held: no new press, the hold's bar runs on.
+      holdFlag.holdUntilFrames = rowGameEnd(row);
+    } else if (row.input) {
       const prefix = row.inputType === 'Hold' || row.inputType === 'Release' ? row.inputType : undefined;
       const icon = row.input === 'Basic' ? 'mouse-left' : undefined;
       const spamState = describeSpamState(prevRow, row);
-      flags.push({ type: 'input', timeFrames: row.gameTimeStart, label: describeInput(row), prefix, icon, spamState, row, themeColor });
+      const flag: TimelineFlag = { type: 'input', timeFrames: row.gameTimeStart, label: describeInput(row), prefix, icon, spamState, row, themeColor };
+      flags.push(flag);
+      holdFlag = row.inputType === 'Hold' && row.timing !== 'Simultaneous' ? flag : null;
     }
 
     prevUnit = row.unit;
     prevRow = row;
+    if (row.timing !== 'Simultaneous') unitPrev = row;
   }
 
+  // A one-move hold has no bar.
+  flags.forEach(f => { if (f.holdUntilFrames !== undefined && f.holdUntilFrames <= rowGameEnd(f.row)) delete f.holdUntilFrames; });
   return flags;
 }
 
@@ -376,7 +394,12 @@ function estimateFlagWidthPx(flag: TimelineFlag): number {
 // Greedy lane assignment by x.
 export function assignFlagLanes(flags: TimelineFlag[], compression: TimeCompression | null = null): LaidOutFlag[] {
   const positioned = flags
-    .map(f => ({ ...f, xPx: compressedTimeToPx(f.timeFrames, compression), widthPx: estimateFlagWidthPx(f) }))
+    .map(f => {
+      const xPx = compressedTimeToPx(f.timeFrames, compression);
+      const holdWidthPx = f.holdUntilFrames !== undefined ? compressedTimeToPx(f.holdUntilFrames, compression) - xPx : undefined;
+      // A hold bar keeps its lane clear.
+      return { ...f, xPx, holdWidthPx, widthPx: Math.max(estimateFlagWidthPx(f), holdWidthPx ?? 0) };
+    })
     .sort((a, b) => a.xPx - b.xPx);
 
   const laneEndX: number[] = [];

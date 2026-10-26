@@ -25,6 +25,7 @@ import { useLinkedRowStore } from '../../store/useLinkedRowStore';
 import { useTimelineViewStore } from '../../store/useTimelineViewStore';
 import { TWO_MIN } from '../../logic/rotationRows';
 import { rowStartEvents, ruleEventsMatch } from '../../logic/engineValues';
+import { bindingKey, bindingsOf } from '../../logic/inputBindings';
 
 interface RotationRowProps {
   index: number;
@@ -209,13 +210,17 @@ export const RotationRow = React.memo<RotationRowProps>(({
     });
 
     // One move per (input, inputType): the highest-priority valid one, plus the current selection.
+    // A move with several inputs competes in each one's group.
     const byInputKey = new Map<string, Candidate[]>();
     const finalCandidates: Candidate[] = [];
     candidates.forEach(c => {
-      if (!c.m.input) { finalCandidates.push(c); return; }
-      const key = `${c.m.input}|${c.m.inputType || 'None'}|${c.m.stanceReq || ''}`;
-      if (!byInputKey.has(key)) byInputKey.set(key, []);
-      byInputKey.get(key)!.push(c);
+      const bindings = bindingsOf(c.m);
+      if (bindings.length === 0) { finalCandidates.push(c); return; }
+      bindings.forEach(b => {
+        const key = `${bindingKey(b)}|${c.m.stanceReq || ''}`;
+        if (!byInputKey.has(key)) byInputKey.set(key, []);
+        byInputKey.get(key)!.push(c);
+      });
     });
     byInputKey.forEach(group => {
       if (group.length === 1) { finalCandidates.push(group[0]); return; }
@@ -226,6 +231,9 @@ export const RotationRow = React.memo<RotationRowProps>(({
       const current = group.find(c => c.id === row.action && c.id !== winner.id);
       if (current) finalCandidates.push(current);
     });
+    // Once each, though it may win several input groups.
+    const listed = new Set<string>();
+    finalCandidates.splice(0, finalCandidates.length, ...finalCandidates.filter(c => !listed.has(c.id) && !!listed.add(c.id)));
 
     // Prefix echo moves with the echo name unless already present.
     const echoName = slot?.mainEcho;
@@ -672,7 +680,7 @@ export const RotationRow = React.memo<RotationRowProps>(({
           onMouseUp={() => setIsDraggable(true)}
           onMouseLeave={() => setIsDraggable(true)}
         >
-          <SubPanel trigger={activeTrigger} row={row} />
+          <SubPanel trigger={activeTrigger} row={row} onInputChoice={choice => updateRowField(index, 'inputChoice', choice)} />
         </div>
       )}
     </div>

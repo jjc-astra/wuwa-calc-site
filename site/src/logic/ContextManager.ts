@@ -8,6 +8,7 @@ import { forteMax, readResource, resourceCap } from './resources';
 import { isDslExpr, rowStartEvents, ruleEventsMatch, scopedKey } from './engineValues';
 import { DSLParser } from './dsl/dslParser';
 import { MechanicKey } from '../utils/MechanicKey';
+import { bindingKey, bindingsOf } from './inputBindings';
 
 const isBuffLive = (buff: any): boolean => !!buff && (buff.duration > 0 || buff.stacks > 0);
 
@@ -46,11 +47,12 @@ export const ContextManager = {
         return parseFloat(String(isDslExpr(raw) ? DSLParser.evaluateMath(raw, ctx(), unit) : raw)) || 0;
       };
       const currentPriority = priorityOf(current);
-      const inputType = current.inputType ?? null;
+      // The binding this row cast with, if resolved; else the move's main input.
+      const binding = bindingKey(state.action === currentKey && state.input ? state : current);
       const stance = state.entryStance || state.stance || CHARACTER_DEFAULTS.defaultStance;
       return !Object.entries(DataLoader.mechanicsDB).some(([key, move]: [string, any]) => {
         if (key === currentKey || !MechanicKey.belongsTo(key, unit) || move.isPassive) return false;
-        if (move.input !== current.input || (move.inputType ?? null) !== inputType) return false;
+        if (!bindingsOf(move).some(b => bindingKey(b) === binding)) return false;
         if (move.stanceReq && move.stanceReq !== 'Any' && move.stanceReq !== stance) return false;
         if (priorityOf(move) <= currentPriority) return false;
         if (!move.triggerRule) return true;

@@ -21,6 +21,8 @@ export interface RotationRowFields {
   repeatCount?: number;
   // End row only: `timing` override for the last repetition.
   repeatFinalTiming?: string;
+  // Index into the move's bindings (main input, then altInputs); unset: auto (see resolveRowBinding).
+  inputChoice?: number;
   [key: string]: any;
 }
 
@@ -69,10 +71,13 @@ const repeatFieldsOf = (row: RotationRowFields) => ({
 });
 
 // Row views without `id`.
+const inputChoiceOf = (row: RotationRowFields) => (row.inputChoice !== undefined ? { inputChoice: row.inputChoice } : {});
+
 export const toClipboardRow = (row: RotationRowFields) => ({
   unit: row.unit,
   action: row.action,
   timing: row.timing,
+  ...inputChoiceOf(row),
   ...repeatFieldsOf(row)
 });
 
@@ -80,6 +85,7 @@ export const toSavedRow = (row: RotationRowFields) => ({
   unit: row.unit,
   action: row.action,
   timing: row.timing,
+  ...inputChoiceOf(row),
   ...(row.loopStartOverride === true && { loopStartOverride: true }),
   ...(row.loopEndOverride === true && { loopEndOverride: true }),
   ...(typeof row.loopSplit === 'boolean' && { loopSplit: row.loopSplit }),
@@ -98,6 +104,7 @@ export const toRunInput = (rows: RotationRowFields[]): RotationRowFields[] => [
     unit: row.unit,
     action: row.action,
     timing: row.timing,
+    ...inputChoiceOf(row),
     ...(row.offset !== undefined && { offset: row.offset }),
     ...(row.manualOffset !== undefined && { manualOffset: row.manualOffset })
   })),

@@ -17,7 +17,8 @@ import { markBuffsChanged } from './CombatCalculator';
 import { EventManager, ALWAYS_SOURCE, ALWAYS_CHECK } from './EventManager';
 import { calculateEchoStatsForSlot } from '../store/useRosterStore';
 import { CHARACTER_DEFAULTS, ENEMY_DEFAULTS, GAME_DEFAULTS, MECHANICS_NOTATION } from '../data/db';
-import type { Effect, MechanicNode, HoldConfig, MoveOrigin, EnemyStats } from '../types';
+import type { Effect, MechanicNode, HoldConfig, MoveOrigin, EnemyStats, InputBinding } from '../types';
+import { bindingKey, resolveRowBinding } from './inputBindings';
 import { sortedStanceChanges } from '../utils/Stance';
 import { type Frames, toFrames, roundFrames, secondsToFrames, framesToSeconds, formatFramesAsSeconds, frozenFramesWithin, hitFrameOffsets } from '../utils/Frames';
 
@@ -234,9 +235,10 @@ export class TimelineEngineClass {
       if (dbMove.simultaneous) currentData.timing = 'Simultaneous';
       currentData.castTypes = dbMove.castTypes || (currentData.action ? [currentData.action] : []);
       currentData.dmgTypes = dbMove.dmgTypes || [];
-      // Timeline input-press flags only.
-      currentData.input = dbMove.input;
-      currentData.inputType = dbMove.inputType;
+      // The binding this row cast with (see resolveRowBinding); read by cancels, combos and the Timeline flags.
+      const binding = resolveRowBinding(dbMove, currentData, this._unitPrevRow(activeRows, i));
+      currentData.input = binding?.input;
+      currentData.inputType = binding?.inputType;
 
       this._applyInheritance(currentData, prevData, accumulatedGameTime, team);
 
@@ -783,6 +785,17 @@ export class TimelineEngineClass {
     };
   }
 
+  // The unit's previous row (Simultaneous rows skipped), or null after a swap.
+  _unitPrevRow(rows: any[], index: number): any {
+    for (let j = index - 1; j >= 0; j--) {
+      const row = rows[j];
+      if (!row?.unit) continue;
+      if (row.unit !== rows[index]?.unit) return null;
+      if (row.timing !== 'Simultaneous') return row;
+    }
+    return null;
+  }
+
   _resolvePriority(move: MechanicNode, currentData: any, unit: string, team: any[]): number {
     return this._resolveNumber(move.priority, currentData, unit, team) || 0;
   }
@@ -849,15 +862,16 @@ export class TimelineEngineClass {
     const nextRow = currentData.nextRow;
     const nextMoveData = nextRow?.action ? this._getModifiedMoveData(nextRow.action) : null;
 
-    // No rule: next move must outrank this one on a different input. Swaps rank highest.
-    const bindingOf = (m: MechanicNode) => `${m.input ?? ''}|${m.inputType ?? ''}`;
+    // No rule: next move must outrank this one on a different input (as each row cast it). Swaps rank highest.
+    const ownBinding = bindingKey(currentData);
     const isNextSwapOut = swapDuration !== undefined && !!nextRow?.unit
       && (nextRow.unit !== unitName || !!nextMoveData?.castTypes?.includes('Outro'));
-    // `other` outranks this move `time` frames in, on a different input.
-    const outranksAt = (other: MechanicNode | null, otherUnit: string, time: number) => !!other
-      && bindingOf(other) !== bindingOf(moveData)
+    // `other` (cast with `otherBinding`) outranks this move `time` frames in, on a different input.
+    const outranksAt = (other: MechanicNode | null, otherBinding: InputBinding | null, otherUnit: string, time: number) => !!other
+      && bindingKey(otherBinding) !== ownBinding
       && this._resolvePriority(other, currentData, otherUnit, team) > this._priorityAt(moveData, time, currentData, unitName, team);
-    const nextCancelsAt = (time: number) => isNextSwapOut || outranksAt(nextMoveData, nextRow?.unit, time);
+    const nextBinding = resolveRowBinding(nextMoveData, nextRow || {}, nextRow?.unit === unitName && currentData.timing !== 'Simultaneous' ? currentData : null);
+    const nextCancelsAt = (time: number) => isNextSwapOut || outranksAt(nextMoveData, nextBinding, nextRow?.unit, time);
 
     // A cancel rule is checked against the events its cancel fires: the next row's cast (and swap).
     const nextEvents = nextRow?.action && nextMoveData ? rowStartEvents(nextRow.action, nextMoveData, nextRow.unit, unitName) : [];
@@ -890,7 +904,7 @@ export class TimelineEngineClass {
       // The swap out, then the returning move's cast.
       const swapCancelEvents = [...nextEvents, ...rowStartEvents(returnAction, returnMoveData, unitName, nextRow.unit)];
       moveData.cancelTimings.forEach((ct, idx) => {
-        const isValid = outranksAt(returnMoveData, unitName, ct.time) && (!ct.triggerRule || ct.triggerRule.trim() === ''
+        const isValid = outranksAt(returnMoveData, resolveRowBinding(returnMoveData, {}, null), unitName, ct.time) && (!ct.triggerRule || ct.triggerRule.trim() === ''
           || cancelRulePasses(ct, swapCancelEvents));
         if (isValid) swapCancels.push({ index: idx, time: ct.time, hits: ct.hits !== undefined ? ct.hits : Infinity });
       });
