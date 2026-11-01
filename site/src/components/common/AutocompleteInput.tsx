@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { createPortal } from 'react-dom';
 import { computePopupPosition } from '../../utils/popupPosition';
+import { AutocompletePopup } from './AutocompletePopup';
 import { usePopupDismiss } from '../../hooks/usePopupDismiss';
 import { SHEET_STAT_TOOLTIPS } from '../../data/db';
 import { MOD_LABEL_TOOLTIPS } from '../../logic/combat/combatRegistry';
@@ -14,7 +14,6 @@ import {
 import { useBuilderStore } from '../../store/useBuilderStore';
 import { tokenizeDSL } from '../../utils/DSLHighlight';
 import { forteAliases } from '../../utils/ForteNames';
-import { TooltipManager } from '../../utils/Common';
 import type { SuggestionItem, MatchRule } from '../../logic/dsl/dslTypes';
 
 interface AutocompleteInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -105,20 +104,6 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
   useEffect(() => {
     syncScroll();
   }, [value]);
-
-  // Hide the tooltip on close (no mouseleave fires).
-  useEffect(() => {
-    if (!isOpen) TooltipManager.hide();
-  }, [isOpen]);
-
-  // Keep the active item in view.
-  useEffect(() => {
-    if (!isOpen || !popupRef.current) return;
-    const activeItem = popupRef.current.querySelector('.autocomplete-item.is-active');
-    if (activeItem) {
-      activeItem.scrollIntoView({ block: 'nearest' });
-    }
-  }, [activeIndex, isOpen]);
 
   const getRules = (): MatchRule[] => {
     if (mode === 'eff-name') return makeEffectNameRules(activeChar, mechanics);
@@ -377,57 +362,26 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
         placeholder={placeholder}
         {...rest}
       />
-      {isOpen && popupHtml.length > 0 && createPortal(
-        <div ref={popupRef} className="autocomplete-popup" style={{ display: 'block', ...popupPos }}>
-          {(() => {
-            let globalIdx = 0;
-            return popupHtml.map(g => (
-              <React.Fragment key={g.group}>
-                <div
-                  className="autocomplete-group-header"
-                  style={{
-                    fontSize: '0.75rem',
-                    color: 'var(--text-dim)',
-                    padding: 'var(--space-1) var(--space-3)',
-                    background: 'var(--bg-well)',
-                    fontWeight: 'bold',
-                    textTransform: 'uppercase',
-                    borderBottom: '1px solid var(--border)'
-                  }}
-                >
-                  {g.group}
-                </div>
-                {g.items.map((item, i) => {
-                  const currentIdx = globalIdx++;
-                  const flatEntry = flatSuggestions[currentIdx];
-                  const label = item.label ?? `${flatEntry?.rule.prefix || ''}${item.val}`;
-                  const tooltip = resolveTooltip(item, g.group);
-                  return (
-                    <div
-                      key={i}
-                      className={`autocomplete-item ${currentIdx === activeIndex ? 'is-active' : ''}`}
-                      onMouseDown={e => {
-                        e.preventDefault();
-                        if (flatEntry) handleSelect(flatEntry);
-                      }}
-                      onMouseEnter={e => {
-                        setActiveIndex(currentIdx);
-                        if (tooltip) {
-                          TooltipManager.show(e.currentTarget, `<div class="tooltip-val">${label}</div><div style="margin-top:2px;">${tooltip}</div>`);
-                        }
-                      }}
-                      onMouseLeave={() => TooltipManager.hide()}
-                    >
-                      {label}
-                    </div>
-                  );
-                })}
-              </React.Fragment>
-            ));
-          })()}
-        </div>,
-        document.body
-      )}
+      {isOpen && popupHtml.length > 0 && (() => {
+        let globalIdx = 0;
+        const groups = popupHtml.map(g => ({
+          group: g.group,
+          items: g.items.map(item => {
+            const prefix = flatSuggestions[globalIdx++]?.rule.prefix || '';
+            return { label: item.label ?? `${prefix}${item.val}`, tooltip: resolveTooltip(item, g.group) };
+          })
+        }));
+        return (
+          <AutocompletePopup
+            groups={groups}
+            activeIndex={activeIndex}
+            onActiveChange={setActiveIndex}
+            onSelect={idx => { if (flatSuggestions[idx]) handleSelect(flatSuggestions[idx]); }}
+            popupRef={popupRef}
+            style={popupPos}
+          />
+        );
+      })()}
     </div>
   );
 };

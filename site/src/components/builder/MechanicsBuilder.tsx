@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useBuilderStore, mechFolderFor } from '../../store/useBuilderStore';
 import { checkBuilderItemFreshness } from '../../utils/dataFreshness';
 import { DataLoader, type ImplementedContentKind } from '../../utils/DataLoader';
@@ -9,6 +9,8 @@ import { BaseStatsForm } from './BaseStatsForm';
 import { MechanicNodeCard } from './MechanicNodeCard';
 import { RemovedNodeRow } from './RemovedNodeRow';
 import { JsonOutputPane } from './JsonOutputPane';
+import { MechanicSearchInput } from './MechanicSearchInput';
+import { matchesSearch, searchTermsOf } from './mechanicSearch';
 import { BuilderState, IMAGE_FOLDERS } from '../../data/db';
 import { isElement } from '../../data/gameVocab';
 import type { MechanicNode } from '../../types';
@@ -109,6 +111,21 @@ export const MechanicsBuilder: React.FC = () => {
     listedNodes.splice(at, 0, [id, node, true]);
   });
   const [searchTerm, setSearchTerm] = useState('');
+  // The open entity's node filter.
+  const [nodeSearch, setNodeSearch] = useState('');
+  useEffect(() => setNodeSearch(''), [activeChar]);
+  const termsById = useMemo(
+    () => new Map(listedNodes.map(([id, node]) => [id, searchTermsOf(node, baseStats)])),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [mechanics, removedNodes, baseStats, activeChar]
+  );
+  const allTerms = useMemo(() => [...termsById.values()].flat(), [termsById]);
+  const isSearching = nodeSearch.trim() !== '';
+  // A Hold is listed with its Repeat/Release, so any of them matching lists the group.
+  const nodeMatches = (id: string) => {
+    const sib = holdGroupSiblings[id];
+    return [id, sib?.repeat?.[0], sib?.release?.[0]].some(key => key && matchesSearch(termsById.get(key) ?? [], nodeSearch));
+  };
   const [selectedTemplates, setSelectedTemplates] = useState<Record<string, string>>({});
 
   // Row drag state, shared across category tables.
@@ -260,10 +277,17 @@ export const MechanicsBuilder: React.FC = () => {
           {activeChar.toUpperCase()} SETUP
         </div>
         <BaseStatsForm />
-        <div id="mechanics-accordion" className="flex-col gap-md" style={{ marginTop: '1.25rem' }}>
+        <div className="mechanics-heading">
+          <div className="mechanics-heading-row">
+            <div className="panel-header-main">{activeChar.toUpperCase()} MECHANICS</div>
+            <MechanicSearchInput value={nodeSearch} onChange={setNodeSearch} terms={allTerms} />
+          </div>
+        </div>
+        <div id="mechanics-accordion" className="flex-col gap-md">
           {targetCategories.map((cat: string) => {
             const catMechs = listedNodes.filter(([id, m]) => {
               if (holdGroupSkipIds.has(id)) return false;
+              if (isSearching && !nodeMatches(id)) return false;
               if (m.category && targetCategories.includes(m.category)) return m.category === cat;
               if (activeChar === SYSTEM_NAMESPACE) return cat === 'System Mechanics';
               if (!isCharacter) {
@@ -278,6 +302,7 @@ export const MechanicsBuilder: React.FC = () => {
               }
               return BuilderUtils.guessCategory(m) === cat;
             });
+            if (isSearching && catMechs.length === 0) return null;
 
             return (
               <div key={cat} className="mechanic-category" data-category={cat}>
@@ -393,6 +418,9 @@ export const MechanicsBuilder: React.FC = () => {
               </div>
             );
           })}
+          {isSearching && !listedNodes.some(([id]) => !holdGroupSkipIds.has(id) && nodeMatches(id)) && (
+            <div className="dim mechanic-search-empty">No mechanics match "{nodeSearch.trim()}".</div>
+          )}
         </div>
       </div>
       <JsonOutputPane />
