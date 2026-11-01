@@ -177,8 +177,9 @@ interface RotationState {
   setRepeatFinalTiming: (groupId: string, timing: string | undefined) => void;
   setRepeatBlockStartIndex: (groupId: string, index: number) => void;
   setRepeatBlockEndIndex: (groupId: string, index: number) => void;
-  // Enabling appends a copy of the sub-loop crossing 2 minutes; disabling removes it.
+  // Enabling appends a copy of the sub-loop crossing 2 minutes (and the one before it with Extend); disabling removes it.
   setEndingRotationEnabled: (val: boolean) => void;
+  // Swaps an untouched prefill to match.
   setEndRotationStartsEarlier: (val: boolean) => void;
   setSubstatWorthEnabled: (val: boolean) => void;
 
@@ -194,6 +195,21 @@ interface RotationState {
 type RotationSettingsInput = { startEnergy?: boolean; startConcerto?: boolean } & Partial<EndingRotationFlags>;
 
 const historyManager = new HistoryManager();
+
+// Ending Rotation prefill: the sub-loop crossing 2 minutes, after the one before it with Extend Last Loop.
+function endingPrefillRows(contentRows: RotationRow[], loopStart: number, extend: boolean): RotationRow[] {
+  const openerRows = contentRows.slice(0, loopStart);
+  const loopRows = contentRows.slice(loopStart);
+  const mainDps = useRosterStore.getState().team[0]?.character;
+  const bounds = loopCycleBounds(loopRows, mainDps);
+  const starts = [0, ...bounds.slice(0, -1)];
+  const { partialRows } = loopTiming(openerRows, loopRows).loopDuration > 0
+    ? endingPlacement(openerRows, loopRows, mainDps, false)
+    : { partialRows: 0 };
+  const crossing = Math.max(0, starts.indexOf(partialRows));
+  const cycles = extend ? [(crossing - 1 + starts.length) % starts.length, crossing] : [crossing];
+  return cycles.flatMap(c => loopRows.slice(starts[c], bounds[c]));
+}
 
 interface RevivalContext {
   getRows: () => RotationRow[];
@@ -655,29 +671,47 @@ export const useRotationStore = create<RotationState>()(
           }
 
           const commands: Command[] = [cmd.setLoopEnd(lastContentIdx, null)];
-          const loopStart = get().loopStartIndex;
-          const fullLoopRows = rows.slice(loopStart, lastContentIdx + 1);
-          // Prefill with the sub-loop crossing 2 minutes.
-          const contentRows = rows.slice(0, lastContentIdx + 1);
-          const { loopDuration } = loopTiming(contentRows.slice(0, loopStart), fullLoopRows);
-          const mainDps = useRosterStore.getState().team[0]?.character;
-          const { partialRows } = loopDuration > 0
-            ? endingPlacement(contentRows.slice(0, loopStart), fullLoopRows, mainDps, get().endRotationStartsEarlier)
-            : { partialRows: 0 };
-          const crossingEnd = loopCycleBounds(fullLoopRows, mainDps).find(bound => bound > partialRows) ?? fullLoopRows.length;
-          const loopRows = fullLoopRows.slice(partialRows, crossingEnd);
+          const prefill = endingPrefillRows(rows.slice(0, lastContentIdx + 1), get().loopStartIndex, get().endRotationStartsEarlier);
           const remapGroupId = createGroupIdRemapper();
-          loopRows.forEach((r, i) => {
+          prefill.forEach((r, i) => {
             commands.push(cmd.add(makeRow(withRemappedGroupIds(toClipboardRow(r), remapGroupId)), lastContentIdx + 1 + i));
           });
           runCommands(commands);
           set({ endingRotationEnabled: true });
         },
 
+        // An untouched prefill is swapped for the new one: Extend adds the sub-loop before the end loop.
         setEndRotationStartsEarlier: (val: boolean) => {
-          if (!get().endingRotationEnabled) return;
-          set({ endRotationStartsEarlier: val });
-          triggerRecalc();
+          const { rows, endingRotationEnabled, endRotationStartsEarlier, loopStartIndex } = get();
+          if (!endingRotationEnabled || val === endRotationStartsEarlier) return;
+          const flagCommand = new SetEndingRotationFlagsCommand(
+            vals => { set(vals); triggerRecalc(); },
+            { endingRotationEnabled, endRotationStartsEarlier },
+            { endingRotationEnabled, endRotationStartsEarlier: val }
+          );
+          const endIdx = loopEndIndexOf(rows);
+          if (endIdx === -1) {
+            historyManager.execute(flagCommand);
+            return;
+          }
+
+          const loopRows = rows.slice(0, endIdx + 1);
+          const endingIndices = rows.flatMap((r, i) => (i > endIdx && r.unit ? [i] : []));
+          const sameMoves = (a: RotationRow[], b: RotationRow[]) =>
+            a.length === b.length && a.every((r, i) => r.unit === b[i].unit && r.action === b[i].action);
+          if (!sameMoves(endingIndices.map(i => rows[i]), endingPrefillRows(loopRows, loopStartIndex, endRotationStartsEarlier))) {
+            historyManager.execute(flagCommand);
+            return;
+          }
+
+          const commands: Command[] = [];
+          if (endingIndices.length > 0) commands.push(cmd.remove(DeleteRowsCommand.computeDeletedData(rows, endingIndices)));
+          const remapGroupId = createGroupIdRemapper();
+          endingPrefillRows(loopRows, loopStartIndex, val).forEach((r, i) => {
+            commands.push(cmd.add(makeRow(withRemappedGroupIds(toClipboardRow(r), remapGroupId)), endIdx + 1 + i));
+          });
+          commands.push(flagCommand);
+          runCommands(commands);
         },
 
         // Timings and gauges only; no damage.
