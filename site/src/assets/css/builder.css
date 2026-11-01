@@ -298,6 +298,13 @@
 .mechanic-search-clear { flex-shrink: 0; }
 .mechanic-search-empty { padding: var(--space-4); text-align: center; }
 
+/* Flashed when opened from a Calculator shortcut (FLASH_MS in MechanicNodeCard). */
+@keyframes mech-row-flash {
+    0%, 40% { background-color: var(--accent-strong); }
+    100% { background-color: transparent; }
+}
+.builder-view .mech-row-group.is-flashing > .mech-row > td { animation: mech-row-flash 0.8s ease-out 2; }
+
 /* --- Mechanic GUI Cards --- */
 .builder-view .mechanic-category {
     background: var(--surface-card);

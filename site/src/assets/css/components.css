@@ -554,6 +554,8 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
 .tooltip-title { font-weight: 800; margin-bottom: 2px; }
 .tooltip-key { color: var(--text-dim); font-weight: bold; margin-right: var(--space-1); }
 .tooltip-val { color: var(--accent); font-weight: bold; }
+/* A trailing usage hint (e.g. double-click for details). */
+.tooltip-hint { color: var(--text-dim); font-size: 0.68rem; margin-top: var(--space-1); }
 /* Lift the arrow to cap height. */
 .tooltip-arrow { display: inline-block; transform: translateY(-0.08em); }
 
@@ -754,6 +756,24 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     font-size: 0.8rem;
     color: var(--text-dim);
 }
+
+/* Opens the effect in the Mechanics Builder. */
+.buff-details-links {
+    display: inline-flex;
+    flex-shrink: 0;
+    gap: var(--space-1);
+}
+
+.buff-details-link {
+    background: none;
+    border: none;
+    padding: 0;
+    display: inline-flex;
+    flex-shrink: 0;
+    color: var(--text-dim);
+    cursor: pointer;
+}
+.buff-details-link:hover { color: var(--accent); }
 
 .buff-effect-row {
     display: flex;

@@ -57,6 +57,12 @@ interface BuilderState {
   setHoveredFieldHighlight: (highlight: { nodeId: string; fields: string[] } | null) => void;
   setOpenPanel: (nodeId: string, panel: PanelKey | null) => void;
   setActiveChar: (charName: string | null, folder?: string, rarity?: number) => Promise<void>;
+  // The open entity's node filter; cleared when another entity opens.
+  mechanicSearch: string;
+  setMechanicSearch: (search: string) => void;
+  // A node to scroll to and flash once (e.g. a buff's applier, opened from a Calculator shortcut).
+  flashNodeId: string | null;
+  flashNode: (nodeId: string | null) => void;
   setBaseStat: (key: string, value: any) => void;
   // Replaces baseStats wholesale (e.g. JSON import).
   setAllBaseStats: (stats: BaseStats) => void;
@@ -136,6 +142,8 @@ export const useBuilderStore = create<BuilderState>()(
       deletedMechanicIds: [],
       removedEffects: {},
       removedNodes: {},
+      mechanicSearch: '',
+      flashNodeId: null,
 
       softRemoveMechanicNode: nodeId => {
         const { mechanics } = get();
@@ -172,12 +180,14 @@ export const useBuilderStore = create<BuilderState>()(
         return { openPanelByNode: updated };
       }),
       setHoveredFieldHighlight: (highlight) => set({ hoveredFieldHighlight: highlight }),
+      setMechanicSearch: search => set({ mechanicSearch: search }),
+      flashNode: nodeId => set({ flashNodeId: nodeId }),
 
       setActiveChar: async (charName, folder = IMAGE_FOLDERS.CHARACTERS, rarity = 5) => {
         const requestId = ++activeCharRequestSeq;
 
         if (!charName) {
-          set({ activeChar: null });
+          set({ activeChar: null, mechanicSearch: '' });
           return;
         }
 
@@ -207,13 +217,14 @@ export const useBuilderStore = create<BuilderState>()(
           }
         });
 
-        set({
+        set(state => ({
+          ...(state.activeChar !== charName && { mechanicSearch: '' }),
           activeChar: charName,
           activeFolder: folder,
           activeRarity: rarity,
           baseStats: { ...loadedStats },
           mechanics: loadedMechs
-        });
+        }));
       },
 
       setBaseStat: (key, value) => set(state => withBaseStats(state, { ...state.baseStats, [key]: value })),

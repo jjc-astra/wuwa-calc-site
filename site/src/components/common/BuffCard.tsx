@@ -1,5 +1,7 @@
 import React from 'react';
 import { tip } from '../../utils/Common';
+import { openInBuilder, type BuilderTarget } from '../../utils/builderLinks';
+import { InfoSolidIcon } from './icons';
 
 export interface BuffEffectItem {
   label: string;
@@ -10,14 +12,28 @@ export interface BuffEffectItem {
 interface BuffCardProps {
   source: string;
   effects: BuffEffectItem[];
+  // Mechanics Builder links, one per entity on the card.
+  details?: BuilderTarget[];
 }
 
 /** One source's active buffs: each effect's label, value and stacks. */
-export const BuffCard: React.FC<BuffCardProps> = ({ source, effects }) => {
+export const BuffCard: React.FC<BuffCardProps> = ({ source, effects, details }) => {
   return (
     <div className="buff-card">
       <div className="buff-card-header">
         <span className="buff-source">{source}</span>
+        {!!details?.length && (
+          <span className="buff-details-links">
+            {details.map(d => {
+              const label = details.length > 1 ? `Open ${d.entity} in Mechanics Builder` : 'Open in Mechanics Builder';
+              return (
+                <button key={d.entity} type="button" className="buff-details-link" onClick={() => openInBuilder(d)} aria-label={label} {...tip(label)}>
+                  <InfoSolidIcon size={15} />
+                </button>
+              );
+            })}
+          </span>
+        )}
       </div>
       <div className="buff-card-body">
         {effects.map((e, idx) => (

@@ -2,6 +2,7 @@ import React from 'react';
 import { formatFramesAsSeconds, toFrames } from '../../utils/Frames';
 import { tooltipLine } from '../../utils/Common';
 import { timingLabel } from '../../logic/rotationRows';
+import { DETAILS_HINT_HTML, moveTarget } from '../../utils/builderLinks';
 import { describeInput, hairlinePx, rowHits, CLIP_INSET_PX } from './timelineLayout';
 import type { TimelineSegment } from './timelineLayout';
 
@@ -25,12 +26,21 @@ function buildHitLinesHtml(row: any, onlyHit: number | undefined, withSystemHits
   return lines.length > 0 ? `<div class="timeline-tooltip-hits">${lines.join('')}</div>` : '';
 }
 
-/** Clip tooltip at `atFrames`; lists `onlyHit` when snapped. */
+/** Clip tooltip at `atFrames`; lists `onlyHit` when snapped. Hints the double-click when the move opens in the Builder. */
 export function buildClipTooltipHtml(
-  { type, row, pause }: Pick<TimelineSegment, 'type' | 'row' | 'pause'>,
+  segment: Pick<TimelineSegment, 'type' | 'row' | 'pause'>,
   atFrames: number,
   onlyHit?: number,
   withSystemHits = true
+): string {
+  return clipTooltipBody(segment, atFrames, onlyHit, withSystemHits) + (moveTarget(segment.row?.action) ? DETAILS_HINT_HTML : '');
+}
+
+function clipTooltipBody(
+  { type, row, pause }: Pick<TimelineSegment, 'type' | 'row' | 'pause'>,
+  atFrames: number,
+  onlyHit: number | undefined,
+  withSystemHits: boolean
 ): string {
   const at = tooltipLine('At', seconds(atFrames));
   if (type === 'motionstop' && pause) {

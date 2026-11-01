@@ -6,6 +6,8 @@ import { ROW_HEIGHT_PX, CLIP_INSET_PX, simultaneousLineHeightPx, pxToCompressedT
 import { nearestMarker, trackPointer, useActiveMarker, useFrameMove } from './trackPointer';
 import type { UnitRowData } from './timelineLayout';
 import { useLinkedRowStore } from '../../store/useLinkedRowStore';
+import { moveTarget, openInBuilder } from '../../utils/builderLinks';
+import type { TrackPointer } from './trackPointer';
 
 interface TimelineRowProps {
   data: UnitRowData;
@@ -33,6 +35,20 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({ data, expander, linked
   });
   const hoverRow = (row: any) => { if (linked) hover(row?.id ? [row.id] : [], 'timeline'); };
 
+  // Last segment under the cursor wins.
+  const segmentAt = (pointer: TrackPointer) => {
+    const inClipBand = pointer.y >= CLIP_INSET_PX && pointer.y <= ROW_HEIGHT_PX - CLIP_INSET_PX;
+    return inClipBand ? [...data.segments].reverse().find(s => pointer.x >= s.xPx && pointer.x < s.xPx + s.widthPx) : undefined;
+  };
+
+  // Opens the move (snapped hit or clip) in the Mechanics Builder.
+  const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const pointer = trackPointer(e);
+    const nearest = nearestMarker(data.hitDots, pointer);
+    const target = moveTarget((nearest !== -1 ? data.hitDots[nearest].row : segmentAt(pointer)?.row)?.action);
+    if (target) openInBuilder(target);
+  };
+
   const move = useFrameMove(e => {
     const pointer = trackPointer(e);
     const nearest = nearestMarker(data.hitDots, pointer);
@@ -46,9 +62,7 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({ data, expander, linked
     }
 
     markActive(null);
-    // Last segment under the cursor wins.
-    const inClipBand = pointer.y >= CLIP_INSET_PX && pointer.y <= ROW_HEIGHT_PX - CLIP_INSET_PX;
-    const segment = inClipBand ? [...data.segments].reverse().find(s => pointer.x >= s.xPx && pointer.x < s.xPx + s.widthPx) : undefined;
+    const segment = segmentAt(pointer);
     hoverRow(segment?.row);
     if (segment) TooltipManager.showAtPoint(e.clientX, e.clientY, buildClipTooltipHtml(segment, pxToCompressedTime(pointer.x, data.compression), undefined, data.withSystemHits));
     else TooltipManager.hide();
@@ -89,7 +103,7 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({ data, expander, linked
           </button>
         ) : pill}
       </div>
-      <div className="timeline-row-track" ref={trackRef} onMouseMove={move.onMove} onMouseLeave={handleLeave}>
+      <div className="timeline-row-track" ref={trackRef} onMouseMove={move.onMove} onMouseLeave={handleLeave} onDoubleClick={handleDoubleClick}>
         {data.segments.map((segment, i) => (
           <TimelineClip key={i} segment={segment} />
         ))}

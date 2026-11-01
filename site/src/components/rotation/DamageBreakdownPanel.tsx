@@ -139,7 +139,7 @@ export const DamageBreakdownPanel: React.FC<DamageBreakdownPanelProps> = ({ conf
                               <div className="buff-list-container">
                                 {Object.keys(groupedBuffs).length > 0 ? (
                                   Object.keys(groupedBuffs).map(source => (
-                                    <BuffCard key={source} source={source} effects={groupedBuffs[source].effects} />
+                                    <BuffCard key={source} source={source} effects={groupedBuffs[source].effects} details={groupedBuffs[source].details} />
                                   ))
                                 ) : (
                                   <div className="empty-buff-state">No buffs</div>

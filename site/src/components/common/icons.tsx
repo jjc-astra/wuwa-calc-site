@@ -81,6 +81,13 @@ export const InfoIcon: React.FC<IconProps> = props => (
   </Svg>
 );
 
+/** Solid circle with the "i" cut out (shows what's behind it). */
+export const InfoSolidIcon: React.FC<IconProps> = ({ size = 18, className }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" fillRule="evenodd" className={className}>
+    <path d="M12 1a11 11 0 1 0 0 22a11 11 0 1 0 0-22zM12 5.2a1.8 1.8 0 1 0 0 3.6a1.8 1.8 0 1 0 0-3.6zM10.4 12a1.6 1.6 0 0 1 3.2 0v5.2a1.6 1.6 0 0 1-3.2 0z" />
+  </svg>
+);
+
 export const HeartIcon: React.FC<IconProps> = props => (
   <Svg {...props}>
     <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />

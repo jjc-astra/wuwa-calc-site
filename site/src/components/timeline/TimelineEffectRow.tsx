@@ -6,7 +6,9 @@ import { formatFramesAsSeconds, framesToSeconds, secondsToFrames, toFrames } fro
 import { EFFECT_BAR_INSET_PX, EFFECT_ROW_HEIGHT_PX, barValueAt, describeAppliesTo, pointLabelFits, rowsReceivingBar, rowsReceivingLane } from './effectLayout';
 import { useLinkedRowStore } from '../../store/useLinkedRowStore';
 import { nearestMarker, trackPointer, useActiveMarker, useFrameMove } from './trackPointer';
+import { DETAILS_HINT_HTML, effectTarget, moveTarget, openInBuilder, type BuilderTarget } from '../../utils/builderLinks';
 import type { EffectAction, EffectBar, EffectLane, EffectPoint } from './effectLayout';
+import type { TrackPointer } from './trackPointer';
 
 interface TimelineEffectRowProps {
   lane: EffectLane;
@@ -64,6 +66,17 @@ function barTooltipHtml(lane: EffectLane, bar: EffectBar, point: EffectPoint, cu
   );
 }
 
+// A System move opens its mechanic; a bar its effect (a cooldown's is its move, owned by the provider).
+function detailsTarget(lane: EffectLane, picked: { action?: EffectAction; bar?: EffectBar; hit?: boolean }): BuilderTarget | null {
+  if (picked.action) return moveTarget(picked.action.row?.action);
+  if (picked.hit) return moveTarget(lane.fullName);
+  if (!picked.bar) return null;
+  const { name, source, sourceOwner, provider } = picked.bar.info;
+  return effectTarget({ name, source, sourceOwner: sourceOwner ?? provider });
+}
+
+const withHint = (html: string, target: BuilderTarget | null) => html + (target ? DETAILS_HINT_HTML : '');
+
 // Game time under the cursor within a bar.
 const framesAt = (bar: EffectBar, x: number): number =>
   bar.widthPx > 0
@@ -111,33 +124,50 @@ export const TimelineEffectRow = React.memo<TimelineEffectRowProps>(({ lane, nes
   const firstHitMarker = markers.length - lane.hits.length;
   const barMarkerStart = lane.bars.map((_, b) => lane.bars.slice(0, b).reduce((n, bar) => n + bar.points.length - 1, 0));
 
+  // What the cursor is on: a snapped marker, else a System move's clip, else a bar.
+  const pickAt = (pointer: TrackPointer) => {
+    const nearest = nearestMarker(markers, pointer);
+    if (nearest !== -1) return { nearest, marker: markers[nearest] as any };
+    const action = lane.actions.find(a => Math.abs(pointer.x - a.xPx) <= ACTION_HOVER_PX);
+    if (action) return { action };
+    return { bar: [...lane.bars].reverse().find(b => pointer.x >= b.xPx && pointer.x < b.xPx + b.widthPx) };
+  };
+  const targetOf = (picked: ReturnType<typeof pickAt>) => detailsTarget(lane, picked.marker
+    ? { hit: !!picked.marker.hit, bar: picked.marker.bar }
+    : { action: picked.action, bar: picked.bar });
+
   const move = useFrameMove(e => {
     const pointer = trackPointer(e);
-    const nearest = nearestMarker(markers, pointer);
-    if (nearest !== -1) {
-      const marker: any = markers[nearest];
+    const picked = pickAt(pointer);
+    const target = targetOf(picked);
+    const { nearest, marker, action, bar } = picked;
+    if (marker) {
       const at = pointer.toClient(marker.xPx, marker.yPx);
       markActive(e.currentTarget.querySelector(`[data-marker="${nearest}"]`));
       hoverLinked(marker.bar);
       const html = marker.hit
         ? `<div>${escapeHtml(marker.hit.moveName)}</div>` + line('Hit', `${Math.floor(marker.hit.total).toLocaleString()} dmg`) + line('Time', formatFramesAsSeconds(toFrames(marker.hit.frames)))
         : barTooltipHtml(lane, marker.bar, marker.point, marker.point.frames);
-      TooltipManager.showAtPoint(at.x, at.y, html);
+      TooltipManager.showAtPoint(at.x, at.y, withHint(html, target));
       return;
     }
     markActive(null);
-    const action = lane.actions.find(a => Math.abs(pointer.x - a.xPx) <= ACTION_HOVER_PX);
     if (action) {
       hoverLinked(action);
+      // Hinted by buildClipTooltipHtml.
       TooltipManager.showAtPoint(e.clientX, e.clientY, buildClipTooltipHtml({ type: 'onfield', row: action.row }, action.row.gameTimeStart));
       return;
     }
-    const bar = [...lane.bars].reverse().find(b => pointer.x >= b.xPx && pointer.x < b.xPx + b.widthPx);
     hoverLinked(bar);
     if (!bar) return TooltipManager.hide();
     const point = [...bar.points].reverse().find(p => p.xPx <= pointer.x) ?? bar.points[0];
-    TooltipManager.showAtPoint(e.clientX, e.clientY, barTooltipHtml(lane, bar, point, framesAt(bar, pointer.x)));
+    TooltipManager.showAtPoint(e.clientX, e.clientY, withHint(barTooltipHtml(lane, bar, point, framesAt(bar, pointer.x)), target));
    });
+
+  const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = targetOf(pickAt(trackPointer(e)));
+    if (target) openInBuilder(target);
+  };
 
   const handleLeave = () => {
     move.cancel();
@@ -155,7 +185,7 @@ export const TimelineEffectRow = React.memo<TimelineEffectRowProps>(({ lane, nes
       <div className="timeline-row-header" style={{ width: 'var(--timeline-header-width)' }}>
         <span className="timeline-effect-label" {...tip(escapeHtml(lane.fullName))}>{lane.label}</span>
       </div>
-      <div ref={trackRef} className="timeline-row-track" onMouseMove={move.onMove} onMouseLeave={handleLeave}>
+      <div ref={trackRef} className="timeline-row-track" onMouseMove={move.onMove} onMouseLeave={handleLeave} onDoubleClick={handleDoubleClick}>
         {lane.bars.map((bar, i) => (
           <div
             key={`bar-${i}`}

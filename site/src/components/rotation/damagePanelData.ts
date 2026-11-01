@@ -1,12 +1,20 @@
 // Buff card grouping and labels for DamageBreakdownPanel.
 import type { TeamSlot } from '../../types';
 import { CommonUtils } from '../../utils/Common';
-import { SYSTEM_NAMESPACE } from '../../utils/MechanicKey';
+import { MechanicKey, SYSTEM_NAMESPACE } from '../../utils/MechanicKey';
+import { effectTarget, type BuilderTarget } from '../../utils/builderLinks';
+import { slotSets } from '../../utils/TeamUtils';
 
 export interface BuffRow {
   label: string;
   value: any;
   stacks: number;
+}
+
+export interface BuffCardData {
+  effects: BuffRow[];
+  // One Builder target per entity on the card (a main echo shares its set's card).
+  details: BuilderTarget[];
 }
 
 const tokenize = (str: string): string[] => (str || '')
@@ -28,6 +36,9 @@ const trimSeparators = (text: string) => text.replace(/^[-:_:=]+\s*/, '').replac
 
 // Card for a buff: weapon, set, main echo, else its source mechanic.
 function cardHeaderFor(b: any, sourceMech: string, slot: TeamSlot, weaponNames: string[]): string {
+  // A set's own effects: its card, so sub sets don't join the main set's.
+  if (b.sourceOwner && slotSets(slot).includes(b.sourceOwner)) return b.sourceOwner;
+
   const wepName = slot.weapon ? slot.weapon.trim() : '';
   const mainSet = slot.mainSet ? slot.mainSet.trim() : '';
   const subSet = slot.subSet ? slot.subSet.trim() : '';
@@ -109,19 +120,32 @@ function rowLabelFor(b: any, sourceMech: string, cardHeader: string, unitName: s
   return b.stat ? `${displayEffName} (${b.stat})` : displayEffName;
 }
 
+// Per entity: search the one effect name or applying mechanic its effects share.
+function cardDetails(targets: Array<BuilderTarget | null>): BuilderTarget[] {
+  const unique = (values: Array<string | undefined>) => [...new Set(values.filter((v): v is string => !!v))];
+  const known = targets.filter((t): t is BuilderTarget => !!t);
+  return unique(known.map(t => t.entity)).map(entity => {
+    const same = known.filter(t => t.entity === entity);
+    const names = unique(same.map(t => t.search));
+    const sources = unique(same.map(t => t.flash));
+    const search = names.length === 1 ? names[0] : sources.length === 1 ? MechanicKey.parse(sources[0]).name || sources[0] : '';
+    return { entity, search, flash: sources[0] };
+  });
+}
+
 /** A unit's active buffs grouped into cards. `weaponNames`: every weapon in the game. */
 export function groupBuffsBySource(
   unitBuffs: any[],
   slot: TeamSlot,
   unitName: string,
   weaponNames: string[]
-): Record<string, { effects: BuffRow[] }> {
-  const grouped: Record<string, { effects: BuffRow[] }> = {};
+): Record<string, BuffCardData> {
+  const grouped: Record<string, { effects: BuffRow[]; targets: Array<BuilderTarget | null> }> = {};
 
   unitBuffs.forEach(b => {
     const sourceMech = (b.source || SYSTEM_NAMESPACE).replace(/_/g, ' ').trim();
     const cardHeader = cardHeaderFor(b, sourceMech, slot, weaponNames);
-    if (!grouped[cardHeader]) grouped[cardHeader] = { effects: [] };
+    if (!grouped[cardHeader]) grouped[cardHeader] = { effects: [], targets: [] };
 
     let displayVal = b.value !== undefined ? b.value : '-';
     if (typeof b.value === 'number' && b.value > 0 && b.value < 1) {
@@ -133,7 +157,8 @@ export function groupBuffsBySource(
       value: displayVal,
       stacks: b.stacks || 1
     });
+    grouped[cardHeader].targets.push(effectTarget(b));
   });
 
-  return grouped;
+  return Object.fromEntries(Object.entries(grouped).map(([header, { effects, targets }]) => [header, { effects, details: cardDetails(targets) }]));
 }

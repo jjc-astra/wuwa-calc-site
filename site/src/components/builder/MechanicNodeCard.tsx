@@ -18,6 +18,9 @@ import { TriggerRuleEffectsPanel } from './panels/TriggerRuleEffectsPanel';
 import { CooldownPanel } from './panels/CooldownPanel';
 import type { DropdownOption } from '../common/Dropdown';
 
+// Matches .mech-row-group.is-flashing's animation (2 x 0.8s).
+const FLASH_MS = 1600;
+
 interface MechanicNodeCardProps {
   nodeId: string;
   data: MechanicNode;
@@ -81,6 +84,24 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({
   const [dmgSelect, setDmgSelect] = useState(BuilderState.DMG_OPTIONS[0]);
   const [castResType, setCastResType] = useState('energy');
   const [castResAmt, setCastResAmt] = useState('');
+
+  // Scroll to and flash this node once when asked (see flashNode).
+  const groupRef = useRef<HTMLTableSectionElement>(null);
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isFlashTarget = useBuilderStore(state => state.flashNodeId === nodeId);
+  useEffect(() => {
+    const group = groupRef.current;
+    if (!isFlashTarget || !group) return;
+    group.scrollIntoView({ block: 'center' });
+    group.classList.remove('is-flashing');
+    void group.offsetWidth; // restart the animation
+    group.classList.add('is-flashing');
+    useBuilderStore.getState().flashNode(null);
+    // Not an effect cleanup: clearing flashNodeId re-runs this effect.
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    flashTimerRef.current = setTimeout(() => group.classList.remove('is-flashing'), FLASH_MS);
+  }, [isFlashTarget]);
+  useEffect(() => () => { if (flashTimerRef.current) clearTimeout(flashTimerRef.current); }, []);
 
   // Clear highlights on unmount.
   useEffect(() => () => {
@@ -151,7 +172,7 @@ export const MechanicNodeCard: React.FC<MechanicNodeCardProps> = ({
   };
 
   return (
-    <tbody className="mech-row-group">
+    <tbody ref={groupRef} className="mech-row-group">
       <SummaryRow
         nodeId={nodeId}
         data={data}

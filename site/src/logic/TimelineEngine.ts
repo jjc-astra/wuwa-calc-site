@@ -963,7 +963,7 @@ export class TimelineEngineClass {
         availableTimings.push({ val: `SwapCancel_${sc.index}`, label, title });
       });
     }
-    const instantCancelTime = swapDuration ?? toFrames(GAME_DEFAULTS.swapTime);
+    const instantCancelTime = toFrames(GAME_DEFAULTS.instantCancelTime);
     // Any move the next one can cancel, with or without authored cancel windows.
     const canInstantCancel = validCancels.length > 0 || nextCancelsAt(instantCancelTime);
     if (canInstantCancel) {

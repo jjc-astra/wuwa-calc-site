@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useBuilderStore, mechFolderFor } from '../../store/useBuilderStore';
 import { checkBuilderItemFreshness } from '../../utils/dataFreshness';
 import { DataLoader, type ImplementedContentKind } from '../../utils/DataLoader';
@@ -99,7 +99,10 @@ function resolveHoldGroups(allMechs: Record<string, MechanicNode>) {
 
 /** Mechanics Builder: entity library, or the open entity's nodes and output. */
 export const MechanicsBuilder: React.FC = () => {
-  const { activeChar, setActiveChar, mechanics, setMechanicNode, reorderMechanicNode, baseStats, setBaseStat, hasChanges, removedNodes } = useBuilderStore();
+  const {
+    activeChar, setActiveChar, mechanics, setMechanicNode, reorderMechanicNode, baseStats, setBaseStat, hasChanges, removedNodes,
+    mechanicSearch: nodeSearch, setMechanicSearch: setNodeSearch
+  } = useBuilderStore();
   const { skipIds: holdGroupSkipIds, groupSiblings: holdGroupSiblings } = resolveHoldGroups(mechanics);
   // Nodes, with deleted ones as ghost rows in place.
   const listedNodes: [string, MechanicNode, boolean][] = Object.entries(mechanics).map(([id, node]) => [id, node, false]);
@@ -111,9 +114,6 @@ export const MechanicsBuilder: React.FC = () => {
     listedNodes.splice(at, 0, [id, node, true]);
   });
   const [searchTerm, setSearchTerm] = useState('');
-  // The open entity's node filter.
-  const [nodeSearch, setNodeSearch] = useState('');
-  useEffect(() => setNodeSearch(''), [activeChar]);
   const termsById = useMemo(
     () => new Map(listedNodes.map(([id, node]) => [id, searchTermsOf(node, baseStats)])),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -273,9 +273,11 @@ export const MechanicsBuilder: React.FC = () => {
   return (
     <div id="view-editor" className="builder-view" style={{ flex: 1, minHeight: 0, height: '100%' }}>
       <div className="editor-pane scrollable">
-        <div className="panel-header-main" id="editor-char-name">
-          {activeChar.toUpperCase()} SETUP
-        </div>
+        {(isCharacter || isWeapon) && (
+          <div className="panel-header-main" id="editor-char-name">
+            {activeChar.toUpperCase()} SETUP
+          </div>
+        )}
         <BaseStatsForm />
         <div className="mechanics-heading">
           <div className="mechanics-heading-row">

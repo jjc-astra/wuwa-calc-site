@@ -151,10 +151,12 @@ export const SIM_CONSTANTS = {
   NEGATIVE_STATUS_BASE_MULT: 10000
 };
 
-// FRAMES @ 60fps: swapTime, comboWindow, echoSummonTime, holdLookahead*.
+// FRAMES @ 60fps: swapTime, instantCancelTime, comboWindow, echoSummonTime, holdLookahead*.
 // SECONDS (cooldown/buff-lifetime): swapCooldown, permanentDuration.
 export const GAME_DEFAULTS = {
   swapTime: 9,
+  // Instant Cancel duration, swap timing or not.
+  instantCancelTime: 2,
   swapCooldown: 1.0,
   comboWindow: 30,
   echoSummonTime: 10,
