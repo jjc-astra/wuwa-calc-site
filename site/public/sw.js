@@ -1,9 +1,8 @@
 // Bump to evict every cache.
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const APP_CACHE = `wuwa-app-${CACHE_VERSION}`;
 const IMG_CACHE = `wuwa-img-${CACHE_VERSION}`;
 
-const IMAGE_HOST = 'raw.githubusercontent.com';
 const ASSET_RE = /\.(?:js|css|woff2?|ttf|svg|png|jpe?g|webp|gif|ico)$/;
 
 self.addEventListener('install', () => {
@@ -24,16 +23,13 @@ self.addEventListener('fetch', event => {
 
   const url = new URL(req.url);
 
-  // Icons: immutable once published. Cross-origin responses are opaque, so cache regardless of .ok.
-  const isIcon = url.origin === self.location.origin
-    ? url.pathname.startsWith('/images/')
-    : url.hostname === IMAGE_HOST && url.pathname.includes('/images/');
-  if (isIcon) {
-    event.respondWith(cacheFirst(req, IMG_CACHE, { requireOk: false }));
+  if (url.origin !== self.location.origin) return;
+
+  // Icons: cached copy now, refreshed in the background so replaced or newly added icons show on the next load.
+  if (url.pathname.startsWith('/images/')) {
+    event.respondWith(staleWhileRevalidate(event, req, IMG_CACHE));
     return;
   }
-
-  if (url.origin !== self.location.origin) return;
 
   // Pages: network-first, falling back to the cached shell offline.
   if (req.mode === 'navigate' || url.pathname === '/' || url.pathname.endsWith('.html')) {
@@ -47,13 +43,26 @@ self.addEventListener('fetch', event => {
   }
 });
 
-async function cacheFirst(request, cacheName, { requireOk = true } = {}) {
+async function cacheFirst(request, cacheName) {
   const cache = await caches.open(cacheName);
   const cached = await cache.match(request);
   if (cached) return cached;
   const response = await fetch(request);
-  if (!requireOk || response.ok) cache.put(request, response.clone());
+  if (response.ok) cache.put(request, response.clone());
   return response;
+}
+
+// Only successful responses are cached, so a missing icon is retried rather than stuck.
+async function staleWhileRevalidate(event, request, cacheName) {
+  const cache = await caches.open(cacheName);
+  const cached = await cache.match(request);
+  const refresh = fetch(request).then(response => {
+    if (response.ok) cache.put(request, response.clone());
+    return response;
+  });
+  if (!cached) return refresh;
+  event.waitUntil(refresh.catch(() => {}));
+  return cached;
 }
 
 async function networkFirst(request, cacheName, fallbackUrl) {
