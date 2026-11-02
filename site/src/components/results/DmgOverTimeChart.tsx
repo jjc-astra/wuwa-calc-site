@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useResultsSource } from './ResultsSource';
-import type { DmgOverTimeSeries, DpsWindowKey } from '../../types/results';
+import type { DmgOverTimeSeries } from '../../types/results';
+import type { DmgOverTimeKey } from '../../data/dpsWindows';
 import { PinRotationControl } from './PinRotationControl';
 import { ResultsLegend } from './ResultsLegend';
 import { CATEGORICAL_PALETTE, colorForProvider } from './chartPalette';
@@ -11,7 +12,7 @@ import { framesToSeconds } from '../../utils/Frames';
 
 // In seconds, converted from Frames by toDisplaySeries.
 interface DisplayPoint { t: number; dmg: number; label?: string; }
-interface DisplaySeries { label: string; points: DisplayPoint[]; bossMaxHp: number; killTime: number | null; windowEnd: number; }
+interface DisplaySeries { label: string; points: DisplayPoint[]; bossMaxHp: number; killTime: number | null; windowStart: number; windowEnd: number; }
 
 function toDisplaySeries(s: DmgOverTimeSeries): DisplaySeries {
   return {
@@ -19,6 +20,7 @@ function toDisplaySeries(s: DmgOverTimeSeries): DisplaySeries {
     points: s.points.map(p => ({ t: framesToSeconds(p.t), dmg: p.dmg, label: p.label })),
     bossMaxHp: s.bossMaxHp,
     killTime: s.killTime !== null ? framesToSeconds(s.killTime) : null,
+    windowStart: s.windowStart !== undefined ? framesToSeconds(s.windowStart) : 0,
     windowEnd: framesToSeconds(s.windowEnd)
   };
 }
@@ -31,17 +33,17 @@ const PAD = { top: 22, right: 16, bottom: 30, left: 62 };
 const SNAP_PX = 8;
 
 // Lets hooks run before results exist.
-const EMPTY_SERIES: DisplaySeries = { label: '', points: [{ t: 0, dmg: 0 }], bossMaxHp: 1, killTime: null, windowEnd: 0 };
+const EMPTY_SERIES: DisplaySeries = { label: '', points: [{ t: 0, dmg: 0 }], bossMaxHp: 1, killTime: null, windowStart: 0, windowEnd: 0 };
 
 type ViewMode = 'dmg' | 'dps';
 type ChartType = 'line' | 'bar';
 const DPS_WINDOW = 1;
 
-function pickTickStep(domainMaxT: number): number {
-  if (domainMaxT <= 15) return 2;
-  if (domainMaxT <= 40) return 5;
-  if (domainMaxT <= 80) return 10;
-  if (domainMaxT <= 150) return 30;
+function pickTickStep(span: number): number {
+  if (span <= 15) return 2;
+  if (span <= 40) return 5;
+  if (span <= 80) return 10;
+  if (span <= 150) return 30;
   return 60;
 }
 
@@ -109,8 +111,8 @@ function smoothedLabels(points: DisplayPoint[], ownColorDmg: number): Array<stri
 }
 
 // Trailing 1s-average DPS, sampled at each hit and its +1s expiry.
-function buildDpsPoints(points: DisplayPoint[], domainMaxT: number): DisplayPoint[] {
-  const criticalTimes = new Set<number>([0, domainMaxT]);
+function buildDpsPoints(points: DisplayPoint[], domainMinT: number, domainMaxT: number): DisplayPoint[] {
+  const criticalTimes = new Set<number>([domainMinT, domainMaxT]);
   points.forEach(p => {
     criticalTimes.add(p.t);
     if (p.t + DPS_WINDOW <= domainMaxT) criticalTimes.add(p.t + DPS_WINDOW);
@@ -118,7 +120,7 @@ function buildDpsPoints(points: DisplayPoint[], domainMaxT: number): DisplayPoin
   return Array.from(criticalTimes)
     .sort((a, b) => a - b)
     .map(t => {
-      const windowStart = Math.max(0, t - DPS_WINDOW);
+      const windowStart = Math.max(domainMinT, t - DPS_WINDOW);
       const windowLen = t - windowStart;
       const dmg = windowLen > 0 ? (valueAtTime(points, t) - valueAtTime(points, windowStart)) / windowLen : 0;
       return { t, dmg };
@@ -133,16 +135,27 @@ export const DmgOverTimeChart: React.FC = () => {
   const [hoverBinIdx, setHoverBinIdx] = useState<number | null>(null);
   const [mode, setMode] = useState<ViewMode>('dmg');
   const [chartType, setChartType] = useState<ChartType>('line');
-  const [dpsType, setDpsType] = useState<DpsWindowKey>('twoMin');
+  const [selectedWindow, setDpsType] = useState<DmgOverTimeKey>('twoMin');
   const [WIDTH, setWidth] = useState(DEFAULT_WIDTH);
 
-  const primarydmg = results?.dmgOverTimeSeries ? toDisplaySeries(results.dmgOverTimeSeries[dpsType]) : EMPTY_SERIES;
-  // Pinned: label by rotation name.
-  const dmgSeries: DisplaySeries[] = pinned
-    ? [{ ...primarydmg, label: 'Current' }, { ...toDisplaySeries(pinned.dmgOverTimeSeries[dpsType]), label: pinned.label }]
+  const hasEnding = !!results?.dmgOverTimeSeries?.ending;
+  // Ending stays selected across rotations without one, showing 2-Min meanwhile.
+  const dpsType = selectedWindow === 'ending' && !hasEnding ? 'twoMin' : selectedWindow;
+  const primarySource = results?.dmgOverTimeSeries?.[dpsType];
+  const primarydmg = primarySource ? toDisplaySeries(primarySource) : EMPTY_SERIES;
+  // Pinned: label by rotation name; left out if it lacks this window (no loop to end on).
+  const pinnedSource = pinned?.dmgOverTimeSeries[dpsType];
+  const dmgSeries: DisplaySeries[] = pinned && pinnedSource
+    ? [{ ...primarydmg, label: 'Current' }, { ...toDisplaySeries(pinnedSource), label: pinned.label }]
     : [primarydmg];
-  const domainMaxT = primarydmg.windowEnd;
-  const hasChart = domainMaxT > 0;
+  // Ending is on the game clock and spans every series; other windows start at 0 and follow the current rotation.
+  const isEnding = dpsType === 'ending';
+  const domainMinT = Math.min(...dmgSeries.map(s => s.windowStart));
+  const domainMaxT = isEnding ? Math.max(...dmgSeries.map(s => s.windowEnd)) : primarydmg.windowEnd;
+  const span = domainMaxT - domainMinT;
+  const hasChart = span > 0;
+  // The 2-minute mark, when on the axis.
+  const twoMinT = (dpsType === 'twoMin' || isEnding) && TWO_MIN >= domainMinT && TWO_MIN <= domainMaxT ? TWO_MIN : null;
 
   // Tracks the svg width in design units.
   useEffect(() => {
@@ -157,7 +170,7 @@ export const DmgOverTimeChart: React.FC = () => {
   }, [hasChart]);
 
   const series: DisplaySeries[] =
-    mode === 'dmg' ? dmgSeries : dmgSeries.map(s => ({ ...s, points: buildDpsPoints(s.points, domainMaxT) }));
+    mode === 'dmg' ? dmgSeries : dmgSeries.map(s => ({ ...s, points: buildDpsPoints(s.points, domainMinT, domainMaxT) }));
 
   // Bars: DMG mode and a single series only.
   const effectiveChartType: ChartType = series.length > 1 || mode === 'dps' ? 'line' : chartType;
@@ -171,7 +184,7 @@ export const DmgOverTimeChart: React.FC = () => {
   const plotW = WIDTH - PAD.left - PAD.right;
   const plotH = HEIGHT - PAD.top - PAD.bottom;
   const baselineY = PAD.top + plotH;
-  const xScale = (t: number) => PAD.left + (t / domainMaxT) * plotW;
+  const xScale = (t: number) => PAD.left + ((t - domainMinT) / span) * plotW;
 
   const BAR_GAP = 1;
   const STACK_GAP = 1;
@@ -181,19 +194,19 @@ export const DmgOverTimeChart: React.FC = () => {
   const MIN_BIN_SECONDS = 1;
   const MAX_BIN_SECONDS = 2;
   // Bin width: 1s, widened toward DESIRED_BAR_WIDTH up to 2s.
-  const secondsForDesiredWidth = ((DESIRED_BAR_WIDTH + BAR_GAP) / plotW) * domainMaxT;
+  const secondsForDesiredWidth = ((DESIRED_BAR_WIDTH + BAR_GAP) / plotW) * span;
   const targetBinSeconds = Math.min(MAX_BIN_SECONDS, Math.max(MIN_BIN_SECONDS, secondsForDesiredWidth));
-  const pxPerTargetBin = (targetBinSeconds / domainMaxT) * plotW;
+  const pxPerTargetBin = (targetBinSeconds / span) * plotW;
   const barWidth = Math.min(MAX_BAR_WIDTH, Math.max(MIN_BAR_WIDTH, pxPerTargetBin - BAR_GAP));
   // Hits within a bin stack.
-  const binTimeWidth = ((barWidth + BAR_GAP) / plotW) * domainMaxT;
+  const binTimeWidth = ((barWidth + BAR_GAP) / plotW) * span;
 
   interface BarBin { binIdx: number; x: number; t0: number; t1: number; hits: DisplayPoint[]; total: number; }
   const barBins: BarBin[] = [];
   if (isBar) {
     const byBin = new Map<number, DisplayPoint[]>();
     for (const hit of barHits) {
-      const binIdx = Math.floor(hit.t / binTimeWidth);
+      const binIdx = Math.floor((hit.t - domainMinT) / binTimeWidth);
       const bucket = byBin.get(binIdx);
       if (bucket) bucket.push(hit);
       else byBin.set(binIdx, [hit]);
@@ -202,8 +215,8 @@ export const DmgOverTimeChart: React.FC = () => {
       barBins.push({
         binIdx,
         x: PAD.left + binIdx * (barWidth + BAR_GAP),
-        t0: binIdx * binTimeWidth,
-        t1: (binIdx + 1) * binTimeWidth,
+        t0: domainMinT + binIdx * binTimeWidth,
+        t1: domainMinT + (binIdx + 1) * binTimeWidth,
         hits,
         total: hits.reduce((sum, h) => sum + h.dmg, 0)
       });
@@ -223,10 +236,10 @@ export const DmgOverTimeChart: React.FC = () => {
 
   // Kill intercepts and the 2-minute mark.
   const snapTimes = useMemo(() => {
-    const times = series.map(s => s.killTime).filter((t): t is number => t !== null && t <= domainMaxT);
-    if (TWO_MIN <= domainMaxT) times.push(TWO_MIN);
+    const times = series.map(s => s.killTime).filter((t): t is number => t !== null && t >= domainMinT && t <= domainMaxT);
+    if (twoMinT !== null) times.push(twoMinT);
     return times;
-  }, [series, domainMaxT]);
+  }, [series, domainMinT, domainMaxT, twoMinT]);
 
   useEffect(() => () => TooltipManager.hide(), []);
 
@@ -288,8 +301,8 @@ export const DmgOverTimeChart: React.FC = () => {
     }
 
     setHoverBinIdx(null);
-    let t = Math.min(domainMaxT, Math.max(0, ((localX - PAD.left) / plotW) * domainMaxT));
-    const snapThresholdT = (SNAP_PX / plotW) * domainMaxT;
+    let t = Math.min(domainMaxT, Math.max(domainMinT, domainMinT + ((localX - PAD.left) / plotW) * span));
+    const snapThresholdT = (SNAP_PX / plotW) * span;
     const nearestSnap = snapTimes.reduce<{ time: number; dist: number } | null>((best, snapT) => {
       const dist = Math.abs(snapT - t);
       return !best || dist < best.dist ? { time: snapT, dist } : best;
@@ -345,9 +358,9 @@ export const DmgOverTimeChart: React.FC = () => {
         })}
 
         {(() => {
-          const step = pickTickStep(domainMaxT);
+          const step = pickTickStep(span);
           const ticks: number[] = [];
-          for (let t = 0; t <= domainMaxT; t += step) ticks.push(t);
+          for (let t = Math.ceil(domainMinT / step) * step; t <= domainMaxT; t += step) ticks.push(t);
           return ticks.map(t => (
             <text key={t} x={xScale(t)} y={HEIGHT - PAD.bottom + 16} textAnchor={edgeAnchor(xScale(t), WIDTH)} className="dmg-time-axis-label">
               {formatTime(t)}
@@ -409,7 +422,7 @@ export const DmgOverTimeChart: React.FC = () => {
 
         {/* Kill markers (line mode only). */}
         {!isBar && series.map((s, i) =>
-          s.killTime !== null && s.killTime <= domainMaxT ? (
+          s.killTime !== null && s.killTime >= domainMinT && s.killTime <= domainMaxT ? (
             <g key={`kill-${s.label}`}>
               <circle cx={xScale(s.killTime)} cy={yScale(valueAtTime(s.points, s.killTime))} r={4} className="dmg-time-marker" fill={CATEGORICAL_PALETTE[i]} />
               <text
@@ -425,7 +438,17 @@ export const DmgOverTimeChart: React.FC = () => {
           ) : null
         )}
 
-        {!isBar && dpsType === 'twoMin' && TWO_MIN <= domainMaxT &&
+        {/* Ending: the 2-minute mark. */}
+        {isEnding && twoMinT !== null && (
+          <>
+            <line x1={xScale(twoMinT)} x2={xScale(twoMinT)} y1={PAD.top} y2={baselineY} className="dmg-time-reference-line" />
+            <text x={xScale(twoMinT)} y={PAD.top - 6} textAnchor={edgeAnchor(xScale(twoMinT), WIDTH)} className="dmg-time-reference-label">
+              2:00
+            </text>
+          </>
+        )}
+
+        {!isBar && dpsType === 'twoMin' && twoMinT !== null &&
           series.map((s, i) => (
             <circle
               key={`two-min-${s.label}`}
@@ -489,7 +512,7 @@ export const DmgOverTimeChart: React.FC = () => {
           </div>
         )}
         <div className="dmg-time-window-col-right">
-          <DpsWindowSelect value={dpsType} onChange={setDpsType} />
+          <DpsWindowSelect value={dpsType} onChange={setDpsType} withEnding={hasEnding} />
         </div>
       </div>
     </div>

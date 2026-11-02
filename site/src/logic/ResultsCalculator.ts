@@ -4,7 +4,7 @@ import { CombatCalculator, carriesStatScaledBuffFrom } from './CombatCalculator'
 import { resourceCap } from './resources';
 import { CHARACTER_DEFAULTS, STAT_DB, STAT_NAME_MAP } from '../data/db';
 import { PRIMARY_DMG_TYPES } from '../data/gameVocab';
-import { DPS_WINDOWS } from '../data/dpsWindows';
+import { DPS_WINDOWS, ENDING_SERIES } from '../data/dpsWindows';
 import { toRunInput, splitLoopSegments, loopTiming, repeatLoop, rowGameEnd, loopCycleBounds, endingPlacement, TWO_MIN } from './rotationRows';
 import { teamCharacters } from '../utils/TeamUtils';
 import type { HitConfig, TeamSlot, DamageInstanceResult, EnemyStats } from '../types';
@@ -12,6 +12,7 @@ import { type Frames, toFrames, roundFrames, framesToSeconds } from '../utils/Fr
 import type {
   DpsStats,
   DmgOverTimeSeries,
+  DmgOverTimeSet,
   DmgOverTimePoint,
   CastTypeSlice,
   TeamDmgSlice,
@@ -44,7 +45,8 @@ function hitLabel(h: RotationHit): string {
 }
 
 // One simulated run with loop and sub-loop end times (null without a loop).
-interface SimRun { evaluatedRows: any[]; loopEnds: LoopEnds; cycleEnds: LoopEnds; cyclesPerLoop: number }
+// endingStart: when its Ending Rotation starts, if it has one.
+interface SimRun { evaluatedRows: any[]; loopEnds: LoopEnds; cycleEnds: LoopEnds; cyclesPerLoop: number; endingStart?: Frames }
 
 // Simulates opener + N loops.
 // - loop: opener and loop windows (>= AVG_LOOP_REPS reps)
@@ -102,6 +104,8 @@ function buildExtendedTimeline(
 
   const { reps, partialRows } = endingPlacement(openerRows, loopTemplate, team[0]?.character, endRotationStartsEarlier);
   const twoMin = simulate(reps, [...loopTemplate.slice(0, partialRows), ...endingRows]);
+  const twoMinRows = twoMin.evaluatedRows.filter(r => r && r.unit);
+  twoMin.endingStart = toFrames(rowGameEnd(twoMinRows[twoMinRows.length - endingRows.length - 1]));
   const loop = reps >= AVG_LOOP_REPS ? twoMin : simulate(AVG_LOOP_REPS, []);
   return { openerEndTime, loop, twoMin };
 }
@@ -255,9 +259,10 @@ function buildDmgOverTimeForWindow(
   relativeHits: Array<{ t: Frames; total: number; label: string }>,
   bossMaxHp: number,
   label: string,
-  windowEnd: Frames
+  windowEnd: Frames,
+  windowStart?: Frames
 ): DmgOverTimeSeries {
-  const points: DmgOverTimePoint[] = [{ t: toFrames(0), dmg: 0 }];
+  const points: DmgOverTimePoint[] = [{ t: windowStart ?? toFrames(0), dmg: 0 }];
   let cumulative = 0;
   let killTime: Frames | null = null;
 
@@ -271,7 +276,7 @@ function buildDmgOverTimeForWindow(
     }
   }
 
-  return { label, points, bossMaxHp, killTime, windowEnd };
+  return { label, points, bossMaxHp, killTime, windowEnd, ...(windowStart !== undefined && { windowStart }) };
 }
 
 // Chart series names per window.
@@ -332,9 +337,20 @@ function buildAvgLoopDmgOverTime(hits: RotationHit[], openerEndTime: Frames, per
   return buildDmgOverTimeForWindow(folded, bossMaxHp, SERIES_LABELS.avgLoop, windowEnd);
 }
 
-function buildAllDmgOverTime(sim: Simulated, bossMaxHp: number): Record<DpsWindowKey, DmgOverTimeSeries> {
+// The Ending window on the game clock: the Ending Rotation through its last row or hit, else the sub-loop crossing 2 minutes.
+function endingSpan({ hits, evaluatedRows, endingStart, cycleEnds }: HitRun, openerEndTime: Frames): { start: Frames; end: Frames } | null {
+  if (endingStart !== undefined) {
+    const lastRowEnd = rowGameEnd(evaluatedRows.filter(r => r && r.unit).at(-1));
+    return { start: endingStart, end: toFrames(Math.max(lastRowEnd, hits.at(-1)?.gameTime ?? 0)) };
+  }
+  const crossing = cycleEnds?.findIndex(e => e >= TWO_MIN) ?? -1;
+  if (crossing === -1) return null;
+  return { start: crossing > 0 ? cycleEnds![crossing - 1] : openerEndTime, end: cycleEnds![crossing] };
+}
+
+function buildAllDmgOverTime(sim: Simulated, bossMaxHp: number): DmgOverTimeSet {
   const { openerEndTime } = sim;
-  const series = {} as Record<DpsWindowKey, DmgOverTimeSeries>;
+  const series = {} as DmgOverTimeSet;
   for (const { key } of DPS_WINDOWS) {
     const run = runFor(sim, key);
     const { hits } = run;
@@ -352,6 +368,11 @@ function buildAllDmgOverTime(sim: Simulated, bossMaxHp: number): Record<DpsWindo
       }));
       series[key] = buildDmgOverTimeForWindow(points, bossMaxHp, SERIES_LABELS[key], span.length);
     }
+  }
+  const ending = endingSpan(sim.twoMin, openerEndTime);
+  if (ending) {
+    const points = windowedHits(sim.twoMin.hits, ending.start, ending.end).map(h => ({ t: h.gameTime, total: h.total, label: hitLabel(h) }));
+    series.ending = buildDmgOverTimeForWindow(points, bossMaxHp, ENDING_SERIES.label, ending.end, ending.start);
   }
   return series;
 }

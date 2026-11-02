@@ -20,6 +20,10 @@ export const DPS_WINDOWS = [
 
 export type DpsWindowKey = typeof DPS_WINDOWS[number]['key'];
 
+// Dmg Over Time only: the Ending Rotation, else the sub-loop crossing 2 minutes.
+export const ENDING_SERIES = { key: 'ending', label: 'Ending' } as const;
+export type DmgOverTimeKey = DpsWindowKey | typeof ENDING_SERIES.key;
+
 export const dpsFieldOf = (window: DpsWindowKey): keyof DpsStats =>
   DPS_WINDOWS.find(w => w.key === window)!.dpsField;
 

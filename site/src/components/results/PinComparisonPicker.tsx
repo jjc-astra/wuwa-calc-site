@@ -125,7 +125,7 @@ const HistoryPickerBody: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const pinFromHistoryEntry = useComparisonStore(s => s.pinFromHistoryEntry);
 
   const pick = (entry: HistoryEntry) => {
-    pinFromHistoryEntry(entry.team, entry.results);
+    pinFromHistoryEntry(entry);
     onClose();
   };
 

@@ -27,6 +27,8 @@ export interface DmgOverTimeSeries {
   killTime: Frames | null;
   // Nominal window length; sizes the x-axis.
   windowEnd: Frames;
+  // Game-clock start, for windows plotted on the game clock (Ending); else 0.
+  windowStart?: Frames;
 }
 
 export interface SubstatWorthValues {
@@ -70,9 +72,12 @@ export interface ContributionForWindow {
   duration?: number;
 }
 
+// Per DPS window, plus the Ending Rotation when there is one.
+export type DmgOverTimeSet = Record<DpsWindowKey, DmgOverTimeSeries> & { ending?: DmgOverTimeSeries };
+
 export interface RotationResults {
   dpsStats: DpsStats;
-  dmgOverTimeSeries: Record<DpsWindowKey, DmgOverTimeSeries>;
+  dmgOverTimeSeries: DmgOverTimeSet;
   contribution: Record<DpsWindowKey, ContributionForWindow>;
   // Null when skipped.
   substatWorth: Record<string, SubstatWorthRow[]> | null;

@@ -3,22 +3,23 @@ import { persist } from 'zustand/middleware';
 import { persistStorage } from '../utils/safeLocalStorage';
 import { runFullCalculation } from '../workers/runFullCalculation';
 import { DataLoader } from '../utils/DataLoader';
-import type { DpsStats, DmgOverTimeSeries, DpsWindowKey, RotationResults, CalcInput } from '../types/results';
+import type { DpsStats, DmgOverTimeSet, CalcInput } from '../types/results';
+import type { HistoryEntry } from './useRotationHistoryStore';
 import { defaultEnemyStats } from '../data/db';
 import { teamCharacters } from '../utils/TeamUtils';
 
 export interface PinnedRotation {
   label: string;
   dpsStats: DpsStats;
-  dmgOverTimeSeries: Record<DpsWindowKey, DmgOverTimeSeries>;
+  dmgOverTimeSeries: DmgOverTimeSet;
 }
 
 interface ComparisonState {
   pinned: PinnedRotation | null;
   status: 'idle' | 'loading';
   pinFromFile: (file: File) => Promise<void>;
-  // Instant; no recalculation.
-  pinFromHistoryEntry: (team: Array<{ character?: string }>, results: Pick<RotationResults, 'dpsStats' | 'dmgOverTimeSeries'>) => void;
+  // Instant, unless the entry predates the Ending series.
+  pinFromHistoryEntry: (entry: HistoryEntry) => Promise<void>;
   // Recalculates the ranked run.
   pinFromRankingEntry: (entry: { id: string; rotationFile: string }) => Promise<void>;
   unpin: () => void;
@@ -78,8 +79,13 @@ export const useComparisonStore = create<ComparisonState>()(
           await recalcAndPin(label, { rotation, team, settings: parsed.settings || {}, enemy: parsed.enemy ?? defaultEnemyStats() });
         },
 
-        pinFromHistoryEntry: (team, results) => {
-          set({ pinned: { label: labelFromTeam(team), dpsStats: results.dpsStats, dmgOverTimeSeries: results.dmgOverTimeSeries } });
+        pinFromHistoryEntry: async ({ team, rotation, settings, enemy, results }) => {
+          const label = labelFromTeam(team);
+          if (!results.dmgOverTimeSeries.ending) {
+            await recalcAndPin(label, { rotation, team, settings, enemy: enemy ?? defaultEnemyStats() });
+            return;
+          }
+          set({ pinned: { label, dpsStats: results.dpsStats, dmgOverTimeSeries: results.dmgOverTimeSeries } });
         },
 
         pinFromRankingEntry: async (entry) => {
