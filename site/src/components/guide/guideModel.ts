@@ -6,7 +6,7 @@ import { wornSets } from '../../utils/rotationExport';
 import { dpsFieldOf } from '../../data/dpsWindows';
 import { SIM_CONSTANTS, STAT_NAME_MAP, costsForLayout, mainStatOptionsFor } from '../../data/db';
 import { selfStatsReadBy } from '../../logic/MechanicOwners';
-import { calculateEchoStatsForSlot, r0WeaponFor } from '../../store/useRosterStore';
+import { calculateEchoStatsForSlot, r0WeaponFor, recommendedBuildFor } from '../../store/useRosterStore';
 import type { RankingEntry } from '../../store/useRankingsStore';
 import type { RankedRun } from '../../utils/DataLoader';
 import type { RotationSummary, RosterSlot, DpsWindowKey } from '../../types/results';
@@ -203,24 +203,42 @@ function kitScaledMainStats(character: string): string[] {
   return mainStatOptionsFor(3).filter(stat => read.has(STAT_NAME_MAP[stat]));
 }
 
-// Standard echo builds:
+/** Which main stats the echo build comparison varies. */
+export type EchoCompare = 'threeCost' | 'fourCost';
+
+const SCALAR_STATS = ['ATK %', 'HP %', 'DEF %'];
+
+// The unit's scaling stat: its default build's 1-cost pick, else the submitted 1-cost.
+function scalarStatOf(slot: TeamSlot): string {
+  const costs = costsForLayout(slot.layout);
+  const known = recommendedBuildFor(slot.character, slot.mode)?.mainStats?.cost1?.[0];
+  if (SCALAR_STATS.includes(known)) return known;
+  return slot.echoes.find((_, i) => costs[i] === 1)?.mainStat || 'ATK %';
+}
+
+// Three-cost: the standard builds
 // - 43311 with each 3-cost pair (element, scalar, kit stats)
 // - 44111 with the other crit stat
 // - 41111
-function echoVariants(slot: TeamSlot): EchoVariant[] {
-  const element = DataLoader.characterDB[slot.character]?.element;
-  const elementStat = `${element} DMG`;
-  const costs = costsForLayout(slot.layout);
-  const scalar = slot.echoes.find((_, i) => costs[i] === 1)?.mainStat || 'ATK %';
+// Four-cost: the current build with the first 4-cost on each crit stat and the scalar.
+function echoVariants(slot: TeamSlot, compare: EchoCompare): EchoVariant[] {
+  const scalar = scalarStatOf(slot);
   const first4 = slot.echoes[0]?.mainStat || 'CR DMG';
-  const otherCrit = first4 === 'CR Rate' ? 'CR DMG' : 'CR Rate';
-  const threeCost = [...new Set([elementStat, scalar, ...kitScaledMainStats(slot.character)])];
-
-  const variants: Array<[string, string[]]> = [
-    ...threeCost.flatMap((a, i) => threeCost.slice(i).map(b => ['4 3 3 1 1', [first4, a, b, scalar, scalar]] as [string, string[]])),
-    ['4 4 1 1 1', [first4, otherCrit, scalar, scalar, scalar]],
-    ['4 1 1 1 1', [first4, scalar, scalar, scalar, scalar]]
-  ];
+  let variants: Array<[string, string[], string]>;
+  if (compare === 'fourCost') {
+    variants = ['CR Rate', 'CR DMG', scalar].map(stat => [slot.layout, [stat, ...slot.echoes.slice(1).map(e => e.mainStat)], stat]);
+  } else {
+    const element = DataLoader.characterDB[slot.character]?.element;
+    const otherCrit = first4 === 'CR Rate' ? 'CR DMG' : 'CR Rate';
+    const threeCost = [...new Set([`${element} DMG`, scalar, ...kitScaledMainStats(slot.character)])];
+    const label = (layout: string, pair: string[]) => `${layout.replace(/ /g, '')} (${pair.map(shortStat).join('/')})`;
+    variants = [
+      ...threeCost.flatMap((a, i) => threeCost.slice(i).map(b =>
+        ['4 3 3 1 1', [first4, a, b, scalar, scalar], label('4 3 3 1 1', [a, b])] as [string, string[], string])),
+      ['4 4 1 1 1', [first4, otherCrit, scalar, scalar, scalar], label('4 4 1 1 1', [first4, otherCrit])],
+      ['4 1 1 1 1', [first4, scalar, scalar, scalar, scalar], label('4 1 1 1 1', [scalar, scalar])]
+    ];
+  }
 
   const seen = new Set<string>();
   return variants
@@ -232,15 +250,7 @@ function echoVariants(slot: TeamSlot): EchoVariant[] {
       seen.add(key);
       return true;
     })
-    .map(([layout, mains]) => {
-      const pair = layout === '4 4 1 1 1' ? [mains[0], mains[1]] : [mains[1], mains[2]];
-      return {
-        key: `${layout}|${mains.join(',')}`,
-        label: `${layout.replace(/ /g, '')} (${pair.map(shortStat).join('/')})`,
-        layout,
-        mainStats: mains
-      };
-    });
+    .map(([layout, mains, label]) => ({ key: `${layout}|${mains.join(',')}`, label, layout, mainStats: mains }));
 }
 
 const echoVariantKeyOf = (slot: TeamSlot): string => `${slot.layout}|${slot.echoes.map(e => e.mainStat).join(',')}`;
@@ -318,10 +328,10 @@ export interface EchoDef {
   isCurrent: boolean;
 }
 
-function echoDefs(group: GuideTeamGroup, config: GuideConfig, unitIdx: number, selectedJob: GuideJob): EchoDef[] {
+function echoDefs(group: GuideTeamGroup, config: GuideConfig, unitIdx: number, selectedJob: GuideJob, compare: EchoCompare): EchoDef[] {
   const slot = selectedJob.team[unitIdx];
   const currentKey = echoVariantKeyOf(slot);
-  const defs: EchoDef[] = echoVariants(slot).map(variant => ({
+  const defs: EchoDef[] = echoVariants(slot, compare).map(variant => ({
     variant,
     job: jobForConfig(group, withSlot(config, unitIdx, { echo: { layout: variant.layout, mainStats: variant.mainStats } })),
     isCurrent: variant.key === currentKey
@@ -406,14 +416,14 @@ export interface GuideView {
 
 // Null when the character isn't on the team.
 export function guideView(
-  group: GuideTeamGroup, config: GuideConfig, character: string, rankRange: RangeValue, addedWeapons: string[]
+  group: GuideTeamGroup, config: GuideConfig, character: string, rankRange: RangeValue, addedWeapons: string[], echoCompare: EchoCompare
 ): GuideView | null {
   const unitIdx = group.entries[0].team.findIndex(s => s.character === character);
   if (unitIdx < 0) return null;
   const selectedJob = jobForConfig(group, config);
   const seqDefs = sequenceDefs(group, config, unitIdx);
   const weapDefs = weaponDefs(group, config, unitIdx, character, rankEndpoints(rankRange), addedWeapons);
-  const echoDefList = echoDefs(group, config, unitIdx, selectedJob);
+  const echoDefList = echoDefs(group, config, unitIdx, selectedJob, echoCompare);
   const setDefList = echoSetDefs(group, config, unitIdx, selectedJob);
   return {
     unitIdx, selectedJob, seqDefs, weapDefs, echoDefList, setDefList,

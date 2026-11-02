@@ -4,11 +4,12 @@ import { ComparisonTable } from './ComparisonTable';
 import type { ComparisonRow } from './ComparisonTable';
 import { RangeSlider } from '../common/RangeSlider';
 import { IconSelect } from '../common/IconSelect';
+import { SegmentedToggle } from '../common/SegmentedToggle';
 import type { RangeValue } from '../common/RangeSlider';
 import { IMAGE_FOLDERS } from '../../data/db';
 import { metricValue, rankEndpoints, weaponsForUnit } from './guideModel';
 import { selectableOptions } from '../../utils/selectableContent';
-import type { GuideJob, GuideMeasure, GuideScope, SequenceDef, WeaponDef, EchoDef, EchoSetDef, EchoBuild } from './guideModel';
+import type { GuideJob, GuideMeasure, GuideScope, SequenceDef, WeaponDef, EchoDef, EchoSetDef, EchoBuild, EchoCompare } from './guideModel';
 import type { GuideSummaries } from './useGuideCalc';
 
 interface SectionProps {
@@ -137,9 +138,11 @@ export const EchoComparison: React.FC<SectionProps & {
   defs: EchoDef[];
   setDefs: EchoSetDef[];
   baselineJob: GuideJob;
+  compare: EchoCompare;
+  onCompareChange: (compare: EchoCompare) => void;
   onSelectEcho: (build: EchoBuild) => void;
   onSelectSet: (signature: string) => void;
-}> = ({ unit, measure, summaries, defs, setDefs, baselineJob, onSelectEcho, onSelectSet }) => {
+}> = ({ unit, measure, summaries, defs, setDefs, baselineJob, compare, onCompareChange, onSelectEcho, onSelectSet }) => {
   const statRows: ComparisonRow[] = defs.map(def => ({
     key: def.variant.key,
     label: def.variant.label,
@@ -177,7 +180,20 @@ export const EchoComparison: React.FC<SectionProps & {
 
   return (
     <div className="results-card guide-cmp-card">
-      <div className="results-card-header"><span>Echo Build Comparison ({scopeLabel(measure.scope)})</span></div>
+      <div className="results-card-header">
+        <span>Echo Build Comparison ({scopeLabel(measure.scope)})</span>
+        <div className="results-card-header-controls">
+          <SegmentedToggle
+            ariaLabel="Echo main stats compared"
+            value={compare}
+            onChange={onCompareChange}
+            options={[
+              { value: 'threeCost', label: '3-Cost', tooltip: 'Compare layouts and 3-cost main stats' },
+              { value: 'fourCost', label: '4-Cost', tooltip: 'Compare the 4-cost main stat: Crit Rate, Crit DMG or the scaling stat' }
+            ]}
+          />
+        </div>
+      </div>
       {setRows.length === 0 ? table(statRows, selectEcho) : (
         <div className="guide-pair">
           <div>

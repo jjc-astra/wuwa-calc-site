@@ -33,7 +33,7 @@ import { useGuideSelectionStore } from '../../store/useGuideSelectionStore';
 import { selectableOptions } from '../../utils/selectableContent';
 import { teamCharacters } from '../../utils/TeamUtils';
 import type { GuideSelection } from '../../store/useGuideSelectionStore';
-import type { GuideConfig, GuideJob, GuideMetric, GuideScope, GuideTeamGroup, GuideEntry } from './guideModel';
+import type { GuideConfig, GuideJob, GuideMetric, GuideScope, GuideTeamGroup, GuideEntry, EchoCompare } from './guideModel';
 import { useGuideFullCalc, useGuideSummaries, useGuideEntries, useGuideCache } from './useGuideCalc';
 import { warmWorkerPool } from '../../workers/calcWorkerClient';
 import { useRankedCharacters } from './useRankedCharacters';
@@ -141,6 +141,7 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
   const [metric, setMetric] = useState<GuideMetric>('dps');
   const [scope, setScope] = useState<GuideScope>('team');
   const [dpsWindow, setDpsWindow] = useState<DpsWindowKey>('twoMin');
+  const [echoCompare, setEchoCompare] = useState<EchoCompare>('threeCost');
   const measure = { metric, scope, window: dpsWindow };
 
   const config = picked && groups.some(g => g.key === picked.groupKey) ? picked : defaultCfg;
@@ -148,12 +149,12 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
   const defaultGroup = defaultCfg ? groups.find(g => g.key === defaultCfg.groupKey) : undefined;
 
   const view = useMemo(
-    () => (group && config ? guideView(group, config, character, rankRange, addedWeapons) : null),
-    [group, config, character, rankRange, addedWeapons]
+    () => (group && config ? guideView(group, config, character, rankRange, addedWeapons, echoCompare) : null),
+    [group, config, character, rankRange, addedWeapons, echoCompare]
   );
   const defaultView = useMemo(
-    () => (defaultGroup && defaultCfg ? guideView(defaultGroup, defaultCfg, character, FULL_RANK_RANGE, addedWeapons) : null),
-    [defaultGroup, defaultCfg, character, addedWeapons]
+    () => (defaultGroup && defaultCfg ? guideView(defaultGroup, defaultCfg, character, FULL_RANK_RANGE, addedWeapons, echoCompare) : null),
+    [defaultGroup, defaultCfg, character, addedWeapons, echoCompare]
   );
   const selectedJob = view?.selectedJob ?? null;
   const defaultJob = defaultView?.selectedJob ?? null;
@@ -281,6 +282,8 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
               measure={measure}
               summaries={summaries}
               defs={echoDefList}
+              compare={echoCompare}
+              onCompareChange={setEchoCompare}
               setDefs={setDefList}
               baselineJob={selectedJob}
               onSelectEcho={echo => updateSlot(unitIdx, { echo })}
