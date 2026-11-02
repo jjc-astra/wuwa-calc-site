@@ -112,6 +112,8 @@ export interface Effect {
   durations?: number[];
   // From hitResources: scaled by Energy Regen / buildup rate.
   rateScaled?: boolean;
+  // The hit's move tags, for applyTo-scoped buildup rates.
+  moveTags?: Set<string>;
   [key: string]: any;
 }
 

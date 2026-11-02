@@ -1,6 +1,6 @@
 // Resource pools: Energy, Concerto, Forte slots (per unit) and the enemy's Tune.
 import { DataLoader } from '../utils/DataLoader';
-import { buffedStats, buffsReaching } from './CombatCalculator';
+import { CombatCalculator, appliesToMove, buffedStats, buffsReaching } from './CombatCalculator';
 import { CHARACTER_DEFAULTS, ENEMY_DEFAULTS, STAT_NAME_MAP, BUILDUP_RATE_STATS } from '../data/db';
 import { FORTE_KEYS, forteSlotOf, maxForteKey } from '../utils/ResourceKeys';
 import { forteLabel } from '../utils/ForteNames';
@@ -69,14 +69,19 @@ export const energyRegenMult = (state: any, unit: string, team: any[]): number =
 const buildupRateCovers = (rateResource: string, key: string): boolean =>
   rateResource === key || (rateResource === 'forte' && forteSlotOf(key) !== null);
 
-// Buildup rate multiplier for `key`; 1 when none applies.
-export function buildupRateMult(state: any, unit: string, key: string, team: any[]): number {
+// Buildup rate multiplier for `key`; 1 when none applies. `moveTags`: the gaining move's, for applyTo-scoped rates.
+export function buildupRateMult(state: any, unit: string, key: string, team: any[], moveTags?: Set<string>): number {
   const statKeys = Object.keys(BUILDUP_RATE_STATS).filter(statKey => buildupRateCovers(BUILDUP_RATE_STATS[statKey], key));
   if (statKeys.length === 0) return 1;
   const buffs = buffsReaching(state, unit);
+  const rateBuffs = buffs.filter(b => b.stat && statKeys.includes(STAT_NAME_MAP[b.stat]));
   // Fast path: no buildup buffs.
-  if (!buffs.some(b => b.stat && statKeys.includes(STAT_NAME_MAP[b.stat]))) return 1;
-  const stats = buffedStats(state, unit, team);
+  if (rateBuffs.length === 0) return 1;
+  // Scoped rates reaching this move count as unscoped.
+  const scoped = moveTags ? rateBuffs.filter(b => appliesToMove(b, moveTags)) : [];
+  const stats = scoped.length === 0
+    ? buffedStats(state, unit, team)
+    : CombatCalculator.calculateFinalStats(unit, buffs.map(b => (scoped.includes(b) ? { ...b, applyTo: undefined } : b)), team, state);
   // Bonuses over base stack additively.
   return 1 + statKeys.reduce((sum, statKey) => sum + (stats[statKey] ?? CHARACTER_DEFAULTS.buildupRate) - CHARACTER_DEFAULTS.buildupRate, 0) / 100;
 }

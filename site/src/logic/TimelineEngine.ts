@@ -1220,7 +1220,7 @@ export class TimelineEngineClass {
           const amount = (Array.isArray(resArray) && resArray.length > nextHit.hitIndex) ? resArray[nextHit.hitIndex] : 0;
           if (amount !== 0) {
             const targetSelector = resKey === 'energy' ? '@Team' : '@Self';
-            this._processEffect({ type: 'resource', name: resKey, value: amount, target: targetSelector, provider: nextHit.origin.caster, rateScaled: true }, currentData, nextHit.origin.caster, activeTeam, activeRows, currentData.arrayIndex, team);
+            this._processEffect({ type: 'resource', name: resKey, value: amount, target: targetSelector, provider: nextHit.origin.caster, rateScaled: true, moveTags: nextHit.hitModifiers }, currentData, nextHit.origin.caster, activeTeam, activeRows, currentData.arrayIndex, team);
           }
         }
       }
@@ -1522,27 +1522,27 @@ export class TimelineEngineClass {
     addResource(currentData, 'energy', unit, base * (erPct / 100), resourceCap(unit, 'energy'));
   }
 
-  // Non-Energy resource change; scaled gains use the unit's buildup rate.
-  _changeResource(currentData: any, key: string, unit: string, amount: number, team: any[], scaled: boolean): void {
-    const value = scaled && amount > 0 ? amount * buildupRateMult(currentData, unit, key, team) : amount;
+  // Non-Energy resource change; scaled gains use the unit's buildup rate (scoped ones by `moveTags`).
+  _changeResource(currentData: any, key: string, unit: string, amount: number, team: any[], scaled: boolean, moveTags?: Set<string>): void {
+    const value = scaled && amount > 0 ? amount * buildupRateMult(currentData, unit, key, team, moveTags) : amount;
     addResource(currentData, key, unit, value, resourceCap(unit, key));
   }
 
   // Resource change for one unit. `scaled`: a move's own resources (rates apply); effects are flat.
-  _applyUnitResource(currentData: any, key: string, unit: string, amount: number, team: any[], scaled: boolean): void {
-    if (key !== 'energy') return this._changeResource(currentData, key, unit, amount, team, scaled);
+  _applyUnitResource(currentData: any, key: string, unit: string, amount: number, team: any[], scaled: boolean, moveTags?: Set<string>): void {
+    if (key !== 'energy') return this._changeResource(currentData, key, unit, amount, team, scaled, moveTags);
     if (amount > 0) return this._gainEnergy(currentData, unit, amount, team, scaled);
     if (amount < 0) (currentData.energyLog ??= []).push({ unit, spend: -amount });
     addResource(currentData, key, unit, amount, resourceCap(unit, key));
   }
 
-  _applyCastResources(currentData: any, moveData: MechanicNode, activeTeam: string[], team: any[]): void {
+  _applyCastResources(currentData: any, moveData: MechanicNode, activeTeam: string[], team: any[], moveTags: Set<string>): void {
     for (const key in moveData.castResources || {}) {
       const amount = this._resolveNumber(moveData.castResources![key], currentData, currentData.unit, team);
       if (!amount) continue;
       // Move Energy goes to the whole team; spends are the caster's.
       const units = key === 'energy' && amount > 0 ? activeTeam : [currentData.unit];
-      units.forEach(unit => this._applyUnitResource(currentData, key, unit, amount, team, true));
+      units.forEach(unit => this._applyUnitResource(currentData, key, unit, amount, team, true, moveTags));
     }
   }
 
@@ -1612,7 +1612,7 @@ export class TimelineEngineClass {
       this._startCooldown(currentData, unitName, moveData);
       this._logTimeline(currentData);
     }
-    this._applyCastResources(currentData, moveData, activeTeam, team);
+    this._applyCastResources(currentData, moveData, activeTeam, team, hitModifiers);
 
     const rawHitMults = Array.isArray(moveData.hitMults) ? moveData.hitMults : [];
     if (rawHitMults.length > 0) {
@@ -1837,8 +1837,8 @@ export class TimelineEngineClass {
     // Only hit resources (rateScaled) use regen/buildup rates.
     const scaled = resolvedEffect.rateScaled === true;
     // Enemy pool, at the causing unit's rate.
-    if (isEnemyResource(resKey)) return this._changeResource(currentData, resKey, resolvedEffect.provider || currentData.unit, amt, team, scaled);
-    targetUnits.forEach(tName => this._applyUnitResource(currentData, resKey, tName, amt, team, scaled));
+    if (isEnemyResource(resKey)) return this._changeResource(currentData, resKey, resolvedEffect.provider || currentData.unit, amt, team, scaled, resolvedEffect.moveTags);
+    targetUnits.forEach(tName => this._applyUnitResource(currentData, resKey, tName, amt, team, scaled, resolvedEffect.moveTags));
   }
 
   _handleBuffActionEffect(effect: Effect, currentData: any, targetUnits: string[], activeTeam: string[], activeRows: any[], team: any[]): void {

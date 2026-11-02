@@ -145,6 +145,13 @@ function classifyBuffIntoTotals(sLower: string, totalVal: number, isPct: boolean
   if (bucket) buffTotals[bucket] += totalVal;
 }
 
+/** A buff's applyTo tags; empty when unscoped. */
+export const applyToOf = (buff: Effect): string[] => (Array.isArray(buff.applyTo) ? buff.applyTo : buff.applyTo ? [buff.applyTo] : []);
+
+/** True when a scoped buff names one of a move's tags. */
+export const appliesToMove = (buff: Effect, moveTags: Set<string>): boolean =>
+  applyToOf(buff).some(tag => moveTags.has(String(tag).toLowerCase().trim()));
+
 const hitModifierSet = (hitModifiers: string[]): Set<string> => new Set((hitModifiers || []).map(m => String(m).toLowerCase().trim()));
 
 // True when `buff` applies to this hit (target and scope).
@@ -159,8 +166,7 @@ function buffOnHit(buff: Effect, executingUnit: string, stateData: any, modsSet:
   if (!(appliesToSelf || appliesToTeam || appliesToActive || targetsEnemy(buff))) return false;
 
   // applyTo overrides name-based scope.
-  const applyToList = Array.isArray(buff.applyTo) ? buff.applyTo : (buff.applyTo ? [buff.applyTo] : []);
-  if (applyToList.length > 0) return applyToList.some(reqTag => modsSet.has(String(reqTag).toLowerCase().trim()));
+  if (applyToOf(buff).length > 0) return appliesToMove(buff, modsSet);
 
   const requiredScope = findScope(buff.stat.toLowerCase().trim());
   return !requiredScope || SCOPE_HIT_TAGS[requiredScope].some(t => modsSet.has(t));
@@ -396,6 +402,8 @@ export const CombatCalculator = {
         }
         // Not a sheet stat.
         if (stats[baseStatKey] === undefined) return;
+        // Scoped buildup rates count only on their moves (buildupRateMult).
+        if (baseStatKey in BUILDUP_RATE_STATS && applyToOf(buff).length > 0) return;
 
         const provider = buff.provider || unitName;
         const scope = scopeState ? { state: scopeState, provider, team } : undefined;
