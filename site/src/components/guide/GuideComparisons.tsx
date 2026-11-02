@@ -8,13 +8,12 @@ import type { RangeValue } from '../common/RangeSlider';
 import { IMAGE_FOLDERS } from '../../data/db';
 import { metricValue, rankEndpoints, weaponsForUnit } from './guideModel';
 import { selectableOptions } from '../../utils/selectableContent';
-import type { GuideJob, GuideMetric, GuideScope, SequenceDef, WeaponDef, EchoDef, EchoSetDef, EchoBuild } from './guideModel';
+import type { GuideJob, GuideMeasure, GuideScope, SequenceDef, WeaponDef, EchoDef, EchoSetDef, EchoBuild } from './guideModel';
 import type { GuideSummaries } from './useGuideCalc';
 
 interface SectionProps {
   unit: string;
-  metric: GuideMetric;
-  scope: GuideScope;
+  measure: GuideMeasure;
   summaries: GuideSummaries;
 }
 
@@ -23,15 +22,15 @@ const formatShort = (v: number): string => (v >= 1000 ? `${(v / 1000).toFixed(1)
 
 const scopeLabel = (scope: GuideScope) => (scope === 'team' ? 'Team' : 'Personal');
 
-const rowValue = (summaries: GuideSummaries, job: GuideJob, unit: string, metric: GuideMetric, scope: GuideScope) => {
+const rowValue = (summaries: GuideSummaries, job: GuideJob, unit: string, measure: GuideMeasure) => {
   const summary = summaries.get(job.key);
-  return summary ? metricValue(summary, unit, metric, scope) : undefined;
+  return summary ? metricValue(summary, unit, measure) : undefined;
 };
 
 // --- Sequences ----------------------------------------------------------------------------
 
 export const SequenceComparison: React.FC<SectionProps & { defs: SequenceDef[]; selected: number; onSelect: (seq: number) => void }> = ({
-  unit, metric, scope, summaries, defs, selected, onSelect
+  unit, measure, summaries, defs, selected, onSelect
 }) => {
   const s0Job = defs[0]?.job;
   const baselineJob = defs.find(def => def.sequence === selected)?.job;
@@ -40,7 +39,7 @@ export const SequenceComparison: React.FC<SectionProps & { defs: SequenceDef[]; 
     return {
       key: String(def.sequence),
       label: `S${def.sequence}`,
-      values: [rowValue(summaries, def.job, unit, metric, scope)],
+      values: [rowValue(summaries, def.job, unit, measure)],
       tag: rotationChanged ? `S${def.rotationSequence} rotation` : undefined,
       tagTooltip: rotationChanged ? `Uses the rotation submitted for S${def.rotationSequence}, not the S0 one` : undefined,
       isSelected: def.sequence === selected,
@@ -50,12 +49,12 @@ export const SequenceComparison: React.FC<SectionProps & { defs: SequenceDef[]; 
 
   return (
     <div className="results-card guide-cmp-card">
-      <div className="results-card-header"><span>Sequence Value ({scopeLabel(scope)})</span></div>
+      <div className="results-card-header"><span>Sequence Value ({scopeLabel(measure.scope)})</span></div>
       <ComparisonTable
-        columns={[{ label: scopeLabel(scope) }]}
+        columns={[{ label: scopeLabel(measure.scope) }]}
         rows={rows}
-        unitLabel={metric.toUpperCase()}
-        baseline={baselineJob ? rowValue(summaries, baselineJob, unit, metric, scope) : undefined}
+        unitLabel={measure.metric.toUpperCase()}
+        baseline={baselineJob ? rowValue(summaries, baselineJob, unit, measure) : undefined}
         onSelectRow={key => onSelect(Number(key))}
       />
     </div>
@@ -73,7 +72,7 @@ export const WeaponComparison: React.FC<SectionProps & {
   onSelect: (weapon: string) => void;
   onAdd: (weapon: string) => void;
   onRemove: (weapon: string) => void;
-}> = ({ unit, metric, scope, summaries, defs, baselineJob, selectedWeapon, rankRange, onRankRangeChange, onSelect, onAdd, onRemove }) => {
+}> = ({ unit, measure, summaries, defs, baselineJob, selectedWeapon, rankRange, onRankRangeChange, onSelect, onAdd, onRemove }) => {
   const ranks = rankEndpoints(rankRange);
   const addOptions = selectableOptions('weapon', weaponsForUnit(unit)).map(opt =>
     defs.some(d => d.weapon === opt.value) ? { ...opt, disabled: true, disabledTooltip: 'Already in the comparison' } : opt
@@ -84,7 +83,9 @@ export const WeaponComparison: React.FC<SectionProps & {
       key: def.weapon,
       label: def.weapon,
       icon: { name: def.weapon, folder: IMAGE_FOLDERS.WEAPONS, rect: true },
-      values: def.jobs.map(({ job }) => rowValue(summaries, job, unit, metric, scope)),
+      values: def.jobs.map(({ job }) => rowValue(summaries, job, unit, measure)),
+      tag: def.isR0 ? 'R0' : undefined,
+      tagTooltip: def.isR0 ? `${unit}'s default non-signature weapon` : undefined,
       isSelected: def.weapon === selectedWeapon,
       removable: def.removable,
       error: def.jobs.map(({ job }) => summaries.error(job.key)).find(Boolean)
@@ -95,7 +96,7 @@ export const WeaponComparison: React.FC<SectionProps & {
   return (
     <div className="results-card guide-cmp-card">
       <div className="results-card-header">
-        <span>Weapon Comparison ({scopeLabel(scope)})</span>
+        <span>Weapon Comparison ({scopeLabel(measure.scope)})</span>
       </div>
       <div className="guide-cmp-controls">
         <div className="guide-cmp-rank-range">
@@ -120,8 +121,8 @@ export const WeaponComparison: React.FC<SectionProps & {
       <ComparisonTable
         columns={ranks.map(rank => ({ label: `R${rank}` }))}
         rows={rows}
-        unitLabel={metric.toUpperCase()}
-        baseline={rowValue(summaries, baselineJob, unit, metric, scope)}
+        unitLabel={measure.metric.toUpperCase()}
+        baseline={rowValue(summaries, baselineJob, unit, measure)}
         onSelectRow={onSelect}
         onRemoveRow={onRemove}
         formatValue={formatShort}
@@ -138,11 +139,11 @@ export const EchoComparison: React.FC<SectionProps & {
   baselineJob: GuideJob;
   onSelectEcho: (build: EchoBuild) => void;
   onSelectSet: (signature: string) => void;
-}> = ({ unit, metric, scope, summaries, defs, setDefs, baselineJob, onSelectEcho, onSelectSet }) => {
+}> = ({ unit, measure, summaries, defs, setDefs, baselineJob, onSelectEcho, onSelectSet }) => {
   const statRows: ComparisonRow[] = defs.map(def => ({
     key: def.variant.key,
     label: def.variant.label,
-    values: [rowValue(summaries, def.job, unit, metric, scope)],
+    values: [rowValue(summaries, def.job, unit, measure)],
     isSelected: def.isCurrent,
     error: summaries.error(def.job.key)
   }));
@@ -151,17 +152,17 @@ export const EchoComparison: React.FC<SectionProps & {
     label: def.label,
     labelTooltip: def.detail,
     icon: def.mainSet ? { name: def.mainSet, folder: IMAGE_FOLDERS.ECHO_SETS } : undefined,
-    values: [rowValue(summaries, def.job, unit, metric, scope)],
+    values: [rowValue(summaries, def.job, unit, measure)],
     isSelected: def.isCurrent,
     error: summaries.error(def.job.key)
   }));
 
   const table = (rows: ComparisonRow[], onSelectRow: (key: string) => void) => (
     <ComparisonTable
-      columns={[{ label: scopeLabel(scope) }]}
+      columns={[{ label: scopeLabel(measure.scope) }]}
       rows={rows}
-      unitLabel={metric.toUpperCase()}
-      baseline={rowValue(summaries, baselineJob, unit, metric, scope)}
+      unitLabel={measure.metric.toUpperCase()}
+      baseline={rowValue(summaries, baselineJob, unit, measure)}
       onSelectRow={onSelectRow}
     />
   );
@@ -176,7 +177,7 @@ export const EchoComparison: React.FC<SectionProps & {
 
   return (
     <div className="results-card guide-cmp-card">
-      <div className="results-card-header"><span>Echo Build Comparison ({scopeLabel(scope)})</span></div>
+      <div className="results-card-header"><span>Echo Build Comparison ({scopeLabel(measure.scope)})</span></div>
       {setRows.length === 0 ? table(statRows, selectEcho) : (
         <div className="guide-pair">
           <div>

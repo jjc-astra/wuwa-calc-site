@@ -800,7 +800,7 @@ export const DIAGRAMS = {
     end
     subgraph Jobs["guideView → jobs"]
       direction TB
-      J1["jobForConfig: the chosen set build's submissions;<br/>pickRotationEntry: highest sequence ≤ the selection<br/>(else the lowest); buildTeam applies sequence,<br/>weapon, rank, echo build"]:::logic
+      J1["jobForConfig: the chosen set build's submissions;<br/>pickRotationEntry: highest sequence ≤ the selection<br/>(else the lowest), then the selected weapons; buildTeam applies sequence,<br/>weapon, rank, echo build"]:::logic
       J1 --> J2["selected + comparison rows: S0–S6; echo builds<br/>43311 (each 3-cost pair of Ele, scalar and stats<br/>the kit scales with, e.g. ER), 44111, 41111<br/>(+ submitted); set builds<br/>(if 2+); weapons (team's, added, selected) at<br/>each end of the rank range"]:::logic
       J2 --> J3["+ the default view's jobs; a job key =<br/>what would calculate differently"]:::logic
     end
@@ -831,7 +831,7 @@ export const DIAGRAMS = {
     subgraph Shown["shown"]
       direction TB
       U1["Team Setup, EchoStatsPanel (Required ER),<br/>Results panels via ResultsSourceContext,<br/>RotationTimeline"]:::ui
-      U2["Comparisons: metricValue DPS / DPR,<br/>Team / Personal, % of the selected;<br/>GuideRankings"]:::ui
+      U2["Comparisons: metricValue DPS / DPR,<br/>Team / Personal, per DPS window, % of the selected;<br/>GuideRankings"]:::ui
       U1 ~~~ U2
     end
     Cache --> Run --> Save

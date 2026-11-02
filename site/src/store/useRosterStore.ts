@@ -87,6 +87,10 @@ export const recommendedBuildFor = (character: string, mode?: string): any | und
   return forMode ? { ...build, ...forMode } : build;
 };
 
+/** The unit's R0 weapon: its default non-signature pick (recommended build's `r0Weapon`). */
+export const r0WeaponFor = (character: string, mode?: string): string | undefined =>
+  recommendedBuildFor(character, mode)?.r0Weapon || undefined;
+
 /** A build's default substats on this slot's echoes. */
 export function defaultSubstats(slot: TeamSlot, build: any): TeamSlot['echoes'] {
   const remainingSubs = { ...(build.subStats || {}) };

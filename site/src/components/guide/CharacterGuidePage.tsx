@@ -19,6 +19,8 @@ import { DpsPanel } from '../results/DpsPanel';
 import { TeamContributionPanel } from '../results/TeamContributionPanel';
 import { RotationTimePanel } from '../results/RotationTimePanel';
 import { SubstatWorthChart } from '../results/SubstatWorthChart';
+import { DpsWindowSelect } from '../results/DpsWindowSelect';
+import type { DpsWindowKey } from '../../types/results';
 import { RotationTimeline } from '../timeline/RotationTimeline';
 import { GuideRankings } from './GuideRankings';
 import { EchoStatsPanel } from './EchoStatsPanel';
@@ -138,6 +140,8 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
   const setShowInputs = (show: boolean) => updateSelection({ showInputs: show });
   const [metric, setMetric] = useState<GuideMetric>('dps');
   const [scope, setScope] = useState<GuideScope>('team');
+  const [dpsWindow, setDpsWindow] = useState<DpsWindowKey>('twoMin');
+  const measure = { metric, scope, window: dpsWindow };
 
   const config = picked && groups.some(g => g.key === picked.groupKey) ? picked : defaultCfg;
   const group = config ? groups.find(g => g.key === config.groupKey) : undefined;
@@ -247,12 +251,12 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
                   { value: 'dpr', label: 'DPR' }
                 ]}
               />
+              <DpsWindowSelect value={dpsWindow} onChange={setDpsWindow} />
             </div>
             <div className="guide-pair-weighted">
               <SequenceComparison
                 unit={character}
-                metric={metric}
-                scope={scope}
+                measure={measure}
                 summaries={summaries}
                 defs={seqDefs}
                 selected={config.slots[unitIdx].sequence}
@@ -260,8 +264,7 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
               />
               <WeaponComparison
                 unit={character}
-                metric={metric}
-                scope={scope}
+                measure={measure}
                 summaries={summaries}
                 defs={weapDefs}
                 baselineJob={selectedJob}
@@ -275,8 +278,7 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
             </div>
             <EchoComparison
               unit={character}
-              metric={metric}
-              scope={scope}
+              measure={measure}
               summaries={summaries}
               defs={echoDefList}
               setDefs={setDefList}

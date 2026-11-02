@@ -6,10 +6,10 @@ import { wornSets } from '../../utils/rotationExport';
 import { dpsFieldOf } from '../../data/dpsWindows';
 import { SIM_CONSTANTS, STAT_NAME_MAP, costsForLayout, mainStatOptionsFor } from '../../data/db';
 import { selfStatsReadBy } from '../../logic/MechanicOwners';
-import { calculateEchoStatsForSlot } from '../../store/useRosterStore';
+import { calculateEchoStatsForSlot, r0WeaponFor } from '../../store/useRosterStore';
 import type { RankingEntry } from '../../store/useRankingsStore';
 import type { RankedRun } from '../../utils/DataLoader';
-import type { RotationSummary, RosterSlot } from '../../types/results';
+import type { RotationSummary, RosterSlot, DpsWindowKey } from '../../types/results';
 import type { TeamSlot } from '../../types';
 import type { RangeValue } from '../common/RangeSlider';
 
@@ -53,20 +53,17 @@ const entryDps = (entry: RankingEntry): number => entry.dpsStats[dpsFieldOf('two
 
 const slotCounts = (character: string | undefined): boolean => !!character && !isFourStar(character);
 
-// Highest-sequence submission not exceeding the selection (ties: higher DPS; fallback: lowest).
-function pickRotationEntry(group: GuideTeamGroup, sequences: number[]): GuideEntry {
+// Highest-sequence submission not exceeding the selection (fallback: lowest).
+// Ties: more slots submitted with the selected weapons, then higher DPS.
+function pickRotationEntry(group: GuideTeamGroup, sequences: number[], weapons: string[] = []): GuideEntry {
   const seqSum = (e: GuideEntry) => e.team.reduce((sum, s, i) => sum + (slotCounts(s.character) ? e.sequences[i] ?? 0 : 0), 0);
+  const weaponMatches = (e: GuideEntry) => e.team.filter((s, i) => s.character && s.weapon === weapons[i]).length;
   const fits = group.entries.filter(e =>
     e.team.every((s, i) => !slotCounts(s.character) || (e.sequences[i] ?? 0) <= (sequences[i] ?? 0)));
-  if (fits.length > 0) {
-    return fits.reduce((best, e) => {
-      const diff = seqSum(e) - seqSum(best);
-      return diff > 0 || (diff === 0 && entryDps(e) > entryDps(best)) ? e : best;
-    });
-  }
-  return group.entries.reduce((best, e) => {
-    const diff = seqSum(e) - seqSum(best);
-    return diff < 0 || (diff === 0 && entryDps(e) > entryDps(best)) ? e : best;
+  const direction = fits.length > 0 ? 1 : -1;
+  return (fits.length > 0 ? fits : group.entries).reduce((best, e) => {
+    const diff = direction * (seqSum(e) - seqSum(best)) || weaponMatches(e) - weaponMatches(best);
+    return diff > 0 || (diff === 0 && entryDps(e) > entryDps(best)) ? e : best;
   });
 }
 
@@ -160,7 +157,7 @@ const setSignatureOf = (slot: RosterSlot): string => {
 function jobForConfig(group: GuideTeamGroup, config: GuideConfig): GuideJob {
   const withSets = group.entries.filter(e =>
     config.slots.every((s, i) => !s.setSignature || setSignatureOf(e.team[i]) === s.setSignature));
-  const entry = pickRotationEntry({ ...group, entries: withSets.length > 0 ? withSets : group.entries }, config.slots.map(s => s.sequence));
+  const entry = pickRotationEntry({ ...group, entries: withSets.length > 0 ? withSets : group.entries }, config.slots.map(s => s.sequence), config.slots.map(s => s.weapon));
   return makeJob(entry, buildTeam(entry, config.slots));
 }
 
@@ -169,19 +166,23 @@ function jobForConfig(group: GuideTeamGroup, config: GuideConfig): GuideJob {
 export type GuideMetric = 'dps' | 'dpr';
 export type GuideScope = 'personal' | 'team';
 
-// DPS: 2-minute window (personal: per own on-field time). DPR: Avg Loop damage per loop.
-export function metricValue(summary: RotationSummary | undefined, unit: string, metric: GuideMetric, scope: GuideScope): number | null {
+/** What the comparisons show: DPS or DPR, team or personal, over a DPS window. */
+export interface GuideMeasure {
+  metric: GuideMetric;
+  scope: GuideScope;
+  window: DpsWindowKey;
+}
+
+// Over `window`. DPS: team per second, personal per own on-field second. DPR: damage dealt in the window (Avg Loop: per loop).
+export function metricValue(summary: RotationSummary | undefined, unit: string, { metric, scope, window }: GuideMeasure): number | null {
   if (!summary) return null;
-  if (metric === 'dps') {
-    if (scope === 'team') return summary.dpsStats.twoMinDps;
-    const { team, fieldTime } = summary.contribution.twoMin;
-    const seconds = fieldTime?.[unit] ?? 0;
-    return seconds > 0 ? (team.find(s => s.label === unit)?.dmg ?? 0) / seconds : null;
-  }
-  if (summary.dpsStats.avgLoopDps === null) return null;
-  const slices = summary.contribution.avgLoop.team;
-  if (scope === 'team') return slices.reduce((sum, s) => sum + s.dmg, 0);
-  return slices.find(s => s.label === unit)?.dmg ?? 0;
+  const teamDps = summary.dpsStats[dpsFieldOf(window)];
+  if (teamDps === null) return null;
+  if (metric === 'dps' && scope === 'team') return teamDps;
+  const { team, fieldTime } = summary.contribution[window];
+  if (metric === 'dpr') return scope === 'team' ? team.reduce((sum, s) => sum + s.dmg, 0) : team.find(s => s.label === unit)?.dmg ?? 0;
+  const seconds = fieldTime?.[unit] ?? 0;
+  return seconds > 0 ? (team.find(s => s.label === unit)?.dmg ?? 0) / seconds : null;
 }
 
 // --- Echo variants ------------------------------------------------------------------------
@@ -287,20 +288,26 @@ function sequenceDefs(group: GuideTeamGroup, config: GuideConfig, unitIdx: numbe
 export interface WeaponDef {
   weapon: string;
   removable: boolean;
+  // The unit's default non-signature weapon.
+  isR0: boolean;
   jobs: Array<{ rank: number; job: GuideJob }>;
 }
 
 export const rankEndpoints = (range: RangeValue): number[] => (range.min === range.max ? [range.min] : [range.min, range.max]);
 
-// Team's weapon, then added ones, then the selected one.
+// Team's weapon, the unit's R0 weapon, then added ones, then the selected one.
 function weaponDefs(group: GuideTeamGroup, config: GuideConfig, unitIdx: number, unit: string, ranks: number[], added: string[]): WeaponDef[] {
-  const base = s0r1Config(group).slots[unitIdx].weapon;
+  const baseSlot = pickS0Entry(group).team[unitIdx];
+  const base = baseSlot.weapon;
   const selected = config.slots[unitIdx].weapon;
   const options = new Set(weaponOptionsFor(unit));
-  const weapons = [...new Set([base, ...added.filter(w => options.has(w)), selected])];
+  const r0 = r0WeaponFor(unit, baseSlot.mode);
+  const prefilled = [base, ...(r0 && options.has(r0) ? [r0] : [])];
+  const weapons = [...new Set([...prefilled, ...added.filter(w => options.has(w)), selected])];
   return weapons.map(weapon => ({
     weapon,
-    removable: weapon !== base && weapon !== selected,
+    removable: !prefilled.includes(weapon) && weapon !== selected,
+    isR0: weapon === r0,
     jobs: ranks.map(rank => ({ rank, job: jobForConfig(group, withSlot(config, unitIdx, { weapon, rank })) }))
   }));
 }
