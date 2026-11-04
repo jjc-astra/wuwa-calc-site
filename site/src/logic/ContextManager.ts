@@ -5,7 +5,7 @@ import { CHARACTER_DEFAULTS, ENEMY_DEFAULTS, GAME_DEFAULTS } from '../data/db';
 import { forteAlias } from '../utils/ForteNames';
 import { forteKey, maxForteKey } from '../utils/ResourceKeys';
 import { forteMax, readResource, resourceCap } from './resources';
-import { isDslExpr, rowStartEvents, ruleEventsMatch, scopedKey } from './engineValues';
+import { castRule, compareComboRank, isDslExpr, rowStartEvents, ruleEventsMatch, scopedKey } from './engineValues';
 import { DSLParser } from './dsl/dslParser';
 import { MechanicKey } from '../utils/MechanicKey';
 import { bindingKey, bindingsOf } from './inputBindings';
@@ -33,7 +33,7 @@ export const ContextManager = {
     return Math.max(0, state?.cooldowns?.[key] || 0);
   },
 
-  /** @Move.IsNextInCombo: no higher-priority move on the same input is castable. */
+  /** @Move.IsNextInCombo: no higher-ranked move (priority, then comboOrder) on the same input is castable. */
   isNextInCombo: (state: any, unit: string, team: any[]): boolean => {
     const currentKey = state.action || '';
     const current = DataLoader.mechanicsDB[currentKey];
@@ -47,6 +47,7 @@ export const ContextManager = {
         return parseFloat(String(isDslExpr(raw) ? DSLParser.evaluateMath(raw, ctx(), unit) : raw)) || 0;
       };
       const currentPriority = priorityOf(current);
+      const outranksCurrent = (move: any): boolean => compareComboRank(priorityOf(move), move, currentPriority, current) > 0;
       // The binding this row cast with, if resolved; else the move's main input.
       const binding = bindingKey(state.action === currentKey && state.input ? state : current);
       const stance = state.entryStance || state.stance || CHARACTER_DEFAULTS.defaultStance;
@@ -54,9 +55,10 @@ export const ContextManager = {
         if (key === currentKey || !MechanicKey.belongsTo(key, unit) || move.isPassive) return false;
         if (!bindingsOf(move).some(b => bindingKey(b) === binding)) return false;
         if (move.stanceReq && move.stanceReq !== 'Any' && move.stanceReq !== stance) return false;
-        if (priorityOf(move) <= currentPriority) return false;
-        if (!move.triggerRule) return true;
-        if (!move._compiledRule || typeof move._compiledRule.evaluate !== 'function') move._compiledRule = DSLParser.compile(move.triggerRule);
+        if (!outranksCurrent(move)) return false;
+        const rule = castRule(move);
+        if (!rule) return true;
+        if (!move._compiledRule || typeof move._compiledRule.evaluate !== 'function') move._compiledRule = DSLParser.compile(rule);
         if (!move._compiledRule || typeof move._compiledRule.evaluate !== 'function') return false;
         if (!ruleEventsMatch(move._compiledRule, rowStartEvents(key, move, unit, unit), unit)) return false;
         return !!move._compiledRule.evaluate(ContextManager.buildContext({ ...state, action: key }, unit, team), unit);
@@ -111,6 +113,8 @@ export const ContextManager = {
       if (rosterUnit) {
         currentSequence = parseInt(rosterUnit.sequence, 10) || 0;
       }
+      // Slot mode: 0 None, 1 mode1, 2 mode2.
+      const currentMode = ({ mode1: 1, mode2: 2 } as Record<string, number>)[rosterUnit?.mode] ?? 0;
 
       const dbChar = DataLoader.characterDB[activeUnitName] || {};
       const fCount = dbChar.forteCount || CHARACTER_DEFAULTS.forteCount;
@@ -123,6 +127,7 @@ export const ContextManager = {
         prevAction: selfPrevAction,
         nextAction: activeState.nextUnitActions?.[activeUnitName] ?? null,
         sequence: currentSequence,
+        mode: currentMode,
         energy: readResource(activeState, 'energy', activeUnitName),
         maxEnergy: resourceCap(activeUnitName, 'energy'),
         concerto: readResource(activeState, 'concerto', activeUnitName),

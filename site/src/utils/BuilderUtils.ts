@@ -59,6 +59,8 @@ export const BuilderUtils = {
 
       const priority = CommonUtils.parseMixed(node.priority);
       if (priority !== undefined) clean.priority = priority;
+      const comboOrder = Number(node.comboOrder);
+      if (comboOrder) clean.comboOrder = comboOrder;
       const comboWindow = CommonUtils.parseMixed(node.comboWindow);
       if (comboWindow !== undefined) clean.comboWindow = comboWindow;
       const actionDuration = CommonUtils.parseMixed(node.actionDuration);

@@ -94,9 +94,12 @@ export interface Effect {
   value?: number | string;
   stacks?: number;
   maxStacks?: number | string;
+  // Cap on the stacks one `source` can add; per-source counts live in sourceStacks.
+  maxStacksPerSource?: number | string;
+  sourceStacks?: Record<string, number>;
   duration?: number | string;
   stackBehavior?: 'resettable' | 'separate';
-  expireBehavior?: 'clear' | 'drop_one' | 'drop_half';
+  expireBehavior?: 'clear' | 'drop_one' | 'drop_half' | 'keep';
   removeOnSwap?: boolean;
   applyTo?: string | string[];
   action?: 'add' | 'set' | 'copy' | 'consume' | 'detonate' | 'remove' | 'delete' | 'pause' | 'resume' | 'extend';
@@ -193,6 +196,8 @@ export interface MechanicNode {
   // Other inputs that also cast it. inputType 'Hold' here: carried on from the previous move's hold.
   altInputs?: InputBinding[];
   priority?: number | string;
+  // Combo stage order among same-input moves of equal priority (@Move.IsNextInCombo only; cancels ignore it).
+  comboOrder?: number;
   holdConfig?: HoldConfig;
   holdGroupId?: string;
   cancelTimings?: CancelTiming[];

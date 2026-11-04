@@ -38,7 +38,9 @@ export const MECHANICS_NOTATION = {
     FORTE_SLOT: forteKey(1),
     WINDOW_CENTER: '65',
     WINDOW_SIZE: '10'
-  }
+  },
+  // An effect `source` in a tracker listener: takes the source of the tracker effect that fired it.
+  EVENT_SOURCE: '@EventSource'
 };
 
 // A mechanic's `input` tag -> the physical key/click the Timeline's input flags label it with.

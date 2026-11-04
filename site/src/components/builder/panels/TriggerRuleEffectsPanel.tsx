@@ -59,7 +59,7 @@ interface EffectDraft {
   max: string;
   dur: string;
   stackBeh: 'resettable' | 'separate';
-  expBeh: 'clear' | 'drop_one' | 'drop_half';
+  expBeh: 'clear' | 'drop_one' | 'drop_half' | 'keep';
   remSwap: boolean;
   action: string;
   targetKind: 'buff' | 'cooldown';
@@ -359,7 +359,8 @@ export const TriggerRuleEffectsPanel: React.FC<TriggerRuleEffectsPanelProps> = (
                     options={[
                       { value: 'clear', label: 'Clear All' },
                       { value: 'drop_one', label: 'Drop 1 Stack' },
-                      { value: 'drop_half', label: 'Drop Half' }
+                      { value: 'drop_half', label: 'Drop Half' },
+                      { value: 'keep', label: 'Keep Stacks' }
                     ]}
                   />
                   <div className="form-group flex-1" style={{ minWidth: '8.125rem', margin: 0 }}>

@@ -187,7 +187,7 @@ export const MoveTimelinePanel: React.FC<MoveTimelinePanelProps> = ({ row, onInp
         ['Saved', secs(Math.max(0, base - cut))], ['Hits landed', `${allowedHits} of ${hitCount}`])
     });
   }
-  const swapAt = move?.swapTiming !== undefined ? Math.max(num(move.swapTiming) ?? 0, GAME_DEFAULTS.swapTime) : undefined;
+  const swapAt = move ? Math.max(num(move.swapTiming) ?? 0, GAME_DEFAULTS.swapTime) : undefined;
   if (swapAt !== undefined && swapAt !== cut) {
     flags.push({ at: swapAt, label: 'Swap OK', html: html('Swap Window', ['From', framesAndSecs(swapAt)], ['Note', 'Earliest swap out']) });
   }

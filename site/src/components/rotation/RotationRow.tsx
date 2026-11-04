@@ -24,7 +24,7 @@ import { applyBuilderOverridesFor } from '../../workers/builderOverridePayload';
 import { useLinkedRowStore } from '../../store/useLinkedRowStore';
 import { useTimelineViewStore } from '../../store/useTimelineViewStore';
 import { TWO_MIN } from '../../logic/rotationRows';
-import { rowStartEvents, ruleEventsMatch } from '../../logic/engineValues';
+import { castRule, compareComboRank, rowStartEvents, ruleEventsMatch } from '../../logic/engineValues';
 import { bindingKey, bindingsOf } from '../../logic/inputBindings';
 
 interface RotationRowProps {
@@ -149,7 +149,8 @@ export const RotationRow = React.memo<RotationRowProps>(({
   const getActionGroups = (): ActionGroup[] => {
     if (!selectedUnit) return [];
     // Rules read the pre-cast state.
-    const ctx = ContextManager.buildContext(row.dropdownState ?? row, selectedUnit, team);
+    const preCastState = row.dropdownState ?? row;
+    const ctx = ContextManager.buildContext(preCastState, selectedUnit, team);
     const skillGroupNames = dbChar.skillGroupNames || {};
     const slot = team.find(t => t.character === selectedUnit);
     const activeMode = slot?.mode && slot.mode !== 'None' ? slot.mode : null;
@@ -161,13 +162,18 @@ export const RotationRow = React.memo<RotationRowProps>(({
     const checkValid = (m: any, key: string) => {
       if (!m || m.isPassive) return false;
       if (m.modeScope && m.modeScope !== 'both' && activeMode && m.modeScope !== activeMode) return false;
-      if (m.triggerRule && m.triggerRule.trim() !== '') {
+      const rule = castRule(m);
+      if (rule) {
         if (!m._compiledRule || typeof m._compiledRule.evaluate !== 'function') {
-          m._compiledRule = DSLParser.compile(m.triggerRule);
+          m._compiledRule = DSLParser.compile(rule);
         }
         if (m._compiledRule && typeof m._compiledRule.evaluate === 'function' && ctx) {
           if (!ruleEventsMatch(m._compiledRule, rowStartEvents(key, m, selectedUnit, row.prevRow?.unit), selectedUnit)) return false;
-          if (!m._compiledRule.evaluate(ctx, selectedUnit)) return false;
+          // @Move.IsNextInCombo reads the move being cast: this candidate, on its own input.
+          const ruleCtx = rule.includes('IsNextInCombo')
+            ? ContextManager.buildContext({ ...preCastState, action: key, input: undefined, inputType: undefined }, selectedUnit, team)
+            : ctx;
+          if (!m._compiledRule.evaluate(ruleCtx, selectedUnit)) return false;
         }
       }
       if (ctx) {
@@ -209,7 +215,8 @@ export const RotationRow = React.memo<RotationRowProps>(({
       });
     });
 
-    // One move per (input, inputType): the highest-priority valid one, plus the current selection.
+    const outranks = (a: any, b: any) => compareComboRank(resolvePriority(a.priority), a, resolvePriority(b.priority), b) > 0;
+    // One move per (input, inputType): the highest-ranked valid one (priority, then comboOrder), plus the current selection.
     // A move with several inputs competes in each one's group.
     const byInputKey = new Map<string, Candidate[]>();
     const finalCandidates: Candidate[] = [];
@@ -226,7 +233,7 @@ export const RotationRow = React.memo<RotationRowProps>(({
       if (group.length === 1) { finalCandidates.push(group[0]); return; }
       const validMembers = group.filter(c => c.isValid);
       const winnerPool = validMembers.length > 0 ? validMembers : group;
-      const winner = winnerPool.reduce((best, cur) => (resolvePriority(cur.m.priority) > resolvePriority(best.m.priority) ? cur : best));
+      const winner = winnerPool.reduce((best, cur) => (outranks(cur.m, best.m) ? cur : best));
       finalCandidates.push(winner);
       const current = group.find(c => c.id === row.action && c.id !== winner.id);
       if (current) finalCandidates.push(current);
@@ -420,7 +427,7 @@ export const RotationRow = React.memo<RotationRowProps>(({
           className="loop-split-tag"
           {...tip(loopSplit.manual
             ? 'Sub-loop starts here (set by Split Loop). Ending Rotation can start after any sub-loop.'
-            : 'Sub-loop starts here, after the main DPS Outro. Ending Rotation can start after any sub-loop.')}
+            : 'Sub-loop starts here, after the main DPS normal (non-Unison) Outro. Ending Rotation can start after any sub-loop.')}
         >
           <span className="loop-tag-icon">⟳</span>
           <span className="loop-tag-label">SUB-LOOP{loopSplit.label && ` ${loopSplit.label}`}</span>

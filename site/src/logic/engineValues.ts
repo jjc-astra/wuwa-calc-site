@@ -78,6 +78,16 @@ export function ruleEventsMatch(compiled: Pick<CompiledDSL, 'triggers'> | null |
   ));
 }
 
+const DEFAULT_COMBO_RULE = 'IF (@Move.IsNextInCombo)';
+
+/** A move's cast rule. Without one, an input move must be next in its combo (an earlier stage only after a reset or the end). */
+export const castRule = (move: MechanicNode): string | undefined =>
+  move.triggerRule?.trim() || (move.input && !move.isPassive ? DEFAULT_COMBO_RULE : undefined);
+
+/** Combo rank of `a` vs `b` (resolved priority, then comboOrder): positive when `a` ranks higher. */
+export const compareComboRank = (aPriority: number, a: MechanicNode, bPriority: number, b: MechanicNode): number =>
+  aPriority - bPriority || (a.comboOrder ?? 0) - (b.comboOrder ?? 0);
+
 /** A move's priorityTimeline by time (frames), ties in authored order. */
 export function sortedPrioritySteps(move: MechanicNode): Array<{ time: number; priority: number | string }> {
   return (move.priorityTimeline || [])

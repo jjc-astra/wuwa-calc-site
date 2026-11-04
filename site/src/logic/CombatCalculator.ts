@@ -553,7 +553,8 @@ export const CombatCalculator = {
       resolvedAppliedBuffs = statusAgg.appliedBuffs;
       resMult = CombatCalculator.calcResistance(baseRes, resolvedBuffTotals.ignoreRes, resolvedBuffTotals.reduceRes);
       def = CombatCalculator.calcDefense(unitLvl, enemyLvl, resolvedBuffTotals.ignoreDef, resolvedBuffTotals.reduceDef);
-      statusBaseDmg = (stackMult / SIM_CONSTANTS.NEGATIVE_STATUS_BASE_MULT) * ENEMY_DEFAULTS.statusBaseDmg;
+      // Scaled by the hit's multiplier (system ticks are 100%).
+      statusBaseDmg = (stackMult / SIM_CONSTANTS.NEGATIVE_STATUS_BASE_MULT) * ENEMY_DEFAULTS.statusBaseDmg * pctMult;
       calculatedTotal = CombatCalculator.calcNegativeStatusDmg(statusBaseDmg, resolvedBuffTotals.dmgBonus, resolvedBuffTotals.dmgAmp, resolvedBuffTotals.dmgTaken, resolvedBuffTotals.multiplicativeMult, resMult, def);
       nonCritDmg = calculatedTotal; critDmg = calculatedTotal;
     } else if (isTuneDmg) {

@@ -110,6 +110,10 @@ export const TimingModsPanel: React.FC<TimingModsPanelProps> = ({ data, updateNo
           <label className="form-label caps-label">Priority</label>
           <AutocompleteInput mode="dsl-value" value={String(data.priority ?? 0)} onValueChange={val => updateNode({ priority: val })} placeholder="@Default.basicPriority" />
         </div>
+        <div className="form-group">
+          <label className="form-label caps-label">Combo Order</label>
+          <input type="number" className="form-input" value={data.comboOrder ?? ''} onChange={e => updateNode({ comboOrder: e.target.value === '' ? undefined : Number(e.target.value) })} placeholder="0" {...tip('Combo stage order among same-input moves of equal priority, for @Move.IsNextInCombo. Cancels ignore it.')} />
+        </div>
         <div className="form-group relative">
           <label className="form-label caps-label">Combo Window</label>
           <AutocompleteInput mode="dsl-value" value={displayTimeVal(data.comboWindow, 'f')} onValueChange={val => updateNode({ comboWindow: val })} onBlur={makeTimeBlur(data, updateNode, 'comboWindow', 'frames')} placeholder="@Default.ComboWindow" />

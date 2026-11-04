@@ -123,6 +123,7 @@ export const DSL_POINTERS: Record<string, DSLPointerDef> = {
       { propName: 'MaxEnergy', type: 'number', targetKey: '.maxEnergy', tooltip: "Returns Self's maximum Resonance Energy." },
       { propName: 'Concerto', type: 'number', targetKey: '.concerto', tooltip: "Returns Self's current Concerto Energy." },
       { propName: 'Sequence', type: 'number', targetKey: '.sequence', tooltip: "Returns Self's Resonance Chain (sequence) level, 0-6." },
+      { propName: 'Mode', type: 'number', targetKey: '.mode', tooltip: "Returns Self's slot mode: 0 None, 1 Mode 1, 2 Mode 2 (dual-mode units)." },
       { propName: 'PrevAction', type: 'string', fullOverride: 'ctx.self.prevAction', tooltip: 'Returns the name of the last action Self performed.' },
       { propName: 'NextAction', type: 'string', fullOverride: 'ctx.self.nextAction', tooltip: "Returns the name of the next action Self performs after this row, even if other characters act in between. Empty if Self doesn't act again." },
       { propName: 'Name', type: 'string', fullOverride: 'ctx.self.name', tooltip: "Returns Self's character name." },

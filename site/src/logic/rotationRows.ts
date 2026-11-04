@@ -138,9 +138,13 @@ export function splitLoopSegments(
   return { openerRows, loopTemplate: loopTemplate.slice(0, endRel + 1), endingRows: loopTemplate.slice(endRel + 1) };
 }
 
+/** A run row that is the main DPS's normal Outro (spends Concerto; Unison Outros don't). */
+export const isMainDpsOutro = (row: any, mainDps: string | undefined): boolean =>
+  !!mainDps && row?.unit === mainDps && Array.isArray(row.castTypes) && row.castTypes.includes('Outro') && !!row.spendsConcerto;
+
 /**
  * Sub-loop start indices into `loopTemplate` (excluding 0).
- * Auto: after each main DPS Outro, overridden by `loopSplit`. Needs already-run rows.
+ * Auto: after each main DPS normal Outro, overridden by `loopSplit`. Needs already-run rows.
  */
 export function loopSplitStarts(loopTemplate: any[], mainDps: string | undefined): number[] {
   const starts: number[] = [];
@@ -148,7 +152,7 @@ export function loopSplitStarts(loopTemplate: any[], mainDps: string | undefined
     const row = loopTemplate[i];
     if (row?.loopSplit === false) continue;
     const prev = loopTemplate[i - 1];
-    const afterMainOutro = !!mainDps && prev?.unit === mainDps && Array.isArray(prev.castTypes) && prev.castTypes.includes('Outro');
+    const afterMainOutro = isMainDpsOutro(prev, mainDps);
     if (row?.loopSplit === true || afterMainOutro) starts.push(i);
   }
   return starts;

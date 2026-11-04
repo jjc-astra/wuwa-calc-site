@@ -358,19 +358,19 @@ export const DIAGRAMS = {
       T2 -- yes --> T3["valid if it passes"]:::logic
       T2 -- no --> T4["valid if the next move outranks<br/>this one on another input"]:::logic
       T3 --> T5
-      T4 --> T5["availableTimings: Auto, Full; Swap (swapTiming);<br/>Cap Energy / Concerto (a hit would fill it);<br/>Cancel N; Simultaneous (Hold or Echo);<br/>Manual (Release with holdConfig)"]:::ui
+      T4 --> T5["availableTimings: Auto, Full, Swap;<br/>Cap Energy / Concerto (a hit would fill it);<br/>Cancel N (not before a swap); Simultaneous (Hold or Echo);<br/>Manual (Release with holdConfig)"]:::ui
     end
     subgraph Pick["row.timing"]
       direction TB
       P0{"timing"}
       P0 -->|"Auto"| PA{"next row"}
-      PA -->|"Outro, and a hit<br/>fills Concerto"| PA1["end at that hit"]:::logic
-      PA -->|"Outro or another unit,<br/>and swapTiming"| PA2["as Swap"]:::logic
+      PA -->|"Outro, and a hit<br/>fills Concerto"| PA1["swap at that hit,<br/>or the swap lock if later"]:::logic
+      PA -->|"Outro or another unit"| PA2["as Swap"]:::logic
       PA -->|"otherwise"| PA3["quickest cancel with every<br/>hit, else full duration"]:::logic
       P0 -->|"Full"| PF["full duration"]:::logic
-      P0 -->|"Swap"| PS["max(swapTiming, swapTime); its animation<br/>plays out in full off-field (a swap back<br/>finishes it on field: Animation Lock)"]:::logic
+      P0 -->|"Swap"| PS["max(swapTiming, swapTime); cancel timings<br/>never apply; its animation<br/>plays out in full off-field (a swap back<br/>finishes it on field: Animation Lock)"]:::logic
       P0 -->|"SwapCancel_N"| PSC["as Swap, but the unit's next move cuts it<br/>at cancel N, or on the swap back if later;<br/>its hits not landed by then dropped"]:::logic
-      P0 -->|"Cap_*_N /<br/>Cancel_N"| PN["end at hit N /<br/>that cancel"]:::logic
+      P0 -->|"Cap_*_N /<br/>Cancel_N"| PN["end at hit N /<br/>that cancel (before a swap:<br/>as Swap / swap at hit N)"]:::logic
     end
     subgraph Fin["result"]
       direction TB
@@ -424,7 +424,7 @@ export const DIAGRAMS = {
       direction TB
       G1["buffs tick (time_scale applies;<br/>paused ones don't)"]:::logic
       G1 --> G2{"a buff<br/>runs out?"}
-      G2 -- yes --> G3["OnBuffExpire; drop_one / drop_half<br/>refresh, else every stack gone"]:::logic
+      G2 -- yes --> G3["OnBuffExpire; drop_one / drop_half / keep<br/>refresh, else every stack gone"]:::logic
       G2 -- no --> G4
       G3 --> G4["cooldowns, charges and<br/>time scales run down"]:::logic
       G4 --> G5["OnTick"]:::logic
@@ -437,7 +437,7 @@ export const DIAGRAMS = {
       direction TB
       L1{"a row has the<br/>Loop Start marker?"}
       L1 -- yes --> L2["that row"]:::logic
-      L1 -- no --> L3{"main DPS (slot 1) has an Outro?<br/>(the first not in an earlier repeat copy)"}
+      L1 -- no --> L3{"main DPS (slot 1) has a normal Outro?<br/>(spends Concerto, so not Unison;<br/>the first not in an earlier repeat copy)"}
       L3 -- yes --> L4["the row after it<br/>(after the last row if that's blank)"]:::logic
       L3 -- no --> L5["after the last row:<br/>opener not done, no loop"]:::logic
     end
@@ -552,7 +552,7 @@ export const DIAGRAMS = {
       X2 -->|"none"| X3["runs the opener alone"]:::logic
       X2 -->|"no duration"| X4["runs everything once"]:::logic
       X2 -->|"ok"| X5["reps: with Ending Rotation, endingPlacement (whole<br/>sub-loops that fit in 120 s, −1 if it starts earlier, min 1;<br/>same as the table); else enough to pass 120 s, at least 3"]:::logic
-      X1 -.-> XS["loopSplitStarts: sub-loops start after each main<br/>DPS Outro in the loop, or at a row's loopSplit<br/>(Split Loop / the tag's ✕ and ↺)"]:::logic
+      X1 -.-> XS["loopSplitStarts: sub-loops start after each main<br/>DPS normal Outro (not Unison) in the loop, or at a row's loopSplit<br/>(Split Loop / the tag's ✕ and ↺)"]:::logic
       X5 --> X6["the Ending Rotation preview's run if the same<br/>length, else recalculateState(full);<br/>each rep's real end read off it"]:::logic
       X6 --> X7["Ending Rotation before the 3rd rep: 2-Min reads<br/>that run, the loop windows a plain 3-rep run"]:::logic
     end

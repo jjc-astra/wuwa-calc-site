@@ -6,8 +6,8 @@ import {
 } from './resources';
 import { beforeKey, deltaKey, forteKey, holdSlotNumber, lateDeltaKey, requestedDeltaKey } from '../utils/ResourceKeys';
 import { backfillPools, cloneJson, dropdownSnapshot, hitState, inheritPools, plainCopy, ROW_LINK_KEYS } from './rowState';
-import { toRunInput, timingLabel, splitLoopSegments, loopTiming } from './rotationRows';
-import { asDslResult, castModifiers as castModifiersOf, scopedKey, eventModifier, isBuffEffect, isDslExpr, isPlaceholderProvider, modifierSet, readsSelfStats, rowStartEvents, ruleEventsMatch, sortedPrioritySteps, stacksAfterSpending, type RuleEvent } from './engineValues';
+import { toRunInput, timingLabel, splitLoopSegments, loopTiming, isMainDpsOutro } from './rotationRows';
+import { asDslResult, castModifiers as castModifiersOf, castRule, scopedKey, eventModifier, isBuffEffect, isDslExpr, isPlaceholderProvider, modifierSet, readsSelfStats, rowStartEvents, ruleEventsMatch, sortedPrioritySteps, stacksAfterSpending, type RuleEvent } from './engineValues';
 import { MechanicKey, SYSTEM_NAMESPACE } from '../utils/MechanicKey';
 import { CommonUtils } from '../utils/Common';
 import { teamCharacters } from '../utils/TeamUtils';
@@ -235,6 +235,8 @@ export class TimelineEngineClass {
       if (dbMove.simultaneous) currentData.timing = 'Simultaneous';
       currentData.castTypes = dbMove.castTypes || (currentData.action ? [currentData.action] : []);
       currentData.dmgTypes = dbMove.dmgTypes || [];
+      // Normal Outros spend Concerto; Unison Outros don't (loop detection).
+      currentData.spendsConcerto = Number(dbMove.castResources?.concerto) < 0;
       // The binding this row cast with (see resolveRowBinding); read by cancels, combos and the Timeline flags.
       const binding = resolveRowBinding(dbMove, currentData, this._unitPrevRow(activeRows, i));
       currentData.input = binding?.input;
@@ -545,8 +547,8 @@ export class TimelineEngineClass {
     return activeRows;
   }
 
-  // Loop start: override, or main DPS's first Outro (skipping Hold-Repeat blocks).
-  // The Loop Start marker's row, else the row after the main DPS's Outro. Until that row exists the
+  // Loop start: override, or main DPS's first normal Outro (skipping Hold-Repeat blocks).
+  // The Loop Start marker's row, else the row after the main DPS's normal Outro. Until that row exists the
   // opener isn't done: after the last row (all opener, no loop).
   findLoopStart(rows: any[], mainDps: string | undefined, collapseMap?: number[]): { index: number; isOverride: boolean } {
     const overrideIndex = rows.findIndex(r => r.loopStartOverride === true && !!r.unit);
@@ -557,7 +559,7 @@ export class TimelineEngineClass {
     if (mainDps) {
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
-        if (row.unit === mainDps && Array.isArray(row.castTypes) && row.castTypes.includes('Outro')) {
+        if (isMainDpsOutro(row, mainDps)) {
           if (collapseMap && collapseMap.lastIndexOf(collapseMap[i]) !== i) continue;
           const next = i + 1;
           if (next < rows.length && rows[next]?.unit) return { index: next, isOverride: false };
@@ -854,24 +856,24 @@ export class TimelineEngineClass {
     const freezeTime = resolveFrames(moveData.freezeTime, toFrames(0));
     const freezeStart = resolveFrames(moveData.freezeStart, toFrames(0));
     const motionStop = resolveFrames(moveData.motionStop, toFrames(0));
-    const swapDuration = moveData.swapTiming !== undefined
-      ? toFrames(Math.max(resolveFrames(moveData.swapTiming, toFrames(0)), GAME_DEFAULTS.swapTime))
-      : undefined;
+    // Swaps go by the no-swap lock (swapTiming), never by cancel timings.
+    const swapDuration = toFrames(Math.max(resolveFrames(moveData.swapTiming, toFrames(0)), GAME_DEFAULTS.swapTime));
     const hitCount = Array.isArray(moveData.hitMults) ? moveData.hitMults.length : 0;
 
     const nextRow = currentData.nextRow;
     const nextMoveData = nextRow?.action ? this._getModifiedMoveData(nextRow.action) : null;
 
-    // No rule: next move must outrank this one on a different input (as each row cast it). Swaps rank highest.
+    // No rule: next move must outrank this one on a different input (as each row cast it). Swaps aren't cancels.
     const ownBinding = bindingKey(currentData);
-    const isNextSwapOut = swapDuration !== undefined && !!nextRow?.unit
+    // An Outro is the swap itself.
+    const isNextSwapOut = !moveData.castTypes?.includes('Outro') && !!nextRow?.unit
       && (nextRow.unit !== unitName || !!nextMoveData?.castTypes?.includes('Outro'));
     // `other` (cast with `otherBinding`) outranks this move `time` frames in, on a different input.
     const outranksAt = (other: MechanicNode | null, otherBinding: InputBinding | null, otherUnit: string, time: number) => !!other
       && bindingKey(otherBinding) !== ownBinding
       && this._resolvePriority(other, currentData, otherUnit, team) > this._priorityAt(moveData, time, currentData, unitName, team);
     const nextBinding = resolveRowBinding(nextMoveData, nextRow || {}, nextRow?.unit === unitName && currentData.timing !== 'Simultaneous' ? currentData : null);
-    const nextCancelsAt = (time: number) => isNextSwapOut || outranksAt(nextMoveData, nextBinding, nextRow?.unit, time);
+    const nextCancelsAt = (time: number) => !isNextSwapOut && outranksAt(nextMoveData, nextBinding, nextRow?.unit, time);
 
     // A cancel rule is checked against the events its cancel fires: the next row's cast (and swap).
     const nextEvents = nextRow?.action && nextMoveData ? rowStartEvents(nextRow.action, nextMoveData, nextRow.unit, unitName) : [];
@@ -879,7 +881,7 @@ export class TimelineEngineClass {
       !!(this._evaluateRule(ct, ct.triggerRule, currentData, currentData.unit, team, events) ?? false);
 
     const validCancels: Array<{ index: number; time: Frames; hits: number }> = [];
-    if (moveData.cancelTimings && moveData.cancelTimings.length > 0) {
+    if (!isNextSwapOut && moveData.cancelTimings && moveData.cancelTimings.length > 0) {
       moveData.cancelTimings.forEach((ct, idx) => {
         const isValid = !ct.triggerRule || ct.triggerRule.trim() === ''
           ? nextCancelsAt(ct.time)
@@ -890,7 +892,7 @@ export class TimelineEngineClass {
     // A priority drop opens a cancel for anything that now outranks the move.
     const authoredCancelCount = moveData.cancelTimings?.length ?? 0;
     sortedPrioritySteps(moveData).forEach((step, idx) => {
-      if (step.time > 0 && step.time < actionDuration && !isNextSwapOut && nextCancelsAt(step.time)) {
+      if (step.time > 0 && step.time < actionDuration && nextCancelsAt(step.time)) {
         validCancels.push({ index: authoredCancelCount + idx, time: toFrames(step.time), hits: Infinity });
       }
     });
@@ -934,9 +936,7 @@ export class TimelineEngineClass {
       { val: 'Auto', label: 'Auto', title: 'Quickest valid timing for all hits' },
       { val: 'Full', label: 'Full', title: `Duration: ${formatFramesAsSeconds(actionDuration)} | All Hits` }
     ];
-    if (swapDuration !== undefined) {
-      availableTimings.push({ val: 'Swap', label: 'Swap', title: `Duration: ${formatFramesAsSeconds(swapDuration)}` });
-    }
+    availableTimings.push({ val: 'Swap', label: 'Swap', title: `Duration: ${formatFramesAsSeconds(swapDuration)}` });
     if (capEnergyHitIdx !== -1) {
       availableTimings.push({
         val: `Cap_Energy_${capEnergyHitIdx}`,
@@ -956,13 +956,11 @@ export class TimelineEngineClass {
       const title = `Duration: ${formatFramesAsSeconds(vc.time)}` + (vc.hits !== Infinity ? ` | Hits: ${vc.hits}` : ` | All Hits`);
       availableTimings.push({ val: `Cancel_${vc.index}`, label, title });
     });
-    if (swapDuration !== undefined) {
-      swapCancels.forEach((sc, i) => {
-        const label = swapCancels.length === 1 ? 'Swap + Cancel' : `Swap + Cancel ${i + 1}`;
-        const title = `Swap out at ${formatFramesAsSeconds(swapDuration)}; swapped back, ${returnMoveData?.name ?? 'the next move'} cancels what's left of it at ${formatFramesAsSeconds(sc.time)} or on the swap back, if later`;
-        availableTimings.push({ val: `SwapCancel_${sc.index}`, label, title });
-      });
-    }
+    swapCancels.forEach((sc, i) => {
+      const label = swapCancels.length === 1 ? 'Swap + Cancel' : `Swap + Cancel ${i + 1}`;
+      const title = `Swap out at ${formatFramesAsSeconds(swapDuration)}; swapped back, ${returnMoveData?.name ?? 'the next move'} cancels what's left of it at ${formatFramesAsSeconds(sc.time)} or on the swap back, if later`;
+      availableTimings.push({ val: `SwapCancel_${sc.index}`, label, title });
+    });
     const instantCancelTime = toFrames(GAME_DEFAULTS.instantCancelTime);
     // Any move the next one can cancel, with or without authored cancel windows.
     const canInstantCancel = validCancels.length > 0 || nextCancelsAt(instantCancelTime);
@@ -1021,34 +1019,34 @@ export class TimelineEngineClass {
     let swapCancelAt: Frames | undefined;
     const capAt = (hitIdx: number) => cutAt(getHitTimeOffset(hitIdx), hitIdx + 1);
     const cutAuto = () => cutAt(autoCancelTime, autoAllowedHits);
+    // Swaps out on the capping hit, or at the swap lock if later; later hits land off-field.
+    const swapOutAt = (hitIdx: number) => swapOut(toFrames(Math.max(getHitTimeOffset(hitIdx), swapDuration)));
+    const isCancelTiming = timingType === 'Cancel' || timingType === 'Instant_Cancel' || timingType.startsWith('Cancel_');
 
     if (timingType === 'Auto') {
-      const isNextOutro = nextMoveData?.castTypes?.includes('Outro');
-      const isNextSwap = nextRow && nextRow.unit !== currentData.unit && nextRow.unit !== '';
-
-      if (isNextOutro && capConcertoHitIdx !== -1 && swapDuration !== undefined) {
-        // Outro swaps out on the Concerto-filling hit; later hits land off-field.
-        swapOut(toFrames(Math.max(getHitTimeOffset(capConcertoHitIdx), swapDuration)));
+      if (nextMoveData?.castTypes?.includes('Outro') && capConcertoHitIdx !== -1) {
+        swapOutAt(capConcertoHitIdx);
         currentData._autoTimingChoice = 'Concerto';
-      } else if (isNextOutro && capConcertoHitIdx !== -1) {
-        capAt(capConcertoHitIdx);
-        currentData._autoTimingChoice = 'Concerto';
-      } else if ((isNextOutro || isNextSwap) && swapDuration !== undefined) {
+      } else if (isNextSwapOut) {
         swapOut(swapDuration);
         currentData._autoTimingChoice = 'Swap';
       } else {
         cutAuto();
         currentData._autoTimingChoice = 'Cancel';
       }
-    } else if (timingType === 'Swap' && swapDuration !== undefined) {
+    } else if (timingType === 'Swap') {
       swapOut(swapDuration);
-    } else if (timingType.startsWith('SwapCancel_') && swapDuration !== undefined) {
+    } else if (timingType.startsWith('SwapCancel_')) {
       const sc = swapCancels.find(c => c.index === parseInt(timingType.split('_')[1], 10));
       swapOut(swapDuration);
       // Earliest cancel point for the returning move.
       if (sc) swapCancelAt = sc.time;
+    } else if (isNextSwapOut && isCancelTiming) {
+      // Swaps wait for the swap lock, not cancel timings.
+      swapOut(swapDuration);
     } else if (timingType.startsWith('Cap_')) {
-      capAt(parseInt(timingType.split('_')[2], 10));
+      if (isNextSwapOut) swapOutAt(parseInt(timingType.split('_')[2], 10));
+      else capAt(parseInt(timingType.split('_')[2], 10));
     } else if (timingType.startsWith('Cancel_')) {
       const ct = validCancels.find(vc => vc.index === parseInt(timingType.split('_')[1], 10));
       if (ct) cutAt(ct.time, ct.hits);
@@ -1120,10 +1118,11 @@ export class TimelineEngineClass {
       })
       .map(key => resourceLabel(key, unitStats));
     if (blockers.length > 0) return blockers;
-    if (!move.triggerRule || move.isPassive) return [];
+    const rule = castRule(move);
+    if (!rule || move.isPassive) return [];
     // Checked as _runValidation checks it.
     const events = rowStartEvents(currentData.action, move, unit, currentData.prevRow?.unit);
-    const passed = this._evaluateRule(move, move.triggerRule, currentData, unit, team, events);
+    const passed = this._evaluateRule(move, rule, currentData, unit, team, events);
     return passed !== null && !passed ? [move.name || 'condition'] : [];
   }
 
@@ -1334,6 +1333,8 @@ export class TimelineEngineClass {
       } else if (buff.expireBehavior === 'drop_half') {
         buff.stacks = Math.floor((buff.stacks || 1) / 2);
         if (buff.stacks > 0) buff.duration = buff.maxDuration;
+      } else if (buff.expireBehavior === 'keep') {
+        buff.duration = buff.maxDuration;
       } else {
         buff.stacks = 0;
       }
@@ -1422,10 +1423,12 @@ export class TimelineEngineClass {
     });
   }
 
-  // Emits several events, gathering all effects before running any.
-  _fireTrackerEvents(events: string[], trackerName: string, currentData: any, unitName: string, activeTeam: string[], activeRows: any[], team: any[]): void {
+  // Emits several events, gathering all effects before running any. `eventSource`: the tracker effect's source,
+  // for listener effects whose source is MECHANICS_NOTATION.EVENT_SOURCE.
+  _fireTrackerEvents(events: string[], trackerName: string, currentData: any, unitName: string, activeTeam: string[], activeRows: any[], team: any[], eventSource?: string): void {
     this._nested(`${events.join(' + ')}[${trackerName}]`, currentData, () => {
-      const effects = events.flatMap(event => EventManager.emit(event, eventModifier(trackerName), currentData, unitName, team));
+      const effects = events.flatMap(event => EventManager.emit(event, eventModifier(trackerName), currentData, unitName, team))
+        .map(eff => (eventSource && eff.source === MECHANICS_NOTATION.EVENT_SOURCE ? { ...eff, source: eventSource } : eff));
       this._executeEffectsStream(effects, currentData, activeTeam, activeRows, this.currentGlobalRealTime, unitName, team);
     });
   }
@@ -1686,9 +1689,10 @@ export class TimelineEngineClass {
       errors.push(`${moveName} never reaches its ${currentData._holdUnreachable} within ${GAME_DEFAULTS.holdLookaheadMax}f -- check the hold's speed/config.`);
     }
 
-    if (moveData.triggerRule && !moveData.isPassive) {
+    const ownRule = castRule(moveData);
+    if (ownRule && !moveData.isPassive) {
       const ownEvents = rowStartEvents(currentData.action, moveData, currentData.unit, prevData.unit);
-      const passed = this._evaluateRule(moveData, moveData.triggerRule, currentData, currentData.unit, team, ownEvents);
+      const passed = this._evaluateRule(moveData, ownRule, currentData, currentData.unit, team, ownEvents);
       // Only when nothing more specific explains the failure.
       if (passed !== null && !passed && errors.length === 0 && warnings.length === 0) {
         warnings.push(`Combo requirement not met for ${moveName}.`);
@@ -1738,8 +1742,9 @@ export class TimelineEngineClass {
         (DataLoader.mechanicsIndex[currentData.unit] || []).forEach(key => {
           const m = DataLoader.mechanicsDB[key];
           if (!m || !m.isSwapInDefault || !fitsStance(m)) return;
-          const isValid = m.triggerRule && !m.isPassive
-            ? this._evaluateRule(m, m.triggerRule, currentData, currentData.unit, team, rowStartEvents(key, m, currentData.unit, swapFrom.unit)) ?? true
+          const rule = castRule(m);
+          const isValid = rule && !m.isPassive
+            ? this._evaluateRule(m, rule, currentData, currentData.unit, team, rowStartEvents(key, m, currentData.unit, swapFrom.unit)) ?? true
             : true;
           if (isValid) expectedSwapIns.push(m.name);
         });
@@ -1802,6 +1807,7 @@ export class TimelineEngineClass {
     }
     resolvedEffect.duration = resolve(resolvedEffect.duration) as number;
     if (resolvedEffect.maxStacks !== undefined) resolvedEffect.maxStacks = resolve(resolvedEffect.maxStacks) as number;
+    if (resolvedEffect.maxStacksPerSource !== undefined) resolvedEffect.maxStacksPerSource = resolve(resolvedEffect.maxStacksPerSource) as number;
 
     const originalProvider = resolvedEffect.provider;
     const namesUnit = !isPlaceholderProvider(originalProvider);
@@ -1958,7 +1964,7 @@ export class TimelineEngineClass {
 
     this._logTimeline(currentData);
     if (action !== 'detonate') {
-      this._fireTrackerEvents(eventToEmit ? ['OnTrackerChanged', eventToEmit] : ['OnTrackerChanged'], name, currentData, unitName, activeTeam, activeRows, team);
+      this._fireTrackerEvents(eventToEmit ? ['OnTrackerChanged', eventToEmit] : ['OnTrackerChanged'], name, currentData, unitName, activeTeam, activeRows, team, effect.source);
     }
   }
 
@@ -2065,6 +2071,10 @@ export class TimelineEngineClass {
       ? this._resolveDynamicMath(buffDef.duration, currentData, currentData.unit, team)
       : buffDef.duration));
     const effDuration = isNaN(duration) ? GAME_DEFAULTS.permanentDuration : duration;
+    // Template-filled caps may still be DSL.
+    (['maxStacks', 'maxStacksPerSource'] as const).forEach(key => {
+      if (isDslExpr(buffDef[key], true)) buffDef[key] = Number(this._resolveDynamicMath(String(buffDef[key]), currentData, currentData.unit, team));
+    });
     const val = CommonUtils.isRankValue(buffDef.value)
       ? CommonUtils.parseRankValue(buffDef.value, this._rankOf(buffDef.provider || currentData.unit, team))
       : buffDef.value;
@@ -2073,7 +2083,12 @@ export class TimelineEngineClass {
       const key = scopedKey(targetName, buffDef.name);
       if (!currentData.activeBuffs) currentData.activeBuffs = {};
       const existingBuff = currentData.activeBuffs[key];
-      const addedStacks = buffDef.stacks !== undefined ? parseInt(String(buffDef.stacks), 10) : 1;
+      // maxStacksPerSource: each source adds up to its share; counts reset when the buff ends.
+      const perSource = buffDef.maxStacksPerSource !== undefined ? Number(buffDef.maxStacksPerSource) : undefined;
+      const sourceKey = buffDef.source || buffDef.provider || '';
+      const requestedStacks = buffDef.stacks !== undefined ? parseInt(String(buffDef.stacks), 10) : 1;
+      const addedStacks = perSource === undefined ? requestedStacks
+        : Math.max(0, Math.min(requestedStacks, perSource - (existingBuff?.sourceStacks?.[sourceKey] || 0)));
       let actuallyAddedStacks: number;
 
       // False for a no-op re-application.
@@ -2083,10 +2098,12 @@ export class TimelineEngineClass {
         if (buffDef.label) existingBuff.label = buffDef.label;
         if (buffDef.stat) existingBuff.stat = buffDef.stat;
         if (buffDef.value !== undefined) existingBuff.value = val;
+        if (buffDef.expireBehavior) existingBuff.expireBehavior = buffDef.expireBehavior;
         const oldStacks = existingBuff.stacks || 0;
         const maxStacks = Number(buffDef.maxStacks) || 1;
         existingBuff.stacks = Math.min(oldStacks + addedStacks, maxStacks);
         actuallyAddedStacks = existingBuff.stacks - oldStacks;
+        if (perSource !== undefined) (existingBuff.sourceStacks ??= {})[sourceKey] = (existingBuff.sourceStacks[sourceKey] || 0) + actuallyAddedStacks;
         if (buffDef.stackBehavior === 'separate') {
           if (!existingBuff.durations) existingBuff.durations = [];
           for (let i = 0; i < addedStacks; i++) existingBuff.durations.push(effDuration);
@@ -2107,7 +2124,8 @@ export class TimelineEngineClass {
           stacks: addedStacks,
           maxDuration: effDuration,
           duration: buffDef.stackBehavior === 'separate' ? undefined : effDuration,
-          durations: buffDef.stackBehavior === 'separate' ? [effDuration] : undefined
+          durations: buffDef.stackBehavior === 'separate' ? [effDuration] : undefined,
+          sourceStacks: perSource === undefined ? undefined : { [sourceKey]: addedStacks }
         };
         actuallyAddedStacks = addedStacks;
       }
