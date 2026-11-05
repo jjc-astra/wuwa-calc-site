@@ -21,7 +21,7 @@ export const SITE_FEATURES = {
 };
 
 // The landing page's "Latest added characters", in display order; each opens its Character Guide.
-export const LATEST_CHARACTERS = ['Suoming', 'Rebecca', 'Mornye'];
+export const LATEST_CHARACTERS = ['Hsin', 'Suoming', 'Rebecca'];
 
 export const SITE_LINKS = {
   DATA_REPO_URL: 'https://github.com/jjc-astra/wuwa-calc-data',
