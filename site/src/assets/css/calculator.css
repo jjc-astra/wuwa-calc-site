@@ -97,6 +97,7 @@
     align-items: stretch;
     margin: 0.625rem; padding: 0.625rem;
     --row-accent: var(--char-theme-raw, var(--text-disabled));
+    --row-outline: var(--char-theme-outline, var(--row-accent));
     background: color-mix(in srgb, var(--row-accent) 12%, var(--surface-card));
     border: 1px solid color-mix(in srgb, var(--row-accent) 40%, var(--border));
     border-radius: 0.5rem;
@@ -105,7 +106,11 @@
 }
 
 .char-row .avatar-lg.avatar-circle {
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--row-accent) 55%, var(--border));
+    box-shadow: 0 0 0 2px var(--row-outline);
+}
+/* Weapon icon: main color. */
+.char-row .avatar-lg.avatar-rect {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--row-accent) 60%, var(--text-disabled));
 }
 
 .clear-slot-btn { border-color: var(--danger); color: var(--danger); }

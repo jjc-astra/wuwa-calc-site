@@ -539,8 +539,10 @@ option { color: var(--text-main); background-color: var(--bg-panel); }
     z-index: 1;
 }
 .preview-slot .preview-avatar-wrap {
-    border-color: var(--char-theme-outline, color-mix(in srgb, var(--row-accent) 60%, var(--text-disabled)));
+    border-color: color-mix(in srgb, var(--row-accent) 60%, var(--text-disabled));
 }
+/* Accent: the unit icon only. */
+.preview-slot .preview-avatar-wrap.preview-circle:not(.preview-set) { border-color: var(--char-theme-outline, color-mix(in srgb, var(--row-accent) 60%, var(--text-disabled))); }
 .preview-circle { border-radius: 50%; }
 .preview-rect   { border-radius: 0.1875rem; }
 .preview-img-abs {
