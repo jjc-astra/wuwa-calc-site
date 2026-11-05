@@ -17,8 +17,8 @@ import { markBuffsChanged } from './CombatCalculator';
 import { EventManager, ALWAYS_SOURCE, ALWAYS_CHECK } from './EventManager';
 import { calculateEchoStatsForSlot } from '../store/useRosterStore';
 import { CHARACTER_DEFAULTS, ENEMY_DEFAULTS, GAME_DEFAULTS, MECHANICS_NOTATION } from '../data/db';
-import type { Effect, MechanicNode, HoldConfig, MoveOrigin, EnemyStats, InputBinding } from '../types';
-import { bindingKey, resolveRowBinding } from './inputBindings';
+import type { Effect, MechanicNode, HoldConfig, MoveOrigin, EnemyStats, InputBinding, RunOptions } from '../types';
+import { bindingKey, bindingsOf, continuesHold, isMashable, resolveRowBinding } from './inputBindings';
 import { sortedStanceChanges } from '../utils/Stance';
 import { type Frames, toFrames, roundFrames, secondsToFrames, framesToSeconds, formatFramesAsSeconds, frozenFramesWithin, hitFrameOffsets } from '../utils/Frames';
 
@@ -54,6 +54,21 @@ function readsOnlyDefaults(mathStr: string): boolean {
     defaultsOnlyCache.set(mathStr, result);
   }
   return result;
+}
+
+// A gated next input (cooldown, resource) whose binding casts another move until the gate opens.
+interface GateWatch {
+  row: any;
+  move: MechanicNode;
+  // The row the gate is watched from, and its move.
+  fromRow: any;
+  fromMove: MechanicNode;
+  cdReadyAt: number;
+  resourceBlocked: boolean;
+  resourceAt?: number;
+  altPriority: number;
+  altBinding: string;
+  label: string;
 }
 
 const RUN_PROFILES: Record<EngineMode, { dropdownSnapshots: boolean; hitLog: boolean }> = {
@@ -115,6 +130,14 @@ export class TimelineEngineClass {
   _globalBuffCache: Record<string, Effect | null> = {};
   _enemyConfig: EnemyStats = ENEMY_DEFAULTS;
   _run = RUN_PROFILES.full;
+  // GAME_DEFAULTS.reactionTime, or 0 with the run's reactionTime option off.
+  _reactionFrames: Frames = toFrames(0);
+  // GAME_DEFAULTS.gateReactionTime, or 0 with it off.
+  _gateReactionFrames: Frames = toFrames(0);
+  // The next input's gate while that input would cast something else (see _watchGate).
+  _gate: GateWatch | null = null;
+  // Reaction time in the previous row's duration, shown on the next non-Simultaneous row.
+  _cutReaction: { frames: Frames; label: string } | null = null;
   // Per-run cache of _getModifiedMoveData by actionId.
   _moveDataCache = new Map<string, MechanicNode | null>();
   // Nested events currently firing, outermost first.
@@ -143,13 +166,17 @@ export class TimelineEngineClass {
   recalculateState(
     activeRows: any[],
     team: any[] = [],
-    options: { startEnergy?: boolean; startConcerto?: boolean; mode?: EngineMode } = {},
+    options: RunOptions & { mode?: EngineMode } = {},
     enemyConfig: EnemyStats = ENEMY_DEFAULTS
   ): any[] {
     if (activeRows.length === 0) return [];
 
     this.isRecalculating = true;
     this._run = RUN_PROFILES[options.mode ?? 'full'];
+    this._reactionFrames = toFrames(options.reactionTime === false ? 0 : GAME_DEFAULTS.reactionTime);
+    this._gateReactionFrames = toFrames(options.reactionTime === false ? 0 : GAME_DEFAULTS.gateReactionTime);
+    this._gate = null;
+    this._cutReaction = null;
     this._moveDataCache = new Map();
     this._enemyConfig = enemyConfig;
     this.damageQueue = [];
@@ -221,6 +248,7 @@ export class TimelineEngineClass {
       currentData._gaugesSettled = undefined;
       currentData.motionStopPauses = undefined;
       currentData.backOnFieldAt = undefined;
+      currentData._reactGate = undefined;
 
       // Set by the release lookahead; reused by cursor tracking below.
       let holdConfigCache: { config: HoldConfig; mode: string; speed: number; maxVal: number; center: number; size: number } | null = null;
@@ -295,6 +323,19 @@ export class TimelineEngineClass {
       const { waitFrames: resourceWaitFrames, label: resourceWaitLabel } = this._computeCastWait(currentData, dbMove, team, activeTeam, activeRows);
       if (resourceWaitFrames > 0) {
         finalWaitTime += resourceWaitFrames;
+        currentData.waitTime = finalWaitTime;
+      }
+
+      // The previous row's reaction time, reported here: it's spent before this move.
+      const isParallel = currentData.timing === 'Simultaneous' && i > 0;
+      const cutReaction = !isParallel ? this._cutReaction : null;
+      if (!isParallel) this._cutReaction = null;
+
+      // Reacting to a gate the next input couldn't be mashed through.
+      const reactionWait = this._gateReaction(currentData, accumulatedTime, wCD, accumulatedTime + finalWaitTime, team);
+      if (reactionWait.frames > 0) {
+        this._decayState(currentData, toFrames(reactionWait.frames), toFrames(reactionWait.frames), activeTeam, activeRows, team);
+        finalWaitTime += reactionWait.frames;
         currentData.waitTime = finalWaitTime;
       }
 
@@ -388,6 +429,9 @@ export class TimelineEngineClass {
       currentData.hitFrameOverrides = timings.hitFrameOverrides;
       currentData.allowedHits = timings.allowedHits;
       currentData._swapCancelAt = timings.swapCancelAt;
+      if (!(currentData.timing === 'Simultaneous' && i > 0) && !dbMove.simultaneous) {
+        this._cutReaction = timings.reaction > 0 ? { frames: timings.reaction, label: `Reaction Time (${timings.reactionCause} after ${currentData.moveName})` } : null;
+      }
 
       if (dbMove.stanceReq && dbMove.stanceReq !== 'Any') currentData.stance = dbMove.stanceReq;
 
@@ -441,6 +485,8 @@ export class TimelineEngineClass {
       if (wCD > 0) reasons.push({ label: 'Waiting for Skill CD', valueFrames: wCD });
       if (wBusy > 0) reasons.push({ label: 'Animation Lock', valueFrames: toFrames(wBusy) });
       if (resourceWaitFrames > 0) reasons.push({ label: resourceWaitLabel || 'Waiting for Resource', valueFrames: toFrames(resourceWaitFrames) });
+      if (cutReaction) reasons.push({ label: cutReaction.label, valueFrames: cutReaction.frames });
+      if (reactionWait.frames > 0) reasons.push({ label: reactionWait.label, valueFrames: toFrames(reactionWait.frames) });
       reasons.push(...holdWaitReasons);
       if (baseActDur > 0) reasons.push({ label: 'Base Action Duration', valueFrames: toFrames(baseActDur) });
       else reasons.push({ label: 'Instant Cast', valueFrames: toFrames(0) });
@@ -454,8 +500,8 @@ export class TimelineEngineClass {
         });
       } else {
         const unadjustedDur = duration - swapCdDelay;
-        const timingDiff = unadjustedDur - baseActDur;
-        const netTimingChange = timingDiff + swapCdDelay;
+        const timingDiff = unadjustedDur - baseActDur - (timings.reaction ?? 0);
+        const netTimingChange = timingDiff + swapCdDelay + (cutReaction?.frames ?? 0);
         const label = timingLabel(currentData);
 
         if (timingDiff < 0) reasons.push({ label: `${label} Time Saved`, valueFrames: toFrames(timingDiff), isNegative: true });
@@ -522,6 +568,7 @@ export class TimelineEngineClass {
       if (!dbMove.simultaneous) this._resolveComboWindows(currentData, dbMove, team);
       // Spam-click indicator; after the row's state is final.
       currentData.priority = this._resolvePriority(dbMove, currentData, currentData.unit, team);
+      currentData.resistPriority = this._priorityAt(dbMove, 0, currentData, currentData.unit, team);
     }
 
     const emptyRow = activeRows[activeRows.length - 1];
@@ -574,7 +621,7 @@ export class TimelineEngineClass {
   analyzeLoop(
     rows: any[],
     team: any[] = [],
-    options: { startEnergy?: boolean; startConcerto?: boolean } = {},
+    options: RunOptions = {},
     enemyConfig: EnemyStats = ENEMY_DEFAULTS,
     loopStartIndex: number = 0
   ): { errors: string[]; warnings: string[] } {
@@ -874,26 +921,52 @@ export class TimelineEngineClass {
       && this._resolvePriority(other, currentData, otherUnit, team) > this._priorityAt(moveData, time, currentData, unitName, team);
     const nextBinding = resolveRowBinding(nextMoveData, nextRow || {}, nextRow?.unit === unitName && currentData.timing !== 'Simultaneous' ? currentData : null);
     const nextCancelsAt = (time: number) => !isNextSwapOut && outranksAt(nextMoveData, nextBinding, nextRow?.unit, time);
+    // Reaction time for a cut into `other`: none when its input can be mashed early.
+    const resist = this._priorityAt(moveData, 0, currentData, unitName, team);
+    const reactsInto = (other: MechanicNode | null, otherBinding: InputBinding | null, otherUnit: string): boolean =>
+      !!other && !isMashable(ownBinding, resist, bindingKey(otherBinding), this._resolvePriority(other, currentData, otherUnit, team));
+    const reactionInto = (other: MechanicNode | null, otherBinding: InputBinding | null, otherUnit: string): Frames =>
+      reactsInto(other, otherBinding, otherUnit) ? this._reactionFrames : toFrames(0);
+    // Pressed early, `other` would cut this move short: it outranks it somewhere before `end`.
+    const cutsEarly = (other: MechanicNode | null, otherBinding: InputBinding | null, otherUnit: string, end: number) =>
+      [0, ...sortedPrioritySteps(moveData).map(s => s.time)].some(t => t < end && outranksAt(other, otherBinding, otherUnit, t));
+    // Simultaneous rows (echoes cast alongside) don't count as the next input.
+    let reactRow = nextRow;
+    while (reactRow?.timing === 'Simultaneous') reactRow = reactRow.nextRow;
+    const reactMove = reactRow === nextRow ? nextMoveData : reactRow?.action ? this._getModifiedMoveData(reactRow.action) : null;
+    const reactBinding = reactRow === nextRow ? nextBinding : resolveRowBinding(reactMove, reactRow || {}, reactRow?.unit === unitName ? currentData : null);
+    const nextReacts = reactsInto(reactMove, reactBinding, reactRow?.unit);
+    const nextReaction = nextReacts ? this._reactionFrames : toFrames(0);
+    // Full into a ready input that would cut it: timed against the end, so the reaction time.
+    // A gated one (cooldown, resource) is ignored early; the next row reacts to its gate instead.
+    const reactRule = reactMove?.triggerRule?.trim();
+    const nextReady = !!reactMove && reactRow?.unit === unitName
+      && ContextManager.cooldownRemaining(currentData, unitName, reactMove.name || '') <= 0
+      && this._resourceBlockers(currentData, reactMove, team).length === 0
+      && (!reactRule || !!this._evaluateRule(reactMove, reactRule, { ...currentData, action: reactRow.action }, unitName, team, rowStartEvents(reactRow.action, reactMove, unitName, unitName)));
+    const fullReacts = !isNextSwapOut && nextReady && cutsEarly(reactMove, reactBinding, reactRow.unit, actionDuration);
+    const fullReaction = fullReacts ? this._reactionFrames : toFrames(0);
 
     // A cancel rule is checked against the events its cancel fires: the next row's cast (and swap).
     const nextEvents = nextRow?.action && nextMoveData ? rowStartEvents(nextRow.action, nextMoveData, nextRow.unit, unitName) : [];
     const cancelRulePasses = (ct: any, events: RuleEvent[]): boolean =>
       !!(this._evaluateRule(ct, ct.triggerRule, currentData, currentData.unit, team, events) ?? false);
 
-    const validCancels: Array<{ index: number; time: Frames; hits: number }> = [];
+    // `time`: the cancel frame; `at`: when the row ends, after the reaction time.
+    const validCancels: Array<{ index: number; time: Frames; at: Frames; hits: number; reaction?: Frames }> = [];
     if (!isNextSwapOut && moveData.cancelTimings && moveData.cancelTimings.length > 0) {
       moveData.cancelTimings.forEach((ct, idx) => {
         const isValid = !ct.triggerRule || ct.triggerRule.trim() === ''
           ? nextCancelsAt(ct.time)
           : cancelRulePasses(ct, nextEvents);
-        if (isValid) validCancels.push({ index: idx, time: ct.time, hits: ct.hits !== undefined ? ct.hits : Infinity });
+        if (isValid) validCancels.push({ index: idx, time: ct.time, at: toFrames(ct.time + nextReaction), hits: ct.hits !== undefined ? ct.hits : Infinity, reaction: nextReaction });
       });
     }
     // A priority drop opens a cancel for anything that now outranks the move.
     const authoredCancelCount = moveData.cancelTimings?.length ?? 0;
     sortedPrioritySteps(moveData).forEach((step, idx) => {
       if (step.time > 0 && step.time < actionDuration && nextCancelsAt(step.time)) {
-        validCancels.push({ index: authoredCancelCount + idx, time: toFrames(step.time), hits: Infinity });
+        validCancels.push({ index: authoredCancelCount + idx, time: toFrames(step.time), at: toFrames(step.time + nextReaction), hits: Infinity, reaction: nextReaction });
       }
     });
 
@@ -901,14 +974,16 @@ export class TimelineEngineClass {
     const returnAction = isNextSwapOut && unitName ? currentData.nextUnitActions?.[unitName] : undefined;
     const returnMoveData = returnAction ? this._getModifiedMoveData(returnAction) : null;
     // The window's rule adds to the priority check rather than replacing it.
-    const swapCancels: Array<{ index: number; time: Frames; hits: number }> = [];
+    const swapCancels: Array<{ index: number; time: Frames; at: Frames; hits: number }> = [];
     if (isNextSwapOut && returnMoveData && moveData.cancelTimings) {
       // The swap out, then the returning move's cast.
       const swapCancelEvents = [...nextEvents, ...rowStartEvents(returnAction, returnMoveData, unitName, nextRow.unit)];
+      const returnBinding = resolveRowBinding(returnMoveData, {}, null);
+      const returnReaction = reactionInto(returnMoveData, returnBinding, unitName);
       moveData.cancelTimings.forEach((ct, idx) => {
-        const isValid = outranksAt(returnMoveData, resolveRowBinding(returnMoveData, {}, null), unitName, ct.time) && (!ct.triggerRule || ct.triggerRule.trim() === ''
+        const isValid = outranksAt(returnMoveData, returnBinding, unitName, ct.time) && (!ct.triggerRule || ct.triggerRule.trim() === ''
           || cancelRulePasses(ct, swapCancelEvents));
-        if (isValid) swapCancels.push({ index: idx, time: ct.time, hits: ct.hits !== undefined ? ct.hits : Infinity });
+        if (isValid) swapCancels.push({ index: idx, time: ct.time, at: toFrames(ct.time + returnReaction), hits: ct.hits !== undefined ? ct.hits : Infinity });
       });
     }
 
@@ -953,12 +1028,12 @@ export class TimelineEngineClass {
     }
     validCancels.forEach((vc, i) => {
       const label = validCancels.length === 1 ? 'Cancel' : `Cancel ${i + 1}`;
-      const title = `Duration: ${formatFramesAsSeconds(vc.time)}` + (vc.hits !== Infinity ? ` | Hits: ${vc.hits}` : ` | All Hits`);
+      const title = `Duration: ${formatFramesAsSeconds(vc.at)}` + (vc.hits !== Infinity ? ` | Hits: ${vc.hits}` : ` | All Hits`);
       availableTimings.push({ val: `Cancel_${vc.index}`, label, title });
     });
     swapCancels.forEach((sc, i) => {
       const label = swapCancels.length === 1 ? 'Swap + Cancel' : `Swap + Cancel ${i + 1}`;
-      const title = `Swap out at ${formatFramesAsSeconds(swapDuration)}; swapped back, ${returnMoveData?.name ?? 'the next move'} cancels what's left of it at ${formatFramesAsSeconds(sc.time)} or on the swap back, if later`;
+      const title = `Swap out at ${formatFramesAsSeconds(swapDuration)}; swapped back, ${returnMoveData?.name ?? 'the next move'} cancels what's left of it at ${formatFramesAsSeconds(sc.at)} or on the swap back, if later`;
       availableTimings.push({ val: `SwapCancel_${sc.index}`, label, title });
     });
     const instantCancelTime = toFrames(GAME_DEFAULTS.instantCancelTime);
@@ -1003,24 +1078,35 @@ export class TimelineEngineClass {
 
     let autoCancelTime = actionDuration;
     let autoAllowedHits = hitCount;
-    const fullHitCancels = validCancels.filter(vc => vc.hits >= hitCount && keepsNextStance(vc.time));
+    let autoReaction = toFrames(0);
+    // Only cancels that, with the reaction time, still end before the full move (and its reaction).
+    const fullHitCancels = validCancels.filter(vc => vc.hits >= hitCount && vc.at < actionDuration + fullReaction && keepsNextStance(vc.time));
     if (fullHitCancels.length > 0) {
-      const quickest = fullHitCancels.reduce((prev, curr) => prev.time < curr.time ? prev : curr);
-      autoCancelTime = quickest.time;
+      const quickest = fullHitCancels.reduce((prev, curr) => prev.at < curr.at ? prev : curr);
+      autoCancelTime = quickest.at;
       autoAllowedHits = quickest.hits;
+      autoReaction = quickest.reaction ?? toFrames(0);
     }
 
     let duration = actionDuration;
     let animationCommitment = actionDuration;
     let finalHits = hitCount;
-    // Cut at `time` with `hits` landed. Swapped-out animations play out off-field.
-    const cutAt = (time: Frames, hits: number) => { duration = time; animationCommitment = time; finalHits = hits; };
+    // Reaction time inside `duration`: simulated with this row, reported as the next row's.
+    let reaction = toFrames(0);
+    // What the reaction is timed against, for the breakdown.
+    let reactionCause = 'cancel timing';
+    // Cut at `time` (`react` of it the reaction) with `hits` landed. Swapped-out animations play out off-field.
+    const cutAt = (time: Frames, hits: number, react = toFrames(0)) => { duration = time; animationCommitment = time; finalHits = hits; reaction = react; };
     const swapOut = (swapAt: Frames) => { duration = swapAt; animationCommitment = actionDuration; finalHits = hitCount; };
     let swapCancelAt: Frames | undefined;
-    const capAt = (hitIdx: number) => cutAt(getHitTimeOffset(hitIdx), hitIdx + 1);
-    const cutAuto = () => cutAt(autoCancelTime, autoAllowedHits);
-    // Swaps out on the capping hit, or at the swap lock if later; later hits land off-field.
-    const swapOutAt = (hitIdx: number) => swapOut(toFrames(Math.max(getHitTimeOffset(hitIdx), swapDuration)));
+    // Cap cuts react to the capping hit; later hits don't land.
+    const capAt = (hitIdx: number, resource: string) => {
+      cutAt(toFrames(getHitTimeOffset(hitIdx) + this._reactionFrames), hitIdx + 1, this._reactionFrames);
+      reactionCause = `${resource} cap hit`;
+    };
+    const cutAuto = () => cutAt(autoCancelTime, autoAllowedHits, autoReaction);
+    // Swaps out swapTime after the capping hit, or at the swap lock if later; later hits land off-field.
+    const swapOutAt = (hitIdx: number) => swapOut(toFrames(Math.max(getHitTimeOffset(hitIdx) + GAME_DEFAULTS.swapTime, swapDuration)));
     const isCancelTiming = timingType === 'Cancel' || timingType === 'Instant_Cancel' || timingType.startsWith('Cancel_');
 
     if (timingType === 'Auto') {
@@ -1040,23 +1126,32 @@ export class TimelineEngineClass {
       const sc = swapCancels.find(c => c.index === parseInt(timingType.split('_')[1], 10));
       swapOut(swapDuration);
       // Earliest cancel point for the returning move.
-      if (sc) swapCancelAt = sc.time;
+      if (sc) swapCancelAt = sc.at;
     } else if (isNextSwapOut && isCancelTiming) {
       // Swaps wait for the swap lock, not cancel timings.
       swapOut(swapDuration);
     } else if (timingType.startsWith('Cap_')) {
       if (isNextSwapOut) swapOutAt(parseInt(timingType.split('_')[2], 10));
-      else capAt(parseInt(timingType.split('_')[2], 10));
+      else capAt(parseInt(timingType.split('_')[2], 10), timingType.split('_')[1]);
     } else if (timingType.startsWith('Cancel_')) {
       const ct = validCancels.find(vc => vc.index === parseInt(timingType.split('_')[1], 10));
-      if (ct) cutAt(ct.time, ct.hits);
+      if (ct) cutAt(ct.at, ct.hits, ct.reaction);
       else cutAuto();
     } else if (timingType === 'Instant_Cancel' && canInstantCancel) {
       cutAt(instantCancelTime, 0);
     } else if (timingType === 'Cancel') {
-      if (validCancels.length > 0) cutAt(validCancels[0].time, validCancels[0].hits);
+      if (validCancels.length > 0) cutAt(validCancels[0].at, validCancels[0].hits, validCancels[0].reaction);
       else cutAuto();
     }
+
+    const isFull = duration === actionDuration && animationCommitment === actionDuration;
+    if (isFull) {
+      reaction = fullReaction;
+      reactionCause = 'different input';
+      duration = toFrames(duration + fullReaction);
+    }
+    // Whether the next input was timed against this cut (Timeline spam flags).
+    currentData._reactNext = !isNextSwapOut && timingType !== 'Instant_Cancel' && (isFull ? fullReacts : nextReacts);
 
     return {
       baseDuration: actionDuration,
@@ -1070,7 +1165,10 @@ export class TimelineEngineClass {
       damageTimeframe: { start: tfStart, end: tfEnd },
       hitFrameOverrides,
       allowedHits: finalHits,
-      swapCancelAt
+      swapCancelAt,
+      // Before the next input: it can't be mashed early (it would cut the move short).
+      reaction,
+      reactionCause
     };
   }
 
@@ -1110,13 +1208,7 @@ export class TimelineEngineClass {
   // else its own trigger rule if that fails (named by the move). Empty when it's castable.
   _castBlockers(currentData: any, move: MechanicNode, team: any[]): string[] {
     const unit = currentData.unit;
-    const unitStats = DataLoader.characterDB[unit];
-    const blockers = WAITABLE_RESOURCE_KEYS
-      .filter(key => {
-        const req = resourceRequirement(move, key, v => this._resolveNumber(v, currentData, unit, team));
-        return req > 0 && readResource(currentData, key, unit) < req;
-      })
-      .map(key => resourceLabel(key, unitStats));
+    const blockers = this._resourceBlockers(currentData, move, team);
     if (blockers.length > 0) return blockers;
     const rule = castRule(move);
     if (!rule || move.isPassive) return [];
@@ -1124,6 +1216,86 @@ export class TimelineEngineClass {
     const events = rowStartEvents(currentData.action, move, unit, currentData.prevRow?.unit);
     const passed = this._evaluateRule(move, rule, currentData, unit, team, events);
     return passed !== null && !passed ? [move.name || 'condition'] : [];
+  }
+
+  /** Cast costs `move` is short of (not Energy), by label. */
+  _resourceBlockers(currentData: any, move: MechanicNode, team: any[]): string[] {
+    const unit = currentData.unit;
+    const unitStats = DataLoader.characterDB[unit];
+    return WAITABLE_RESOURCE_KEYS
+      .filter(key => {
+        const req = resourceRequirement(move, key, v => this._resolveNumber(v, currentData, unit, team));
+        return req > 0 && readResource(currentData, key, unit) < req;
+      })
+      .map(key => resourceLabel(key, unitStats));
+  }
+
+  /**
+   * Watch for the unit's next input when it's gated (cooldown, resource) and its binding casts another
+   * move until then: the player waits to see the gate open. Ungated, or nothing else on the binding:
+   * pressed early it's ignored, so it can be mashed and needs no watch.
+   */
+  _watchGate(currentData: any, move: MechanicNode, team: any[]): GateWatch | null {
+    const unit = currentData.unit;
+    let row = currentData.nextRow;
+    while (row?.timing === 'Simultaneous') row = row.nextRow;
+    if (!row?.action || row.unit !== unit) return null;
+    const target = this._getModifiedMoveData(row.action);
+    const binding = resolveRowBinding(target, row, currentData);
+    if (!target || !binding || continuesHold({ unit, ...binding }, currentData)) return null;
+
+    const cd = ContextManager.cooldownRemaining(currentData, unit, target.name || '');
+    const resources = this._resourceBlockers(currentData, target, team);
+    if (cd <= 0 && resources.length === 0) return null;
+
+    // Other moves the binding casts meanwhile; the default combo rule picks among them, so it passes.
+    const key = bindingKey(binding);
+    const stance = currentData.stance || CHARACTER_DEFAULTS.defaultStance;
+    let altPriority = -Infinity;
+    for (const [altKey, alt] of Object.entries(DataLoader.mechanicsDB) as Array<[string, MechanicNode]>) {
+      if (altKey === row.action || alt.isPassive || !MechanicKey.belongsTo(altKey, unit)) continue;
+      if (!bindingsOf(alt).some(b => bindingKey(b) === key)) continue;
+      if (alt.stanceReq && alt.stanceReq !== 'Any' && alt.stanceReq !== stance) continue;
+      if (ContextManager.cooldownRemaining(currentData, unit, alt.name || '') > 0 || this._resourceBlockers(currentData, alt, team).length > 0) continue;
+      const rule = alt.triggerRule?.trim();
+      if (rule && !this._evaluateRule(alt, rule, { ...currentData, action: altKey }, unit, team, rowStartEvents(altKey, alt, unit, unit))) continue;
+      altPriority = Math.max(altPriority, this._resolvePriority(alt, currentData, unit, team));
+    }
+    if (altPriority === -Infinity) return null;
+
+    return {
+      row, move: target, fromRow: currentData, fromMove: move,
+      cdReadyAt: currentData.timeStart + secondsToFrames(cd),
+      resourceBlocked: resources.length > 0,
+      altPriority, altBinding: key,
+      label: `Reaction Time (${resources.length > 0 ? resources.join(' / ') : 'Alternate Move'} gate)`
+    };
+  }
+
+  /**
+   * Wait for `currentData` to react to its watched gate opening: the reaction time (plus the hold check
+   * for a hold) after it opens, unless the other move would have been resisted until then.
+   * `idleAt`: when the row was free to cast before its waits; `wCD`: its cooldown wait; `castAt`: after them.
+   */
+  _gateReaction(currentData: any, idleAt: number, wCD: number, castAt: number, team: any[]): { frames: number; label: string } {
+    const gate = this._gate;
+    if (!gate || gate.row !== currentData) return { frames: 0, label: '' };
+    this._gate = null;
+    // No hit opened it: still blocked, and reported as such.
+    if (gate.resourceBlocked && gate.resourceAt === undefined) return { frames: 0, label: '' };
+    const opensAt = Math.max(gate.resourceAt ?? 0, wCD > 0 ? idleAt + wCD : gate.cdReadyAt);
+
+    // Opened mid-move: the other move only comes out early if it cuts that move before then.
+    const from = gate.fromRow;
+    if (opensAt < from.timeStart + from.duration) {
+      const elapsed = opensAt - from.timeStart;
+      const cuts = gate.altBinding !== bindingKey(from) && [0, ...sortedPrioritySteps(gate.fromMove).map(s => s.time)]
+        .some(t => t < elapsed && gate.altPriority > this._priorityAt(gate.fromMove, t, from, from.unit, team));
+      if (!cuts) return { frames: 0, label: '' };
+    }
+    currentData._reactGate = true;
+    const hold = currentData.inputType === 'Hold' ? GAME_DEFAULTS.holdDetectTime : 0;
+    return { frames: Math.max(0, opensAt + this._gateReactionFrames + hold - castAt), label: gate.label };
   }
 
   // A row whose move can't be cast yet waits for queued hits that make it castable -- a resource
@@ -1273,6 +1445,13 @@ export class TimelineEngineClass {
       currentData._hit = hitInfo;
       this._fire('AfterHit', nextHit.hitModifiers, currentData, nextHit.origin.caster, activeTeam, activeRows, team, nextHit.executeAt, { hitIndex: nextHit.hitIndex + 1, totalHits: nextHit.totalHits });
       delete currentData._hit;
+
+      // The hit that fills the gated next move's cost opens its gate.
+      const gate = this._gate;
+      if (gate?.resourceBlocked && gate.resourceAt === undefined && !this._dryRun && currentData.unit === gate.row.unit
+        && this._resourceBlockers(currentData, gate.move, team).length === 0) {
+        gate.resourceAt = nextHit.executeAt;
+      }
     }
   }
 
@@ -1632,6 +1811,8 @@ export class TimelineEngineClass {
 
     // Simultaneous rows don't advance the clock.
     const isSimultaneous = currentData.timing === 'Simultaneous';
+    // Simultaneous rows aren't the press before the next input.
+    if (!isSimultaneous && !moveData.simultaneous) this._gate = this._watchGate(currentData, moveData, team);
     this._decayState(
       currentData,
       isSimultaneous ? toFrames(0) : toFrames(Math.max(0, currentData.duration || 0)),

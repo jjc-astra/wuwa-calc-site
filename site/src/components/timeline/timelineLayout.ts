@@ -4,7 +4,7 @@ import { DataLoader } from '../../utils/DataLoader';
 import { INPUT_KEY_MAP } from '../../data/db';
 import { FPS, toFrames, framesToSeconds, frozenFramesWithin, secondsToFrames } from '../../utils/Frames';
 import { loopEndIndexOf, rowGameEnd } from '../../logic/rotationRows';
-import { continuesHold } from '../../logic/inputBindings';
+import { bindingKey, continuesHold, isMashable } from '../../logic/inputBindings';
 import { SYSTEM_NAMESPACE } from '../../utils/MechanicKey';
 import type { TeamSlot } from '../../types';
 
@@ -324,19 +324,20 @@ export interface LaidOutFlag extends TimelineFlag {
 export const flagTrackHeightPx = (flags: LaidOutFlag[]): number =>
   Math.max(FLAG_TRACK_MIN_HEIGHT_PX, (Math.max(-1, ...flags.map(f => f.lane)) + 1) * LANE_HEIGHT_PX);
 
-// 'spam' if the previous move outranks this one or it's a combo continuation; else 'wait'.
+// 'spam' when the input can be mashed early (as the engine's reaction time sees it); else 'wait'.
 function describeSpamState(prevRow: any, row: any): SpamState | undefined {
   if (!prevRow) return undefined;
-  if (prevRow.input === row.input && (prevRow.inputType || 'Press') === (row.inputType || 'Press')) return 'spam';
-  const prevPriority = Number(prevRow.priority) || 0;
-  const priority = Number(row.priority) || 0;
-  return prevPriority > priority ? 'spam' : 'wait';
+  // Same unit: the engine's call (timed against the previous move's cut, or reacting to a gate opening).
+  if (prevRow.unit === row.unit) return prevRow._reactNext || row._reactGate ? 'wait' : 'spam';
+  const resist = Number(prevRow.resistPriority ?? prevRow.priority) || 0;
+  return isMashable(bindingKey(prevRow), resist, bindingKey(row), Number(row.priority) || 0) ? 'spam' : 'wait';
 }
 
 // One flag per input, plus a unit number on each swap.
 export function buildFlags(evaluatedRows: any[], team: TeamSlot[]): TimelineFlag[] {
   const flags: TimelineFlag[] = [];
   let prevUnit: string | null = null;
+  // The last non-Simultaneous input: Simultaneous ones don't change the next input's spam state.
   let prevRow: any = null;
   // The unit's last non-Simultaneous row, and the flag of the hold it may carry on.
   let unitPrev: any = null;
@@ -368,8 +369,10 @@ export function buildFlags(evaluatedRows: any[], team: TeamSlot[]): TimelineFlag
     }
 
     prevUnit = row.unit;
-    prevRow = row;
-    if (row.timing !== 'Simultaneous') unitPrev = row;
+    if (row.timing !== 'Simultaneous') {
+      prevRow = row;
+      unitPrev = row;
+    }
   }
 
   // A one-move hold has no bar.

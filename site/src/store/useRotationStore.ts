@@ -117,6 +117,8 @@ interface RotationState {
   rows: RotationRow[];
   startEnergy: boolean;
   startConcerto: boolean;
+  // Global preference (not saved in rotations): add reaction time to cuts. Rankings always use it.
+  reactionTime: boolean;
   canUndo: boolean;
   canRedo: boolean;
   // Serialized undo/redo stacks, for persistence only.
@@ -149,6 +151,7 @@ interface RotationState {
   setStartEnergy: (val: boolean) => void;
   setTimelineActive: (active: boolean) => void;
   setStartConcerto: (val: boolean) => void;
+  setReactionTime: (val: boolean) => void;
   // Marks results stale if relevant Builder edits happened since the last Calculate.
   checkBuilderStaleness: () => void;
   setSelectedIndices: (indices: number[]) => void;
@@ -313,8 +316,8 @@ export const useRotationStore = create<RotationState>()(
       ) => {
         const team = useRosterStore.getState().team;
         const enemy = useRosterStore.getState().enemy;
-        const { startEnergy, startConcerto, rows, endingRotationEnabled, endRotationStartsEarlier } = get();
-        const options = { startEnergy, startConcerto };
+        const { startEnergy, startConcerto, reactionTime, rows, endingRotationEnabled, endRotationStartsEarlier } = get();
+        const options = { startEnergy, startConcerto, reactionTime };
 
         // Evict stale mechanics and refresh manifests.
         await checkTeamFreshness(team);
@@ -351,6 +354,7 @@ export const useRotationStore = create<RotationState>()(
         rows: [makeBlankRow()],
         startEnergy: true,
         startConcerto: false,
+        reactionTime: true,
         canUndo: false,
         canRedo: false,
         undoStackData: [],
@@ -386,6 +390,10 @@ export const useRotationStore = create<RotationState>()(
         },
         setStartConcerto: (val: boolean) => {
           set({ startConcerto: val });
+          get().recalculate();
+        },
+        setReactionTime: (val: boolean) => {
+          set({ reactionTime: val });
           get().recalculate();
         },
         setSubstatWorthEnabled: (val: boolean) => set({ substatWorthEnabled: val }),
@@ -809,6 +817,7 @@ export const useRotationStore = create<RotationState>()(
         rows: state.rows.map(toPersistedRow),
         startEnergy: state.startEnergy,
         startConcerto: state.startConcerto,
+        reactionTime: state.reactionTime,
         endingRotationEnabled: state.endingRotationEnabled,
         endRotationStartsEarlier: state.endRotationStartsEarlier,
         substatWorthEnabled: state.substatWorthEnabled,

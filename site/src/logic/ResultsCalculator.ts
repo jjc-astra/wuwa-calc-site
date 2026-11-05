@@ -7,7 +7,7 @@ import { PRIMARY_DMG_TYPES } from '../data/gameVocab';
 import { DPS_WINDOWS, ENDING_SERIES } from '../data/dpsWindows';
 import { toRunInput, splitLoopSegments, loopTiming, repeatLoop, rowGameEnd, loopCycleBounds, endingPlacement, TWO_MIN } from './rotationRows';
 import { teamCharacters } from '../utils/TeamUtils';
-import type { HitConfig, TeamSlot, DamageInstanceResult, EnemyStats } from '../types';
+import type { HitConfig, TeamSlot, DamageInstanceResult, EnemyStats, RunOptions } from '../types';
 import { type Frames, toFrames, roundFrames, framesToSeconds } from '../utils/Frames';
 import type {
   DpsStats,
@@ -54,7 +54,7 @@ interface SimRun { evaluatedRows: any[]; loopEnds: LoopEnds; cycleEnds: LoopEnds
 function buildExtendedTimeline(
   rows: any[],
   team: any[],
-  options: { startEnergy?: boolean; startConcerto?: boolean },
+  options: RunOptions,
   enemyConfig: EnemyStats,
   loopStartIndex: number,
   endingRotationEnabled: boolean,
@@ -145,7 +145,7 @@ export interface SharedExtendedRun {
 export function previewEndingRotationTiming(
   evaluatedRows: any[],
   team: any[],
-  options: { startEnergy?: boolean; startConcerto?: boolean },
+  options: RunOptions,
   enemyConfig: EnemyStats,
   loopStartIndex: number,
   populateDamage: boolean = false,
@@ -526,7 +526,7 @@ function buildSubstatWorth(sample: WeightedHit[], team: TeamSlot[]): Record<stri
 type ResultsArgs = [
   rows: any[],
   team: TeamSlot[],
-  options: { startEnergy?: boolean; startConcerto?: boolean },
+  options: RunOptions,
   enemyConfig: EnemyStats,
   loopStartIndex: number,
   endingRotationEnabled?: boolean,

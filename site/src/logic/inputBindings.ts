@@ -31,6 +31,13 @@ export function resolveRowBinding(move: MechanicNode | null | undefined, row: { 
   return bindings[0];
 }
 
+/**
+ * The next input can be mashed early (the game holds it until allowed), so it needs no reaction time:
+ * same binding (`bindingKey`s), or the current move resists it (`resist`, its priority at frame 0, ≥ the next's priority).
+ */
+export const isMashable = (binding: string, resist: number, nextBinding: string, nextPriority: number): boolean =>
+  binding === nextBinding || resist >= nextPriority;
+
 /** True when `row`'s hold carries on from `prev` (same unit, both held on the same input). */
 export const continuesHold = (row: { unit?: string; input?: string; inputType?: string }, prev?: { unit?: string; input?: string; inputType?: string } | null): boolean =>
   !!prev && prev.unit === row.unit && isHold(row as InputBinding) && isHold(prev as InputBinding) && prev.input === row.input;

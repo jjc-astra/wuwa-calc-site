@@ -6,6 +6,13 @@ export type WeaponType = 'Broadblade' | 'Sword' | 'Rectifier' | 'Gauntlets' | 'P
 export type ElementType = ElementName;
 export type ScalarStat = 'ATK' | 'DEF' | 'HP';
 
+/** Engine run options. `reactionTime`: add GAME_DEFAULTS.reactionTime / gateReactionTime where the player reacts (default on). Swaps always take swapTime. */
+export interface RunOptions {
+  startEnergy?: boolean;
+  startConcerto?: boolean;
+  reactionTime?: boolean;
+}
+
 export interface BaseStats {
   baseAtk?: number;
   baseHP?: number;

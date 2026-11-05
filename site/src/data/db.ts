@@ -153,12 +153,19 @@ export const SIM_CONSTANTS = {
   NEGATIVE_STATUS_BASE_MULT: 10000
 };
 
-// FRAMES @ 60fps: swapTime, instantCancelTime, comboWindow, echoSummonTime, holdLookahead*.
+// FRAMES @ 60fps: reactionTime, gateReactionTime, swapTime, instantCancelTime, comboWindow, echoSummonTime, holdLookahead*.
 // SECONDS (cooldown/buff-lifetime): swapCooldown, permanentDuration.
 export const GAME_DEFAULTS = {
-  swapTime: 9,
-  // Instant Cancel duration, swap timing or not.
-  instantCancelTime: 2,
+  // Timing the next input against a cut: cancels, Full into an input that would cut it, Cap cuts.
+  reactionTime: 3,
+  // Waiting to see a gate (cooldown, resource) open when the input casts another move until then.
+  gateReactionTime: 6,
+  // Press-or-hold check skipped by prebuffering a hold; unknown, so 0 for now.
+  holdDetectTime: 0,
+  // Swaps can be mashed through a no-swap lock; unlocked, a swap (or one reacting to a Cap hit) takes this.
+  swapTime: 12,
+  // Instant Cancel: both inputs pressed together; timed like a cancel.
+  instantCancelTime: 3,
   swapCooldown: 1.0,
   comboWindow: 30,
   echoSummonTime: 10,

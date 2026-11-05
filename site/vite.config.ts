@@ -2,6 +2,7 @@ import { defineConfig, normalizePath } from 'vite'
 import type { Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { createHash } from 'node:crypto'
+import { spawn } from 'node:child_process'
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import { SITE_URL, SITE_NAME, PAGE_META, VIEW_IDS, viewPath, calculatorPath, guidePath, guideCharacterMeta } from './src/config/routes.ts'
@@ -63,6 +64,22 @@ function wipFilesPlugin(): Plugin {
         res.setHeader('Content-Type', 'application/json')
         res.end(JSON.stringify(manifest))
       })
+    }
+  }
+}
+
+// Dev only: keeps WIP rankings results current (scripts/watch-results.mjs --wip) while the server runs.
+function wipResultsPlugin(): Plugin {
+  return {
+    name: 'wip-results',
+    apply: 'serve',
+    configureServer(server) {
+      // Scripts (recalc, checks) load this config as middleware servers; only the dev server starts the watcher.
+      if (server.config.server.middlewareMode) return
+      const watcher = spawn(process.execPath, [join(import.meta.dirname, 'scripts', 'watch-results.mjs'), '--wip'], { stdio: 'inherit' })
+      const stop = () => { if (watcher.exitCode === null) watcher.kill() }
+      server.httpServer?.once('close', stop)
+      process.once('exit', stop)
     }
   }
 }
@@ -150,5 +167,5 @@ function routePagesPlugin(): Plugin {
 export default defineConfig({
   // Served from the custom domain's root.
   base: '/',
-  plugins: [react(), calcVersionPlugin(), wipFilesPlugin(), routePagesPlugin()],
+  plugins: [react(), calcVersionPlugin(), wipFilesPlugin(), wipResultsPlugin(), routePagesPlugin()],
 })

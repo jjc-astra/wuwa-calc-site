@@ -2,6 +2,7 @@ import React from 'react';
 import { useRotationStore } from '../../store/useRotationStore';
 import { useRosterStore } from '../../store/useRosterStore';
 import { tip } from '../../utils/Common';
+import { GAME_DEFAULTS } from '../../data/db';
 import { loopSplitRowIndices, splitLoopSegments } from '../../logic/rotationRows';
 
 /** Rotation toolbar: Calculate, row editing and settings. */
@@ -10,6 +11,7 @@ export const RotationToolbar: React.FC = () => {
     rows,
     startEnergy,
     startConcerto,
+    reactionTime,
     endingRotationEnabled,
     canUndo,
     canRedo,
@@ -19,6 +21,7 @@ export const RotationToolbar: React.FC = () => {
     clipboard,
     setStartEnergy,
     setStartConcerto,
+    setReactionTime,
     setEndingRotationEnabled,
     setSelectedIndices,
     deleteRows,
@@ -127,7 +130,10 @@ export const RotationToolbar: React.FC = () => {
           <label className="toolbar-toggle-label" {...tip('Start combat with max Concerto')}>
             <input type="checkbox" checked={startConcerto} onChange={e => setStartConcerto(e.target.checked)} /> Full Concerto
           </label>
-          <label className="toolbar-toggle-label" {...tip('For the 2-Minute window: simulate the in-between loops, then run a custom sequence for the final stretch instead of an arbitrarily-truncated loop repeat')}>
+          <label className="toolbar-toggle-label" {...tip(`Adds ${GAME_DEFAULTS.reactionTime}f before inputs that can't be pressed early, and ${GAME_DEFAULTS.gateReactionTime}f after a resource gate opens. Swaps always take ${GAME_DEFAULTS.swapTime}f. Always on in rankings.`)}>
+            <input type="checkbox" checked={reactionTime} onChange={e => setReactionTime(e.target.checked)} /> Reaction Time
+          </label>
+          <label className="toolbar-toggle-label" {...tip('Ends the 2-minute run with a custom sequence instead of a cut-off loop.')}>
             <input type="checkbox" checked={endingRotationEnabled && hasEndingRotationMarker} onChange={e => setEndingRotationEnabled(e.target.checked)} /> Ending Rotation
           </label>
         </div>
