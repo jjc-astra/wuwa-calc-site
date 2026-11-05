@@ -18,6 +18,8 @@ export interface DmgOverTimePoint {
   dmg: number;
   // Character name or status label; matches TeamDmgSlice.label.
   label?: string;
+  // Source move (actionId); groups a bar's hits.
+  move?: string;
 }
 
 export interface DmgOverTimeSeries {

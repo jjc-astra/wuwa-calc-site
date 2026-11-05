@@ -11,13 +11,13 @@ import { SegmentedToggle } from '../common/SegmentedToggle';
 import { framesToSeconds } from '../../utils/Frames';
 
 // In seconds, converted from Frames by toDisplaySeries.
-interface DisplayPoint { t: number; dmg: number; label?: string; }
+interface DisplayPoint { t: number; dmg: number; label?: string; move?: string; }
 interface DisplaySeries { label: string; points: DisplayPoint[]; bossMaxHp: number; killTime: number | null; windowStart: number; windowEnd: number; }
 
 function toDisplaySeries(s: DmgOverTimeSeries): DisplaySeries {
   return {
     label: s.label,
-    points: s.points.map(p => ({ t: framesToSeconds(p.t), dmg: p.dmg, label: p.label })),
+    points: s.points.map(p => ({ t: framesToSeconds(p.t), dmg: p.dmg, label: p.label, move: p.move })),
     bossMaxHp: s.bossMaxHp,
     killTime: s.killTime !== null ? framesToSeconds(s.killTime) : null,
     windowStart: s.windowStart !== undefined ? framesToSeconds(s.windowStart) : 0,
@@ -85,29 +85,69 @@ function pointIndexAtTime(points: DisplayPoint[], t: number): number {
   return points.length - 1;
 }
 
-const LINE_COLOR_WINDOW = 1;
-// Hits at least this share of the height keep their own color.
-const OWN_COLOR_SHARE = 0.01;
+// Segments shorter than this on screen are grouped (no flicker); longer ones keep their own color.
+const LINE_COLOR_MIN_PX = 4;
 
-// Line color per point: the top dealer within LINE_COLOR_WINDOW; big hits keep their own color.
-function smoothedLabels(points: DisplayPoint[], ownColorDmg: number): Array<string | undefined> {
-  const dealt = (i: number) => (i === 0 ? 0 : points[i].dmg - points[i - 1].dmg);
-  const sums = new Map<string, number>();
-  const shift = (i: number, sign: number) => {
-    const label = points[i].label;
-    if (label) sums.set(label, (sums.get(label) || 0) + sign * dealt(i));
+type Pt = [number, number];
+interface LinePiece { label?: string; pts: Pt[]; }
+
+/** The single-series line as colored polylines. Visible segments keep their dealer's color; in a group of
+ *  tiny segments, each dealer gets its share of the group's on-screen length, in order of first appearance. */
+function coloredLinePieces(points: DisplayPoint[], x: (t: number) => number, y: (v: number) => number): LinePiece[] {
+  const xy = (i: number): Pt => [x(points[i].t), y(points[i].dmg)];
+  const lerp = (a: Pt, b: Pt, f: number): Pt => [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
+  const segPx = (i: number) => {
+    const [a, b] = [xy(i - 1), xy(i)];
+    return Math.hypot(b[0] - a[0], b[1] - a[1]);
   };
-  let lo = 0;
-  let hi = 0;
-  return points.map((p, i) => {
-    while (hi < points.length && points[hi].t <= p.t + LINE_COLOR_WINDOW) shift(hi++, 1);
-    while (points[lo].t < p.t - LINE_COLOR_WINDOW) shift(lo++, -1);
-    if (p.label && dealt(i) >= ownColorDmg) return p.label;
-    let best = p.label;
-    let bestDmg = best ? sums.get(best) || 0 : -Infinity;
-    sums.forEach((dmg, label) => { if (dmg > bestDmg) { best = label; bestDmg = dmg; } });
-    return best;
-  });
+  const pieces: LinePiece[] = [];
+  const draw = (label: string | undefined, a: Pt, b: Pt) => {
+    const last = pieces[pieces.length - 1];
+    if (last && last.label === label) last.pts.push(b);
+    else pieces.push({ label, pts: [a, b] });
+  };
+
+  let group: number[] = [];
+  let groupPx = 0;
+  const flush = () => {
+    if (!group.length) return;
+    const order: Array<string | undefined> = [];
+    const share = new Map<string | undefined, number>();
+    group.forEach(i => {
+      const label = points[i].label;
+      if (!share.has(label)) { share.set(label, 0); order.push(label); }
+      share.set(label, share.get(label)! + segPx(i));
+    });
+    // Walk the group's path, handing out each dealer's length in turn.
+    let k = 0;
+    let budget = share.get(order[0])!;
+    for (const i of group) {
+      let a = xy(i - 1);
+      const b = xy(i);
+      let left = segPx(i);
+      while (left > 1e-9) {
+        if (budget <= 1e-9 && k < order.length - 1) { budget = share.get(order[++k])!; continue; }
+        const take = k === order.length - 1 ? left : Math.min(left, budget);
+        const mid = lerp(a, b, take / left);
+        draw(order[k], a, mid);
+        a = mid;
+        left -= take;
+        budget -= take;
+      }
+    }
+    group = [];
+    groupPx = 0;
+  };
+
+  for (let i = 1; i < points.length; i++) {
+    const px = segPx(i);
+    if (px >= LINE_COLOR_MIN_PX) flush();
+    group.push(i);
+    groupPx += px;
+    if (px >= LINE_COLOR_MIN_PX || groupPx >= LINE_COLOR_MIN_PX) flush();
+  }
+  flush();
+  return pieces;
 }
 
 // Trailing 1s-average DPS, sampled at each hit and its +1s expiry.
@@ -178,7 +218,7 @@ export const DmgOverTimeChart: React.FC = () => {
 
   // Per-hit damage deltas.
   const barHits: DisplayPoint[] = isBar
-    ? series[0].points.slice(1).map((p, i) => ({ t: p.t, dmg: p.dmg - series[0].points[i].dmg, label: p.label }))
+    ? series[0].points.slice(1).map((p, i) => ({ t: p.t, dmg: p.dmg - series[0].points[i].dmg, label: p.label, move: p.move }))
     : [];
 
   const plotW = WIDTH - PAD.left - PAD.right;
@@ -225,10 +265,10 @@ export const DmgOverTimeChart: React.FC = () => {
 
   // Scaled to the visible data, not Boss HP.
   const domainMaxDmg = Math.max(1, ...series.flatMap(s => s.points.map(p => p.dmg))) * 1.05;
-  const lineLabels = series.length === 1 ? smoothedLabels(series[0].points, domainMaxDmg * OWN_COLOR_SHARE) : [];
   // Bars get their own y-domain.
   const activeDomainMax = isBar ? Math.max(1, ...barBins.map(b => b.total)) * 1.05 : domainMaxDmg;
   const yScale = (v: number) => PAD.top + plotH - (v / activeDomainMax) * plotH;
+  const linePieces = series.length === 1 && !isBar ? coloredLinePieces(series[0].points, xScale, yScale) : [];
 
   const pathFor = (points: DisplayPoint[]) => points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xScale(p.t)} ${yScale(p.dmg)}`).join(' ');
   const formatValue = (v: number) => (mode === 'dps' ? `${formatDmg(v)}/s` : formatDmg(v));
@@ -245,7 +285,8 @@ export const DmgOverTimeChart: React.FC = () => {
 
   const colorForSeriesAt = (s: DisplaySeries, i: number, t: number): string => {
     if (series.length > 1) return CATEGORICAL_PALETTE[i];
-    const label = lineLabels[pointIndexAtTime(s.points, t)];
+    // The dealer of the hit at t.
+    const label = s.points[pointIndexAtTime(s.points, t)].label;
     return label ? colorForProvider(label) : CATEGORICAL_PALETTE[0];
   };
 
@@ -385,17 +426,27 @@ export const DmgOverTimeChart: React.FC = () => {
 
         {isBar
           ? barBins.map(bin => {
+              // One block per move, in order of its first hit.
+              const byMove = new Map<string, { label?: string; dmg: number }>();
+              for (const hit of bin.hits) {
+                const key = `${hit.label ?? ''}::${hit.move ?? ''}`;
+                const block = byMove.get(key);
+                if (block) block.dmg += hit.dmg;
+                else byMove.set(key, { label: hit.label, dmg: hit.dmg });
+              }
+              const blocks = Array.from(byMove.values());
               let cumulative = 0;
-              return bin.hits.map((hit, hi) => {
+              return blocks.map((block, bi) => {
                 const bottomY = baselineY - (cumulative / activeDomainMax) * plotH;
-                cumulative += hit.dmg;
+                cumulative += block.dmg;
                 const topY = baselineY - (cumulative / activeDomainMax) * plotH;
-                const color = hit.label ? colorForProvider(hit.label) : CATEGORICAL_PALETTE[0];
-                // Gap between stacked hits.
-                const height = Math.max(0, bottomY - topY - STACK_GAP);
+                const color = block.label ? colorForProvider(block.label) : CATEGORICAL_PALETTE[0];
+                // Gap between dealers only when the block can spare it.
+                const full = bottomY - topY;
+                const height = full > STACK_GAP * 3 ? full - STACK_GAP : full;
                 return (
                   <rect
-                    key={`${bin.binIdx}-${hi}`}
+                    key={`${bin.binIdx}-${bi}`}
                     x={bin.x} y={topY} width={barWidth} height={height}
                     fill={color} className="dmg-time-bar"
                   />
@@ -403,19 +454,15 @@ export const DmgOverTimeChart: React.FC = () => {
               });
             })
           : series.length === 1
-          ? series[0].points.slice(1).map((p, i) => {
-              const prev = series[0].points[i];
-              const label = lineLabels[i + 1];
-              return (
-                <line
-                  key={i}
-                  x1={xScale(prev.t)} y1={yScale(prev.dmg)}
-                  x2={xScale(p.t)} y2={yScale(p.dmg)}
-                  className="dmg-time-line"
-                  stroke={label ? colorForProvider(label) : CATEGORICAL_PALETTE[0]}
-                />
-              );
-            })
+          ? linePieces.map((piece, i) => (
+              <polyline
+                key={i}
+                points={piece.pts.map(p => p.join(',')).join(' ')}
+                className="dmg-time-line"
+                fill="none"
+                stroke={piece.label ? colorForProvider(piece.label) : CATEGORICAL_PALETTE[0]}
+              />
+            ))
           : series.map((s, i) => (
               <path key={s.label} d={pathFor(s.points)} className="dmg-time-line" stroke={CATEGORICAL_PALETTE[i]} fill="none" />
             ))}

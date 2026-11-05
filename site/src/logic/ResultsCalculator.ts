@@ -44,6 +44,9 @@ function hitLabel(h: RotationHit): string {
   return h.dmgTypes[0] || 'Status Effect';
 }
 
+// Source move of a hit, for chart grouping.
+const hitMove = (h: RotationHit): string | undefined => h.config.actionId ?? h.config.moveName;
+
 // One simulated run with loop and sub-loop end times (null without a loop).
 // endingStart: when its Ending Rotation starts, if it has one.
 interface SimRun { evaluatedRows: any[]; loopEnds: LoopEnds; cycleEnds: LoopEnds; cyclesPerLoop: number; endingStart?: Frames }
@@ -256,7 +259,7 @@ function buildDpsStats(sim: Simulated): DpsStats {
 
 // Cumulative dmg-over-time series from window-relative, time-ordered hits.
 function buildDmgOverTimeForWindow(
-  relativeHits: Array<{ t: Frames; total: number; label: string }>,
+  relativeHits: Array<{ t: Frames; total: number; label: string; move?: string }>,
   bossMaxHp: number,
   label: string,
   windowEnd: Frames,
@@ -268,7 +271,7 @@ function buildDmgOverTimeForWindow(
 
   for (const h of relativeHits) {
     cumulative += h.total;
-    points.push({ t: h.t, dmg: cumulative, label: h.label });
+    points.push({ t: h.t, dmg: cumulative, label: h.label, move: h.move });
     if (killTime === null && cumulative >= bossMaxHp) {
       const prev = points[points.length - 2];
       const frac = cumulative === prev.dmg ? 0 : (bossMaxHp - prev.dmg) / (cumulative - prev.dmg);
@@ -315,7 +318,7 @@ function buildAvgLoopDmgOverTime(hits: RotationHit[], openerEndTime: Frames, per
 
   const foldedRel = (h: RotationHit) => h.gameTime - repStarts[repIndexOf(h)];
 
-  const folded: { t: Frames; total: number; label: string }[] = [];
+  const folded: { t: Frames; total: number; label: string; move?: string }[] = [];
   for (const key of allKeys) {
     const perRepLists = repGroups.map(m => m.get(key) ?? []);
     const occurrences = Math.max(0, ...perRepLists.map(l => l.length));
@@ -327,7 +330,8 @@ function buildAvgLoopDmgOverTime(hits: RotationHit[], openerEndTime: Frames, per
       folded.push({
         t: toFrames(avgRel),
         total: matched.reduce((sum, h) => sum + h.total, 0) / periods,
-        label: hitLabel(matched[0])
+        label: hitLabel(matched[0]),
+        move: hitMove(matched[0])
       });
     }
   }
@@ -364,14 +368,15 @@ function buildAllDmgOverTime(sim: Simulated, bossMaxHp: number): DmgOverTimeSet 
       const points = windowedHits(hits, span.start, span.end).map(h => ({
         t: key === 'firstLoop' ? toFrames(h.gameTime - openerEndTime) : h.gameTime,
         total: h.total,
-        label: hitLabel(h)
+        label: hitLabel(h),
+        move: hitMove(h)
       }));
       series[key] = buildDmgOverTimeForWindow(points, bossMaxHp, SERIES_LABELS[key], span.length);
     }
   }
   const ending = endingSpan(sim.twoMin, openerEndTime);
   if (ending) {
-    const points = windowedHits(sim.twoMin.hits, ending.start, ending.end).map(h => ({ t: h.gameTime, total: h.total, label: hitLabel(h) }));
+    const points = windowedHits(sim.twoMin.hits, ending.start, ending.end).map(h => ({ t: h.gameTime, total: h.total, label: hitLabel(h), move: hitMove(h) }));
     series.ending = buildDmgOverTimeForWindow(points, bossMaxHp, ENDING_SERIES.label, ending.end, ending.start);
   }
   return series;
