@@ -3,7 +3,7 @@ import { useResultsSource } from './ResultsSource';
 import { DataLoader } from '../../utils/DataLoader';
 import type { DpsWindowKey } from '../../types/results';
 import { DEFAULT_BREAKDOWN_WINDOW, shownWindow } from '../../data/dpsWindows';
-import { getCharacterThemeColor } from '../../utils/Common';
+import { charThemeVars } from '../../utils/Common';
 import { DpsWindowSelect } from './DpsWindowSelect';
 
 const formatSeconds = (v: number | undefined) => (v ? `${v.toFixed(2)}s` : '—');
@@ -30,7 +30,7 @@ export const RotationTimePanel: React.FC = () => {
           <div
             key={unit}
             className="rotation-time-row is-unit"
-            style={{ '--char-theme-raw': getCharacterThemeColor(DataLoader.characterDB[unit]) } as React.CSSProperties}
+            style={charThemeVars(DataLoader.characterDB[unit]) as React.CSSProperties}
           >
             <span className="dps-row-label caps-label">{unit}</span>
             <span className="dps-row-value">

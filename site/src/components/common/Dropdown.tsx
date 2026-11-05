@@ -8,6 +8,9 @@ export interface DropdownOption {
   label?: React.ReactNode;
   disabled?: boolean;
   tooltip?: string;
+  // Per-option class and style (e.g. unit theme vars).
+  className?: string;
+  style?: React.CSSProperties;
 }
 
 export interface DropdownGroup {
@@ -97,7 +100,8 @@ export const Dropdown: React.FC<DropdownProps> = ({
             <React.Fragment key={`${entry.groupLabel ?? ''}::${entry.opt.value}::${i}`}>
               {entry.groupStart && <div className="dropdown-group-label">{entry.groupLabel}</div>}
               <div
-                className={`dropdown-option ${entry.opt.value === value ? 'is-selected' : ''} ${i === activeIndex ? 'is-active' : ''} ${entry.opt.disabled ? 'is-disabled' : ''}`}
+                className={`dropdown-option ${entry.opt.value === value ? 'is-selected' : ''} ${i === activeIndex ? 'is-active' : ''} ${entry.opt.disabled ? 'is-disabled' : ''} ${entry.opt.className ?? ''}`}
+                style={entry.opt.style}
                 onMouseEnter={e => {
                   setActiveIndex(i);
                   if (entry.opt.tooltip) TooltipManager.show(e.currentTarget, entry.opt.tooltip);

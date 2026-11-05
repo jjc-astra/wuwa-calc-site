@@ -1,6 +1,6 @@
 // Compact character/weapon/set avatar row.
 import React from 'react';
-import { CommonUtils, getCharacterThemeColor, tip } from '../../utils/Common';
+import { CommonUtils, charThemeVars, tip } from '../../utils/Common';
 import { useImageStatus } from '../../hooks/useImageStatus';
 import { DataLoader } from '../../utils/DataLoader';
 import { IMAGE_FOLDERS } from '../../data/db';
@@ -35,9 +35,8 @@ interface TeamPreviewProps {
 export const TeamPreview: React.FC<TeamPreviewProps> = ({ team, showSets = false }) => (
   <>
     {team.map((slot, i) => {
-      const themeColor = getCharacterThemeColor(slot.character ? DataLoader.characterDB[slot.character] : undefined);
       return (
-        <div key={i} className="preview-slot" style={{ '--char-theme-raw': themeColor } as React.CSSProperties}>
+        <div key={i} className="preview-slot" style={charThemeVars(slot.character ? DataLoader.characterDB[slot.character] : undefined) as React.CSSProperties}>
           <div className="preview-avatar preview-circle preview-avatar-wrap" {...tip(slot.character || 'No Character')}>
             {slot.character ? (
               <PreviewIcon name={slot.character} folder={IMAGE_FOLDERS.CHARACTERS} />

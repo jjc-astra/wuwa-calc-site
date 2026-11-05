@@ -3,7 +3,7 @@ import { useRosterStore, isUnitFile } from '../../store/useRosterStore';
 import { useBuilderStore } from '../../store/useBuilderStore';
 import { DataLoader } from '../../utils/DataLoader';
 import { selectableOptions } from '../../utils/selectableContent';
-import { CommonUtils, getCharacterThemeColor, tip } from '../../utils/Common';
+import { CommonUtils, charThemeVars, tip } from '../../utils/Common';
 import { SET_LAYOUTS, IMAGE_FOLDERS } from '../../data/db';
 import type { ImageFolder } from '../../data/db';
 import { EchoCard } from './EchoCard';
@@ -32,7 +32,6 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
   const hasMode = !!charData?.isDualMode;
   const mode1Label = charData?.mode1Name || 'Mode 1';
   const mode2Label = charData?.mode2Name || 'Mode 2';
-  const themeColor = getCharacterThemeColor(charData || undefined);
   const isThreePcSet = DataLoader.threePcSets.includes(slot.mainSet);
   const isOnePcSet = DataLoader.onePcSets.includes(slot.mainSet);
   const allowedEchoes = DataLoader.allowedMainEchoes(slot);
@@ -74,7 +73,7 @@ export const CharacterSlot: React.FC<CharacterSlotProps> = ({ index }) => {
   };
 
   return (
-    <div className={`char-row ${hasMode ? 'has-mode' : ''}`} style={{ '--char-theme-raw': themeColor } as React.CSSProperties}>
+    <div className={`char-row ${hasMode ? 'has-mode' : ''}`} style={charThemeVars(charData || undefined) as React.CSSProperties}>
       <div className="panel-col" style={{ position: 'relative' }}>
         <button
           type="button"

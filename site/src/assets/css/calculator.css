@@ -427,6 +427,7 @@
 }
 .rotation-row .base-num-box { width: 100%; padding: 2px 0.3125rem; }
 .rotation-row .base-select:hover { background-color: transparent; }
+
 .rotation-row .base-select:focus,
 .rotation-row .base-num-box:focus-within {
     background-color: transparent;
@@ -446,6 +447,7 @@
     --row-bg-mixed: color-mix(in srgb, var(--row-accent) 15%, var(--row-theme-base));
     --row-text-dim: color-mix(in srgb, var(--row-accent) 50%, var(--row-theme-neutral));
     --row-text-bright: color-mix(in srgb, var(--row-accent) 50%, white);
+    --row-outline: var(--char-theme-outline, var(--row-accent));
 
     background: var(--bg-panel);
     background-color: var(--row-bg-mixed) !important;
@@ -475,6 +477,13 @@
     color: var(--row-text-bright) !important;
 }
 
+/* Accent: the unit picker as a dimmed name tag. */
+.rotation-row .unit-select.has-value[class] {
+    background-color: color-mix(in srgb, var(--row-outline) 22%, transparent) !important;
+    border-color: color-mix(in srgb, var(--row-outline) 65%, transparent) !important;
+    color: color-mix(in srgb, var(--row-outline) 30%, white) !important;
+}
+
 .rotation-row .base-select:focus,
 .rotation-row .base-num-box:not(.offset-pos):not(.offset-neg) .num-input:focus {
     border-color: var(--row-accent) !important;
@@ -502,7 +511,10 @@
     background: var(--accent-row-selected) !important;
     border-bottom: 1px solid var(--accent);
     border-top: 1px solid var(--accent);
+    box-shadow: inset 0.1875rem 0 0 var(--accent);
 }
+/* Consecutive selected rows share one edge line. */
+[data-index]:has(> .rotation-row.selected) + [data-index] > .rotation-row.selected { border-top-color: transparent; }
 
 .rotation-row.drag-over-top {
     box-shadow: inset 0 2px 0 var(--accent);

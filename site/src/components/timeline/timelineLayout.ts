@@ -1,5 +1,5 @@
 // Pure layout math for the rotation Timeline.
-import { getCharacterThemeColor, uiScale } from '../../utils/Common';
+import { charThemeVars, getCharacterThemeColor, uiScale } from '../../utils/Common';
 import { DataLoader } from '../../utils/DataLoader';
 import { INPUT_KEY_MAP } from '../../data/db';
 import { FPS, toFrames, framesToSeconds, frozenFramesWithin, secondsToFrames } from '../../utils/Frames';
@@ -158,7 +158,8 @@ export interface HitDot {
 export interface UnitRowData {
   unit: string;
   slotIndex: number;
-  themeColor: string;
+  // charThemeVars output.
+  themeVars: Record<string, string>;
   segments: TimelineSegment[];
   simultaneousLines: SimultaneousLine[];
   hitDots: HitDot[];
@@ -283,7 +284,7 @@ export function buildUnitRows(
     unitRows.push({
       unit: slot.character,
       slotIndex,
-      themeColor: getCharacterThemeColor(DataLoader.characterDB[slot.character]),
+      themeVars: charThemeVars(DataLoader.characterDB[slot.character]),
       segments: deriveSegments(rows, compression),
       simultaneousLines: deriveSimultaneousLines(rows, compression),
       hitDots: deriveHitDots(rows, compression, withSystemHits),

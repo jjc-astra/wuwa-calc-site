@@ -85,7 +85,7 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({ data, expander, linked
   return (
     <div
       className="timeline-row"
-      style={{ height: ROW_HEIGHT_PX, '--char-theme-raw': data.themeColor } as React.CSSProperties}
+      style={{ height: ROW_HEIGHT_PX, ...data.themeVars } as React.CSSProperties}
     >
       <div className="timeline-row-header" style={{ width: 'var(--timeline-header-width)' }}>
         {expander ? (

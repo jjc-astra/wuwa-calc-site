@@ -1,7 +1,7 @@
 import React from 'react';
 import { useRosterStore } from '../../store/useRosterStore';
 import { DataLoader } from '../../utils/DataLoader';
-import { CommonUtils, getCharacterThemeColor } from '../../utils/Common';
+import { CommonUtils, charThemeVars } from '../../utils/Common';
 
 /** Each unit's out-of-combat stats, and the target's settings. */
 export const IdleStats: React.FC = () => {
@@ -26,10 +26,9 @@ export const IdleStats: React.FC = () => {
         const eleName = dbUnit.element || 'Element';
         const eleKey = `${eleName.toLowerCase()}DmgBonus`;
         const eleVal = (stats as any)[eleKey] || 0;
-        const themeColor = getCharacterThemeColor(dbUnit);
 
         return (
-          <div key={i} className="idle-stat-card" style={{ '--char-theme-raw': themeColor } as React.CSSProperties}>
+          <div key={i} className="idle-stat-card" style={charThemeVars(dbUnit) as React.CSSProperties}>
             <div className="idle-stat-header">
               <span className="text-gold text-bold">{slot.character.toUpperCase()}</span>
               <span className="text-dim text-xs" style={{ fontWeight: 'normal' }}>Idle Stats</span>

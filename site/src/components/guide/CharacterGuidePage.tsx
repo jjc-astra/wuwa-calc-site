@@ -4,7 +4,7 @@ import { RotationTypeBadge, RankingTagBadges } from '../rankings/RankingRow';
 import { useRankedResults } from '../rankings/useRankedResults';
 import type { RankingEntry } from '../../store/useRankingsStore';
 import { DataLoader } from '../../utils/DataLoader';
-import { getCharacterThemeColor, tip } from '../../utils/Common';
+import { charThemeVars, tip } from '../../utils/Common';
 import { IMAGE_FOLDERS, SIM_CONSTANTS } from '../../data/db';
 import { guidePath } from '../../config/routes';
 import { goTo } from '../../hooks/useRoute';
@@ -184,12 +184,11 @@ const GuideContent: React.FC<GuideContentProps> = ({ character, entries, guideEn
     document.querySelector('.guide-page-body')?.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const themeColor = getCharacterThemeColor(DataLoader.characterDB[character]);
   const isStale = full.status === 'loading';
 
   return (
     <>
-      <div className="guide-hero" style={{ '--char-theme-raw': themeColor } as React.CSSProperties}>
+      <div className="guide-hero" style={charThemeVars(DataLoader.characterDB[character]) as React.CSSProperties}>
         <AvatarIcon name={character} folder={IMAGE_FOLDERS.CHARACTERS} className="avatar-lg" />
         <div className="guide-hero-text">
           <h2>{character}</h2>
@@ -359,9 +358,8 @@ const GuideConfigPanel: React.FC<GuideConfigPanelProps> = ({ group, config, sele
           const choice = config.slots[i];
           const setOptions = setBuildOptions(group, i);
           const currentSet = setOptions.find(o => o.signature === setSignatureOfJob(selectedJob, i));
-          const themeColor = getCharacterThemeColor(DataLoader.characterDB[slot.character]);
           return (
-            <div key={i} className="guide-config-slot" style={{ '--char-theme-raw': themeColor } as React.CSSProperties}>
+            <div key={i} className="guide-config-slot" style={charThemeVars(DataLoader.characterDB[slot.character]) as React.CSSProperties}>
               <div className="guide-config-slot-unit">
                 <AvatarIcon name={slot.character} folder={IMAGE_FOLDERS.CHARACTERS} className="avatar-sm" />
                 <span className="guide-config-slot-name" {...tip(slot.character)}>{slot.character}</span>

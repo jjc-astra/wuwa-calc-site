@@ -17,7 +17,7 @@ import { DialGauge, VerticalGauge, MultiForteGauge } from './Gauge';
 import { SubPanel } from './SubPanel';
 import { Dropdown } from '../common/Dropdown';
 import type { DropdownGroup } from '../common/Dropdown';
-import { TooltipManager, getCharacterThemeColor, tip } from '../../utils/Common';
+import { TooltipManager, charThemeVars, getCharacterThemeColor, tip } from '../../utils/Common';
 import { teamCharacters } from '../../utils/TeamUtils';
 import { toFrames, secondsToFrames, framesToSeconds, formatFramesAsClock } from '../../utils/Frames';
 import { applyBuilderOverridesFor } from '../../workers/builderOverridePayload';
@@ -357,7 +357,7 @@ export const RotationRow = React.memo<RotationRowProps>(({
     <div
       ref={rowRef}
       className={`rotation-row ${isSelected ? 'selected' : ''} ${dragClass}`}
-      style={{ '--char-theme-raw': themeColor } as React.CSSProperties}
+      style={charThemeVars(dbChar) as React.CSSProperties}
       onMouseEnter={() => { if (row.unit && row.id) hoverLinked([row.id], 'table'); }}
       onMouseLeave={() => hoverLinked([], 'table')}
       draggable={!isLastRow && isDraggable}
@@ -540,7 +540,7 @@ export const RotationRow = React.memo<RotationRowProps>(({
           value={selectedUnit}
           onChange={handleUnitChange}
           placeholder="-"
-          options={teamUnits.map(u => ({ value: u, label: u }))}
+          options={teamUnits.map(u => ({ value: u, label: u, className: 'unit-option', style: charThemeVars(DataLoader.characterDB[u]) as React.CSSProperties }))}
           accentColor={themeColor}
         />
 

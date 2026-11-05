@@ -37,6 +37,51 @@ export function getCharacterThemeColor(dbChar: Record<string, any> | undefined):
   return dbChar.themeColor || dbChar.color || ELEMENT_COLORS[dbChar.element] || '#555555';
 }
 
+/** Character accent color (`themeColor2`), falling back to the main one. */
+export function getCharacterAltColor(dbChar: Record<string, any> | undefined): string {
+  return dbChar?.themeColor2 || getCharacterThemeColor(dbChar);
+}
+
+// sRGB <-> OKLab (https://bottosson.github.io/posts/oklab/).
+const toLinear = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+const toGamma = (c: number) => (c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055);
+function hexToOklab(hex: string): [number, number, number] {
+  const [r, g, b] = [1, 3, 5].map(i => toLinear(parseInt(hex.slice(i, i + 2), 16) / 255));
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  return [0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s, 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s, 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s];
+}
+function oklabToLinearRgb([L, a, b]: [number, number, number]): number[] {
+  const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+  const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+  const s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
+  return [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s, -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s, -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s];
+}
+
+/** A color with its lightness raised to at least `minL` (OKLab), hue kept; keeps dark colors visible on dark surfaces. */
+export function liftLightness(hex: string, minL: number): string {
+  if (!/^#[0-9a-f]{6}$/i.test(hex)) return hex;
+  const [L, a, b] = hexToOklab(hex);
+  if (L >= minL) return hex;
+  // Shrink chroma until the lifted color fits in sRGB.
+  let k = 1, rgb = oklabToLinearRgb([minL, a, b]);
+  while (k > 0 && rgb.some(c => c < 0 || c > 1)) rgb = oklabToLinearRgb([minL, a * (k -= 0.05), b * k]);
+  return '#' + rgb.map(c => Math.round(toGamma(Math.min(1, Math.max(0, c))) * 255).toString(16).padStart(2, '0')).join('');
+}
+
+// Accent lightness floor for outlines on dark surfaces.
+const OUTLINE_MIN_L = 0.6;
+
+/** Accent color for outlines: visible on dark surfaces. */
+export const getCharacterOutlineColor = (dbChar: Record<string, any> | undefined): string => liftLightness(getCharacterAltColor(dbChar), OUTLINE_MIN_L);
+
+/** Unit theming vars: `--char-theme-raw` (main: surfaces, outlines, text) and `--char-theme-outline` (accent, lifted to stay visible on dark surfaces). */
+export const charThemeVars = (dbChar: Record<string, any> | undefined): Record<string, string> => ({
+  '--char-theme-raw': getCharacterThemeColor(dbChar),
+  '--char-theme-outline': getCharacterOutlineColor(dbChar)
+});
+
 type TooltipSize = { width: number; height: number };
 type TooltipPlacement = (size: TooltipSize) => { left: number; top: number };
 

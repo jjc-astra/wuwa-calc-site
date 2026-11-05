@@ -2,7 +2,7 @@
 // with flags for its timing points, and a ruler in rotation time.
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import { DataLoader } from '../../utils/DataLoader';
-import { TooltipManager, getCharacterThemeColor, tip, tooltipLine } from '../../utils/Common';
+import { TooltipManager, charThemeVars, tip, tooltipLine } from '../../utils/Common';
 import { GAME_DEFAULTS } from '../../data/db';
 import { TWO_MIN, timingLabel } from '../../logic/rotationRows';
 import { sortedPrioritySteps } from '../../logic/engineValues';
@@ -98,7 +98,6 @@ export const MoveTimelinePanel: React.FC<MoveTimelinePanelProps> = ({ row, onInp
   // Back from rotation game time to a frame of the move (past its window, so after the time stop).
   const localAt = (game: number) => game - gameStart + frozenFramesWithin(cut, freezeStart, freeze);
 
-  const themeColor = getCharacterThemeColor(DataLoader.characterDB[row.unit]);
   const swappedOut = anim > cut;
   const backAt = row.backOnFieldAt !== undefined ? Math.min(anim, Math.max(cut, localAt(row.backOnFieldAt))) : undefined;
 
@@ -329,7 +328,7 @@ export const MoveTimelinePanel: React.FC<MoveTimelinePanelProps> = ({ row, onInp
           } />
         )}
       </div>
-      <div className="move-timeline" style={{ '--char-theme-raw': themeColor, '--timeline-header-width': `${LANE_LABEL_REM}rem` } as React.CSSProperties}>
+      <div className="move-timeline" style={{ ...charThemeVars(DataLoader.characterDB[row.unit]), '--timeline-header-width': `${LANE_LABEL_REM}rem` } as React.CSSProperties}>
         <div className="move-timeline-flags" style={{ height: `${Math.max(1, laneEnds.length) * FLAG_LANE_REM}rem` }}>
           <div className="move-timeline-lane-label" />
           <div className="move-timeline-lane-track" ref={trackRef}>
