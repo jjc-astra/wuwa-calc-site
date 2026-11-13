@@ -68,7 +68,8 @@ export const IconSelect: React.FC<IconSelectProps> = ({
   useEffect(() => {
     if (!isOpen) return;
     setSearchTerm('');
-    if (searchable) requestAnimationFrame(() => searchInputRef.current?.focus());
+    // Touch: no auto-focus, so the keyboard doesn't cover the list.
+    if (searchable && !window.matchMedia('(pointer: coarse)').matches) requestAnimationFrame(() => searchInputRef.current?.focus());
   }, [isOpen, searchable]);
 
   useEffect(() => {

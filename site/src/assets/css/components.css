@@ -20,6 +20,9 @@ html, body {
    Phones keep 16px. */
 html {
     font-size: clamp(0.75rem, min(0.78125vw, 1.5238vh), 1rem);
+    /* No mobile text autosizing: it resizes text per layout, which flips the nav's compact check. */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
 }
 @media (max-width: 900px) {
     html { font-size: 1rem; }

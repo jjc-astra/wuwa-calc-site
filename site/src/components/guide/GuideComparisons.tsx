@@ -19,7 +19,8 @@ interface SectionProps {
 }
 
 // 31,239 -> "31.2k"
-const formatShort = (v: number): string => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v)));
+const formatShort = (v: number): string =>
+  v >= 1e6 ? `${(v / 1e6).toFixed(2)}M` : v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v));
 
 const scopeLabel = (scope: GuideScope) => (scope === 'team' ? 'Team' : 'Personal');
 

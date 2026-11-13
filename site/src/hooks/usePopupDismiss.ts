@@ -29,9 +29,17 @@ export function usePopupDismiss(
     const handleScroll = (e: Event) => {
       if (popupRef.current && e.target instanceof Node && popupRef.current.contains(e.target)) return;
       if (ignoreScrollFrom.some(ref => e.target === ref.current)) return;
+      // Typing in the popup: the mobile keyboard scrolls the input into view.
+      if (popupRef.current?.contains(document.activeElement)) return;
       closeRef.current();
     };
-    const handleResize = () => closeRef.current();
+    // Height-only resizes are the mobile keyboard opening or closing.
+    let width = window.innerWidth;
+    const handleResize = () => {
+      if (window.innerWidth === width) return;
+      width = window.innerWidth;
+      closeRef.current();
+    };
 
     if (clickInsideRefs) document.addEventListener('mousedown', handleMouseDown);
     window.addEventListener('scroll', handleScroll, true);

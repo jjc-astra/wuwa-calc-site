@@ -61,11 +61,15 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavClick, guideCh
     const measure = () => {
       // Measure the full layout before paint, then restore.
       const restore = header.className;
+      const wasCompact = header.classList.contains('is-compact');
       header.classList.remove('is-compact', 'is-menu-open');
+      // Leaving compact needs 2rem spare, so it can't flip back and forth at the threshold.
+      if (wasCompact) header.style.paddingRight = `calc(${getComputedStyle(header).paddingRight} + 2rem)`;
       const rowMiddle = (el: Element) => { const r = el.getBoundingClientRect(); return r.top + r.height / 2; };
       const brandMiddle = rowMiddle(header.querySelector('.nav-brand')!);
       const links = header.querySelectorAll('.nav-items > :not(.nav-phone-only)');
       const wraps = [...links].some(link => Math.abs(rowMiddle(link) - brandMiddle) > 4);
+      header.style.paddingRight = '';
       header.className = restore;
       setCompact(wraps);
     };
